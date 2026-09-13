@@ -108,9 +108,20 @@ def _as_unique_dict(items, label):
     return result
 
 
+def _choice_values(parameter):
+    """Return the serialized values accepted for a provider enum parameter."""
+    values = []
+    for choice in parameter.choices:
+        if isinstance(choice, (tuple, list)) and choice:
+            values.append(choice[0])
+        else:
+            values.append(choice)
+    return tuple(values)
+
+
 def _validate_parameter(parameter, value):
     if parameter.choices:
-        if value not in parameter.choices:
+        if value not in _choice_values(parameter):
             raise ValueError(parameter.label + " is not an allowed choice")
         return value
     if isinstance(value, bool) or not isinstance(value, (int, float)):
