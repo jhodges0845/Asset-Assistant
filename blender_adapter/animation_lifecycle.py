@@ -74,20 +74,8 @@ def _unique_export_name(root, export_name, *, ignored_action=None):
     return export_name
 
 
-def _record_for_action(
-    root,
-    action,
-    *,
-    animation_id,
-    source,
-    display_name,
-    export_name,
-    fps,
-    looping,
-    root_motion,
-    source_reference,
-    ignored_action=None,
-):
+def _record_for_action(root, action, *, animation_id, source, display_name, export_name, fps, looping,
+                       root_motion, source_reference, ignored_action=None):
     rig = _rig(root)
     start, end = action.frame_range
     return AnimationRecord(
@@ -96,13 +84,8 @@ def _record_for_action(
         export_name=_unique_export_name(root, export_name, ignored_action=ignored_action),
         source=_source(source),
         rig_signature=rig_signature(rig),
-        frame_start=float(start),
-        frame_end=float(end),
-        fps=fps,
-        looping=looping,
-        root_motion=_root_motion(root_motion),
-        owns_curves=False,
-        source_reference=source_reference,
+        frame_start=float(start), frame_end=float(end), fps=fps, looping=looping,
+        root_motion=_root_motion(root_motion), owns_curves=False, source_reference=source_reference,
     )
 
 
@@ -130,33 +113,17 @@ def _persist_action_metadata(root, action, record):
         raise
 
 
-def register_animation_action(
-    root,
-    action,
-    *,
-    source=AnimationSource.ARTIST,
-    display_name=None,
-    export_name=None,
-    fps=24.0,
-    looping=False,
-    root_motion=RootMotionIntent.NONE,
-    source_reference=None,
-):
+def register_animation_action(root, action, *, source=AnimationSource.ARTIST, display_name=None,
+                              export_name=None, fps=24.0, looping=False,
+                              root_motion=RootMotionIntent.NONE, source_reference=None):
     """Register an existing Action while preserving ownership of its curves."""
     _validate_candidate(root, action)
     display_name = str(display_name or action.name).strip()
     export_name = str(export_name or display_name).strip()
     record = _record_for_action(
-        root,
-        action,
-        animation_id="animation-" + uuid4().hex,
-        source=source,
-        display_name=display_name,
-        export_name=export_name,
-        fps=fps,
-        looping=looping,
-        root_motion=root_motion,
-        source_reference=source_reference,
+        root, action, animation_id="animation-" + uuid4().hex, source=source,
+        display_name=display_name, export_name=export_name, fps=fps, looping=looping,
+        root_motion=root_motion, source_reference=source_reference,
     )
     _persist_action_metadata(root, action, record)
     return record
@@ -165,7 +132,6 @@ def register_animation_action(
 def managed_actions(root):
     """Return first-class Actions explicitly associated with this Asset Assistant rig."""
     import bpy
-
     rig = _rig(root)
     signature = rig_signature(rig)
     rig_id = str(rig.get(_RIG_ID) or "").strip()
@@ -192,7 +158,6 @@ def managed_actions(root):
 def exportable_actions(root):
     """Return first-class Actions plus legacy generated Actions for later engine export staging."""
     from .animation import generated_actions
-
     managed = list(managed_actions(root))
     seen = {action.as_pointer() for action in managed}
     for action in generated_actions(root):
@@ -212,7 +177,6 @@ def action_for_animation_id(root, animation_id):
 def remove_animation(root, animation_id):
     """Delete one managed animation Action from the current Blender working file."""
     import bpy
-
     action = action_for_animation_id(root, animation_id)
     if action is None:
         raise ValueError("managed animation was not found")
@@ -224,22 +188,11 @@ def remove_animation(root, animation_id):
     return record
 
 
-def replace_animation_action(
-    root,
-    animation_id,
-    replacement,
-    *,
-    source=AnimationSource.ARTIST,
-    display_name=None,
-    export_name=None,
-    fps=24.0,
-    looping=False,
-    root_motion=RootMotionIntent.NONE,
-    source_reference=None,
-):
+def replace_animation_action(root, animation_id, replacement, *, source=AnimationSource.ARTIST,
+                             display_name=None, export_name=None, fps=24.0, looping=False,
+                             root_motion=RootMotionIntent.NONE, source_reference=None):
     """Replace one managed clip while preserving its stable animation identity."""
     import bpy
-
     current = action_for_animation_id(root, animation_id)
     if current is None:
         raise ValueError("managed animation was not found")
@@ -250,28 +203,37 @@ def replace_animation_action(
     display_name = str(display_name or replacement.name).strip()
     export_name = str(export_name or current_record.export_name).strip()
     record = _record_for_action(
-        root,
-        replacement,
-        animation_id=current_record.animation_id,
-        source=source,
-        display_name=display_name,
-        export_name=export_name,
-        fps=fps,
-        looping=looping,
-        root_motion=root_motion,
-        source_reference=source_reference,
-        ignored_action=current,
+        root, replacement, animation_id=current_record.animation_id, source=source,
+        display_name=display_name, export_name=export_name, fps=fps, looping=looping,
+        root_motion=root_motion, source_reference=source_reference, ignored_action=current,
     )
     _persist_action_metadata(root, replacement, record)
     rig = _rig(root)
-    if rig.animation_data is not None and rig.animation_data.action == current:
-        rig.animation_data.action = replacement
-    if current_record.owns_curves:
-        bpy.data.actions.remove(current)
-    else:
-        clear_animation_record(current)
-        if _EXPORT_NAME in current:
-            del current[_EXPORT_NAME]
-        if _RIG_ID in current:
-            del current[_RIG_ID]
+    was_active = rig.animation_data is not None and rig.animation_data.action == current
+    try:
+        if was_active:
+            rig.animation_data.action = replacement
+        if current_record.owns_curves:
+            bpy.data.actions.remove(current)
+        else:
+            clear_animation_record(current)
+            if _EXPORT_NAME in current:
+                del current[_EXPORT_NAME]
+            if _RIG_ID in current:
+                del current[_RIG_ID]
+    except Exception:
+        clear_animation_record(replacement)
+        if _EXPORT_NAME in replacement:
+            del replacement[_EXPORT_NAME]
+        if _RIG_ID in replacement:
+            del replacement[_RIG_ID]
+        if was_active and current.name in bpy.data.actions:
+            rig.animation_data.action = current
+        raise
     return record
+
+
+__all__ = [
+    "action_for_animation_id", "exportable_actions", "managed_actions",
+    "register_animation_action", "remove_animation", "replace_animation_action",
+]
