@@ -210,7 +210,7 @@ def action_for_animation_id(root, animation_id):
 
 
 def remove_animation(root, animation_id):
-    """Remove one managed animation, preserving curves Asset Assistant does not own."""
+    """Delete one managed animation Action from the current Blender working file."""
     import bpy
 
     action = action_for_animation_id(root, animation_id)
@@ -220,14 +220,7 @@ def remove_animation(root, animation_id):
     rig = _rig(root)
     if rig.animation_data is not None and rig.animation_data.action == action:
         rig.animation_data.action = None
-    if record.owns_curves:
-        bpy.data.actions.remove(action)
-    else:
-        clear_animation_record(action)
-        if _EXPORT_NAME in action:
-            del action[_EXPORT_NAME]
-        if _RIG_ID in action:
-            del action[_RIG_ID]
+    bpy.data.actions.remove(action)
     return record
 
 
@@ -269,38 +262,16 @@ def replace_animation_action(
         source_reference=source_reference,
         ignored_action=current,
     )
-    # Validate and persist the replacement fully before changing the current clip.
     _persist_action_metadata(root, replacement, record)
     rig = _rig(root)
-    was_active = rig.animation_data is not None and rig.animation_data.action == current
-    try:
-        if was_active:
-            rig.animation_data.action = replacement
-        if current_record.owns_curves:
-            bpy.data.actions.remove(current)
-        else:
-            clear_animation_record(current)
-            if _EXPORT_NAME in current:
-                del current[_EXPORT_NAME]
-            if _RIG_ID in current:
-                del current[_RIG_ID]
-    except Exception:
-        clear_animation_record(replacement)
-        if _EXPORT_NAME in replacement:
-            del replacement[_EXPORT_NAME]
-        if _RIG_ID in replacement:
-            del replacement[_RIG_ID]
-        if was_active and current.name in bpy.data.actions:
-            rig.animation_data.action = current
-        raise
+    if rig.animation_data is not None and rig.animation_data.action == current:
+        rig.animation_data.action = replacement
+    if current_record.owns_curves:
+        bpy.data.actions.remove(current)
+    else:
+        clear_animation_record(current)
+        if _EXPORT_NAME in current:
+            del current[_EXPORT_NAME]
+        if _RIG_ID in current:
+            del current[_RIG_ID]
     return record
-
-
-__all__ = [
-    "action_for_animation_id",
-    "exportable_actions",
-    "managed_actions",
-    "register_animation_action",
-    "remove_animation",
-    "replace_animation_action",
-]
