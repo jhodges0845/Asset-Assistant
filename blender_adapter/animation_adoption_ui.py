@@ -17,19 +17,25 @@ def _character(context):
     return root if root and context.scene.objects.get(root.name) == root else None
 
 
+def unmanaged_actions():
+    return tuple(action for action in bpy.data.actions
+                 if not has_animation_record(action) and not action.get("asset_assistant_generated"))
+
+
+def has_unmanaged_actions():
+    return bool(unmanaged_actions())
+
+
 def _candidate_actions(self, context):
-    items = []
-    for action in bpy.data.actions:
-        if has_animation_record(action) or action.get("asset_assistant_generated"):
-            continue
-        items.append((action.name, action.name, "Register this existing Action without claiming its curves"))
-    return tuple(sorted(items, key=lambda item: item[0].lower())) or (("", "No unmanaged Actions", "Import or create an Action first"),)
+    items = [(action.name, action.name, "Register this existing Blender Action without changing its curves")
+             for action in unmanaged_actions()]
+    return tuple(sorted(items, key=lambda item: item[0].lower())) or (("", "No unmanaged Actions", "Create or import an Action first"),)
 
 
 class ASSET_ASSISTANT_OT_adopt_animation_action(bpy.types.Operator):
     bl_idname = "asset_assistant.adopt_animation_action"
-    bl_label = "Adopt Existing Action"
-    bl_description = "Register an imported or artist-authored Blender Action while preserving curve ownership"
+    bl_label = "Use Existing Blender Action"
+    bl_description = "Add an existing unmanaged Blender Action to this asset's clip library"
     bl_options = {"REGISTER", "UNDO"}
 
     action_name: EnumProperty(name="Action", items=_candidate_actions)
@@ -51,13 +57,12 @@ class ASSET_ASSISTANT_OT_adopt_animation_action(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         root = _character(context) if context.scene else None
-        return context.mode == "OBJECT" and root is not None and len(asset_rigs(root)) == 1
+        return context.mode == "OBJECT" and root is not None and len(asset_rigs(root)) == 1 and has_unmanaged_actions()
 
     def invoke(self, context, event):
-        candidates = [action for action in bpy.data.actions
-                      if not has_animation_record(action) and not action.get("asset_assistant_generated")]
+        candidates = list(unmanaged_actions())
         if not candidates:
-            self.report({"ERROR"}, "No unmanaged Blender Actions are available to adopt.")
+            self.report({"ERROR"}, "No unmanaged Blender Actions are available.")
             return {"CANCELLED"}
         action = candidates[0]
         self.action_name = action.name
@@ -90,7 +95,7 @@ class ASSET_ASSISTANT_OT_adopt_animation_action(bpy.types.Operator):
         settings = getattr(context.scene, "humanoid_settings", None)
         if settings is not None:
             settings.validation_results.clear()
-        self.report({"INFO"}, "Adopted animation without claiming artist curves: " + record.export_name)
+        self.report({"INFO"}, "Added existing Blender Action: " + record.export_name)
         return {"FINISHED"}
 
 
@@ -107,4 +112,10 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
 
-__all__ = ["ASSET_ASSISTANT_OT_adopt_animation_action", "register", "unregister"]
+__all__ = [
+    "ASSET_ASSISTANT_OT_adopt_animation_action",
+    "has_unmanaged_actions",
+    "unmanaged_actions",
+    "register",
+    "unregister",
+]
