@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Expose enrolled imported rigs through the same Rig workspace affordances.
+"""Expose enrolled imported rigs through clear Blender rig-editing affordances.
 
 Imported files are first-class Asset Assistant working assets after normalization.
-The Rig tab therefore must not stop at generated-provider lookup: an imported rig is
-already a valid Blender rig and should be selectable and poseable directly.
+The Rig workspace therefore must not stop at generated-provider lookup: an imported
+rig is already a valid Blender rig and should be selectable, poseable, and easy to
+return from without requiring the artist to hunt for Blender's mode selector.
 """
 
 import bpy
@@ -72,6 +73,24 @@ class ASSET_ASSISTANT_OT_pose_base_rig(bpy.types.Operator):
             return {"CANCELLED"}
         _select_only(context, rig)
         bpy.ops.object.mode_set(mode="POSE")
+        self.report({"INFO"}, "Pose Mode active. Adjust bones, then use Return to Object Mode in Asset Assistant.")
+        return {"FINISHED"}
+
+
+class ASSET_ASSISTANT_OT_exit_pose_mode(bpy.types.Operator):
+    bl_idname = "asset_assistant.exit_pose_mode"
+    bl_label = "Return to Object Mode"
+    bl_description = "Leave Pose Mode and return to normal Object Mode editing"
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "POSE" and _base_rig(context) is not None
+
+    def execute(self, context):
+        if context.mode != "POSE":
+            return {"CANCELLED"}
+        bpy.ops.object.mode_set(mode="OBJECT")
+        self.report({"INFO"}, "Returned to Object Mode.")
         return {"FINISHED"}
 
 
@@ -97,14 +116,29 @@ def _draw_imported_rigging(panel, context, root):
     card.label(text="IMPORTED BASE RIG", icon="ARMATURE_DATA")
     card.label(text=rig.name)
     card.label(text="Existing bones, weights and animation data are preserved.")
-    actions = card.row(align=True)
-    actions.scale_y = 1.25
-    actions.operator("asset_assistant.select_base_rig", text="Select Rig", icon="RESTRICT_SELECT_OFF")
-    actions.operator("asset_assistant.pose_base_rig", text="Pose Rig", icon="POSE_HLT")
+
+    if context.mode == "POSE":
+        mode = card.box()
+        mode.label(text="POSE MODE ACTIVE", icon="POSE_HLT")
+        mode.label(text="The visible rig controls are now editable bones.")
+        mode.label(text="Move, rotate or scale bones to adjust the pose.")
+        exit_row = mode.row()
+        exit_row.scale_y = 1.4
+        exit_row.operator("asset_assistant.exit_pose_mode", text="Return to Object Mode", icon="OBJECT_DATA")
+    else:
+        actions = card.row(align=True)
+        actions.scale_y = 1.25
+        actions.operator("asset_assistant.select_base_rig", text="Select Rig", icon="RESTRICT_SELECT_OFF")
+        actions.operator("asset_assistant.pose_base_rig", text="Enter Pose Mode", icon="POSE_HLT")
+
     help_box = layout.box()
     help_box.label(text="EDIT IN BLENDER", icon="INFO")
-    help_box.label(text="Pose Mode edits the imported armature directly.")
-    help_box.label(text="R rotates a selected bone • Alt-R clears rotation.")
+    if context.mode == "POSE":
+        help_box.label(text="R rotates • G moves • S scales selected bones.")
+        help_box.label(text="Use Return to Object Mode above when finished posing.")
+    else:
+        help_box.label(text="Enter Pose Mode to adjust the imported armature directly.")
+        help_box.label(text="Asset Assistant keeps the artist-authored rig and weights intact.")
 
 
 def install(ui):
@@ -127,6 +161,7 @@ def install(ui):
 _CLASSES = (
     ASSET_ASSISTANT_OT_select_base_rig,
     ASSET_ASSISTANT_OT_pose_base_rig,
+    ASSET_ASSISTANT_OT_exit_pose_mode,
 )
 
 
