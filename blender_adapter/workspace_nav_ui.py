@@ -24,6 +24,13 @@ def _draw_workspace_nav(layout, settings):
         )
 
 
-def install(workflow_ui):
-    """Install the navigation renderer without coupling it to core asset logic."""
-    workflow_ui._draw_workspace_nav = _draw_workspace_nav
+def install(presentation_registry):
+    """Register navigation without mutating ``workflow_ui`` callbacks."""
+    presentation_registry.register_renderer(
+        "shared.workspace_navigation",
+        _draw_workspace_nav,
+        owner=__name__,
+    )
+
+
+__all__ = ["install"]

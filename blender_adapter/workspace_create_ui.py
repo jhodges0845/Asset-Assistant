@@ -19,7 +19,6 @@ _CREATE_MODES = (
 )
 
 _WORKFLOW_UI = None
-_ORIGINAL_ASSET_SUMMARY = None
 _ASSET_INSPECTION_UI = None
 _ASSET_FILE_IMPORT_UI = None
 
@@ -148,7 +147,7 @@ def _draw_generate(panel, context, ui, working_asset_ui):
 
 
 def _draw_create(panel, context, ui, modify_ui, working_asset_ui):
-    """Replacement Create renderer with a first-impression visual hierarchy."""
+    """Create renderer with a first-impression visual hierarchy."""
     settings = context.scene.humanoid_settings
     layout = panel.layout
 
@@ -180,24 +179,9 @@ def _draw_create(panel, context, ui, modify_ui, working_asset_ui):
     ui._WorkflowPanel.draw(workspace._stage_proxy(panel, "RIGGING"), context)
 
 
-def _draw_contextual_asset_summary(layout, context):
-    """Do not spend prime empty-state space on a card that only says nothing exists."""
-    settings = getattr(context.scene, "humanoid_settings", None)
-    target = getattr(settings, "target", None) if settings else None
-    is_empty_create = (
-        settings is not None
-        and target is None
-        and getattr(settings, "asset_assistant_workspace", None) == "CREATE"
-        and getattr(settings, "asset_assistant_create_view", None) == "GENERATE"
-    )
-    if is_empty_create:
-        return
-    _ORIGINAL_ASSET_SUMMARY(layout, context)
-
-
-def install(workflow_ui, ui, asset_inspection_ui=None, asset_file_import_ui=None):
-    """Install the Create renderer before Blender registers the settings class."""
-    global _WORKFLOW_UI, _ORIGINAL_ASSET_SUMMARY, _ASSET_INSPECTION_UI, _ASSET_FILE_IMPORT_UI
+def install(presentation_registry, workflow_ui, ui, asset_inspection_ui=None, asset_file_import_ui=None):
+    """Register the Create renderer before Blender registers the settings class."""
+    global _WORKFLOW_UI, _ASSET_INSPECTION_UI, _ASSET_FILE_IMPORT_UI
     _WORKFLOW_UI = workflow_ui
     _ASSET_INSPECTION_UI = asset_inspection_ui
     _ASSET_FILE_IMPORT_UI = asset_file_import_ui
@@ -209,7 +193,11 @@ def install(workflow_ui, ui, asset_inspection_ui=None, asset_file_import_ui=None
             default=False,
         )
 
-    if _ORIGINAL_ASSET_SUMMARY is None:
-        _ORIGINAL_ASSET_SUMMARY = workflow_ui._asset_summary
-    workflow_ui._asset_summary = _draw_contextual_asset_summary
-    workflow_ui._draw_create = _draw_create
+    presentation_registry.register_renderer(
+        "workspace.create",
+        _draw_create,
+        owner=__name__,
+    )
+
+
+__all__ = ["install"]
