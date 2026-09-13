@@ -2,10 +2,10 @@
 """Turn explicit file imports into first-class Asset Assistant working assets.
 
 Import-group metadata remains useful for transaction/replacement provenance, but it
-is not the user-facing runtime model.  A file explicitly imported through Asset
-Assistant gets one canonical Blender root, one current target, stable rig identity,
-and imported animation records so downstream workspaces do not need to understand
-GLB/FBX importer-specific hierarchies.
+is not the user-facing runtime model. A file explicitly imported through Asset
+Assistant gets one canonical Blender collection/root, one current target, stable rig
+identity, and imported animation records so downstream workspaces do not need to
+understand importer-specific hierarchies.
 """
 
 from uuid import uuid4
@@ -26,23 +26,60 @@ _RIG_ID_KEY = "asset_assistant_rig_id"
 _ORIGINAL_EXECUTE = None
 
 
-def _link_root(objects):
-    for obj in objects:
-        collections = tuple(getattr(obj, "users_collection", ()))
-        if collections:
-            return collections[0]
-    return bpy.context.scene.collection
+def _asset_collection_name(root):
+    name = str(getattr(root, "name", "") or "Imported Asset").strip()
+    return name or "Imported Asset"
+
+
+def _remove_empty_import_collections(collections):
+    """Remove importer-created collection shells only after their objects moved out."""
+    pending = set(collections)
+    changed = True
+    while changed:
+        changed = False
+        for collection in tuple(pending):
+            if collection not in bpy.data.collections.values():
+                pending.discard(collection)
+                continue
+            if len(collection.objects) or len(collection.children):
+                continue
+            bpy.data.collections.remove(collection)
+            pending.discard(collection)
+            changed = True
+
+
+def _organize_import_collection(root, objects):
+    """Put one imported working asset in one Blender collection without changing parenting."""
+    scene = bpy.context.scene
+    collection = bpy.data.collections.new(_asset_collection_name(root))
+    scene.collection.children.link(collection)
+
+    imported_objects = (root,) + tuple(objects)
+    previous_collections = set()
+    for obj in imported_objects:
+        current = tuple(getattr(obj, "users_collection", ()))
+        previous_collections.update(current)
+        if collection not in current:
+            collection.objects.link(obj)
+        for old in current:
+            if old is collection:
+                continue
+            old.objects.unlink(obj)
+
+    previous_collections.discard(collection)
+    _remove_empty_import_collections(previous_collections)
+    return collection
 
 
 def normalized_import_root(objects, source, import_ui):
-    """Create one canonical Blender root without disturbing internal asset relations."""
+    """Create one canonical Blender root/collection without disturbing internal relations."""
     objects = tuple(objects)
     if not objects:
         return None
 
     group = uuid4().hex
     root = bpy.data.objects.new("Imported Asset", None)
-    _link_root(objects).objects.link(root)
+    bpy.context.scene.collection.objects.link(root)
     root.empty_display_type = "PLAIN_AXES"
     root[import_ui._IMPORT_GROUP_KEY] = group
     root[import_ui._IMPORT_SOURCE_KEY] = source
@@ -63,6 +100,7 @@ def normalized_import_root(objects, source, import_ui):
         obj.parent = root
         obj.matrix_world = world
 
+    _organize_import_collection(root, objects)
     return root
 
 
