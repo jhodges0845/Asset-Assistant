@@ -10,8 +10,7 @@ except ModuleNotFoundError:
 from blender_adapter.adapter import create_character
 from blender_adapter.animation import add_idle
 from blender_adapter.animation_lifecycle import register_animation_action
-from blender_adapter.animation_names_ui import _remove_action, _remove_button_text
-from blender_adapter.animation_records import has_animation_record
+from blender_adapter.animation_names_ui import _activate_action, _remove_action, _remove_button_text
 from object_core.animations import AnimationSource
 from object_core.objects import get_provider
 
@@ -57,10 +56,10 @@ class AnimationNamesUiTests(unittest.TestCase):
         self.assertEqual("Delete Clip", _remove_button_text(action))
         message = _remove_action(root, action)
 
-        self.assertIn("Deleted Asset Assistant-owned clip", message)
+        self.assertIn("Deleted animation from Blender", message)
         self.assertNotIn(name, bpy.data.actions)
 
-    def test_artist_clip_remove_preserves_action_and_curves(self):
+    def test_imported_clip_delete_removes_action_and_curves_from_blender(self):
         root, rig = self._rigged_human()
         generated, _ = add_idle(root, bpy.context.scene)
         artist = generated.copy()
@@ -79,16 +78,27 @@ class AnimationNamesUiTests(unittest.TestCase):
             export_name="ImportedIdle",
             fps=24.0,
         )
-        frame_range = tuple(artist.frame_range)
         name = artist.name
 
-        self.assertEqual("Remove from Asset Assistant", _remove_button_text(artist))
+        self.assertEqual("Delete Clip", _remove_button_text(artist))
         message = _remove_action(root, artist, record.animation_id)
 
-        self.assertIn("artist curves were preserved", message)
-        self.assertIs(bpy.data.actions.get(name), artist)
-        self.assertEqual(frame_range, tuple(artist.frame_range))
-        self.assertFalse(has_animation_record(artist))
+        self.assertIn("Deleted animation from Blender", message)
+        self.assertIsNone(bpy.data.actions.get(name))
+
+    def test_activate_action_assigns_clip_and_uses_its_frame_range(self):
+        root, rig = self._rigged_human()
+        action, _ = add_idle(root, bpy.context.scene)
+        bpy.context.scene.frame_start = 100
+        bpy.context.scene.frame_end = 200
+
+        selected = _activate_action(root, action, bpy.context.scene)
+
+        self.assertIs(selected, rig)
+        self.assertIs(rig.animation_data.action, action)
+        self.assertEqual(int(action.frame_range[0]), bpy.context.scene.frame_start)
+        self.assertEqual(int(action.frame_range[1]), bpy.context.scene.frame_end)
+        self.assertEqual(bpy.context.scene.frame_start, bpy.context.scene.frame_current)
 
 
 if __name__ == "__main__":
