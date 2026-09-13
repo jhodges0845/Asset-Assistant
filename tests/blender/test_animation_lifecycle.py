@@ -100,18 +100,16 @@ class BlenderAnimationLifecycleTests(unittest.TestCase):
         self.assertNotIn("asset_assistant_export_name", artist)
         self.assertNotIn("asset_assistant_rig_id", artist)
 
-    def test_remove_artist_registration_preserves_action(self):
+    def test_remove_artist_animation_deletes_action_from_working_file(self):
         root, _ = self._rigged_human()
-        artist = self._artist_action(root, "Keep My Curves")
+        artist = self._artist_action(root, "Delete My Curves")
         record = register_animation_action(root, artist, fps=24.0)
         name = artist.name
 
         removed = remove_animation(root, record.animation_id)
 
         self.assertEqual(record.animation_id, removed.animation_id)
-        self.assertIs(bpy.data.actions.get(name), artist)
-        self.assertFalse(has_animation_record(artist))
-        self.assertNotIn("asset_assistant_export_name", artist)
+        self.assertIsNone(bpy.data.actions.get(name))
 
     def test_remove_generated_animation_deletes_owned_action(self):
         root, _ = self._rigged_human()
