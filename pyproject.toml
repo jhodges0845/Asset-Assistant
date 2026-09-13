@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "object-generator-core"
 version = "0.9.0"
 description = "Software-independent generation of editable 3D objects"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 dependencies = []
 license = {file = "LICENSE"}
 
