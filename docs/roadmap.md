@@ -24,7 +24,7 @@ Canonical production flow:
 
 ## Development / CI rules
 
-Main is protected and changes go through branches/PRs. Required CI covers Python 3.9, 3.10, 3.11 and 3.12 plus Blender 5.2.1 integration coverage. Blender 2.92.0 is no longer a supported or required runtime. Blender CI also performs a real component `.blend` save/reopen smoke test and an isolated packaged-add-on smoke test. During the current production-hardening phase, successful PRs are authorized to merge after all required checks pass. On failure, inspect and fix the exact failing job rather than guessing. Never create a release or tag without explicit approval.
+Main is protected and changes go through branches/PRs. Required CI covers Python 3.9, 3.10, 3.11 and 3.12 plus Blender 5.2.1 integration coverage. Blender 2.92.0 is no longer a supported or required runtime. Blender CI also performs a real component `.blend` save/reopen smoke test and an isolated packaged-add-on smoke test. During the current development-hardening phase, successful PRs are authorized to merge after all required checks pass. On failure, inspect and fix the exact failing job rather than guessing. Never create a release or tag without explicit approval.
 
 ## Completed foundation
 
@@ -42,12 +42,37 @@ Main is protected and changes go through branches/PRs. Required CI covers Python
 - [x] Blender-native UI/UX pass across Create, Modify, Rig, Animate, Validate and Export, including current-asset context, component hierarchy, animation workspace, validation severity grouping and export-confidence framing.
 - [x] UI wrapper-composition compatibility coverage through full add-on registration and the export fast path.
 - [x] Blender 5.2.1 dynamic Hair behavior enum registration cleanup while preserving the visible `Rigid` default.
+- [x] Generated-model LLM JSON round trip: export self-documenting model context, import/validate an LLM-authored `modify-request/v3`, visually preview without mutating the live asset, then explicitly apply supported changes.
+- [x] Model context publishes executable semantic argument contracts and compact current semantic state so LLM edits can be authored against supported controls and current proportions.
+- [x] End-to-end generated-Human semantic JSON proof produced a visibly changed silhouette, validating the round-trip architecture and exposing Human geometry fidelity as the next quality ceiling.
 
-## Current manual checkpoint — production character continuity and visual acceptance
+## Current checkpoint — get above water before the next Human quality pass
 
-Automated implementation is now at the hands-on production checkpoint. Follow [production walkthrough](production-walkthrough.md) in Blender 5.2.1 before public alpha.
+The model JSON transport/validation/preview architecture is now sufficiently proven to stop redesigning the exchange format. The current Human test showed that semantic intent can reach the provider and visibly alter the generated character. The limiting factor is now the coarse Human base geometry/topology: additional semantic labels alone cannot produce a convincing high-fidelity character if the provider does not contain enough anatomical structure to express them.
 
-Acceptance remains: identity survives, UI is understandable, artist-owned data is preserved, animation identity survives, components remain independently manageable, and destination exports contain expected state. The UI/UX code pass is complete; visual acceptance should now focus on spacing, density, wording and hierarchy in the live Blender sidebar.
+Do not make the LLM author arbitrary vertices as the default solution. Keep the abstraction:
+
+`LLM artistic intent -> published semantic contract -> provider-owned known-good geometry`
+
+Human V1 remains useful as a lightweight/blockout path. A higher-fidelity Human path can coexist with it. Whether fidelity selection later becomes dynamic is deliberately undecided for now.
+
+### Advanced Human Geometry / Human Provider V2 direction
+
+The next Human quality milestone should proceed in layers:
+
+1. **Anatomy/topology:** improve neck/shoulder transition, clavicle/chest, ribcage, waist, pelvis/hips/glutes, thighs/knees/calves/ankles, upper/lower arms, elbows/wrists/hands, and a substantially more capable head/face mesh.
+2. **Semantic anatomy profiles:** expand provider-owned controls for pelvis, waist, chest/bust, glutes, thighs, knees, calves, neck, hands, jaw/chin, cheekbones, brow, eyes, nose and lips. Hair, clothing and accessories remain separate components.
+3. **Surface/detail:** smoothing/subdivision/normals, facial detail and materials after the geometry can already carry the intended anatomy and silhouette.
+
+**Acceptance direction:** generate a recognizable, game-ready-ish neutral Human base and push anatomy, silhouette and face substantially toward the Maxine concept through semantic Model JSON before hair, clothing and accessories are attached. Maxine is an acceptance test for provider capability, not hard-coded provider logic.
+
+See [Model JSON round trip](model-json-roundtrip.md) for the validated exchange workflow and current contract decisions.
+
+## Imported asset continuity
+
+Imported/external work remains preservation-first. Existing normalization/adoption work establishes a stable logical asset boundary, supports imported animation registration, and keeps artist-owned geometry/rig/material/animation data distinct from generated provider ownership. Imported model JSON modification remains a separate capability problem: external geometry must not be treated as though it has original generator parameters.
+
+Continue to prefer derived measurements/landmarks and explicitly scoped safe operations for future imported-model modification rather than silently claiming or regenerating artist data.
 
 ## Production components and external adoption
 
@@ -73,9 +98,10 @@ Generation is not required. Asset Assistant inspects external work before claimi
 - [x] General external-object inspection entry point before ownership transfer — PR #165.
 - [x] Supported / reduced-capability / blocked status surfaced before adoption — PR #166.
 - [x] Reuse first-class imported animation registration for external Actions — PR #167.
-- [ ] Make imported `.blend`, GLB/glTF and FBX base assets retain one stable hierarchy boundary after import so inspection is independent of which child, mesh, empty or armature is selected.
-- [ ] Add an explicit compatibility/onboarding step for imported base assets so supported external work can enter Asset Assistant without silently claiming or rewriting artist geometry, rigs, materials, weights or animation curves.
+- [x] Imported `.blend`, GLB/glTF and FBX base assets retain a stable logical hierarchy boundary after import so inspection is not tied to a particular selected child.
+- [x] Explicit adoption/onboarding allows supported external work to enter Asset Assistant without pretending it was generated by a provider.
 - [ ] Expand safe reduced-capability adoption for recognizable external rigs/hierarchies without destructive retargeting. Current reduced cases remain preservation-first and may require artist cleanup.
+- [ ] Add imported-model LLM JSON modification using derived external-asset state and explicitly safe operations rather than generated-provider parameters.
 
 ### First production proofs
 
@@ -85,7 +111,7 @@ Generation is not required. Asset Assistant inspects external work before claimi
 4. **Clothing proof — PR #164 merged:** generated Basic Shirt is a separate lightweight parent-rig-skinned Human component with fit ease/length controls and torso/neck weighting.
 5. **Self-rigged accessory proof completed:** generic Mechanical Gauntlet owns its own armature and Flex action independently from character locomotion. Lifecycle hardening landed in PR #169; multi-rig export preservation landed in PR #170; real reopen proof landed in PR #171.
 6. **Physics hair tier:** optional later enhancement only after the bone-driven path is visually accepted; never required for older-hardware targets.
-7. Generalize catalog/provider UX only after the production walkthrough provides evidence that the shared workflow is understandable.
+7. Generalize catalog/provider UX only after hands-on evidence shows the shared workflow is understandable.
 
 ### Performance rule
 
@@ -97,26 +123,22 @@ Animations are first-class assets with stable IDs independent from Blender Actio
 
 Self-rigged components can own an independent animation/rig lifecycle without being folded into the character Idle/Walk/Run library. Non-skeletal behaviors such as material emission, visibility, shape keys and physics must not be forced through the skeletal animation contract.
 
-## Automated hardening completed for the manual checkpoint
+The animation LLM JSON workflow is established separately. Continue improving semantic animation calibration/vocabulary rather than making the LLM infer raw rig-local rotations whenever provider-aware semantics can express the intent more reliably.
 
-- [x] External adoption status and imported Action registration.
-- [x] Self-rigged component proof and owned-rig/action cleanup boundaries.
-- [x] Base character multi-clip export with a second component-owned armature present.
-- [x] Real Blender 5.2.1 `.blend` save/reopen smoke for component and animation identity.
-- [x] Blender 5.2.1 packaged add-on build and isolated package smoke test in CI.
-- [x] Python 3.9-3.12 core tests and Blender 5.2.1 integration suite green.
-- [x] Final UI/UX registration checkpoint verifies all six workflow panels retain the polished shell and Validate/Export confidence framing after registration.
-- [x] Hair behavior EnumProperty registers cleanly on Blender 5.2.1 without changing the artist-facing default.
+## Quality / evidence work remaining
 
-## Manual / evidence-gated work remaining
-
-- [ ] Complete the installed-Blender production walkthrough in Blender 5.2.1.
-- [ ] Visually accept/reject the completed Asset Assistant sidebar UI/UX pass.
+- [ ] Advanced Human Geometry / Human Provider V2 anatomy/topology foundation.
+- [ ] Expanded Human semantic anatomy profiles after the V2 topology can express them.
+- [ ] Human V2 surface/detail pass after anatomy and semantic control are visually useful.
+- [ ] Maxine-like semantic Model JSON acceptance test against Human V2 before hair/clothing/accessories.
+- [ ] Imported-model LLM JSON safe modification path.
+- [ ] Animation semantic calibration/vocabulary follow-up for stronger first-attempt LLM animation quality.
 - [ ] Visually accept/reject the bone-driven hair tier before any physics-hair work.
 - [ ] Perform representative Human Cura slicing/physical-print review.
-- [ ] Verify Godot, Unity and Unreal output from the current packaged build, including Idle/Walk/Run and a self-rigged component case.
-- [ ] Decide whether reduced-capability external-rig adoption needs expansion before alpha.
-- [ ] Explicit version/tag/release decision and explicit approval.
+- [ ] Verify Godot, Unity and Unreal output after major Human geometry changes, including Idle/Walk/Run and a self-rigged component case.
+- [ ] Continue Export UI hierarchy/blocked-reason polish and explicit glTF UI/documentation work where still open.
+- [ ] Semantic static-model proof such as Box -> recognizable rock.
+- [ ] Test coverage, documentation and architecture cleanup at meaningful checkpoints rather than allowing long implementation chains to drift.
 
 ## Post-launch import expansion
 
@@ -125,8 +147,8 @@ Self-rigged components can own an independent animation/rig lifecycle without be
 
 ## Provider quality follow-ups
 
-Human visual refinement remains active: base-face/body/hand review and later provider-owned gait controls. Quadruped rich semantic Modify remains future work. Avian foundation and rich semantics are complete; further polish is evidence-driven.
+Human visual refinement is now a primary provider-quality track rather than a generic polish note. Human V1 can remain lightweight while Human V2 develops higher-fidelity anatomy and semantic expressiveness. Quadruped rich semantic Modify remains future work. Avian foundation and rich semantics are complete; further polish is evidence-driven.
 
 ## Near-term milestone
 
-> An artist can generate **or import** a base asset/component, explicitly adopt supported external work, choose a reusable behavior/attachment profile, validate before saving, reopen and continue, refine model/animation state without losing ownership boundaries, validate again for a destination, and export — while expensive component motion remains optional for projects targeting older hardware.
+> Preserve the proven Generate/Import/Modify/Animate/Validate/Export architecture while raising the Human provider's geometry and semantic expressiveness enough that an LLM-authored Model JSON request can produce a recognizable, useful character base rather than only a proportionally modified mannequin.
