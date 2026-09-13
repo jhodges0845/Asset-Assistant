@@ -10,7 +10,13 @@ except ModuleNotFoundError:
 from blender_adapter.adapter import create_character
 from blender_adapter.animation import add_idle
 from blender_adapter.animation_lifecycle import register_animation_action
-from blender_adapter.animation_names_ui import _activate_action, _remove_action, _remove_button_text
+from blender_adapter.animation_names_ui import (
+    _activate_action,
+    _is_active_action,
+    _prepare_action_edit,
+    _remove_action,
+    _remove_button_text,
+)
 from object_core.animations import AnimationSource
 from object_core.objects import get_provider
 
@@ -96,9 +102,22 @@ class AnimationNamesUiTests(unittest.TestCase):
 
         self.assertIs(selected, rig)
         self.assertIs(rig.animation_data.action, action)
+        self.assertTrue(_is_active_action(root, action))
         self.assertEqual(int(action.frame_range[0]), bpy.context.scene.frame_start)
         self.assertEqual(int(action.frame_range[1]), bpy.context.scene.frame_end)
         self.assertEqual(bpy.context.scene.frame_start, bpy.context.scene.frame_current)
+
+    def test_prepare_action_edit_selects_rig_and_enters_pose_mode(self):
+        root, rig = self._rigged_human()
+        action, _ = add_idle(root, bpy.context.scene)
+
+        selected = _prepare_action_edit(root, action, bpy.context)
+
+        self.assertIs(selected, rig)
+        self.assertIs(bpy.context.view_layer.objects.active, rig)
+        self.assertTrue(rig.select_get())
+        self.assertEqual("POSE", bpy.context.mode)
+        self.assertIs(rig.animation_data.action, action)
 
 
 if __name__ == "__main__":
