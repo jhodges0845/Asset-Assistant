@@ -38,7 +38,7 @@ def _remove_empty_import_collections(collections):
     while changed:
         changed = False
         for collection in tuple(pending):
-            if collection not in bpy.data.collections.values():
+            if bpy.data.collections.get(collection.name) is not collection:
                 pending.discard(collection)
                 continue
             if len(collection.objects) or len(collection.children):
