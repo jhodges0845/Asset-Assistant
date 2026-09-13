@@ -62,6 +62,8 @@ Concrete provider implementations live under `object_core/providers`. Anatomy-sp
 
 `humanoid_blender` remains a compatibility entry point only. New Blender implementation belongs in `blender_adapter`.
 
+The dependency direction is enforced in CI: `object_core` and its providers may not import `bpy`, `blender_adapter`, or `humanoid_blender`. New host-specific behavior must be introduced on the adapter side of the boundary instead of leaking into the portable core.
+
 ## Target adapters
 
 Destination flow is:
@@ -72,7 +74,9 @@ Current defaults are Godot GLB/glTF, Unity FBX, Unreal FBX, and Cura STL. Target
 
 ## Tests and compatibility
 
-Tests mirror boundaries: core tests under `tests/core`, Blender integration under `tests/blender`, Python 3.9-3.12 CI, and Blender 2.92.0/5.2.1 integration. Cross-provider and editable-continuity tests protect ownership, persistence, Modify and export behavior.
+Tests mirror boundaries: core and architecture guardrail tests run under `tests/core`, Blender integration runs under `tests/blender`, Python 3.9-3.12 is the supported/tested core range, and Blender 5.2.1 is the current supported/tested Blender integration target. Cross-provider and editable-continuity tests protect ownership, persistence, Modify and export behavior.
+
+Support claims must follow tested CI coverage. Adding or removing a supported Python or Blender version requires updating both CI and user-facing compatibility documentation in the same change.
 
 ## Architecture rule of thumb
 
@@ -81,5 +85,6 @@ Tests mirror boundaries: core tests under `tests/core`, Blender integration unde
 3. Blender translation, persistence, inspection, scene behavior and UI belong in `blender_adapter`.
 4. Destination-specific behavior stays in the target adapter/profile.
 5. New abstractions should be proven by real implementations, not speculative framework work.
+6. New UI composition should register through explicit presentation/workspace extension points rather than replace another module's callbacks.
 
 The product rule is equally important: **Asset Assistant enhances existing 3D work; it must not require artists to start over inside Asset Assistant.**
