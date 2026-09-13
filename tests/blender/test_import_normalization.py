@@ -82,6 +82,7 @@ class ImportedWorkingAssetNormalizationTests(unittest.TestCase):
 
     def test_import_is_reorganized_into_one_asset_collection(self):
         importer_collection, rig, mesh = self._importer_shape()
+        importer_collection_name = importer_collection.name
 
         class _ImportUi:
             _IMPORT_GROUP_KEY = _IMPORT_GROUP_KEY
@@ -90,7 +91,9 @@ class ImportedWorkingAssetNormalizationTests(unittest.TestCase):
 
         root = normalized_import_root((rig, mesh), "GLB", _ImportUi)
 
-        self.assertIsNone(bpy.data.collections.get(importer_collection.name))
+        # The importer collection is intentionally removed during normalization, so
+        # keep its name before the call instead of dereferencing removed Blender RNA.
+        self.assertIsNone(bpy.data.collections.get(importer_collection_name))
         self.assertEqual(1, len(root.users_collection))
         asset_collection = root.users_collection[0]
         self.assertEqual(root.name, asset_collection.name)
