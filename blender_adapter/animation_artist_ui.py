@@ -46,21 +46,15 @@ def _pose_bones(rig):
     return selected or tuple(rig.pose.bones)
 
 
-def configure_animation_workspace(context):
-    """Turn a visible Timeline into Blender's Action Editor when one is available."""
-    screen = getattr(context, 'screen', None)
-    if screen is None:
-        return False
-    for area in screen.areas:
-        if area.type != 'TIMELINE':
-            continue
-        area.type = 'DOPESHEET_EDITOR'
-        try:
-            area.spaces.active.ui_mode = 'ACTION'
-        except (AttributeError, TypeError):
-            pass
-        return True
-    return False
+def _insert_bone_transform_keys(bone):
+    bone.keyframe_insert('location', group=bone.name)
+    if bone.rotation_mode == 'QUATERNION':
+        bone.keyframe_insert('rotation_quaternion', group=bone.name)
+    elif bone.rotation_mode == 'AXIS_ANGLE':
+        bone.keyframe_insert('rotation_axis_angle', group=bone.name)
+    else:
+        bone.keyframe_insert('rotation_euler', group=bone.name)
+    bone.keyframe_insert('scale', group=bone.name)
 
 
 class ASSET_ASSISTANT_OT_animation_key_jump(bpy.types.Operator):
@@ -93,14 +87,7 @@ class ASSET_ASSISTANT_OT_animation_insert_pose_key(bpy.types.Operator):
             self.report({'ERROR'}, 'Edit an animation clip first.')
             return {'CANCELLED'}
         for bone in _pose_bones(rig):
-            bone.keyframe_insert('location', group=bone.name)
-            if bone.rotation_mode == 'QUATERNION':
-                bone.keyframe_insert('rotation_quaternion', group=bone.name)
-            elif bone.rotation_mode == 'AXIS_ANGLE':
-                bone.keyframe_insert('rotation_axis_angle', group=bone.name)
-            else:
-                bone.keyframe_insert('rotation_euler', group=bone.name)
-            bone.keyframe_insert('scale', group=bone.name)
+            _insert_bone_transform_keys(bone)
         self.report({'INFO'}, 'Pose key added at frame ' + str(context.scene.frame_current) + '.')
         return {'FINISHED'}
 
@@ -188,7 +175,7 @@ class ASSET_ASSISTANT_OT_animation_view(bpy.types.Operator):
         ('LEFT', 'Left', 'View the character from the left side'),
         ('RIGHT', 'Right', 'View the character from the right side'),
         ('TOP', 'Top', 'View the character from above'),
-        ('BOTTOM', 'Bottom', 'View the character from below'),
+        ('PERSP', 'Perspective', 'Return to a natural perspective view'),
     ))
 
     def execute(self, context):
@@ -196,23 +183,114 @@ class ASSET_ASSISTANT_OT_animation_view(bpy.types.Operator):
             self.report({'ERROR'}, 'Use this control from the 3D Viewport.')
             return {'CANCELLED'}
         try:
-            bpy.ops.view3d.view_axis(type=self.view, align_active=False)
+            if self.view == 'PERSP':
+                context.area.spaces.active.region_3d.view_perspective = 'PERSP'
+            else:
+                bpy.ops.view3d.view_axis(type=self.view, align_active=False)
             bpy.ops.view3d.view_selected(use_all_regions=False)
-        except RuntimeError as error:
+        except (RuntimeError, AttributeError) as error:
             self.report({'ERROR'}, str(error))
             return {'CANCELLED'}
         return {'FINISHED'}
 
 
-class ASSET_ASSISTANT_OT_animation_action_editor(bpy.types.Operator):
-    bl_idname = 'asset_assistant.animation_action_editor'
-    bl_label = 'Show Action Editor'
-    bl_description = 'Replace the visible Timeline with Blender Action Editor so bone channels and their keyframes are shown'
+class ASSET_ASSISTANT_OT_animation_hold_pose(bpy.types.Operator):
+    bl_idname = 'asset_assistant.animation_hold_pose'
+    bl_label = 'Hold Pose'
+    bl_description = 'Repeat the current pose on a later frame to create a hold without manually re-keying every bone'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    frames: IntProperty(name='Hold For Frames', default=6, min=1, max=240)
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
 
     def execute(self, context):
-        if not configure_animation_workspace(context):
-            self.report({'INFO'}, 'No Timeline area is visible. Change any Blender area to Dope Sheet > Action Editor manually.')
+        rig, action = _active_action(context)
+        if rig is None or action is None or context.mode != 'POSE':
+            self.report({'ERROR'}, 'Edit an animation clip in Pose Mode first.')
             return {'CANCELLED'}
+        scene = context.scene
+        start = scene.frame_current
+        bones = _pose_bones(rig)
+        snapshots = {
+            bone.name: (bone.location.copy(), bone.rotation_mode,
+                        bone.rotation_quaternion.copy(), bone.rotation_euler.copy(), tuple(bone.rotation_axis_angle), bone.scale.copy())
+            for bone in bones
+        }
+        scene.frame_set(start + self.frames)
+        for bone in bones:
+            location, mode, quat, euler, axis_angle, scale = snapshots[bone.name]
+            bone.location = location
+            bone.scale = scale
+            if mode == 'QUATERNION':
+                bone.rotation_quaternion = quat
+            elif mode == 'AXIS_ANGLE':
+                bone.rotation_axis_angle = axis_angle
+            else:
+                bone.rotation_euler = euler
+            _insert_bone_transform_keys(bone)
+        self.report({'INFO'}, 'Held pose through frame ' + str(start + self.frames) + '.')
+        return {'FINISHED'}
+
+
+class ASSET_ASSISTANT_OT_animation_shift_keys(bpy.types.Operator):
+    bl_idname = 'asset_assistant.animation_shift_keys'
+    bl_label = 'Shift Keys'
+    bl_description = 'Move all keys at or after the current frame earlier or later without changing their spacing'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    offset: IntProperty(name='Frames', default=2, min=-240, max=240)
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def execute(self, context):
+        _, action = _active_action(context)
+        if action is None:
+            self.report({'ERROR'}, 'Edit an animation clip first.')
+            return {'CANCELLED'}
+        if self.offset == 0:
+            return {'CANCELLED'}
+        current = context.scene.frame_current
+        changed = 0
+        for curve in _action_curves(action):
+            for point in curve.keyframe_points:
+                if point.co.x + 1e-6 < current:
+                    continue
+                point.co.x += self.offset
+                point.handle_left.x += self.offset
+                point.handle_right.x += self.offset
+                changed += 1
+            curve.update()
+        if not changed:
+            self.report({'INFO'}, 'No keys at or after the current frame.')
+            return {'CANCELLED'}
+        self.report({'INFO'}, 'Shifted ' + str(changed) + ' keys by ' + str(self.offset) + ' frames.')
+        return {'FINISHED'}
+
+
+class ASSET_ASSISTANT_OT_animation_loop_clip(bpy.types.Operator):
+    bl_idname = 'asset_assistant.animation_loop_clip'
+    bl_label = 'Loop Clip'
+    bl_description = 'Add Blender Cycles modifiers to the active Action so its motion repeats before and after the keyed range'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        _, action = _active_action(context)
+        if action is None:
+            self.report({'ERROR'}, 'Edit an animation clip first.')
+            return {'CANCELLED'}
+        changed = 0
+        for curve in _action_curves(action):
+            if any(mod.type == 'CYCLES' for mod in curve.modifiers):
+                continue
+            curve.modifiers.new('CYCLES')
+            changed += 1
+        if not changed:
+            self.report({'INFO'}, 'This clip is already looping on all animated channels.')
+        else:
+            self.report({'INFO'}, 'Loop enabled on ' + str(changed) + ' animation channels.')
         return {'FINISHED'}
 
 
@@ -228,7 +306,11 @@ def draw_edit_helpers(layout, context, root):
     for view, label in (('FRONT', 'Front'), ('LEFT', 'Left'), ('RIGHT', 'Right'), ('BACK', 'Back')):
         op = views.operator('asset_assistant.animation_view', text=label)
         op.view = view
-    box.operator('asset_assistant.animation_action_editor', text='Show Bone Keyframes (Action Editor)', icon='ACTION')
+    views = box.row(align=True)
+    top = views.operator('asset_assistant.animation_view', text='Top')
+    top.view = 'TOP'
+    perspective = views.operator('asset_assistant.animation_view', text='Perspective')
+    perspective.view = 'PERSP'
 
     nav = box.row(align=True)
     prev = nav.operator('asset_assistant.animation_key_jump', text='Prev Key', icon='PREV_KEYFRAME'); prev.direction = -1
@@ -241,6 +323,14 @@ def draw_edit_helpers(layout, context, root):
     pose = box.row(align=True)
     mirror = pose.operator('asset_assistant.animation_paste_pose', text='Mirror Paste', icon='MOD_MIRROR'); mirror.flipped = 1
     pose.operator('asset_assistant.animation_reset_pose', text='Reset Selected', icon='LOOP_BACK')
+
+    timing = box.box()
+    timing.label(text='TIMING HELPERS', icon='TIME')
+    row = timing.row(align=True)
+    row.operator('asset_assistant.animation_hold_pose', text='Hold Pose')
+    row.operator('asset_assistant.animation_shift_keys', text='Shift Keys')
+    row.operator('asset_assistant.animation_loop_clip', text='Loop Clip')
+    timing.label(text='Hold repeats this pose; Shift moves keys from the playhead forward.')
     box.label(text='Select bones to limit pose/key operations; no selection uses the whole rig.')
 
 
@@ -252,7 +342,9 @@ _CLASSES = (
     ASSET_ASSISTANT_OT_animation_paste_pose,
     ASSET_ASSISTANT_OT_animation_reset_pose,
     ASSET_ASSISTANT_OT_animation_view,
-    ASSET_ASSISTANT_OT_animation_action_editor,
+    ASSET_ASSISTANT_OT_animation_hold_pose,
+    ASSET_ASSISTANT_OT_animation_shift_keys,
+    ASSET_ASSISTANT_OT_animation_loop_clip,
 )
 
 
