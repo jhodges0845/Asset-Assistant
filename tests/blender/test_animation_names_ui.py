@@ -12,11 +12,13 @@ from blender_adapter.animation import add_idle
 from blender_adapter.animation_lifecycle import register_animation_action
 from blender_adapter.animation_names_ui import (
     _activate_action,
+    _duplicate_action,
     _is_active_action,
     _prepare_action_edit,
     _remove_action,
     _remove_button_text,
 )
+from blender_adapter.animation_records import animation_record
 from object_core.animations import AnimationSource
 from object_core.objects import get_provider
 
@@ -118,6 +120,21 @@ class AnimationNamesUiTests(unittest.TestCase):
         self.assertTrue(rig.select_get())
         self.assertEqual("POSE", bpy.context.mode)
         self.assertIs(rig.animation_data.action, action)
+
+    def test_duplicate_action_has_independent_identity_and_curves(self):
+        root, rig = self._rigged_human()
+        original, _ = add_idle(root, bpy.context.scene)
+        original_record = animation_record(original)
+
+        duplicate = _duplicate_action(root, original, bpy.context.scene)
+        duplicate_record = animation_record(duplicate)
+
+        self.assertIsNot(original, duplicate)
+        self.assertNotEqual(original.name, duplicate.name)
+        self.assertNotEqual(original_record.animation_id, duplicate_record.animation_id)
+        self.assertEqual(AnimationSource.ARTIST, duplicate_record.source)
+        self.assertIs(rig.animation_data.action, duplicate)
+        self.assertFalse(bool(duplicate.get("asset_assistant_generated")))
 
 
 if __name__ == "__main__":

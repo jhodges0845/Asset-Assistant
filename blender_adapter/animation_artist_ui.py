@@ -2,9 +2,9 @@
 """Blender-native helpers that shorten common pose/keyframe editing operations."""
 
 import bpy
-from bpy.props import IntProperty, StringProperty
+from bpy.props import EnumProperty, IntProperty
 
-from .animation_names_ui import _character, _prepare_action_edit, _rig
+from .animation_names_ui import _character, _rig
 
 
 def _active_action(context):
@@ -19,36 +19,61 @@ def _active_action(context):
     return rig, action
 
 
-def _key_frames(action):
-    frames = set()
+def _action_curves(action):
     if action is None:
         return ()
     if hasattr(action, 'fcurves') and not getattr(action, 'is_action_layered', False):
-        curves = action.fcurves
-    else:
-        curves = tuple(curve for layer in action.layers for strip in layer.strips
-                       if strip.type == 'KEYFRAME' for bag in strip.channelbags
-                       for curve in bag.fcurves)
-    for curve in curves:
+        return tuple(action.fcurves)
+    curves = []
+    for layer in getattr(action, 'layers', ()):
+        for strip in getattr(layer, 'strips', ()):
+            if strip.type != 'KEYFRAME':
+                continue
+            for bag in getattr(strip, 'channelbags', ()):
+                curves.extend(bag.fcurves)
+    return tuple(curves)
+
+
+def _key_frames(action):
+    frames = set()
+    for curve in _action_curves(action):
         frames.update(round(point.co.x) for point in curve.keyframe_points)
     return tuple(sorted(frames))
 
 
 def _pose_bones(rig):
-    selected = tuple(b for b in rig.pose.bones if b.bone.select)
+    selected = tuple(bone for bone in rig.pose.bones if bone.bone.select)
     return selected or tuple(rig.pose.bones)
+
+
+def configure_animation_workspace(context):
+    """Turn a visible Timeline into Blender's Action Editor when one is available."""
+    screen = getattr(context, 'screen', None)
+    if screen is None:
+        return False
+    for area in screen.areas:
+        if area.type != 'TIMELINE':
+            continue
+        area.type = 'DOPESHEET_EDITOR'
+        try:
+            area.spaces.active.ui_mode = 'ACTION'
+        except (AttributeError, TypeError):
+            pass
+        return True
+    return False
 
 
 class ASSET_ASSISTANT_OT_animation_key_jump(bpy.types.Operator):
     bl_idname = 'asset_assistant.animation_key_jump'
     bl_label = 'Jump Keyframe'
+    bl_description = 'Move the playhead to the previous or next keyed frame in the active animation'
     direction: IntProperty(default=1, min=-1, max=1)
 
     def execute(self, context):
         _, action = _active_action(context)
         frames = _key_frames(action)
         current = context.scene.frame_current
-        candidates = [f for f in frames if f > current] if self.direction > 0 else [f for f in frames if f < current]
+        candidates = [frame for frame in frames if frame > current] if self.direction > 0 else [frame for frame in frames if frame < current]
         if not candidates:
             self.report({'INFO'}, 'No more keyframes in that direction.')
             return {'CANCELLED'}
@@ -59,6 +84,7 @@ class ASSET_ASSISTANT_OT_animation_key_jump(bpy.types.Operator):
 class ASSET_ASSISTANT_OT_animation_insert_pose_key(bpy.types.Operator):
     bl_idname = 'asset_assistant.animation_insert_pose_key'
     bl_label = 'Add Pose Key'
+    bl_description = 'Insert location, rotation and scale keys for selected pose bones; uses the whole rig when no bones are selected'
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -82,6 +108,7 @@ class ASSET_ASSISTANT_OT_animation_insert_pose_key(bpy.types.Operator):
 class ASSET_ASSISTANT_OT_animation_delete_pose_key(bpy.types.Operator):
     bl_idname = 'asset_assistant.animation_delete_pose_key'
     bl_label = 'Delete Pose Key'
+    bl_description = 'Delete transform keys at the current frame for selected pose bones; uses the whole rig when none are selected'
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -101,6 +128,7 @@ class ASSET_ASSISTANT_OT_animation_delete_pose_key(bpy.types.Operator):
 class ASSET_ASSISTANT_OT_animation_copy_pose(bpy.types.Operator):
     bl_idname = 'asset_assistant.animation_copy_pose'
     bl_label = 'Copy Pose'
+    bl_description = 'Copy the currently selected Blender pose bones to the pose clipboard'
 
     def execute(self, context):
         rig, _ = _active_action(context)
@@ -114,6 +142,7 @@ class ASSET_ASSISTANT_OT_animation_copy_pose(bpy.types.Operator):
 class ASSET_ASSISTANT_OT_animation_paste_pose(bpy.types.Operator):
     bl_idname = 'asset_assistant.animation_paste_pose'
     bl_label = 'Paste Pose'
+    bl_description = 'Paste a copied pose onto the current frame; Mirror Paste swaps left and right bone names when Blender can match them'
     flipped: IntProperty(default=0, min=0, max=1)
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -129,6 +158,7 @@ class ASSET_ASSISTANT_OT_animation_paste_pose(bpy.types.Operator):
 class ASSET_ASSISTANT_OT_animation_reset_pose(bpy.types.Operator):
     bl_idname = 'asset_assistant.animation_reset_pose'
     bl_label = 'Reset Selected'
+    bl_description = 'Return selected pose bones to their untransformed pose; uses the whole rig when none are selected'
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -136,13 +166,53 @@ class ASSET_ASSISTANT_OT_animation_reset_pose(bpy.types.Operator):
         if rig is None or context.mode != 'POSE':
             self.report({'ERROR'}, 'Enter animation Edit/Pose Mode first.')
             return {'CANCELLED'}
-        bones = _pose_bones(rig)
-        for bone in bones:
+        for bone in _pose_bones(rig):
             bone.location = (0.0, 0.0, 0.0)
             bone.scale = (1.0, 1.0, 1.0)
-            if bone.rotation_mode == 'QUATERNION': bone.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
-            elif bone.rotation_mode == 'AXIS_ANGLE': bone.rotation_axis_angle = (0.0, 0.0, 1.0, 0.0)
-            else: bone.rotation_euler = (0.0, 0.0, 0.0)
+            if bone.rotation_mode == 'QUATERNION':
+                bone.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+            elif bone.rotation_mode == 'AXIS_ANGLE':
+                bone.rotation_axis_angle = (0.0, 0.0, 1.0, 0.0)
+            else:
+                bone.rotation_euler = (0.0, 0.0, 0.0)
+        return {'FINISHED'}
+
+
+class ASSET_ASSISTANT_OT_animation_view(bpy.types.Operator):
+    bl_idname = 'asset_assistant.animation_view'
+    bl_label = 'Animation View'
+    bl_description = 'Snap the 3D viewport to a useful animation viewing angle and frame the rig'
+    view: EnumProperty(items=(
+        ('FRONT', 'Front', 'View the character from the front'),
+        ('BACK', 'Back', 'View the character from the back'),
+        ('LEFT', 'Left', 'View the character from the left side'),
+        ('RIGHT', 'Right', 'View the character from the right side'),
+        ('TOP', 'Top', 'View the character from above'),
+        ('BOTTOM', 'Bottom', 'View the character from below'),
+    ))
+
+    def execute(self, context):
+        if context.area is None or context.area.type != 'VIEW_3D':
+            self.report({'ERROR'}, 'Use this control from the 3D Viewport.')
+            return {'CANCELLED'}
+        try:
+            bpy.ops.view3d.view_axis(type=self.view, align_active=False)
+            bpy.ops.view3d.view_selected(use_all_regions=False)
+        except RuntimeError as error:
+            self.report({'ERROR'}, str(error))
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+class ASSET_ASSISTANT_OT_animation_action_editor(bpy.types.Operator):
+    bl_idname = 'asset_assistant.animation_action_editor'
+    bl_label = 'Show Action Editor'
+    bl_description = 'Replace the visible Timeline with Blender Action Editor so bone channels and their keyframes are shown'
+
+    def execute(self, context):
+        if not configure_animation_workspace(context):
+            self.report({'INFO'}, 'No Timeline area is visible. Change any Blender area to Dope Sheet > Action Editor manually.')
+            return {'CANCELLED'}
         return {'FINISHED'}
 
 
@@ -153,6 +223,13 @@ def draw_edit_helpers(layout, context, root):
     box = layout.box()
     box.label(text='EDIT ANIMATION: ' + action.name, icon='POSE_HLT')
     box.label(text='Frame ' + str(context.scene.frame_current) + ' • Blender Pose Mode + Actions')
+
+    views = box.row(align=True)
+    for view, label in (('FRONT', 'Front'), ('LEFT', 'Left'), ('RIGHT', 'Right'), ('BACK', 'Back')):
+        op = views.operator('asset_assistant.animation_view', text=label)
+        op.view = view
+    box.operator('asset_assistant.animation_action_editor', text='Show Bone Keyframes (Action Editor)', icon='ACTION')
+
     nav = box.row(align=True)
     prev = nav.operator('asset_assistant.animation_key_jump', text='Prev Key', icon='PREV_KEYFRAME'); prev.direction = -1
     nav.operator('asset_assistant.animation_insert_pose_key', text='Add Key', icon='KEY_HLT')
@@ -174,12 +251,16 @@ _CLASSES = (
     ASSET_ASSISTANT_OT_animation_copy_pose,
     ASSET_ASSISTANT_OT_animation_paste_pose,
     ASSET_ASSISTANT_OT_animation_reset_pose,
+    ASSET_ASSISTANT_OT_animation_view,
+    ASSET_ASSISTANT_OT_animation_action_editor,
 )
 
 
 def register():
-    for cls in _CLASSES: bpy.utils.register_class(cls)
+    for cls in _CLASSES:
+        bpy.utils.register_class(cls)
 
 
 def unregister():
-    for cls in reversed(_CLASSES): bpy.utils.unregister_class(cls)
+    for cls in reversed(_CLASSES):
+        bpy.utils.unregister_class(cls)
