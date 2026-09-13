@@ -80,6 +80,27 @@ class ImportedWorkingAssetNormalizationTests(unittest.TestCase):
         self.assertEqual(mesh_world, mesh.matrix_world)
         self.assertIs(mesh.modifiers[0].object, rig)
 
+    def test_import_is_reorganized_into_one_asset_collection(self):
+        importer_collection, rig, mesh = self._importer_shape()
+        importer_collection_name = importer_collection.name
+
+        class _ImportUi:
+            _IMPORT_GROUP_KEY = _IMPORT_GROUP_KEY
+            _IMPORT_ROOT_KEY = _IMPORT_ROOT_KEY
+            _IMPORT_SOURCE_KEY = _IMPORT_SOURCE_KEY
+
+        root = normalized_import_root((rig, mesh), "GLB", _ImportUi)
+
+        # The importer collection is intentionally removed during normalization, so
+        # keep its name before the call instead of dereferencing removed Blender RNA.
+        self.assertIsNone(bpy.data.collections.get(importer_collection_name))
+        self.assertEqual(1, len(root.users_collection))
+        asset_collection = root.users_collection[0]
+        self.assertEqual(root.name, asset_collection.name)
+        self.assertEqual({root, rig, mesh}, set(asset_collection.objects))
+        self.assertEqual((asset_collection,), tuple(rig.users_collection))
+        self.assertEqual((asset_collection,), tuple(mesh.users_collection))
+
     def test_enrollment_assigns_current_asset_rig_identity_and_imported_action(self):
         _collection, rig, mesh = self._importer_shape()
 
