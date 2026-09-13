@@ -6,7 +6,7 @@ import json
 import bpy
 
 from .adapter import create_asset
-from .core import plan_modification, request_from_json
+from .core import get_provider, plan_modification, request_from_json
 from .modification import inspect_generated_asset
 
 _PREVIEW_ROOT_KEY = "asset_assistant_model_preview_root"
@@ -83,9 +83,7 @@ def _build_preview(context, root, request):
     if not (plan.requested_parameter_changes or plan.requested_semantic_operations or plan.requested_animation_renames):
         raise ValueError("Imported request contains no changes to preview.")
 
-    provider = context.scene.humanoid_settings and __import__(
-        "blender_adapter.core_gateway", fromlist=["get_provider"]
-    ).get_provider(snapshot.provider_key)
+    provider = get_provider(snapshot.provider_key)
     values = snapshot.parameter_values()
     values.update(dict(plan.requested_parameter_changes))
     mesh = provider.mesh(values)
