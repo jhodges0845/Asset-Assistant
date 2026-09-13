@@ -53,7 +53,7 @@ The next Human quality direction is provisionally **Advanced Human Geometry / Hu
 2. **Semantic anatomy profiles** — expand controllable regions such as pelvis, waist, chest/bust, glutes, thighs, knees, calves, neck, hands, jaw, chin, cheekbones, brow, eyes, nose and lips while keeping hair, clothing and accessories as separate components.
 3. **Surface/detail** — later improve smoothing/subdivision/normals, facial detail and materials without making those concerns prerequisites for the semantic architecture.
 
-A useful acceptance test is Maxine-like character refinement: generate a recognizable, game-ready-ish neutral Human base and move its anatomy, silhouette and face substantially toward the intended character through semantic Model JSON before attaching hair, clothing and accessories.
+A useful acceptance test is high-fidelity hero-character refinement: generate a recognizable, game-ready-ish neutral Human base and move its anatomy, silhouette and face substantially toward a supplied character direction through semantic Model JSON before attaching hair, clothing and accessories.
 
 Human V1 does not need to be discarded. It can remain a lightweight/blockout path while a higher-fidelity path develops. Whether fidelity becomes dynamically selected later is intentionally left open; no architecture decision is required yet.
 
