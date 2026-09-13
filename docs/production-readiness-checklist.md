@@ -6,6 +6,8 @@ This document is the current manual and product-readiness gate for Asset Assista
 
 Do not call the current workflow production-ready until every item below has either passed or been explicitly deferred with a documented reason.
 
+For each manual checklist row, record the tested build/commit and any failure notes so visual acceptance is reproducible rather than anecdotal.
+
 The critical product contract is:
 
 > An artist can generate or import an asset, move through modeling/rigging/animation/components/export, leave Asset Assistant to edit directly in Blender at any time, return without losing control, and export a technically valid result.
