@@ -43,17 +43,52 @@ def _remove_button_text(action):
     return 'Delete Clip'
 
 
-def _activate_action(root, action, scene):
+def _rig(root):
     rigs = asset_rigs(root)
     if len(rigs) != 1:
-        raise ValueError('Animation preview requires exactly one base rig.')
-    rig = rigs[0]
+        raise ValueError('Animation editing requires exactly one base rig.')
+    return rigs[0]
+
+
+def _activate_action(root, action, scene):
+    rig = _rig(root)
     rig.animation_data_create()
     rig.animation_data.action = action
     start, end = action.frame_range
     scene.frame_start = int(math.floor(start))
     scene.frame_end = max(scene.frame_start, int(math.ceil(end)))
     scene.frame_set(scene.frame_start)
+    return rig
+
+
+def _is_active_action(root, action):
+    try:
+        rig = _rig(root)
+    except ValueError:
+        return False
+    return rig.animation_data is not None and rig.animation_data.action == action
+
+
+def _is_playing_action(root, action, context):
+    screen = getattr(context, 'screen', None)
+    return bool(screen and getattr(screen, 'is_animation_playing', False) and _is_active_action(root, action))
+
+
+def _stop_playback(context):
+    screen = getattr(context, 'screen', None)
+    if screen and getattr(screen, 'is_animation_playing', False):
+        bpy.ops.screen.animation_cancel(restore_frame=False)
+
+
+def _prepare_action_edit(root, action, context):
+    _stop_playback(context)
+    rig = _activate_action(root, action, context.scene)
+    if context.mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    rig.select_set(True)
+    context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='POSE')
     return rig
 
 
@@ -114,8 +149,8 @@ class ASSET_ASSISTANT_OT_rename_animation_clip(bpy.types.Operator):
 
 class ASSET_ASSISTANT_OT_preview_animation_clip(bpy.types.Operator):
     bl_idname = 'asset_assistant.preview_animation_clip'
-    bl_label = 'Play Clip'
-    bl_description = 'Make this clip active on the rig and play it in Blender'
+    bl_label = 'Play / Pause Clip'
+    bl_description = 'Play this clip, or pause it when it is already playing'
 
     action_name: StringProperty(options={'HIDDEN'})
 
@@ -126,13 +161,51 @@ class ASSET_ASSISTANT_OT_preview_animation_clip(bpy.types.Operator):
             self.report({'ERROR'}, 'The asset or animation Action no longer exists.')
             return {'CANCELLED'}
         try:
+            if _is_playing_action(root, action, context):
+                _stop_playback(context)
+                self.report({'INFO'}, 'Paused ' + _clip_label(action) + '.')
+                return {'FINISHED'}
+            _stop_playback(context)
             _activate_action(root, action, context.scene)
-            if not context.screen.is_animation_playing:
-                bpy.ops.screen.animation_play()
+            bpy.ops.screen.animation_play()
         except (ValueError, RuntimeError, AttributeError) as error:
             self.report({'ERROR'}, str(error))
             return {'CANCELLED'}
         self.report({'INFO'}, 'Playing ' + _clip_label(action) + '.')
+        return {'FINISHED'}
+
+
+class ASSET_ASSISTANT_OT_edit_animation_clip(bpy.types.Operator):
+    bl_idname = 'asset_assistant.edit_animation_clip'
+    bl_label = 'Edit Animation'
+    bl_description = 'Make this Action active, select its rig and enter Pose Mode for keyframe editing'
+
+    action_name: StringProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        root = _character(context)
+        action = bpy.data.actions.get(self.action_name)
+        if root is None or action is None:
+            self.report({'ERROR'}, 'The asset or animation Action no longer exists.')
+            return {'CANCELLED'}
+        try:
+            _prepare_action_edit(root, action, context)
+        except (ValueError, RuntimeError, AttributeError) as error:
+            self.report({'ERROR'}, str(error))
+            return {'CANCELLED'}
+        self.report({'INFO'}, 'Editing ' + _clip_label(action) + '. Move bones and insert keyframes, or enable Auto Key.')
+        return {'FINISHED'}
+
+
+class ASSET_ASSISTANT_OT_toggle_animation_autokey(bpy.types.Operator):
+    bl_idname = 'asset_assistant.toggle_animation_autokey'
+    bl_label = 'Toggle Auto Key'
+    bl_description = 'Toggle Blender Auto Key so pose changes are recorded as keyframes'
+
+    def execute(self, context):
+        tools = context.scene.tool_settings
+        tools.use_keyframe_insert_auto = not tools.use_keyframe_insert_auto
+        self.report({'INFO'}, 'Auto Key enabled.' if tools.use_keyframe_insert_auto else 'Auto Key disabled.')
         return {'FINISHED'}
 
 
@@ -174,7 +247,7 @@ class ASSET_ASSISTANT_OT_new_animation_clip(bpy.types.Operator):
         settings = getattr(context.scene, 'humanoid_settings', None)
         if settings is not None:
             settings.validation_results.clear()
-        self.report({'INFO'}, 'Created ' + action.name + '. Pose the rig and keyframe it in Blender.')
+        self.report({'INFO'}, 'Created ' + action.name + '. Use Edit to pose and keyframe the rig.')
         return {'FINISHED'}
 
 
@@ -230,8 +303,15 @@ class ASSET_ASSISTANT_PT_animation_names(bpy.types.Panel):
 
         intro = layout.box()
         intro.label(text='Animation Clips', icon='ACTION')
-        intro.label(text='Play, create and manage the Blender Actions for this asset.')
-        intro.operator('asset_assistant.new_animation_clip', text='New Animation', icon='ADD')
+        intro.label(text='Play, edit, create and manage the Blender Actions for this asset.')
+        create_row = intro.row(align=True)
+        create_row.operator('asset_assistant.new_animation_clip', text='New Animation', icon='ADD')
+        autokey = create_row.operator(
+            'asset_assistant.toggle_animation_autokey',
+            text='Auto Key: On' if context.scene.tool_settings.use_keyframe_insert_auto else 'Auto Key: Off',
+            icon='REC',
+        )
+        intro.label(text='Edit selects the rig and enters Pose Mode. Auto Key records pose changes.')
 
         if not actions:
             layout.label(text='No animation clips yet. Create one to start animating.', icon='INFO')
@@ -244,8 +324,15 @@ class ASSET_ASSISTANT_PT_animation_names(bpy.types.Panel):
             box.label(text='Export Name: ' + clip_export_name(action))
 
             controls = box.row(align=True)
-            play = controls.operator('asset_assistant.preview_animation_clip', text='Play', icon='PLAY')
+            playing = _is_playing_action(root, action, context)
+            play = controls.operator(
+                'asset_assistant.preview_animation_clip',
+                text='Pause' if playing else 'Play',
+                icon='PAUSE' if playing else 'PLAY',
+            )
             play.action_name = action.name
+            edit = controls.operator('asset_assistant.edit_animation_clip', text='Edit', icon='POSE_HLT')
+            edit.action_name = action.name
             if action.get('asset_assistant_generated'):
                 rename = controls.operator('asset_assistant.rename_animation_clip', text='Rename')
                 rename.clip_name = str(action.get('asset_assistant_clip') or action.name)
@@ -268,6 +355,8 @@ class ASSET_ASSISTANT_PT_animation_names(bpy.types.Panel):
 _CLASSES = (
     ASSET_ASSISTANT_OT_rename_animation_clip,
     ASSET_ASSISTANT_OT_preview_animation_clip,
+    ASSET_ASSISTANT_OT_edit_animation_clip,
+    ASSET_ASSISTANT_OT_toggle_animation_autokey,
     ASSET_ASSISTANT_OT_new_animation_clip,
     ASSET_ASSISTANT_OT_remove_animation_clip,
     ASSET_ASSISTANT_PT_animation_names,
