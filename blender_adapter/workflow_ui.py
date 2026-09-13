@@ -231,16 +231,20 @@ def _draw_workspace_nav(layout, settings):
     bottom.prop_enum(settings, "asset_assistant_workspace", "EXPORT", text="Export")
 
 
-def _draw_workspace(panel, context, ui, modify_ui, animation_names_ui, working_asset_ui, component_adoption_ui, hair_component_ui, clothing_component_ui, animation_adoption_ui, self_rigged_accessory):
+def _draw_workspace(panel, context, presentation_registry, ui, modify_ui, animation_names_ui, working_asset_ui, component_adoption_ui, hair_component_ui, clothing_component_ui, animation_adoption_ui, self_rigged_accessory):
     layout = panel.layout; settings = context.scene.humanoid_settings
-    _draw_workspace_nav(layout, settings)
+    presentation_registry.resolve("shared.workspace_navigation", _draw_workspace_nav)(layout, settings)
     layout.separator(factor=0.5)
-    _asset_summary(layout, context)
+    presentation_registry.resolve("shared.asset_summary", _asset_summary)(layout, context)
     layout.separator()
-    if settings.asset_assistant_workspace == "CREATE": _draw_create(panel, context, ui, modify_ui, working_asset_ui)
-    elif settings.asset_assistant_workspace == "ANIMATE": _draw_animate(panel, context, ui, animation_names_ui, animation_adoption_ui)
-    elif settings.asset_assistant_workspace == "COMPONENTS": _draw_components(panel, context, component_adoption_ui, hair_component_ui, clothing_component_ui, self_rigged_accessory)
-    else: _draw_export(panel, context, ui, working_asset_ui)
+    if settings.asset_assistant_workspace == "CREATE":
+        presentation_registry.resolve("workspace.create", _draw_create)(panel, context, ui, modify_ui, working_asset_ui)
+    elif settings.asset_assistant_workspace == "ANIMATE":
+        presentation_registry.resolve("workspace.animate", _draw_animate)(panel, context, ui, animation_names_ui, animation_adoption_ui)
+    elif settings.asset_assistant_workspace == "COMPONENTS":
+        presentation_registry.resolve("workspace.components", _draw_components)(panel, context, component_adoption_ui, hair_component_ui, clothing_component_ui, self_rigged_accessory)
+    else:
+        presentation_registry.resolve("workspace.export", _draw_export)(panel, context, ui, working_asset_ui)
 
 
 def _hide_legacy_panel(panel_type):
@@ -248,7 +252,7 @@ def _hide_legacy_panel(panel_type):
     panel_type.poll = classmethod(poll)
 
 
-def prepare(ui, modify_ui, animation_names_ui, working_asset_ui=None, component_adoption_ui=None, hair_component_ui=None, clothing_component_ui=None, animation_adoption_ui=None, self_rigged_accessory=None):
+def prepare(presentation_registry, ui, modify_ui, animation_names_ui, working_asset_ui=None, component_adoption_ui=None, hair_component_ui=None, clothing_component_ui=None, animation_adoption_ui=None, self_rigged_accessory=None):
     annotations = ui.HUMANOID_PG_settings.__annotations__
     if "asset_assistant_workspace" not in annotations:
         annotations["asset_assistant_workspace"] = ui.EnumProperty(name="Workspace", default="CREATE", items=[("CREATE", "Create", "Create, modify or rig an asset"), ("ANIMATE", "Animate", "Create, preview and manage animation clips"), ("COMPONENTS", "Components", "Manage components, hair, clothing and accessories"), ("EXPORT", "Export", "Validate and export for a target application")])
@@ -259,7 +263,7 @@ def prepare(ui, modify_ui, animation_names_ui, working_asset_ui=None, component_
     ui.HUMANOID_PT_panel.bl_label = "Asset Assistant"; ui.HUMANOID_PT_panel.bl_category = _CATEGORY; ui.HUMANOID_PT_panel.bl_order = 0
     ui.HUMANOID_PT_panel.bl_options = set(getattr(ui.HUMANOID_PT_panel, "bl_options", set())) - {"DEFAULT_CLOSED"}
     def draw_workspace(panel, context):
-        _draw_workspace(panel, context, ui, modify_ui, animation_names_ui, working_asset_ui, component_adoption_ui, hair_component_ui, clothing_component_ui, animation_adoption_ui, self_rigged_accessory)
+        _draw_workspace(panel, context, presentation_registry, ui, modify_ui, animation_names_ui, working_asset_ui, component_adoption_ui, hair_component_ui, clothing_component_ui, animation_adoption_ui, self_rigged_accessory)
     draw_workspace._asset_assistant_workspace = True; ui.HUMANOID_PT_panel.draw = draw_workspace
     legacy_panels = (modify_ui.ASSET_ASSISTANT_PT_modify, ui.HUMANOID_PT_rigging, ui.HUMANOID_PT_animations, ui.HUMANOID_PT_validation, ui.HUMANOID_PT_export, animation_names_ui.ASSET_ASSISTANT_PT_animation_names)
     for order, legacy in enumerate(legacy_panels, start=1):
