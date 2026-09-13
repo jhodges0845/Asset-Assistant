@@ -64,9 +64,23 @@ The next Human quality milestone should proceed in layers:
 2. **Semantic anatomy profiles:** expand provider-owned controls for pelvis, waist, chest/bust, glutes, thighs, knees, calves, neck, hands, jaw/chin, cheekbones, brow, eyes, nose and lips. Hair, clothing and accessories remain separate components.
 3. **Surface/detail:** smoothing/subdivision/normals, facial detail and materials after the geometry can already carry the intended anatomy and silhouette.
 
-**Acceptance direction:** generate a recognizable, game-ready-ish neutral Human base and push anatomy, silhouette and face substantially toward the Maxine concept through semantic Model JSON before hair, clothing and accessories are attached. Maxine is an acceptance test for provider capability, not hard-coded provider logic.
+**Acceptance direction:** generate a recognizable, game-ready-ish neutral Human base and push anatomy, silhouette and face substantially toward a supplied hero-character direction through semantic Model JSON before hair, clothing and accessories are attached. The acceptance character is evidence of provider capability, not hard-coded provider logic.
 
 See [Model JSON round trip](model-json-roundtrip.md) for the validated exchange workflow and current contract decisions.
+
+## Independent game-development audit checkpoint
+
+A clean-room game-tools review of the repository reached the following working conclusions. These are deliberately recorded as external-review observations rather than product claims:
+
+- **Core architecture is a strength.** The host-independent core, provider ownership, Blender adapter, and destination-specific behavior have survived expansion across multiple providers, components, imported assets, animation, export and LLM-assisted modification without requiring a fundamental rewrite.
+- **CI/test depth is above average for an independent Blender tool.** Core tests span Python 3.9-3.12, Blender 5.2.1 integration runs in CI, real save/reopen behavior is exercised, and the packaged add-on is tested in isolation.
+- **The primary engineering debt is Blender integration composition.** `prepare()`/`install()` layers that patch or replace callbacks are increasingly order-sensitive. This has already produced real UI regressions. Future cleanup should move toward explicit presenter/workflow registration or another composition mechanism that does not depend on hidden callback replacement order.
+- **The primary product-quality ceiling is generated Human fidelity.** The workflow can already carry semantic intent; the base Human geometry is now the limiting factor for character-quality output.
+- **Engine interoperability is promising but still evidence-scoped.** Godot/Unity/Unreal/Cura support is meaningful, but broader production confidence still requires more engine-side repeatability around animation import/retargeting, root motion, skeletal naming, materials and coordinate conventions.
+- **Static quality gates should eventually expand.** Functional/integration testing is strong, but linting, static analysis/type checks and an explicit coverage floor would help catch maintainability regressions before Blender runtime testing.
+- **Documentation/source-of-truth drift must be watched.** Supported runtime/version statements and package metadata should stay synchronized so contributors and downstream users do not see contradictory support contracts.
+
+The external-review recommendation is not another broad architecture rewrite. Preserve the current core/provider/adapter boundaries, improve one end-to-end character workflow to a substantially higher quality bar, and pay down Blender composition fragility in parallel before adding many more workflow layers.
 
 ## Imported asset continuity
 
@@ -130,7 +144,9 @@ The animation LLM JSON workflow is established separately. Continue improving se
 - [ ] Advanced Human Geometry / Human Provider V2 anatomy/topology foundation.
 - [ ] Expanded Human semantic anatomy profiles after the V2 topology can express them.
 - [ ] Human V2 surface/detail pass after anatomy and semantic control are visually useful.
-- [ ] Maxine-like semantic Model JSON acceptance test against Human V2 before hair/clothing/accessories.
+- [ ] High-fidelity hero-character semantic Model JSON acceptance test against Human V2 before hair/clothing/accessories.
+- [ ] Refactor order-sensitive Blender `install()`/`prepare()` composition toward explicit workflow/presenter registration.
+- [ ] Add static quality gates such as linting/static analysis and define a useful coverage floor.
 - [ ] Imported-model LLM JSON safe modification path.
 - [ ] Animation semantic calibration/vocabulary follow-up for stronger first-attempt LLM animation quality.
 - [ ] Visually accept/reject the bone-driven hair tier before any physics-hair work.
