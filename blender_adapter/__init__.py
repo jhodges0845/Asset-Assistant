@@ -21,21 +21,23 @@ def register():
         checkpoint_component_repair, clothing_component_ui, component_adoption_ui, component_modify_apply,
         component_modify_exchange, cura_scale_ui, generation_replace_ui, hair_component_ui, import_normalization,
         imported_rig_access, model_json_preview_ui, model_json_ui, modification, modify_fastpath, modify_ui,
-        normalized_import_workflow_ui, rig_animate_ui, run_ui, self_rigged_accessory, ui, ui_fastpath, workflow_ui,
-        workspace_create_ui, workspace_nav_ui, working_asset_ui,
+        normalized_import_workflow_ui, presentation_registry, rig_animate_ui, run_ui, self_rigged_accessory, ui,
+        ui_fastpath, workflow_ui, workspace_create_ui, workspace_nav_ui, working_asset_ui,
     )
+    presentation = presentation_registry.registry
+    presentation.clear()
     run_ui.prepare(ui); avian_ui.prepare(ui); animation_tuning_ui.prepare(ui)
-    workspace_nav_ui.install(workflow_ui)
-    workspace_create_ui.install(workflow_ui, ui, asset_inspection_ui, asset_file_import_ui)
-    asset_identity_ui.install(workflow_ui)
-    workflow_ui.prepare(ui, modify_ui, animation_names_ui, working_asset_ui, component_adoption_ui, hair_component_ui,
+    workspace_nav_ui.install(presentation)
+    workspace_create_ui.install(presentation, workflow_ui, ui, asset_inspection_ui, asset_file_import_ui)
+    asset_identity_ui.install(presentation)
+    workflow_ui.prepare(presentation, ui, modify_ui, animation_names_ui, working_asset_ui, component_adoption_ui, hair_component_ui,
                         clothing_component_ui, animation_adoption_ui, self_rigged_accessory)
     model_json_ui.install(modify_ui, workflow_ui, ui, bl_info["version"])
     animation_json_contract.install(animation_json_ui, bl_info["version"])
     animation_json_ui.install(animation_names_ui, animation_artist_ui)
     asset_inspection_ui.install(ui, workflow_ui, modify_ui); import_normalization.install(asset_file_import_ui)
     imported_rig_access.install(ui); normalized_import_workflow_ui.install(workflow_ui, asset_identity_ui, ui)
-    rig_animate_ui.install(workflow_ui, workspace_create_ui, normalized_import_workflow_ui)
+    rig_animate_ui.install(presentation, workspace_create_ui, normalized_import_workflow_ui)
     checkpoint_component_repair.install(working_asset_ui); ui_fastpath.install(ui)
     animation_modify_exchange.install(modification, modify_ui); modify_fastpath.install(modify_ui)
     component_modify_exchange.install(modify_ui); component_modify_apply.install(modify_ui)
@@ -50,8 +52,8 @@ def unregister():
     from . import (
         animation_adoption_ui, animation_artist_ui, animation_json_ui, animation_names_ui, animation_tuning_ui, asset_file_import_ui,
         asset_inspection_ui, clothing_component_ui, component_adoption_ui, cura_scale_ui, generation_replace_ui,
-        hair_component_ui, imported_rig_access, model_json_preview_ui, modify_ui, run_ui, self_rigged_accessory, ui,
-        working_asset_ui,
+        hair_component_ui, imported_rig_access, model_json_preview_ui, modify_ui, presentation_registry, run_ui,
+        self_rigged_accessory, ui, working_asset_ui,
     )
     self_rigged_accessory.unregister(); clothing_component_ui.unregister(); hair_component_ui.unregister()
     component_adoption_ui.unregister(); working_asset_ui.unregister(); model_json_preview_ui.unregister(); modify_ui.unregister()
@@ -59,3 +61,4 @@ def unregister():
     asset_file_import_ui.unregister(); asset_inspection_ui.unregister(); generation_replace_ui.unregister()
     animation_adoption_ui.unregister(); animation_tuning_ui.unregister(); animation_json_ui.unregister(); animation_artist_ui.unregister()
     animation_names_ui.unregister(); imported_rig_access.unregister(); ui.unregister()
+    presentation_registry.registry.clear()
