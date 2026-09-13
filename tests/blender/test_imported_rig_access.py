@@ -52,17 +52,21 @@ class ImportedRigAccessTests(unittest.TestCase):
         # test harness. Exercise the rig-access contract with the same scene/target
         # shape the registered PointerProperty provides at runtime instead of making
         # this regression depend on unrelated add-on registration order.
-        context = SimpleNamespace(
-            scene=SimpleNamespace(
-                humanoid_settings=SimpleNamespace(target=root),
-                objects=self.scene.objects,
-            ),
-            mode="OBJECT",
+        scene_contract = SimpleNamespace(
+            humanoid_settings=SimpleNamespace(target=root),
+            objects=self.scene.objects,
         )
+        object_context = SimpleNamespace(scene=scene_contract, mode="OBJECT")
+        pose_context = SimpleNamespace(scene=scene_contract, mode="POSE")
 
-        self.assertIs(imported_rig_access._base_rig(context), rig)
-        self.assertTrue(imported_rig_access.ASSET_ASSISTANT_OT_select_base_rig.poll(context))
-        self.assertTrue(imported_rig_access.ASSET_ASSISTANT_OT_pose_base_rig.poll(context))
+        self.assertIs(imported_rig_access._base_rig(object_context), rig)
+        self.assertTrue(imported_rig_access.ASSET_ASSISTANT_OT_select_base_rig.poll(object_context))
+        self.assertTrue(imported_rig_access.ASSET_ASSISTANT_OT_pose_base_rig.poll(object_context))
+        self.assertFalse(imported_rig_access.ASSET_ASSISTANT_OT_exit_pose_mode.poll(object_context))
+
+        self.assertFalse(imported_rig_access.ASSET_ASSISTANT_OT_select_base_rig.poll(pose_context))
+        self.assertFalse(imported_rig_access.ASSET_ASSISTANT_OT_pose_base_rig.poll(pose_context))
+        self.assertTrue(imported_rig_access.ASSET_ASSISTANT_OT_exit_pose_mode.poll(pose_context))
 
 
 if __name__ == "__main__":
