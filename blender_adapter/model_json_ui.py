@@ -39,10 +39,13 @@ def _draw_artist_modify(workflow_ui, modify_ui, ui, panel, context):
         layout.label(text=str(error), icon="ERROR")
         return
 
+    preview_active = bool(context.scene.get(_PREVIEW_ROOT_KEY))
+
     intro = layout.box()
     intro.label(text="SOURCE VALUES", icon="IMPORT")
     intro.label(text=provider.label + " settings from " + root.name)
     load = intro.row(); load.scale_y = 1.2
+    load.enabled = not preview_active
     load.operator("asset_assistant.modify_inspect", text="Load Current Values", icon="IMPORT")
 
     llm = layout.box()
@@ -55,14 +58,15 @@ def _draw_artist_modify(workflow_ui, modify_ui, ui, panel, context):
 
     export_row = _step_row(llm, 1, "Export Context", "Give this JSON to the LLM with your artistic request.")
     export_row.scale_y = 1.2
+    export_row.enabled = not preview_active
     export_row.operator("asset_assistant.modify_export_inspection", text="Export Model Context JSON", icon="EXPORT")
 
     import_row = _step_row(llm, 2, "Import Change", "Load the Model Change JSON returned by the LLM.")
     import_row.scale_y = 1.2
+    import_row.enabled = not preview_active
     import_row.operator("asset_assistant.modify_import_request", text="Import Model Change JSON", icon="IMPORT")
 
     imported_path = context.scene.get(modify_ui._IMPORTED_PATH_KEY)
-    preview_active = bool(context.scene.get(_PREVIEW_ROOT_KEY))
     if imported_path:
         llm.label(text="Loaded: " + Path(imported_path).name, icon="FILE_TICK")
     else:
@@ -96,11 +100,13 @@ def _draw_artist_modify(workflow_ui, modify_ui, ui, panel, context):
     llm.label(text="The imported file is validated before preview; unsupported changes stay blocked.")
 
     params = layout.box()
+    params.enabled = not preview_active
     workflow_ui._section_header(params, "MANUAL ADJUSTMENTS", "Tune provider values directly", "MODIFIER")
     for field in provider.parameters:
         params.prop(settings, modify_ui._field_name(ui, provider, field))
 
     actions = layout.box()
+    actions.enabled = not preview_active
     preview = actions.row(); preview.scale_y = 1.2
     preview.operator("asset_assistant.modify_preview", text="Preview Manual Changes", icon="PREVIEW_RANGE")
     apply_manual = actions.row(); apply_manual.scale_y = 1.45
