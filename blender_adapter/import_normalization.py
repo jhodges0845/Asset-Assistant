@@ -31,20 +31,27 @@ def _asset_collection_name(root):
     return name or "Imported Asset"
 
 
-def _remove_empty_import_collections(collections):
-    """Remove importer-created collection shells only after their objects moved out."""
-    pending = set(collections)
+def _remove_empty_import_collections(collection_names):
+    """Remove importer-created collection shells only after their objects moved out.
+
+    Keep names rather than Collection RNA references here. Removing one collection can
+    invalidate Blender RNA objects that were cached earlier, especially when importers
+    created nested collection shells. Re-resolving by name on every pass keeps cleanup
+    safe after Blender mutates the collection datablocks.
+    """
+    pending = set(collection_names)
     changed = True
     while changed:
         changed = False
-        for collection in tuple(pending):
-            if bpy.data.collections.get(collection.name) is not collection:
-                pending.discard(collection)
+        for name in tuple(pending):
+            collection = bpy.data.collections.get(name)
+            if collection is None:
+                pending.discard(name)
                 continue
             if len(collection.objects) or len(collection.children):
                 continue
             bpy.data.collections.remove(collection)
-            pending.discard(collection)
+            pending.discard(name)
             changed = True
 
 
@@ -55,10 +62,10 @@ def _organize_import_collection(root, objects):
     scene.collection.children.link(collection)
 
     imported_objects = (root,) + tuple(objects)
-    previous_collections = set()
+    previous_collection_names = set()
     for obj in imported_objects:
         current = tuple(getattr(obj, "users_collection", ()))
-        previous_collections.update(current)
+        previous_collection_names.update(old.name for old in current if old is not collection)
         if collection not in current:
             collection.objects.link(obj)
         for old in current:
@@ -66,8 +73,7 @@ def _organize_import_collection(root, objects):
                 continue
             old.objects.unlink(obj)
 
-    previous_collections.discard(collection)
-    _remove_empty_import_collections(previous_collections)
+    _remove_empty_import_collections(previous_collection_names)
     return collection
 
 
