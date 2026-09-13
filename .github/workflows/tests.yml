@@ -44,7 +44,7 @@ jobs:
         if: matrix.python-version == '3.12'
         run: |
           python -m coverage run --source=object_core -m unittest discover -s tests/core -v
-          python -m coverage report --show-missing
+          python -m coverage report --show-missing --fail-under=90
 
   blender-tests:
     name: Blender integration tests (${{ matrix.version }})
