@@ -20,7 +20,7 @@ def register():
         animation_names_ui, animation_tuning_ui, asset_file_import_ui, asset_identity_ui, asset_inspection_ui, avian_ui,
         checkpoint_component_repair, clothing_component_ui, component_adoption_ui, component_modify_apply,
         component_modify_exchange, cura_scale_ui, generation_replace_ui, hair_component_ui, import_normalization,
-        imported_rig_access, modification, modify_fastpath, modify_ui, normalized_import_workflow_ui, rig_animate_ui,
+        imported_rig_access, model_json_ui, modification, modify_fastpath, modify_ui, normalized_import_workflow_ui, rig_animate_ui,
         run_ui, self_rigged_accessory, ui, ui_fastpath, workflow_ui, workspace_create_ui, workspace_nav_ui,
         working_asset_ui,
     )
@@ -30,6 +30,7 @@ def register():
     asset_identity_ui.install(workflow_ui)
     workflow_ui.prepare(ui, modify_ui, animation_names_ui, working_asset_ui, component_adoption_ui, hair_component_ui,
                         clothing_component_ui, animation_adoption_ui, self_rigged_accessory)
+    model_json_ui.install(modify_ui, workflow_ui, ui, bl_info["version"])
     animation_json_contract.install(animation_json_ui, bl_info["version"])
     animation_json_ui.install(animation_names_ui, animation_artist_ui)
     asset_inspection_ui.install(ui, workflow_ui, modify_ui); import_normalization.install(asset_file_import_ui)
