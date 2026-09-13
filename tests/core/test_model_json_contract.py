@@ -4,16 +4,17 @@ import unittest
 
 from blender_adapter.model_json_contract import enhance_inspection_document
 from object_core.modify_exchange import inspection_document
-from object_core.modification import AssetSnapshot
+from object_core.modification import AssetSnapshot, SemanticOperation
 
 
 class ModelJsonContractTests(unittest.TestCase):
-    def _snapshot(self):
+    def _snapshot(self, semantic_operations=()):
         return AssetSnapshot(
             asset_id="asset-123",
             provider_key="human_experimental",
             provider_label="Human",
             parameters=(("height_cm", 180), ("weight_kg", 95), ("body_type", "average")),
+            semantic_operations=semantic_operations,
             owns_geometry=True,
             has_rig=True,
             owns_rig=True,
@@ -37,10 +38,37 @@ class ModelJsonContractTests(unittest.TestCase):
         self.assertEqual(240, parameters["height_cm"]["maximum"])
         self.assertIn("average", parameters["body_type"]["choices"])
 
-        semantics = payload["semantic_vocabulary"]["targets"]
-        self.assertTrue(any(target["key"] == "shoulders" for target in semantics))
+        semantics = {target["key"]: target for target in payload["semantic_vocabulary"]["targets"]}
+        self.assertIn("shoulders", semantics)
+        shoulder_scale = semantics["shoulders"]["operation_contracts"]["scale"]
+        self.assertEqual(0.1, shoulder_scale["arguments"]["x"]["minimum"])
+        self.assertEqual(4.0, shoulder_scale["arguments"]["x"]["maximum"])
+        face_shape = semantics["face"]["operation_contracts"]["shape"]
+        self.assertEqual(["narrow", "defined"], face_shape["arguments"]["profile"]["values"])
+
         self.assertIn("CURRENT_ASSET_RELATIVE", payload["instructions"]["reference_authority"])
         self.assertIn("Do not invent semantic target names", " ".join(payload["model_authoring_contract"]["rules"]))
+
+    def test_contract_describes_current_semantic_model_state(self):
+        semantic = SemanticOperation("shape", "face", (("profile", "defined"), ("amount", 0.5)))
+        payload = enhance_inspection_document(
+            inspection_document(self._snapshot((semantic,))),
+            addon_version=(0, 9, 0),
+        )
+
+        state = payload["model_state"]
+        self.assertEqual("centimeters", state["units"])
+        self.assertGreater(state["overall"]["shoulder_width_cm"], 0.0)
+        self.assertGreater(state["overall"]["hip_width_cm"], 0.0)
+        self.assertGreater(state["regions"]["shoulders"]["shoulder_to_hip_ratio"], 0.0)
+        self.assertEqual("defined", state["regions"]["face"]["shape_profile"])
+
+    def test_return_example_uses_real_supported_values(self):
+        payload = enhance_inspection_document(inspection_document(self._snapshot()))
+        semantic = payload["return_schema_example"]["semantic_operations"]
+        self.assertTrue(semantic)
+        operation = semantic[0]
+        self.assertNotEqual("REPLACE_WITH_SUPPORTED_PROFILE", operation["arguments"].get("profile"))
 
     def test_contract_does_not_mutate_portable_document(self):
         original = inspection_document(self._snapshot())
