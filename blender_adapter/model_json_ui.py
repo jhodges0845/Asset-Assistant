@@ -95,8 +95,17 @@ def install(modify_ui, workflow_ui, ui, addon_version=(0, 9, 0)):
     )
     modify_ui.ASSET_ASSISTANT_OT_modify_apply_imported.bl_label = "Apply Validated Model Changes"
 
-    def draw_model_modify(panel, context):
-        return _draw_artist_modify(workflow_ui, modify_ui, ui, panel, context)
+    def draw_model_modify(panel, context, ui_module=None, modify_ui_module=None):
+        # workflow_ui._draw_artist_modify is invoked through multiple presentation layers.
+        # Keep the original callback contract (panel, context, ui, modify_ui) while also
+        # tolerating direct two-argument calls used by focused tests/helpers.
+        return _draw_artist_modify(
+            workflow_ui,
+            modify_ui_module or modify_ui,
+            ui_module or ui,
+            panel,
+            context,
+        )
 
     draw_model_modify._asset_assistant_model_llm = True
     workflow_ui._draw_artist_modify = draw_model_modify
