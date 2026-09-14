@@ -7,6 +7,7 @@ from ..geometry.body_refinement import refine_human_torso_cross_sections
 from ..geometry.cranium_refinement import refine_human_cranium_cross_sections
 from ..geometry.facial_refinement import refine_human_facial_topology
 from ..geometry.limb_refinement import refine_human_limb_cross_sections
+from ..geometry.pelvis_refinement import refine_human_pelvis
 from ..geometry.shoulder_refinement import refine_human_shoulders
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
 from ..proportions import generate_proportions
@@ -106,6 +107,7 @@ class HumanExperimentalProvider:
         mesh = generate_deformable_mesh(proportions)
         mesh = refine_human_torso_cross_sections(mesh, proportions)
         mesh = refine_human_shoulders(mesh, proportions)
+        mesh = refine_human_pelvis(mesh, proportions)
         mesh = refine_human_limb_cross_sections(mesh, proportions)
         mesh = refine_human_facial_topology(mesh, proportions)
         return refine_human_cranium_cross_sections(mesh, proportions)
