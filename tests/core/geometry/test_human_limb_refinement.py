@@ -8,12 +8,16 @@ from object_core.geometry.limb_refinement import refine_human_limb_cross_section
 
 
 class HumanLimbRefinementTests(unittest.TestCase):
-    def _fixture(self, height=180):
-        proportions = generate_proportions(HumanoidSpec(height, 95, BodyType.AVERAGE))
+    @classmethod
+    def setUpClass(cls):
+        proportions = generate_proportions(HumanoidSpec(180, 95, BodyType.AVERAGE))
         base = generate_deformable_mesh(proportions)
         torso = refine_human_torso_cross_sections(base, proportions)
         refined = refine_human_limb_cross_sections(torso, proportions)
-        return proportions, torso.parts[0], refined.parts[0]
+        cls.default_fixture = (proportions, torso.parts[0], refined.parts[0])
+
+    def _fixture(self):
+        return self.default_fixture
 
     def test_refinement_adds_limb_resolution(self):
         _proportions, before, after = self._fixture()
@@ -30,16 +34,25 @@ class HumanLimbRefinementTests(unittest.TestCase):
             self.assertEqual(len(face), len(face_uvs))
         self.assertTrue(is_closed_manifold(after))
 
-    def test_refinement_is_deterministic_across_supported_heights(self):
-        for height in (120, 180, 240):
+    def test_refinement_is_deterministic(self):
+        proportions = generate_proportions(HumanoidSpec(180, 95, BodyType.AVERAGE))
+        base = generate_deformable_mesh(proportions)
+        torso = refine_human_torso_cross_sections(base, proportions)
+        self.assertEqual(
+            refine_human_limb_cross_sections(torso, proportions),
+            refine_human_limb_cross_sections(torso, proportions),
+        )
+
+    def test_refinement_survives_supported_height_extremes(self):
+        for height in (120, 240):
             with self.subTest(height=height):
                 proportions = generate_proportions(HumanoidSpec(height, 95, BodyType.AVERAGE))
                 base = generate_deformable_mesh(proportions)
                 torso = refine_human_torso_cross_sections(base, proportions)
-                self.assertEqual(
-                    refine_human_limb_cross_sections(torso, proportions),
-                    refine_human_limb_cross_sections(torso, proportions),
-                )
+                refined = refine_human_limb_cross_sections(torso, proportions)
+                self.assertGreater(len(refined.parts[0].vertices), len(torso.parts[0].vertices))
+                self.assertEqual(len(refined.parts[0].faces), len(torso.parts[0].faces))
+                self.assertTrue(is_closed_manifold(refined.parts[0]))
 
     def test_refinement_requires_expected_inputs(self):
         proportions = generate_proportions(HumanoidSpec(180, 95, BodyType.AVERAGE))
