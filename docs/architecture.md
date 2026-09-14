@@ -64,6 +64,14 @@ Concrete provider implementations live under `object_core/providers`. Anatomy-sp
 
 The dependency direction is enforced in CI: `object_core` and its providers may not import `bpy`, `blender_adapter`, or `humanoid_blender`. New host-specific behavior must be introduced on the adapter side of the boundary instead of leaking into the portable core.
 
+## Blender presentation and host bindings
+
+Presentation composition is explicit. `PresentationRegistry` owns named workspace and shared rendering slots; feature modules register or decorate those slots instead of replacing another module's private draw callback.
+
+Blender still requires concrete panel classes to expose `draw` and `poll` callbacks. Those class bindings are host integration, not presentation composition, and belong in the narrow Blender host boundary (`workspace_panel_host`). `workflow_ui` describes the composed workspace but does not directly attach itself to Blender panel classes.
+
+Runtime fastpaths are separate from presentation composition. `ui_fastpath` may optimize redraw-time behavior and `modify_fastpath` may optimize execution paths when they preserve validation, ownership, and observable behavior. Do not route these seams through `PresentationRegistry` merely for uniformity. If a fastpath begins changing product semantics or accumulating unrelated responsibilities, review it as runtime architecture debt.
+
 ## Target adapters
 
 Destination flow is:
@@ -76,6 +84,8 @@ Current defaults are Godot GLB/glTF, Unity FBX, Unreal FBX, and Cura STL. Target
 
 Tests mirror boundaries: core and architecture guardrail tests run under `tests/core`, Blender integration runs under `tests/blender`, Python 3.9-3.12 is the supported/tested core range, and Blender 5.2.1 is the current supported/tested Blender integration target. Cross-provider and editable-continuity tests protect ownership, persistence, Modify and export behavior.
 
+CI also performs a Python source compilation gate before the main Python 3.12 coverage run so syntax/import-time source mistakes fail before the heavier Blender integration job.
+
 Support claims must follow tested CI coverage. Adding or removing a supported Python or Blender version requires updating both CI and user-facing compatibility documentation in the same change.
 
 ## Architecture rule of thumb
@@ -86,5 +96,7 @@ Support claims must follow tested CI coverage. Adding or removing a supported Py
 4. Destination-specific behavior stays in the target adapter/profile.
 5. New abstractions should be proven by real implementations, not speculative framework work.
 6. New UI composition should register through explicit presentation/workspace extension points rather than replace another module's callbacks.
+7. Blender-required class callback attachment belongs at a named host boundary, not scattered through feature modules.
+8. Runtime fastpaths must preserve validation/ownership semantics and remain narrow enough to remove without redesigning the workflow.
 
 The product rule is equally important: **Asset Assistant enhances existing 3D work; it must not require artists to start over inside Asset Assistant.**
