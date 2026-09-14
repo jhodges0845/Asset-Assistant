@@ -3,6 +3,7 @@
 
 from ..animation import generate_idle, generate_run, generate_walk
 from ..geometry import generate_deformable_mesh, generate_mesh
+from ..geometry.facial_refinement import refine_human_facial_topology
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
 from ..proportions import generate_proportions
 from ..rigging import generate_deforming_skeleton, generate_skin_weights, generate_skeleton
@@ -97,7 +98,8 @@ class HumanExperimentalProvider:
         return _proportions(values)
 
     def mesh(self, values):
-        return generate_deformable_mesh(self.proportions(values))
+        proportions = self.proportions(values)
+        return refine_human_facial_topology(generate_deformable_mesh(proportions), proportions)
 
     def semantic_mesh(self, mesh, values, operations):
         return apply_human_semantic_operations(mesh, self.proportions(values), operations)
