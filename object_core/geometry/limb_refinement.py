@@ -69,31 +69,31 @@ def _polyline_projection(point, path):
 
 
 def _limb_paths(proportions):
+    """Return only the anatomical arm/leg shafts targeted by this slice.
+
+    Hands and feet deliberately remain outside this pass. Their generated forms
+    use different proportions and ground/contact constraints, so they need their
+    own topology treatment rather than being rounded as extensions of the long
+    limb centerlines.
+    """
     points = generate_landmarks(proportions)
     result = []
     for side in ("left", "right"):
         shoulder = points["shoulder." + side]
         elbow = points["elbow." + side]
         wrist = points["wrist." + side]
-        fingertips = points["fingertips." + side]
         result.append((
             "arm." + side,
-            (shoulder, elbow, wrist, fingertips),
+            (shoulder, elbow, wrist),
             max(proportions.upper_arm_thickness_cm, proportions.forearm_thickness_cm) * 0.80,
         ))
 
         hip = points["hip." + side]
         knee = points["knee." + side]
         ankle = points["ankle." + side]
-        foot_height = proportions.foot_height_cm
-        foot_center_z = foot_height * 0.5
-        heel = (ankle[0], -proportions.foot_length_cm * 0.18, foot_center_z)
-        midfoot = (ankle[0], proportions.foot_length_cm * 0.22, foot_center_z)
-        ball = (ankle[0], proportions.foot_length_cm * 0.56, foot_center_z)
-        toe = (ankle[0], proportions.foot_length_cm * 0.82, foot_center_z)
         result.append((
             "leg." + side,
-            (hip, knee, ankle, heel, midfoot, ball, toe),
+            (hip, knee, ankle),
             max(proportions.thigh_thickness_cm, proportions.calf_thickness_cm) * 0.80,
         ))
     return tuple(result)
@@ -122,10 +122,11 @@ def refine_human_limb_cross_sections(mesh: ObjectMesh, proportions: HumanoidProp
     """Round generated Human arm/leg ring chords without changing branch seams.
 
     The base Human branches are eight-point elliptical rings. Circumferential
-    edges are recognized from their shared station along anatomical arm/leg
-    centerlines. A shared midpoint is inserted and radially corrected from the
-    centerline onto the original ellipse. Longitudinal edges, torso geometry,
-    and the branch seam nearest each shoulder/hip remain untouched.
+    edges are recognized from their shared station along anatomical upper/lower
+    arm and upper/lower leg centerlines. A shared midpoint is inserted and
+    radially corrected from the centerline onto the original ellipse.
+    Longitudinal edges, torso geometry, hands, feet, and the branch seam nearest
+    each shoulder/hip remain untouched.
     """
     if not isinstance(mesh, ObjectMesh) or len(mesh.parts) != 1:
         raise TypeError("limb refinement expects one generated ObjectMesh part")
