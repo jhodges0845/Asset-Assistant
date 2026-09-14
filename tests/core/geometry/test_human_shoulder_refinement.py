@@ -81,7 +81,7 @@ class HumanShoulderRefinementTests(unittest.TestCase):
 
     def test_refinement_is_deterministic_across_supported_heights_and_body_types(self):
         for height in (120, 180, 240):
-            for body_type in (BodyType.SLIM, BodyType.AVERAGE, BodyType.HEAVY):
+            for body_type in (BodyType.SLIM, BodyType.AVERAGE, BodyType.OVERWEIGHT):
                 with self.subTest(height=height, body_type=body_type):
                     proportions = generate_proportions(HumanoidSpec(height, 95, body_type))
                     mesh = refine_human_torso_cross_sections(
