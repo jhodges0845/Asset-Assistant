@@ -1,10 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Human 1.0 deformation-oriented geometry foundation.
-
-This module intentionally lives beside the legacy rigid blockout generator.
-The rigid rig still depends on one mesh object per bound bone, so callers can
-adopt this surface incrementally while skinning support is developed.
-"""
+"""Human deformation-oriented geometry foundation."""
 
 from math import ceil, cos, sqrt, pi, sin
 
@@ -12,6 +7,10 @@ from ..models import HumanoidProportions
 from ..models.mesh import MeshPart, ObjectMesh
 from ..proportions.landmarks import generate_landmarks
 from .primitives import RING_SIDES, vertical_loft
+
+
+_HIP_OPENING_LEVEL = 0
+_SHOULDER_OPENING_LEVEL = 5
 
 
 def _cross(a, b):
@@ -254,8 +253,47 @@ def _generate_face_atlas_uvs(vertices, faces, padding=0.08):
     return tuple(result)
 
 
+def _human_body_sections(p, hip_z, shoulder_z, chin_z, crown_z):
+    """Return deterministic anatomical body sections for the Human surface.
+
+    Pelvis and shoulder support levels intentionally sit close to the limb
+    openings so later skinning has local geometry to distribute deformation
+    across instead of folding one large torso quad.
+    """
+    torso = p.torso_length_cm
+    neck_length = chin_z - shoulder_z
+    pelvis_support_width = max(p.waist_width_cm * 1.05, p.hip_width_cm * 0.96)
+    pelvis_support_depth = max(p.waist_depth_cm * 1.04, p.hip_depth_cm * 0.96)
+    mid_width = (p.waist_width_cm + p.chest_width_cm) * 0.5
+    mid_depth = (p.waist_depth_cm + p.chest_depth_cm) * 0.5
+    shoulder_support_width = max(p.chest_width_cm, p.shoulder_width_cm * 0.90)
+
+    return (
+        (hip_z, p.hip_width_cm, p.hip_depth_cm),
+        (hip_z + torso * 0.10, pelvis_support_width, pelvis_support_depth),
+        (hip_z + torso * 0.35, p.waist_width_cm, p.waist_depth_cm),
+        (hip_z + torso * 0.56, mid_width, mid_depth),
+        (hip_z + torso * 0.78, p.chest_width_cm, p.chest_depth_cm),
+        (shoulder_z - torso * 0.08, shoulder_support_width, p.chest_depth_cm * 0.90),
+        (shoulder_z, p.shoulder_width_cm, p.chest_depth_cm * 0.8),
+        (shoulder_z + neck_length * 0.18, p.neck_width_cm * 1.08, p.neck_width_cm * 1.08),
+        (shoulder_z + neck_length * 0.38, p.neck_width_cm, p.neck_width_cm),
+        (shoulder_z + neck_length * 0.62, p.neck_width_cm * 0.96, p.neck_width_cm * 0.96),
+        (shoulder_z + neck_length * 0.82, p.neck_width_cm * 0.92, p.neck_width_cm * 0.92),
+        (chin_z, p.neck_width_cm * 0.9, p.neck_width_cm * 0.9),
+        (chin_z + p.head_height_cm * 0.12, p.head_width_cm * 0.78, p.head_depth_cm * 0.76),
+        (chin_z + p.head_height_cm * 0.24, p.head_width_cm * 0.92, p.head_depth_cm * 0.90),
+        (chin_z + p.head_height_cm * 0.38, p.head_width_cm, p.head_depth_cm),
+        (chin_z + p.head_height_cm * 0.52, p.head_width_cm * 1.02, p.head_depth_cm),
+        (chin_z + p.head_height_cm * 0.66, p.head_width_cm, p.head_depth_cm * 0.98),
+        (chin_z + p.head_height_cm * 0.80, p.head_width_cm * 0.94, p.head_depth_cm * 0.92),
+        (chin_z + p.head_height_cm * 0.92, p.head_width_cm * 0.82, p.head_depth_cm * 0.82),
+        (crown_z, p.head_width_cm * 0.62, p.head_depth_cm * 0.68),
+    )
+
+
 def generate_deformable_mesh(proportions: HumanoidProportions) -> ObjectMesh:
-    """Return one connected, UV'd Human 1.0 deformation-oriented surface."""
+    """Return one connected, UV'd Human deformation-oriented surface."""
     if not isinstance(proportions, HumanoidProportions):
         raise TypeError("proportions must be HumanoidProportions")
     p = proportions
@@ -264,42 +302,25 @@ def generate_deformable_mesh(proportions: HumanoidProportions) -> ObjectMesh:
     shoulder_z = points["shoulder_center"][2]
     chin_z = points["chin"][2]
     crown_z = points["crown"][2]
-    neck_length = chin_z - shoulder_z
 
     body = vertical_loft(
         "human",
-        (
-            (hip_z, p.hip_width_cm, p.hip_depth_cm),
-            (hip_z + p.torso_length_cm * 0.35, p.waist_width_cm, p.waist_depth_cm),
-            (hip_z + p.torso_length_cm * 0.78, p.chest_width_cm, p.chest_depth_cm),
-            (shoulder_z, p.shoulder_width_cm, p.chest_depth_cm * 0.8),
-            (shoulder_z + neck_length * 0.18, p.neck_width_cm * 1.08, p.neck_width_cm * 1.08),
-            (shoulder_z + neck_length * 0.38, p.neck_width_cm, p.neck_width_cm),
-            (shoulder_z + neck_length * 0.62, p.neck_width_cm * 0.96, p.neck_width_cm * 0.96),
-            (shoulder_z + neck_length * 0.82, p.neck_width_cm * 0.92, p.neck_width_cm * 0.92),
-            (chin_z, p.neck_width_cm * 0.9, p.neck_width_cm * 0.9),
-            (chin_z + p.head_height_cm * 0.12, p.head_width_cm * 0.78, p.head_depth_cm * 0.76),
-            (chin_z + p.head_height_cm * 0.24, p.head_width_cm * 0.92, p.head_depth_cm * 0.90),
-            (chin_z + p.head_height_cm * 0.38, p.head_width_cm, p.head_depth_cm),
-            (chin_z + p.head_height_cm * 0.52, p.head_width_cm * 1.02, p.head_depth_cm),
-            (chin_z + p.head_height_cm * 0.66, p.head_width_cm, p.head_depth_cm * 0.98),
-            (chin_z + p.head_height_cm * 0.80, p.head_width_cm * 0.94, p.head_depth_cm * 0.92),
-            (chin_z + p.head_height_cm * 0.92, p.head_width_cm * 0.82, p.head_depth_cm * 0.82),
-            (crown_z, p.head_width_cm * 0.62, p.head_depth_cm * 0.68),
-        ),
+        _human_body_sections(p, hip_z, shoulder_z, chin_z, crown_z),
     )
 
     vertices = _shape_head_surface(body.vertices, p, chin_z, crown_z)
     body_faces = list(body.faces)
     openings = {
-        ("hip", "left"): body_faces[_side_face_index(0, 0)],
-        ("hip", "right"): body_faces[_side_face_index(0, 3)],
-        ("shoulder", "left"): body_faces[_side_face_index(2, 0)],
-        ("shoulder", "right"): body_faces[_side_face_index(2, 3)],
+        ("hip", "left"): body_faces[_side_face_index(_HIP_OPENING_LEVEL, 0)],
+        ("hip", "right"): body_faces[_side_face_index(_HIP_OPENING_LEVEL, 3)],
+        ("shoulder", "left"): body_faces[_side_face_index(_SHOULDER_OPENING_LEVEL, 0)],
+        ("shoulder", "right"): body_faces[_side_face_index(_SHOULDER_OPENING_LEVEL, 3)],
     }
     removed = {
-        _side_face_index(0, 0), _side_face_index(0, 3),
-        _side_face_index(2, 0), _side_face_index(2, 3),
+        _side_face_index(_HIP_OPENING_LEVEL, 0),
+        _side_face_index(_HIP_OPENING_LEVEL, 3),
+        _side_face_index(_SHOULDER_OPENING_LEVEL, 0),
+        _side_face_index(_SHOULDER_OPENING_LEVEL, 3),
     }
     faces = [face for index, face in enumerate(body_faces) if index not in removed]
 
