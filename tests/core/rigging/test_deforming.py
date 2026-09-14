@@ -117,6 +117,27 @@ class DeformingRigTests(unittest.TestCase):
             forbidden = "upper_leg.right" if side == "left" else "upper_leg.left"
             self.assertTrue(all(forbidden not in names for _vertex, names in blended))
 
+    def test_major_bending_joints_have_meaningful_shared_weights(self):
+        mesh, skeleton = self._fixture()
+        weights = generate_skin_weights(mesh, skeleton)[0]
+        transitions = []
+        for side in ("left", "right"):
+            transitions.extend((
+                (side + " hip", {"torso", "upper_leg." + side}),
+                (side + " elbow", {"upper_arm." + side, "forearm." + side}),
+                (side + " wrist", {"forearm." + side, "hand." + side}),
+                (side + " knee", {"upper_leg." + side, "lower_leg." + side}),
+                (side + " ankle", {"lower_leg." + side, "foot." + side}),
+            ))
+
+        for label, required in transitions:
+            balanced = []
+            for influences in weights.vertices:
+                by_name = {item.bone_name: item.weight for item in influences}
+                if required <= set(by_name) and min(by_name[name] for name in required) >= 0.10:
+                    balanced.append(by_name)
+            self.assertTrue(balanced, label + " has no meaningfully shared transition weights")
+
     def test_max_influences_is_validated(self):
         mesh, skeleton = self._fixture()
         with self.assertRaisesRegex(ValueError, "at least 1"):
