@@ -19,36 +19,68 @@ class HumanBodyRefinementTests(unittest.TestCase):
         self.assertGreater(len(refined.vertices), len(base.vertices))
         self.assertEqual(len(refined.faces), len(base.faces))
 
-    def test_refinement_keeps_overall_bounds_and_branch_seams(self):
+    def test_refinement_keeps_standing_height_and_branch_seam_planes(self):
         proportions, base, refined = self._fixture()
-        for axis in range(3):
-            self.assertAlmostEqual(
-                min(vertex[axis] for vertex in refined.vertices),
-                min(vertex[axis] for vertex in base.vertices),
-            )
-            self.assertAlmostEqual(
-                max(vertex[axis] for vertex in refined.vertices),
-                max(vertex[axis] for vertex in base.vertices),
-            )
+        self.assertAlmostEqual(
+            min(vertex[2] for vertex in refined.vertices),
+            min(vertex[2] for vertex in base.vertices),
+        )
+        self.assertAlmostEqual(
+            max(vertex[2] for vertex in refined.vertices),
+            max(vertex[2] for vertex in base.vertices),
+        )
 
         landmarks = generate_landmarks(proportions)
         hip_z = landmarks["hip_center"][2]
         shoulder_z = landmarks["shoulder_center"][2]
-        added = refined.vertices[len(base.vertices):]
-        self.assertTrue(added)
-        self.assertTrue(all(hip_z < vertex[2] < shoulder_z for vertex in added))
+        for seam_z in (hip_z, shoulder_z):
+            base_ring = sorted(
+                vertex for vertex in base.vertices if abs(vertex[2] - seam_z) < 1e-7
+            )
+            refined_ring = sorted(
+                vertex for vertex in refined.vertices[:len(base.vertices)] if abs(vertex[2] - seam_z) < 1e-7
+            )
+            self.assertEqual(refined_ring, base_ring)
 
     def test_refinement_pushes_new_chord_points_outward(self):
         _proportions, base, refined = self._fixture()
         added = refined.vertices[len(base.vertices):]
         self.assertTrue(added)
-
-        # At least one new point must sit between an old axis and diagonal point
-        # rather than on the original octagonal chord, proving this is geometric
-        # silhouette refinement rather than face-only subdivision.
         old_xy = {(round(vertex[0], 7), round(vertex[1], 7)) for vertex in base.vertices}
         new_xy = {(round(vertex[0], 7), round(vertex[1], 7)) for vertex in added}
         self.assertTrue(new_xy - old_xy)
+
+    def test_anatomy_shapes_existing_interior_torso_vertices(self):
+        proportions, base, refined = self._fixture()
+        landmarks = generate_landmarks(proportions)
+        hip_z = landmarks["hip_center"][2]
+        shoulder_z = landmarks["shoulder_center"][2]
+        changed = []
+        for before, after in zip(base.vertices, refined.vertices[:len(base.vertices)]):
+            if hip_z < before[2] < shoulder_z and before != after:
+                changed.append((before, after))
+        self.assertTrue(changed)
+        self.assertTrue(any(abs(after[0] - before[0]) > 1e-7 for before, after in changed))
+        self.assertTrue(any(abs(after[1] - before[1]) > 1e-7 for before, after in changed))
+
+    def test_front_and_back_receive_distinct_profile_contour(self):
+        proportions, base, refined = self._fixture()
+        landmarks = generate_landmarks(proportions)
+        hip_z = landmarks["hip_center"][2]
+        shoulder_z = landmarks["shoulder_center"][2]
+        front_deltas = []
+        back_deltas = []
+        for before, after in zip(base.vertices, refined.vertices[:len(base.vertices)]):
+            if not (hip_z < before[2] < shoulder_z):
+                continue
+            delta = abs(after[1]) - abs(before[1])
+            if before[1] > 1e-7:
+                front_deltas.append(delta)
+            elif before[1] < -1e-7:
+                back_deltas.append(delta)
+        self.assertTrue(front_deltas)
+        self.assertTrue(back_deltas)
+        self.assertNotAlmostEqual(max(front_deltas), max(back_deltas))
 
     def test_refinement_preserves_uv_contract_and_manifold_surface(self):
         _proportions, _base, refined = self._fixture()
