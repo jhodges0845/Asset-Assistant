@@ -4,6 +4,7 @@
 from ..animation import generate_idle, generate_run, generate_walk
 from ..geometry import generate_deformable_mesh, generate_mesh
 from ..geometry.body_refinement import refine_human_torso_cross_sections
+from ..geometry.cranium_refinement import refine_human_cranium_cross_sections
 from ..geometry.facial_refinement import refine_human_facial_topology
 from ..geometry.limb_refinement import refine_human_limb_cross_sections
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
@@ -104,7 +105,8 @@ class HumanExperimentalProvider:
         mesh = generate_deformable_mesh(proportions)
         mesh = refine_human_torso_cross_sections(mesh, proportions)
         mesh = refine_human_limb_cross_sections(mesh, proportions)
-        return refine_human_facial_topology(mesh, proportions)
+        mesh = refine_human_facial_topology(mesh, proportions)
+        return refine_human_cranium_cross_sections(mesh, proportions)
 
     def semantic_mesh(self, mesh, values, operations):
         return apply_human_semantic_operations(mesh, self.proportions(values), operations)
