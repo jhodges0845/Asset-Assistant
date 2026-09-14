@@ -7,6 +7,10 @@ Run from the repository root with Blender 5.2.1 (or a compatible build):
       --python scripts/render_human_review.py -- \
       --output human_review.png
 
+Rendering uses Cycles on the CPU with 32 samples and denoising so the review
+can run on machines whose graphics hardware does not support Eevee.
+Default Human settings are 180 cm, 95 kg, and average body type.
+
 The output contains, left to right: front, 3/4, side, and back views of the
 same freshly generated Human. This is intentionally a development-review tool,
 not part of the Blender add-on runtime.
@@ -136,7 +140,10 @@ def _add_lighting(center_z, width):
 
 def _configure_scene(args, part):
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    scene.render.engine = "CYCLES"
+    scene.cycles.device = "CPU"
+    scene.cycles.samples = 32
+    scene.cycles.use_denoising = True
     scene.render.resolution_x = args.resolution_x
     scene.render.resolution_y = args.resolution_y
     scene.render.resolution_percentage = 100
