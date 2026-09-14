@@ -3,6 +3,7 @@
 
 from ..animation import generate_idle, generate_run, generate_walk
 from ..geometry import generate_deformable_mesh, generate_mesh
+from ..geometry.anatomical_base_contour import refine_human_anatomical_base_contour
 from ..geometry.body_refinement import refine_human_torso_cross_sections
 from ..geometry.cranium_refinement import refine_human_cranium_cross_sections
 from ..geometry.facial_anatomy import refine_human_local_facial_anatomy
@@ -108,6 +109,7 @@ class HumanExperimentalProvider:
     def mesh(self, values):
         proportions = self.proportions(values)
         mesh = generate_deformable_mesh(proportions)
+        mesh = refine_human_anatomical_base_contour(mesh, proportions)
         mesh = refine_human_torso_cross_sections(mesh, proportions)
         mesh = refine_human_shoulders(mesh, proportions)
         mesh = refine_human_pelvis(mesh, proportions)
