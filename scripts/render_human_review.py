@@ -26,6 +26,7 @@ from pathlib import Path
 
 import bpy
 from mathutils import Vector
+from bpy_extras.object_utils import world_to_camera_view
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -136,16 +137,19 @@ def _add_lighting(center_z, scene_width, model_height):
     size = max(model_height, scene_width * 0.35)
 
     key_data = bpy.data.lights.new("Key", type="AREA")
-    key_data.energy = 1800.0
+    # Human vertices are in centimeters; light power scales with distance squared.
+    power_scale = (model_height / 1.8) ** 2
+    key_data.energy = 100.0 * power_scale
     key_data.shape = "RECTANGLE"
     key_data.size = size * 0.70
+    key_data.size_y = size * 0.70
     key = bpy.data.objects.new("Key", key_data)
     bpy.context.collection.objects.link(key)
     key.location = (-scene_width * 0.18, -model_height * 0.85, center_z + model_height * 0.25)
     _look_at(key, (0.0, 0.0, center_z))
 
     fill_data = bpy.data.lights.new("Fill", type="AREA")
-    fill_data.energy = 900.0
+    fill_data.energy = 50.0 * power_scale
     fill_data.size = size * 0.55
     fill = bpy.data.objects.new("Fill", fill_data)
     bpy.context.collection.objects.link(fill)
@@ -153,40 +157,24 @@ def _add_lighting(center_z, scene_width, model_height):
     _look_at(fill, (0.0, 0.0, center_z))
 
 
-def _validate_camera_frame(camera, mesh_objects, scene):
-    """Fail before rendering if generated Human vertices are outside the camera.
-
-    A prior version placed the orthographic camera farther away as the contact
-    sheet became wider. With centimeter-scale Human geometry that could move the
-    subject beyond Blender's default far clipping plane and still produce a
-    technically successful, empty PNG. This check protects both clipping depth
-    and orthographic framing.
-    """
-    camera_inverse = camera.matrix_world.inverted()
-    aspect = scene.render.resolution_x / float(scene.render.resolution_y)
-    half_vertical = camera.data.ortho_scale * 0.5
-    half_horizontal = half_vertical * aspect
-    visible_vertices = 0
-
-    for obj in mesh_objects:
-        for vertex in obj.data.vertices:
-            world = obj.matrix_world @ vertex.co
-            local = camera_inverse @ world
-            depth = -local.z
-            if not (camera.data.clip_start < depth < camera.data.clip_end):
-                continue
-            if abs(local.x) > half_horizontal or abs(local.y) > half_vertical:
-                continue
-            visible_vertices += 1
-
-    expected_minimum = sum(len(obj.data.vertices) for obj in mesh_objects) * 0.90
-    if visible_vertices < expected_minimum:
-        raise RuntimeError(
-            "Human review camera does not contain enough generated geometry: "
-            "{} visible vertices, expected at least {:.0f}".format(
-                visible_vertices, expected_minimum
-            )
+def _validate_camera_frame(camera, review_objects, scene):
+    """Require every mesh vertex and label corner to fit the actual projection."""
+    for obj in review_objects:
+        points = (vertex.co for vertex in obj.data.vertices) if obj.type == "MESH" else (
+            Vector(corner) for corner in obj.bound_box
         )
+        for point in points:
+            projected = world_to_camera_view(scene, camera, obj.matrix_world @ point)
+            if not (
+                camera.data.clip_start < projected.z < camera.data.clip_end
+                and 0.01 <= projected.x <= 0.99
+                and 0.01 <= projected.y <= 0.99
+            ):
+                raise RuntimeError(
+                    "Human review object {} extends outside the camera: {}".format(
+                        obj.name, tuple(projected)
+                    )
+                )
 
 
 def _configure_scene(args, part):
@@ -225,7 +213,7 @@ def _configure_scene(args, part):
     for width in widths:
         centers.append(cursor + width * 0.5)
         cursor += width + gap
-    sheet_center = (centers[0] + centers[-1]) * 0.5
+    sheet_center = (cursor - gap) * 0.5
     positions = tuple(center - sheet_center for center in centers)
     total_width = cursor - gap
 
@@ -233,18 +221,20 @@ def _configure_scene(args, part):
     mesh_objects = []
     for view_name, angle, x in zip(VIEW_NAMES, VIEW_ROTATIONS_DEGREES, positions):
         obj = _make_mesh_object("Human " + view_name, part)
-        obj.location.x = x
+        x_bounds = rotated_bounds[len(mesh_objects)][0]
+        obj.location.x = x - (x_bounds[0] + x_bounds[1]) * 0.5
         obj.rotation_euler.z = math.radians(angle)
         obj.data.materials.append(material)
         mesh_objects.append(obj)
         _add_label(view_name, (x, -maximum_depth * 0.60, minimum[2] - model_height * 0.075), model_height * 0.035)
 
     aspect = args.resolution_x / float(args.resolution_y)
-    required_vertical_for_width = total_width / aspect
-    ortho_scale = max(model_height * 1.22, required_vertical_for_width * 1.12)
+    # With horizontal sensor fit, ortho_scale is frame width, not height.
+    ortho_scale = max(total_width * 1.12, model_height * 1.22 * aspect)
 
     camera_data = bpy.data.cameras.new("Review Camera")
     camera_data.type = "ORTHO"
+    camera_data.sensor_fit = "HORIZONTAL"
     camera_data.ortho_scale = ortho_scale
     camera_data.clip_start = 0.1
     # Orthographic framing does not require the camera to retreat with sheet
@@ -261,7 +251,8 @@ def _configure_scene(args, part):
 
     _add_lighting(center_z, total_width, model_height)
     bpy.context.view_layer.update()
-    _validate_camera_frame(camera, mesh_objects, scene)
+    review_objects = mesh_objects + [obj for obj in scene.objects if obj.type == "FONT"]
+    _validate_camera_frame(camera, review_objects, scene)
 
 
 def main():
