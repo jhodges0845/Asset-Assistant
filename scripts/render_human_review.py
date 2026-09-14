@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Render a single neutral-Human review contact sheet from Blender.
+"""Render neutral-Human diagnostic review contact sheets from Blender.
 
 Run from the repository root with Blender 5.2.1 (or a compatible build):
 
@@ -7,13 +7,16 @@ Run from the repository root with Blender 5.2.1 (or a compatible build):
       --python scripts/render_human_review.py -- \
       --output human_review.png
 
-Rendering uses Cycles on the CPU with 32 samples and denoising so the review
-can run on machines whose graphics hardware does not support Eevee.
-Default Human settings are 180 cm, 95 kg, and average body type.
+By default one invocation writes three matched four-view sheets:
 
-The output contains, left to right: front, 3/4, side, and back views of the
-same freshly generated Human. This is intentionally a development-review tool,
-not part of the Blender add-on runtime.
+- ``human_review.png``: clay render for surface/anatomy reading
+- ``human_review_silhouette.png``: flat silhouette for proportion/contour reading
+- ``human_review_wireframe.png``: wireframe diagnostic for topology density/flow
+
+Rendering uses Cycles on the CPU with 32 samples and denoising. Default Human
+settings are 180 cm, 95 kg, and average body type. Each sheet contains, left to
+right: front, 3/4, side, and back views of the same freshly generated Human.
+This is intentionally a development-review tool, not add-on runtime code.
 """
 
 from __future__ import annotations
@@ -38,16 +41,24 @@ from object_core.providers.human import HumanExperimentalProvider  # noqa: E402
 
 VIEW_ROTATIONS_DEGREES = (0.0, -45.0, -90.0, 180.0)
 VIEW_NAMES = ("Front", "3/4", "Side", "Back")
+REVIEW_MODES = ("clay", "silhouette", "wireframe")
 
 
 def _parse_args():
-    parser = argparse.ArgumentParser(description="Render one Human V2 review image")
+    parser = argparse.ArgumentParser(description="Render Human V2 diagnostic review images")
     parser.add_argument("--output", default="human_review.png")
     parser.add_argument("--height-cm", type=float, default=180.0)
     parser.add_argument("--weight-kg", type=float, default=95.0)
     parser.add_argument("--body-type", default="average")
     parser.add_argument("--resolution-x", type=int, default=1800)
     parser.add_argument("--resolution-y", type=int, default=900)
+    parser.add_argument(
+        "--modes",
+        nargs="+",
+        choices=REVIEW_MODES,
+        default=list(REVIEW_MODES),
+        help="Diagnostic render modes to write (default: clay silhouette wireframe)",
+    )
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(argv)
 
@@ -86,13 +97,54 @@ def _make_mesh_object(name, part):
 
 def _make_material():
     material = bpy.data.materials.new("Human Review Material")
-    material.diffuse_color = (0.52, 0.55, 0.58, 1.0)
     material.use_nodes = True
-    principled = material.node_tree.nodes.get("Principled BSDF")
-    if principled is not None:
-        principled.inputs["Base Color"].default_value = (0.52, 0.55, 0.58, 1.0)
-        principled.inputs["Roughness"].default_value = 0.72
     return material
+
+
+def _configure_clay_material(material):
+    material.node_tree.nodes.clear()
+    output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+    principled = material.node_tree.nodes.new("ShaderNodeBsdfPrincipled")
+    principled.inputs["Base Color"].default_value = (0.52, 0.55, 0.58, 1.0)
+    principled.inputs["Roughness"].default_value = 0.72
+    material.node_tree.links.new(principled.outputs["BSDF"], output.inputs["Surface"])
+
+
+def _configure_silhouette_material(material):
+    material.node_tree.nodes.clear()
+    output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+    emission = material.node_tree.nodes.new("ShaderNodeEmission")
+    emission.inputs["Color"].default_value = (0.92, 0.92, 0.92, 1.0)
+    emission.inputs["Strength"].default_value = 1.0
+    material.node_tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
+
+
+def _configure_wireframe_material(material):
+    material.node_tree.nodes.clear()
+    output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+    emission = material.node_tree.nodes.new("ShaderNodeEmission")
+    wire = material.node_tree.nodes.new("ShaderNodeWireframe")
+    wire.use_pixel_size = True
+    wire.inputs["Size"].default_value = 1.25
+    ramp = material.node_tree.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.40
+    ramp.color_ramp.elements[0].color = (0.055, 0.065, 0.08, 1.0)
+    ramp.color_ramp.elements[1].position = 0.60
+    ramp.color_ramp.elements[1].color = (0.94, 0.94, 0.94, 1.0)
+    material.node_tree.links.new(wire.outputs["Fac"], ramp.inputs["Fac"])
+    material.node_tree.links.new(ramp.outputs["Color"], emission.inputs["Color"])
+    material.node_tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
+
+
+def _configure_material(material, mode):
+    if mode == "clay":
+        _configure_clay_material(material)
+    elif mode == "silhouette":
+        _configure_silhouette_material(material)
+    elif mode == "wireframe":
+        _configure_wireframe_material(material)
+    else:
+        raise ValueError("unknown Human review mode: {}".format(mode))
 
 
 def _bounds(vertices):
@@ -102,7 +154,6 @@ def _bounds(vertices):
 
 
 def _rotated_xy_bounds(vertices, angle_degrees):
-    """Return exact XY bounds for one Z-rotated review copy."""
     angle = math.radians(angle_degrees)
     cosine = math.cos(angle)
     sine = math.sin(angle)
@@ -123,7 +174,6 @@ def _add_label(text, location, size):
     obj = bpy.data.objects.new(text + "Label", curve)
     bpy.context.collection.objects.link(obj)
     obj.location = location
-    # Default text faces +Z; rotate it to face the camera on the -Y axis.
     obj.rotation_euler = (math.radians(90.0), 0.0, 0.0)
     return obj
 
@@ -135,10 +185,9 @@ def _look_at(obj, target):
 
 def _add_lighting(center_z, scene_width, model_height):
     size = max(model_height, scene_width * 0.35)
+    power_scale = (model_height / 1.8) ** 2
 
     key_data = bpy.data.lights.new("Key", type="AREA")
-    # Human vertices are in centimeters; light power scales with distance squared.
-    power_scale = (model_height / 1.8) ** 2
     key_data.energy = 100.0 * power_scale
     key_data.shape = "RECTANGLE"
     key_data.size = size * 0.70
@@ -158,7 +207,6 @@ def _add_lighting(center_z, scene_width, model_height):
 
 
 def _validate_camera_frame(camera, review_objects, scene):
-    """Require every mesh vertex and label corner to fit the actual projection."""
     for obj in review_objects:
         points = (vertex.co for vertex in obj.data.vertices) if obj.type == "MESH" else (
             Vector(corner) for corner in obj.bound_box
@@ -201,8 +249,6 @@ def _configure_scene(args, part):
     model_height = maximum[2] - minimum[2]
     center_z = (minimum[2] + maximum[2]) * 0.5
 
-    # Use the exact rotated width of each copy rather than a single assumed
-    # footprint. This keeps spacing stable even as Human proportions change.
     rotated_bounds = [_rotated_xy_bounds(part.vertices, angle) for angle in VIEW_ROTATIONS_DEGREES]
     widths = [bounds[0][1] - bounds[0][0] for bounds in rotated_bounds]
     maximum_depth = max(bounds[1][1] - bounds[1][0] for bounds in rotated_bounds)
@@ -229,7 +275,6 @@ def _configure_scene(args, part):
         _add_label(view_name, (x, -maximum_depth * 0.60, minimum[2] - model_height * 0.075), model_height * 0.035)
 
     aspect = args.resolution_x / float(args.resolution_y)
-    # With horizontal sensor fit, ortho_scale is frame width, not height.
     ortho_scale = max(total_width * 1.12, model_height * 1.22 * aspect)
 
     camera_data = bpy.data.cameras.new("Review Camera")
@@ -237,8 +282,6 @@ def _configure_scene(args, part):
     camera_data.sensor_fit = "HORIZONTAL"
     camera_data.ortho_scale = ortho_scale
     camera_data.clip_start = 0.1
-    # Orthographic framing does not require the camera to retreat with sheet
-    # width. Keep it near the subjects, then set an explicit generous far clip.
     camera_distance = max(model_height * 2.2, maximum_depth * 6.0, 10.0)
     camera_data.clip_end = camera_distance + max(model_height, maximum_depth) * 4.0
 
@@ -253,6 +296,24 @@ def _configure_scene(args, part):
     bpy.context.view_layer.update()
     review_objects = mesh_objects + [obj for obj in scene.objects if obj.type == "FONT"]
     _validate_camera_frame(camera, review_objects, scene)
+    return material
+
+
+def _mode_output(base_output, mode):
+    if mode == "clay":
+        return base_output
+    return base_output.with_name("{}_{}{}".format(base_output.stem, mode, base_output.suffix))
+
+
+def _render_modes(args, material, output):
+    scene = bpy.context.scene
+    for mode in args.modes:
+        _configure_material(material, mode)
+        bpy.context.view_layer.update()
+        mode_output = _mode_output(output, mode)
+        scene.render.filepath = os.fspath(mode_output)
+        bpy.ops.render.render(write_still=True)
+        print("Human review {} image written to: {}".format(mode, mode_output))
 
 
 def main():
@@ -264,11 +325,8 @@ def main():
 
     _clear_scene()
     part = _human_part(args)
-    _configure_scene(args, part)
-
-    bpy.context.scene.render.filepath = os.fspath(output)
-    bpy.ops.render.render(write_still=True)
-    print("Human review image written to: {}".format(output))
+    material = _configure_scene(args, part)
+    _render_modes(args, material, output)
 
 
 if __name__ == "__main__":
