@@ -48,9 +48,10 @@ def _shape_front_vertex(vertex, proportions, chin_z, crown_z, bounds):
     tip = _bell(level, 0.43, 0.10) * center
     y += depth * (0.040 * bridge + 0.085 * tip)
 
-    # Orbital recess and brow ridge. This creates a visible socket/brow break
-    # while keeping the neutral face generic rather than expression-specific.
-    eye = _bell(level, 0.61, 0.09) * eye_band
+    # Orbital recess and brow ridge. Include the inner orbital region as well as
+    # the lateral eye band so center/inner-eye support points actually sit behind
+    # the brow instead of leaving the profile plateau unchanged.
+    eye = _bell(level, 0.61, 0.09) * (0.35 * inner_face + 0.65 * eye_band)
     brow = _bell(level, 0.70, 0.09) * (0.35 * inner_face + 0.65 * eye_band)
     y += depth * (-0.035 * eye + 0.030 * brow)
 
