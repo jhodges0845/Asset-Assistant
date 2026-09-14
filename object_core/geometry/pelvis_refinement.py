@@ -33,9 +33,16 @@ def _shape_for_side(vertex, side_sign, hip, proportions):
     the neutral Human remains exactly left/right symmetric.
     """
     x, y, z = vertex
+    # Generated rings can contain tiny floating-point X values at the intended
+    # center line (for example cos(pi/2)). Treat those as exactly central so a
+    # numerically positive/negative residue cannot select only one hip field
+    # and introduce visible/as-tested left-right asymmetry.
+    if abs(x) <= _EPSILON:
+        return vertex
+
     lateral = side_sign * x
     hip_lateral = abs(hip[0])
-    if lateral <= 0.0:
+    if lateral <= _EPSILON:
         return vertex
 
     radius = max(
