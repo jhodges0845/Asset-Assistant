@@ -107,7 +107,12 @@ def _edge_limb_projection(first, second, paths):
         second_projection, second_station, second_distance = _polyline_projection(second, path)
         if first_distance > radius_limit or second_distance > radius_limit:
             continue
+        # Keep both attachment and terminal rings unchanged. The support points
+        # we add should round the limb shafts, not alter the shoulder/hip seams
+        # or overshoot the wrist/ankle endpoints.
         if min(first_station, second_station) <= _SEAM_GUARD:
+            continue
+        if max(first_station, second_station) >= 1.0 - _SEAM_GUARD:
             continue
         station_delta = abs(first_station - second_station)
         if station_delta > _MAX_STATION_DELTA:
@@ -125,8 +130,8 @@ def refine_human_limb_cross_sections(mesh: ObjectMesh, proportions: HumanoidProp
     edges are recognized from their shared station along anatomical upper/lower
     arm and upper/lower leg centerlines. A shared midpoint is inserted and
     radially corrected from the centerline onto the original ellipse.
-    Longitudinal edges, torso geometry, hands, feet, and the branch seam nearest
-    each shoulder/hip remain untouched.
+    Longitudinal edges, torso geometry, hands, feet, and the attachment/terminal
+    rings nearest each shoulder/hip and wrist/ankle remain untouched.
     """
     if not isinstance(mesh, ObjectMesh) or len(mesh.parts) != 1:
         raise TypeError("limb refinement expects one generated ObjectMesh part")
