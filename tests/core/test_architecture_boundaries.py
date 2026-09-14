@@ -88,6 +88,18 @@ class ArchitectureBoundaryTests(unittest.TestCase):
             + "\n".join(violations),
         )
 
+    def test_workspace_ui_does_not_bind_blender_panel_callbacks_directly(self):
+        path = _REPO_ROOT / "blender_adapter" / "workflow_ui.py"
+        source = path.read_text(encoding="utf-8")
+        self.assertNotIn(".draw =", source)
+        self.assertNotIn(".poll =", source)
+
+    def test_workspace_panel_host_owns_required_blender_callback_binding(self):
+        path = _REPO_ROOT / "blender_adapter" / "workspace_panel_host.py"
+        source = path.read_text(encoding="utf-8")
+        self.assertIn("panel_type.draw =", source)
+        self.assertIn("panel_type.poll =", source)
+
 
 if __name__ == "__main__":
     unittest.main()
