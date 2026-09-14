@@ -21,8 +21,10 @@ Current `HumanExperimentalProvider.mesh()` composes:
 3. Human-specific shoulder/deltoid refinement
 4. `refine_human_pelvis`
 5. `refine_human_limb_cross_sections`
-6. `refine_human_facial_topology`
-7. `refine_human_cranium_cross_sections`
+6. `refine_human_facial_feature_loops`
+7. `refine_human_facial_topology`
+8. `refine_human_local_facial_anatomy`
+9. `refine_human_cranium_cross_sections`
 
 Verify the exact call order in `providers/human.py` before editing it.
 
@@ -32,7 +34,9 @@ Relevant Human geometry modules/tests:
 - `geometry/shoulder_refinement.py`
 - `geometry/pelvis_refinement.py`
 - `geometry/limb_refinement.py`
+- `geometry/facial_feature_topology.py`
 - `geometry/facial_refinement.py`
+- `geometry/facial_anatomy.py`
 - `geometry/cranium_refinement.py`
 - `tests/core/geometry/test_human_*`
 
