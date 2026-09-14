@@ -48,12 +48,18 @@ def _shape_front_vertex(vertex, proportions, chin_z, crown_z, bounds):
     tip = _bell(level, 0.43, 0.10) * center
     y += depth * (0.040 * bridge + 0.085 * tip)
 
-    # Orbital recess and brow ridge. Include the inner orbital region as well as
-    # the lateral eye band so center/inner-eye support points actually sit behind
-    # the brow instead of leaving the profile plateau unchanged.
-    eye = _bell(level, 0.61, 0.09) * (0.35 * inner_face + 0.65 * eye_band)
-    brow = _bell(level, 0.70, 0.09) * (0.35 * inner_face + 0.65 * eye_band)
-    y += depth * (-0.035 * eye + 0.030 * brow)
+    # Orbital recess and brow ridge. Cover the full inner orbital span instead of
+    # only vertices near the lateral eye band; otherwise an untouched diagonal
+    # head-ring point can remain the frontmost profile sample at both eye and brow
+    # levels and flatten the intended brow-over-eye break.
+    orbital_span = _bell(lateral, 0.0, 0.58)
+    eye = _bell(level, 0.61, 0.09) * (
+        0.50 * orbital_span + 0.20 * inner_face + 0.30 * eye_band
+    )
+    brow = _bell(level, 0.70, 0.09) * (
+        0.45 * orbital_span + 0.20 * inner_face + 0.35 * eye_band
+    )
+    y += depth * (-0.042 * eye + 0.036 * brow)
 
     # Upper/lower lip support with a restrained mouth groove. The lip pair is
     # deliberately close so later semantic edits can control fullness/identity.
