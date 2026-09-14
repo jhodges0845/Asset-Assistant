@@ -124,8 +124,8 @@ def _draw_artist_modify(workflow_ui, modify_ui, ui, panel, context):
             report.label(text=line, icon="ERROR" if line.startswith("Blocked:") else "NONE")
 
 
-def install(modify_ui, workflow_ui, ui, addon_version=(0, 9, 0)):
-    """Enhance the existing exchange format and promote it in Create > Modify."""
+def install(presentation_registry, modify_ui, workflow_ui, ui, addon_version=(0, 9, 0)):
+    """Enhance the exchange format and register Create > Modify presentation explicitly."""
     original_json = modify_ui.inspection_json
     if not getattr(original_json, "_asset_assistant_model_llm", False):
         def inspection_json_with_contract(snapshot):
@@ -152,8 +152,11 @@ def install(modify_ui, workflow_ui, ui, addon_version=(0, 9, 0)):
             context,
         )
 
-    draw_model_modify._asset_assistant_model_llm = True
-    workflow_ui._draw_artist_modify = draw_model_modify
+    presentation_registry.register_renderer(
+        "create.modify",
+        draw_model_modify,
+        owner=__name__,
+    )
 
 
 __all__ = ["install"]

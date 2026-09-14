@@ -26,8 +26,6 @@ _INSPECTION_KEYS = (
     _CAN_ADOPT_KEY,
 )
 
-_ORIGINAL_DRAW_ARTIST_MODIFY = None
-
 
 def _import_group(obj):
     if obj is None:
@@ -256,8 +254,14 @@ def _draw_external_modify(panel, context, ui, modify_ui):
     return True
 
 
-def install(ui, workflow_ui=None, modify_ui=None):
-    """Install external-asset target polling before Blender registers settings."""
+def _decorate_modify(next_renderer, panel, context, current_ui, current_modify_ui):
+    if _draw_external_modify(panel, context, current_ui, current_modify_ui):
+        return None
+    return next_renderer(panel, context, current_ui, current_modify_ui)
+
+
+def install(ui, presentation_registry=None):
+    """Install external-asset polling and explicit imported-Modify presentation."""
     annotations = ui.HUMANOID_PG_settings.__annotations__
     annotations["target"] = ui.PointerProperty(
         name="Object",
@@ -266,17 +270,13 @@ def install(ui, workflow_ui=None, modify_ui=None):
         update=ui._clear_report,
     )
 
-    if workflow_ui is not None and modify_ui is not None:
-        global _ORIGINAL_DRAW_ARTIST_MODIFY
-        if _ORIGINAL_DRAW_ARTIST_MODIFY is None:
-            _ORIGINAL_DRAW_ARTIST_MODIFY = workflow_ui._draw_artist_modify
-
-            def draw_artist_modify(panel, context, current_ui, current_modify_ui):
-                if _draw_external_modify(panel, context, current_ui, current_modify_ui):
-                    return
-                return _ORIGINAL_DRAW_ARTIST_MODIFY(panel, context, current_ui, current_modify_ui)
-
-            workflow_ui._draw_artist_modify = draw_artist_modify
+    if presentation_registry is not None:
+        presentation_registry.decorate(
+            "create.modify",
+            _decorate_modify,
+            owner=__name__ + ".modify",
+            order=200,
+        )
 
 
 _CLASSES = (
