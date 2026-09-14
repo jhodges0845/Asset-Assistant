@@ -19,9 +19,10 @@ Current `HumanExperimentalProvider.mesh()` composes:
 1. `generate_deformable_mesh`
 2. `refine_human_torso_cross_sections`
 3. Human-specific shoulder/deltoid refinement
-4. `refine_human_limb_cross_sections`
-5. `refine_human_facial_topology`
-6. `refine_human_cranium_cross_sections`
+4. `refine_human_pelvis`
+5. `refine_human_limb_cross_sections`
+6. `refine_human_facial_topology`
+7. `refine_human_cranium_cross_sections`
 
 Verify the exact call order in `providers/human.py` before editing it.
 
@@ -29,6 +30,7 @@ Relevant Human geometry modules/tests:
 - `geometry/deformable.py`
 - `geometry/body_refinement.py`
 - `geometry/shoulder_refinement.py`
+- `geometry/pelvis_refinement.py`
 - `geometry/limb_refinement.py`
 - `geometry/facial_refinement.py`
 - `geometry/cranium_refinement.py`
