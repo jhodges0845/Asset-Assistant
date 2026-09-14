@@ -18,6 +18,7 @@ _CREATE_MODES = (
     ("RIG", "Rig", "ARMATURE_DATA"),
 )
 
+_PRESENTATION_REGISTRY = None
 _WORKFLOW_UI = None
 _ASSET_INSPECTION_UI = None
 _ASSET_FILE_IMPORT_UI = None
@@ -166,7 +167,8 @@ def _draw_create(panel, context, ui, modify_ui, working_asset_ui):
             "Load, tune, preview, then apply",
             "MODIFIER",
         )
-        workspace._draw_artist_modify(panel, context, ui, modify_ui)
+        renderer = _PRESENTATION_REGISTRY.resolve("create.modify", workspace._draw_artist_modify)
+        renderer(panel, context, ui, modify_ui)
         return
 
     workspace = _WORKFLOW_UI
@@ -181,7 +183,8 @@ def _draw_create(panel, context, ui, modify_ui, working_asset_ui):
 
 def install(presentation_registry, workflow_ui, ui, asset_inspection_ui=None, asset_file_import_ui=None):
     """Register the Create renderer before Blender registers the settings class."""
-    global _WORKFLOW_UI, _ASSET_INSPECTION_UI, _ASSET_FILE_IMPORT_UI
+    global _PRESENTATION_REGISTRY, _WORKFLOW_UI, _ASSET_INSPECTION_UI, _ASSET_FILE_IMPORT_UI
+    _PRESENTATION_REGISTRY = presentation_registry
     _WORKFLOW_UI = workflow_ui
     _ASSET_INSPECTION_UI = asset_inspection_ui
     _ASSET_FILE_IMPORT_UI = asset_file_import_ui
