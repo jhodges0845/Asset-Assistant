@@ -4,6 +4,7 @@ import unittest
 from object_core import BodyType, HumanoidSpec, generate_proportions
 from object_core.geometry import generate_deformable_mesh, is_closed_manifold
 from object_core.geometry.facial_refinement import refine_human_facial_topology
+from object_core.proportions.landmarks import generate_landmarks
 
 
 class HumanFacialRefinementTests(unittest.TestCase):
@@ -13,10 +14,56 @@ class HumanFacialRefinementTests(unittest.TestCase):
         refined = refine_human_facial_topology(base, proportions)
         return proportions, base.parts[0], refined.parts[0]
 
+    @staticmethod
+    def _support_vertices(base, refined):
+        return refined.vertices[len(base.vertices):]
+
+    def _front_support_near(self, proportions, base, refined, level, tolerance=0.065):
+        points = generate_landmarks(proportions)
+        chin_z = points["chin"][2]
+        crown_z = points["crown"][2]
+        target_z = chin_z + (crown_z - chin_z) * level
+        half_width = proportions.head_width_cm * 0.5
+        candidates = [
+            vertex for vertex in self._support_vertices(base, refined)
+            if vertex[1] > 0.0
+            and abs(vertex[0]) <= half_width * 0.62
+            and abs(vertex[2] - target_z) <= proportions.head_height_cm * tolerance
+        ]
+        self.assertTrue(candidates, "expected front facial support vertices near requested level")
+        return max(vertex[1] for vertex in candidates)
+
     def test_refinement_adds_local_head_resolution(self):
         _, base, refined = self._fixture()
         self.assertGreater(len(refined.vertices), len(base.vertices))
         self.assertGreater(len(refined.faces), len(base.faces))
+
+    def test_neutral_support_anatomy_separates_nose_brow_and_eye_plane(self):
+        proportions, base, refined = self._fixture()
+        nose = self._front_support_near(proportions, base, refined, 0.45)
+        eyes = self._front_support_near(proportions, base, refined, 0.59)
+        brow = self._front_support_near(proportions, base, refined, 0.73)
+        self.assertGreater(nose - eyes, proportions.head_depth_cm * 0.04)
+        self.assertGreater(brow, eyes)
+
+    def test_neutral_support_anatomy_separates_mouth_from_lower_jaw(self):
+        proportions, base, refined = self._fixture()
+        jaw = self._front_support_near(proportions, base, refined, 0.18)
+        mouth = self._front_support_near(proportions, base, refined, 0.31)
+        self.assertGreater(mouth, jaw)
+
+    def test_support_anatomy_preserves_left_right_symmetry(self):
+        _, base, refined = self._fixture()
+        support = self._support_vertices(base, refined)
+        for x, y, z in support:
+            self.assertTrue(
+                any(
+                    abs(other[0] + x) < 1e-7
+                    and abs(other[1] - y) < 1e-7
+                    and abs(other[2] - z) < 1e-7
+                    for other in support
+                )
+            )
 
     def test_refinement_preserves_bounds_and_symmetry(self):
         proportions, base, refined = self._fixture()
