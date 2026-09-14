@@ -60,8 +60,9 @@ class HumanAnatomicalBaseContourTests(unittest.TestCase):
         hip_x = landmarks["hip.left"][0]
         knee_z = landmarks["knee.left"][2]
         ankle_z = landmarks["ankle.left"][2]
+        tolerance = self.proportions.standing_height_cm * 0.012
 
-        def local_half_width(part, z_target, tolerance):
+        def local_half_width(part, z_target):
             xs = [
                 abs(x - hip_x)
                 for x, _y, z in part.vertices
@@ -71,10 +72,10 @@ class HumanAnatomicalBaseContourTests(unittest.TestCase):
             self.assertTrue(xs)
             return max(xs)
 
-        knee_before = local_half_width(self.before, knee_z, self.proportions.height_cm * 0.012)
-        knee_after = local_half_width(self.after, knee_z, self.proportions.height_cm * 0.012)
-        ankle_before = local_half_width(self.before, ankle_z + self.proportions.foot_height_cm, self.proportions.height_cm * 0.012)
-        ankle_after = local_half_width(self.after, ankle_z + self.proportions.foot_height_cm, self.proportions.height_cm * 0.012)
+        knee_before = local_half_width(self.before, knee_z)
+        knee_after = local_half_width(self.after, knee_z)
+        ankle_before = local_half_width(self.before, ankle_z + self.proportions.foot_height_cm)
+        ankle_after = local_half_width(self.after, ankle_z + self.proportions.foot_height_cm)
         self.assertLessEqual(knee_after, knee_before)
         self.assertLessEqual(ankle_after, ankle_before)
 
