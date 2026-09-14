@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-_CATEGORY = "Asset Assistant"
+from . import workspace_panel_host
 
 
 def _section_header(layout, title, subtitle="", icon="NONE"):
@@ -247,11 +247,6 @@ def _draw_workspace(panel, context, presentation_registry, ui, modify_ui, animat
         presentation_registry.resolve("workspace.export", _draw_export)(panel, context, ui, working_asset_ui)
 
 
-def _hide_legacy_panel(panel_type):
-    def poll(_cls, _context): return False
-    panel_type.poll = classmethod(poll)
-
-
 def prepare(presentation_registry, ui, modify_ui, animation_names_ui, working_asset_ui=None, component_adoption_ui=None, hair_component_ui=None, clothing_component_ui=None, animation_adoption_ui=None, self_rigged_accessory=None):
     annotations = ui.HUMANOID_PG_settings.__annotations__
     if "asset_assistant_workspace" not in annotations:
@@ -260,11 +255,30 @@ def prepare(presentation_registry, ui, modify_ui, animation_names_ui, working_as
         annotations["asset_assistant_create_view"] = ui.EnumProperty(name="Create View", default="GENERATE", items=[("GENERATE", "Generate", "Create a new base asset"), ("MODIFY", "Modify", "Safely modify the current asset"), ("RIG", "Rig", "Rig or pose the current asset")])
     if "asset_assistant_modify_advanced" not in annotations:
         annotations["asset_assistant_modify_advanced"] = ui.BoolProperty(name="Advanced / External Edit", default=False)
-    ui.HUMANOID_PT_panel.bl_label = "Asset Assistant"; ui.HUMANOID_PT_panel.bl_category = _CATEGORY; ui.HUMANOID_PT_panel.bl_order = 0
-    ui.HUMANOID_PT_panel.bl_options = set(getattr(ui.HUMANOID_PT_panel, "bl_options", set())) - {"DEFAULT_CLOSED"}
+
     def draw_workspace(panel, context):
-        _draw_workspace(panel, context, presentation_registry, ui, modify_ui, animation_names_ui, working_asset_ui, component_adoption_ui, hair_component_ui, clothing_component_ui, animation_adoption_ui, self_rigged_accessory)
-    draw_workspace._asset_assistant_workspace = True; ui.HUMANOID_PT_panel.draw = draw_workspace
-    legacy_panels = (modify_ui.ASSET_ASSISTANT_PT_modify, ui.HUMANOID_PT_rigging, ui.HUMANOID_PT_animations, ui.HUMANOID_PT_validation, ui.HUMANOID_PT_export, animation_names_ui.ASSET_ASSISTANT_PT_animation_names)
-    for order, legacy in enumerate(legacy_panels, start=1):
-        legacy.bl_category = _CATEGORY; legacy.bl_order = order; _hide_legacy_panel(legacy)
+        return _draw_workspace(
+            panel,
+            context,
+            presentation_registry,
+            ui,
+            modify_ui,
+            animation_names_ui,
+            working_asset_ui,
+            component_adoption_ui,
+            hair_component_ui,
+            clothing_component_ui,
+            animation_adoption_ui,
+            self_rigged_accessory,
+        )
+
+    workspace_panel_host.bind_workspace_panel(ui.HUMANOID_PT_panel, draw_workspace)
+    legacy_panels = (
+        modify_ui.ASSET_ASSISTANT_PT_modify,
+        ui.HUMANOID_PT_rigging,
+        ui.HUMANOID_PT_animations,
+        ui.HUMANOID_PT_validation,
+        ui.HUMANOID_PT_export,
+        animation_names_ui.ASSET_ASSISTANT_PT_animation_names,
+    )
+    workspace_panel_host.hide_legacy_panels(legacy_panels)
