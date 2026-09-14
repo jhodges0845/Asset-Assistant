@@ -22,6 +22,23 @@ def _import_roots(path):
     return roots
 
 
+def _assigns_attribute(path, object_name, attribute_name):
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            continue
+        targets = list(node.targets) if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            if (
+                isinstance(target, ast.Attribute)
+                and target.attr == attribute_name
+                and isinstance(target.value, ast.Name)
+                and target.value.id == object_name
+            ):
+                return True
+    return False
+
+
 class ArchitectureBoundaryTests(unittest.TestCase):
     def test_object_core_never_imports_blender_or_adapter_packages(self):
         violations = []
@@ -51,6 +68,23 @@ class ArchitectureBoundaryTests(unittest.TestCase):
             [],
             violations,
             "providers must remain portable and adapter-independent:\n"
+            + "\n".join(violations),
+        )
+
+    def test_migrated_modify_modules_do_not_patch_workflow_renderer(self):
+        violations = []
+        for relative_path in (
+            "blender_adapter/model_json_ui.py",
+            "blender_adapter/asset_inspection_ui.py",
+        ):
+            path = _REPO_ROOT / relative_path
+            if _assigns_attribute(path, "workflow_ui", "_draw_artist_modify"):
+                violations.append(relative_path)
+
+        self.assertEqual(
+            [],
+            violations,
+            "migrated Modify presentation must compose through PresentationRegistry:\n"
             + "\n".join(violations),
         )
 
