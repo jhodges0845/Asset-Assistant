@@ -62,64 +62,56 @@ def _draw_animation_adoption(box, target):
     box.label(text="Keeps artist curves, NLA and drivers intact.")
 
 
-def _draw_imported_animation_header(panel, context, root):
-    layout = panel.layout
-    settings = context.scene.humanoid_settings
-    layout.prop(settings, "target", text="Asset")
-    rigs = asset_rigs(root)
+def _decorate_asset_summary(asset_identity_ui):
+    def decorate(next_renderer, layout, context):
+        settings = getattr(context.scene, "humanoid_settings", None)
+        target = getattr(settings, "target", None) if settings else None
+        if target is None:
+            return next_renderer(layout, context)
 
-    if not rigs:
-        card = layout.box()
-        card.label(text="STATIC ASSET", icon="INFO")
-        card.label(text="No base rig is present, so animation controls are not required.")
-        return False
+        logical_root = _draw_normalized_summary(asset_identity_ui, layout, context)
+        if logical_root is not None:
+            asset_identity_ui._draw_identity(layout, logical_root)
+        return logical_root
 
-    if len(rigs) > 1:
-        card = layout.box()
-        card.label(text="MULTIPLE BASE RIGS FOUND", icon="ERROR")
-        card.label(text="Choose or clean the intended armature before editing animation.")
-        return False
-
-    rig = rigs[0]
-    card = layout.box()
-    card.label(text="IMPORTED BASE RIG", icon="ARMATURE_DATA")
-    card.label(text=rig.name)
-    card.label(text="Edit the imported rig and animation directly; artist curves stay owned by the artist.")
-    actions = card.row(align=True)
-    actions.scale_y = 1.2
-    actions.operator("asset_assistant.select_base_rig", text="Select Rig", icon="RESTRICT_SELECT_OFF")
-    actions.operator("asset_assistant.pose_base_rig", text="Pose Rig", icon="POSE_HLT")
-    return True
+    return decorate
 
 
-def install(workflow_ui, asset_identity_ui, ui):
-    """Patch only the remaining UI paths that still assumed generated/direct-child structure."""
-    asset_identity_ui._draw_summary = lambda layout, context: _draw_normalized_summary(
-        asset_identity_ui, layout, context
+def _decorate_animate(next_renderer, panel, context, ui_module, animation_names_ui, animation_adoption_ui):
+    root = _target(context)
+    if root is None or not is_external_asset(root):
+        return next_renderer(panel, context, ui_module, animation_names_ui, animation_adoption_ui)
+
+    from . import workflow_ui
+
+    workflow_ui._section_header(panel.layout, "ANIMATION", "Create, preview and manage clips", "ACTION")
+    has_single_rig = len(asset_rigs(root)) == 1
+    if has_single_rig:
+        panel.layout.separator()
+        clip_box = panel.layout.box()
+        clip_box.label(text="CLIP LIBRARY", icon="ACTION")
+        animation_names_ui.ASSET_ASSISTANT_PT_animation_names.draw(
+            type("ClipLibraryProxy", (), {"layout": clip_box})(), context
+        )
+    if animation_adoption_ui is not None:
+        panel.layout.separator()
+        _draw_animation_adoption(panel.layout.box(), root)
+
+
+def install(presentation_registry, asset_identity_ui):
+    """Compose normalized imported-asset presentation through explicit registry slots."""
+    presentation_registry.decorate(
+        "shared.asset_summary",
+        _decorate_asset_summary(asset_identity_ui),
+        owner=__name__ + ".asset_summary",
+        order=100,
     )
-    workflow_ui._draw_animation_adoption = _draw_animation_adoption
-
-    original_draw_animate = workflow_ui._draw_animate
-
-    def draw_animate(panel, context, ui_module, animation_names_ui, animation_adoption_ui):
-        root = _target(context)
-        if root is None or not is_external_asset(root):
-            return original_draw_animate(panel, context, ui_module, animation_names_ui, animation_adoption_ui)
-
-        workflow_ui._section_header(panel.layout, "ANIMATION", "Create, preview and manage clips", "ACTION")
-        has_single_rig = _draw_imported_animation_header(panel, context, root)
-        if has_single_rig:
-            panel.layout.separator()
-            clip_box = panel.layout.box()
-            clip_box.label(text="CLIP LIBRARY", icon="ACTION")
-            animation_names_ui.ASSET_ASSISTANT_PT_animation_names.draw(
-                type("ClipLibraryProxy", (), {"layout": clip_box})(), context
-            )
-        if animation_adoption_ui is not None:
-            panel.layout.separator()
-            _draw_animation_adoption(panel.layout.box(), root)
-
-    workflow_ui._draw_animate = draw_animate
+    presentation_registry.decorate(
+        "workspace.animate",
+        _decorate_animate,
+        owner=__name__ + ".animate",
+        order=100,
+    )
 
 
 __all__ = ["install"]

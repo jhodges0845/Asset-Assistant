@@ -7,18 +7,10 @@ asset creation. The artist-facing workflow therefore keeps Create focused on
 Generate/Modify and exposes Rig & Pose at the top of Animate.
 """
 
-from .asset_structure import asset_rigs
-
-
 _CREATE_MODES = (
     ("GENERATE", "Generate", "ADD"),
     ("MODIFY", "Modify", "MODIFIER"),
 )
-
-
-def _single_imported_rig(_panel, _context, root):
-    """Let the shared Rig & Pose section own imported-rig state and guidance."""
-    return len(asset_rigs(root)) == 1
 
 
 def _decorate_create(next_renderer, panel, context, ui, modify_ui, working_asset_ui):
@@ -48,7 +40,7 @@ def _decorate_animate(next_renderer, panel, context, ui, animation_names_ui, ani
     )
 
 
-def install(presentation_registry, workspace_create_ui, normalized_import_workflow_ui):
+def install(presentation_registry, workspace_create_ui):
     """Compose Rig/Create/Animate presentation through explicit registry slots.
 
     The old RIG enum value remains registered so existing .blend files do not break.
@@ -67,13 +59,8 @@ def install(presentation_registry, workspace_create_ui, normalized_import_workfl
         "workspace.animate",
         _decorate_animate,
         owner=__name__ + ".animate",
-        order=100,
+        order=200,
     )
-
-    # Imported Animate previously drew its own small rig header. The shared RIGGING
-    # stage now renders that state for generated and imported assets alike, including
-    # Pose Mode entry/exit. Keep only the eligibility check in the imported wrapper.
-    normalized_import_workflow_ui._draw_imported_animation_header = _single_imported_rig
 
 
 __all__ = ["install"]
