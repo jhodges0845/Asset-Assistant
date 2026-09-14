@@ -13,6 +13,10 @@ class HumanDeformationSupportGeometryTests(unittest.TestCase):
         points = generate_landmarks(proportions)
         return proportions, mesh.parts[0], points
 
+    @staticmethod
+    def _vertices_at_level(part, z):
+        return [vertex for vertex in part.vertices if abs(vertex[2] - z) < 1e-6]
+
     def test_neck_has_multiple_intermediate_support_levels(self):
         proportions, part, points = self._fixture()
         shoulder_z = points["shoulder_center"][2]
@@ -37,6 +41,33 @@ class HumanDeformationSupportGeometryTests(unittest.TestCase):
                 if minimum_radius <= distance <= maximum_radius:
                     nearby.append(vertex)
             self.assertGreaterEqual(len(nearby), 8, side + " shoulder lacks a local support ring")
+
+    def test_torso_has_pelvis_support_level_above_hip_opening(self):
+        proportions, part, points = self._fixture()
+        hip_z = points["hip_center"][2]
+        support_z = hip_z + proportions.torso_length_cm * 0.10
+        support = self._vertices_at_level(part, support_z)
+        self.assertGreaterEqual(len(support), 8)
+
+    def test_torso_has_shoulder_support_level_below_arm_opening(self):
+        proportions, part, points = self._fixture()
+        shoulder_z = points["shoulder_center"][2]
+        support_z = shoulder_z - proportions.torso_length_cm * 0.08
+        support = self._vertices_at_level(part, support_z)
+        self.assertGreaterEqual(len(support), 8)
+
+    def test_support_levels_survive_supported_height_extremes(self):
+        for height in (120, 240):
+            with self.subTest(height=height):
+                proportions = generate_proportions(
+                    HumanoidSpec(height, 95, BodyType.AVERAGE)
+                )
+                part = generate_deformable_mesh(proportions).parts[0]
+                points = generate_landmarks(proportions)
+                pelvis_z = points["hip_center"][2] + proportions.torso_length_cm * 0.10
+                shoulder_z = points["shoulder_center"][2] - proportions.torso_length_cm * 0.08
+                self.assertGreaterEqual(len(self._vertices_at_level(part, pelvis_z)), 8)
+                self.assertGreaterEqual(len(self._vertices_at_level(part, shoulder_z)), 8)
 
 
 if __name__ == "__main__":
