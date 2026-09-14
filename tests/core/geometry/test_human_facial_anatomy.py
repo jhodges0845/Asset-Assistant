@@ -65,22 +65,32 @@ class HumanFacialAnatomyTests(unittest.TestCase):
         landmarks = generate_landmarks(self.proportions)
         chin_z = landmarks["chin"][2]
         height = landmarks["crown"][2] - chin_z
-        front = [vertex for vertex in self.after.vertices if vertex[1] > 0.0]
+        front = [
+            vertex
+            for vertex in self.after.vertices
+            if vertex[1] > 0.0
+            and abs(vertex[0]) <= self.proportions.head_width_cm * 0.24
+        ]
 
-        def max_y_near(level, radius=0.035):
-            candidates = [
-                vertex[1]
+        def max_y_at_nearest_level(target):
+            self.assertTrue(front)
+            normalized = [
+                ((vertex[2] - chin_z) / height, vertex[1])
                 for vertex in front
-                if abs((vertex[2] - chin_z) / height - level) <= radius
-                and abs(vertex[0]) <= self.proportions.head_width_cm * 0.24
+            ]
+            nearest_distance = min(abs(level - target) for level, _y in normalized)
+            candidates = [
+                y
+                for level, y in normalized
+                if abs(abs(level - target) - nearest_distance) <= 1e-9
             ]
             self.assertTrue(candidates)
             return max(candidates)
 
-        nose = max_y_near(0.43, 0.06)
-        eye = max_y_near(0.61, 0.06)
-        brow = max_y_near(0.70, 0.06)
-        mouth = max_y_near(0.29, 0.055)
+        nose = max_y_at_nearest_level(0.43)
+        eye = max_y_at_nearest_level(0.61)
+        brow = max_y_at_nearest_level(0.70)
+        mouth = max_y_at_nearest_level(0.29)
         self.assertGreater(nose, eye)
         self.assertGreater(brow, eye)
         self.assertGreater(nose, mouth)
