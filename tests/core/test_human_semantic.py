@@ -7,9 +7,15 @@ from object_core.objects import get_provider
 
 
 class HumanSemanticTests(unittest.TestCase):
-    def setUp(self):
-        self.provider = get_provider("human_experimental")
-        self.values = {"height_cm": 180.0, "weight_kg": 70.0, "body_type": "average"}
+    @classmethod
+    def setUpClass(cls):
+        cls.provider = get_provider("human_experimental")
+        cls.values = {"height_cm": 180.0, "weight_kg": 70.0, "body_type": "average"}
+        # ObjectMesh and its nested contracts are immutable. Reusing the neutral
+        # Human here avoids regenerating the full refined topology for every
+        # semantic test while preserving test isolation: semantic_mesh returns a
+        # new mesh instead of mutating this shared fixture.
+        cls.mesh = cls.provider.mesh(cls.values)
 
     def _operation(self, operation, target, **arguments):
         return SemanticOperation(operation, target, tuple(arguments.items()))
@@ -23,7 +29,7 @@ class HumanSemanticTests(unittest.TestCase):
         self.assertNotIn(("hair", "add_component"), capabilities)
 
     def test_face_shape_preserves_topology_and_moves_vertices(self):
-        mesh = self.provider.mesh(self.values)
+        mesh = self.mesh
         changed = self.provider.semantic_mesh(
             mesh,
             self.values,
@@ -35,7 +41,7 @@ class HumanSemanticTests(unittest.TestCase):
         self.assertNotEqual(mesh.parts[0].vertices, changed.parts[0].vertices)
 
     def test_jaw_and_cheek_profiles_preserve_topology(self):
-        mesh = self.provider.mesh(self.values)
+        mesh = self.mesh
         changed = self.provider.semantic_mesh(
             mesh,
             self.values,
@@ -50,7 +56,7 @@ class HumanSemanticTests(unittest.TestCase):
         self.assertNotEqual(mesh.parts[0].vertices, changed.parts[0].vertices)
 
     def test_left_arm_scale_does_not_move_rightmost_arm_vertex(self):
-        mesh = self.provider.mesh(self.values)
+        mesh = self.mesh
         changed = self.provider.semantic_mesh(
             mesh,
             self.values,
@@ -63,7 +69,7 @@ class HumanSemanticTests(unittest.TestCase):
         self.assertNotEqual(original, result)
 
     def test_profiles_can_compose_into_character_shape_recipe(self):
-        mesh = self.provider.mesh(self.values)
+        mesh = self.mesh
         operations = (
             self._operation("shape", "torso", profile="athletic", amount=0.7),
             self._operation("shape", "shoulders", profile="broad", amount=0.5),
@@ -100,7 +106,7 @@ class HumanSemanticTests(unittest.TestCase):
         self.assertTrue(any("hair" in blocker for blocker in hair_plan.blockers))
 
     def test_unknown_profile_is_rejected_by_provider(self):
-        mesh = self.provider.mesh(self.values)
+        mesh = self.mesh
         with self.assertRaisesRegex(ValueError, "Unsupported Human semantic profile"):
             self.provider.semantic_mesh(
                 mesh,
