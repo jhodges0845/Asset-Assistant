@@ -101,20 +101,31 @@ def _local_joint_bones(vertex, bones, max_influences):
     return local[:max_influences]
 
 
-def _uses_soft_upper_body_transition(ranked):
-    """Use gentler falloff across the visible neck and shoulder junctions."""
+def _uses_soft_joint_transition(ranked):
+    """Use gentler falloff across Human joints that visibly bend or compress."""
     names = {bone.name for _distance_value, bone in ranked}
     if {"torso", "neck"} <= names:
         return True
-    return any({"torso", "upper_arm." + side} <= names for side in ("left", "right"))
+    for side in ("left", "right"):
+        pairs = (
+            ("torso", "upper_arm." + side),
+            ("torso", "upper_leg." + side),
+            ("upper_arm." + side, "forearm." + side),
+            ("forearm." + side, "hand." + side),
+            ("upper_leg." + side, "lower_leg." + side),
+            ("lower_leg." + side, "foot." + side),
+        )
+        if any(set(pair) <= names for pair in pairs):
+            return True
+    return False
 
 
 def _weights_for_vertex(vertex, bones, max_influences=4):
     ranked = _local_joint_bones(vertex, bones, max_influences)
-    # Neck and shoulder silhouettes looked hinge-like with inverse-square falloff.
-    # A slightly wider, inverse-linear transition keeps the same local bone
-    # neighborhood while sharing motion more gradually across those junctions.
-    if _uses_soft_upper_body_transition(ranked):
+    # Major Human joints looked hinge-like with inverse-square falloff. Keep the
+    # same strictly local bone neighborhoods, but use a gentler inverse-linear
+    # blend where supported topology is intended to share deformation.
+    if _uses_soft_joint_transition(ranked):
         epsilon = 2e-2
         power = 1.0
     else:
