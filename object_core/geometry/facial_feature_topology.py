@@ -27,7 +27,10 @@ def _is_head_vertical_edge(first, second, chin_z, crown_z):
 
 def _shape_feature_midpoint(vertex, proportions, chin_z, crown_z):
     x, y, z = vertex
-    if y <= 0.0:
+    # Mirrored side-plane vertices can carry tiny opposite-signed floating
+    # values around y == 0. Treat that whole epsilon band as non-front geometry
+    # so only genuinely forward-facing feature points are shaped.
+    if y <= _EPSILON:
         return vertex
 
     height = max(crown_z - chin_z, 1e-9)
