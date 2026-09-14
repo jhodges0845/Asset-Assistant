@@ -8,9 +8,17 @@ This review evaluates the maintainability of Asset Assistant on `main` before th
 
 Asset Assistant has a strong fundamental architecture and does **not** need a broad rewrite. The host-independent `object_core`, provider specialization, Blender adapter boundary, ownership/preservation model, validation flow, and target-specific export behavior are all worth preserving.
 
-The primary maintainability risk is localized inside the Blender presentation/integration layer. Several modules currently compose the product by replacing functions or panel callbacks in other modules during `install()` / `prepare()` calls. This makes registration order carry architectural meaning and makes it harder to reason about whether a later installer has replaced an earlier contribution.
+The primary maintainability risk identified by this review was localized inside the Blender presentation/integration layer, where feature installers replaced functions or panel callbacks in other modules and made registration order carry architectural meaning.
 
-Current assessment:
+That risk has now been materially reduced through the stabilization series:
+
+- #245 introduced `PresentationRegistry` and migrated major workspace composition.
+- #246 added architecture dependency guards, coverage floor, and support-source-of-truth alignment.
+- #247 removed normalized imported-animation callback replacement.
+- #248 introduced explicit Create > Modify composition and guarded against callback regression.
+- #249 isolated required Blender panel `draw`/`poll` attachment behind a named host boundary.
+
+Current assessment after stabilization:
 
 | Area | Health | Assessment |
 | --- | --- | --- |
@@ -19,15 +27,15 @@ Current assessment:
 | Blender translation layer | Strong | Preserve |
 | Ownership/preservation contracts | Strong | Protect with tests |
 | Validation architecture | Strong | Protect with tests |
-| Tests/CI | Strong | Add static/architecture gates |
+| Tests/CI | Strong | Coverage + architecture guards + syntax gate |
 | Target/export architecture | Strong | Preserve |
+| Presentation composition | Strong | Explicit registry composition |
+| Blender panel host binding | Strong | Isolated named host boundary |
 | Core gateway | Growing | Watch for facade bloat |
-| Module discoverability | Moderate | Improve |
-| Compatibility/source-of-truth | Moderate | Align docs and metadata |
-| Blender registration | Fragile | Stabilize now |
-| Presentation composition | Fragile | Stabilize now |
+| Module discoverability | Moderate/Good | Improved; continue local cleanup only |
+| Runtime fastpaths | Acceptable | Keep narrow and semantics-preserving |
 
-Overall maintainability is approximately **7/10**: healthy enough to evolve safely, but the Blender composition pattern should be corrected before adding another large workflow layer.
+Overall maintainability is now approximately **8–8.5/10**. The architecture is healthy enough to freeze for feature work. Future cleanup should be driven by concrete pain rather than continued preemptive refactoring.
 
 ## What should not be rewritten
 
@@ -40,52 +48,31 @@ The following boundaries are healthy and should remain architectural constraints
 5. Imported and artist-authored work remains preservation-first; Asset Assistant must not silently claim unrelated structures.
 6. New abstractions should be justified by real implementations rather than speculative framework work.
 
-## Highest-priority risk: order-dependent Blender composition
+## Stabilized Blender presentation model
 
-The current Blender entry point calls a sequence of `prepare()` and `install()` functions before registration. Several of those functions replace module-level draw functions or panel callbacks in another module.
+Presentation composition now uses explicit named slots rather than install-order callback replacement. Feature modules register base renderers or deterministic decorators through `PresentationRegistry`. Duplicate ownership is visible and testable.
 
-Examples include workspace navigation, Create presentation, asset identity, and the final workspace panel draw callback. The visible behavior works, but the dependency graph is implicit:
+Blender panel class callback attachment is deliberately **not** modeled as presentation composition. Blender requires `draw`/`poll` callbacks on classes, so those mutations are treated as host integration and isolated in `workspace_panel_host` rather than spread across workflow modules.
 
-- install order affects the final renderer;
-- later installers can replace earlier behavior;
-- feature modules need knowledge of another module's private functions;
-- UI regressions can be caused by composition order rather than business logic;
-- new contributors or agents must understand a growing sequence of mutations before changing one screen.
-
-This is the main architecture debt to pay down now.
-
-## Stabilization direction
-
-Introduce an explicit presentation/workspace registry. Feature modules should contribute renderers or sections to named slots/workspaces rather than replacing functions in `workflow_ui`.
-
-Conceptually:
+The resulting mental model is:
 
 ```text
-PresentationRegistry
-  shared
-    workspace_navigation
-    asset_summary
-  CREATE
-    generate
-    modify
-    rig
-  ANIMATE
-    workflow
-    clip_library
-    adoption
-  COMPONENTS
-    inventory
-    add
-    modify
-  EXPORT
-    destination
-    validation
-    export
+object_core + providers
+        |
+        v
+ Blender adapter behavior
+        |
+        +--> PresentationRegistry --> workspace renderers/decorators
+        |                              |
+        |                              v
+        +----------------------> workspace_panel_host --> Blender panel classes
+
+ Runtime optimizations:
+   ui_fastpath       -> redraw/performance seam
+   modify_fastpath   -> execution/performance seam
 ```
 
-The registry should make duplicate ownership visible and deterministic. `workflow_ui` should consume the registry rather than being mutated by other presentation modules.
-
-The first migration should be intentionally narrow: workspace navigation, Create workspace rendering, and asset summary/identity. Once proven by tests and Blender CI, the same pattern can be extended to the remaining presentation modules.
+The fastpaths are acceptable implementation seams because they are narrow and preserve validation/ownership semantics. They should not be forced through `PresentationRegistry`. Revisit them only if they start changing product semantics, accumulating unrelated behavior, or becoming difficult to remove.
 
 ## Secondary maintainability findings
 
@@ -99,48 +86,54 @@ The provider model is healthy, but capability booleans are increasing. Do not re
 
 ### Human naming/history
 
-`HumanExperimentalProvider` is now the provider used for new Human assets. Internal naming can eventually become clearer while preserving serialized/legacy provider keys through compatibility aliases. Do not mix this rename into the presentation stabilization work.
+`HumanExperimentalProvider` is now the provider used for new Human assets. Internal naming can eventually become clearer while preserving serialized/legacy provider keys through compatibility aliases. Do not mix this rename into Human V2 topology/rig quality work unless it becomes necessary for that implementation.
 
 ### Source-of-truth drift
 
-Support claims should match automated evidence. Current documentation/metadata should be aligned with the Python and Blender versions actually exercised by CI. Compatibility statements should distinguish "tested" from "expected/legacy" support.
+Support claims now follow automated evidence: Python 3.9–3.12 for the portable core and Blender 5.2.1 for current Blender integration. Keep compatibility documentation and CI changes together.
 
-## Test and policy improvements
+## Executable guardrails
 
-After the presentation registry foundation lands, add architecture/static checks that make important rules executable rather than dependent on memory. Candidate checks:
+The stabilization pass moved important rules from memory into CI:
 
-- `object_core` must not import `bpy`;
-- `object_core` must not import `blender_adapter`;
-- providers must not import Blender adapter code;
-- new implementation must not move into `humanoid_blender` compatibility code;
-- presentation modules should not replace another module's private draw callback once migrated to registry composition;
-- lint/static checks should run in CI;
-- coverage should have an intentional minimum once a realistic baseline is measured;
-- support metadata and CI matrix should remain consistent.
+- `object_core` must not import `bpy`, `blender_adapter`, or `humanoid_blender`.
+- providers must remain Blender/adapter-independent.
+- migrated Modify presentation cannot resume direct `workflow_ui` callback patching.
+- `workflow_ui` cannot directly bind panel `draw`/`poll` callbacks after the host-boundary migration.
+- core coverage has an intentional minimum.
+- supported Python/Blender ranges are tied to tested CI evidence.
+- Python sources are compiled in CI before the heavy Blender integration job.
 
-## Recommended sequence
+## Architecture freeze checkpoint
 
-1. Introduce presentation registry foundation.
-2. Migrate navigation, asset summary/identity, and Create presentation without intended visible changes.
-3. Add registry/composition tests and run full CI.
-4. Continue migrating remaining order-dependent presentation installers in small PRs.
-5. Add architecture boundary/static checks.
-6. Align support metadata/documentation.
-7. Re-run architecture checkpoint.
-8. Begin Human V2 topology/anatomy work.
-9. Follow with rig/weighting V2 and locomotion semantics.
-10. Defer final UI/UX restructuring and visual polish until feature/character architecture is stable.
+Architecture stabilization is complete enough to begin Human V2.
 
-## Architectural guardrails for future changes
+**Freeze rule:** do not continue broad architecture cleanup while implementing Human V2 unless a concrete feature cannot fit the current model or a test exposes a real boundary problem.
 
-- Prefer explicit registration over callback monkey-patching.
-- Keep dependency direction visible and one-way.
-- Do not place provider/anatomy rules in shared Blender workflow code.
-- Do not place Blender rules in `object_core`.
-- Preserve artist ownership and explicit preview/apply behavior.
-- Favor small, reversible architecture PRs with no intended visible behavior change.
-- When a new feature cannot be clearly placed in the architecture diagram, review its boundary before merging.
+For every major Human V2 PR, ask:
+
+> Did we make Asset Assistant better without making it harder to maintain?
+
+Flag a change before merge if it requires any of the following:
+
+- Blender imports inside `object_core` or providers;
+- anatomy-specific logic inside shared workflow code;
+- direct cross-module presentation callback replacement;
+- a new global installer whose order changes behavior invisibly;
+- silent ownership transfer of artist/imported data;
+- bypassing validation to improve convenience or performance;
+- expanding a runtime fastpath into a second implementation of the workflow.
+
+## Recommended next sequence
+
+1. Merge this final stabilization checkpoint if CI is green.
+2. Freeze architecture.
+3. Begin Human V2 topology/anatomy work.
+4. Follow with rig/deformation and weighting improvements.
+5. Introduce semantic locomotion phases/contact handling and improve generated Walk/Run motion.
+6. Perform one end-to-end Maxine quality pass through Blender and at least one game-engine destination.
+7. Return to UI/UX density/progressive disclosure and final visual polish afterward.
 
 ## Review conclusion
 
-Asset Assistant is not in a rewrite state. The core architecture is a strength. The immediate goal is to make the Blender presentation layer as explicit and maintainable as the underlying core/provider architecture before deeper Human V2 work begins.
+Asset Assistant is not in a rewrite state. The stabilization series corrected the main Blender composition weakness without disturbing the strong core/provider/ownership/export architecture. The codebase is now in a good position to stop refactoring architecture and invest in the largest remaining product-quality gap: **Human V2 character quality and deformation/motion fidelity**.
