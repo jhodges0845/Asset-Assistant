@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Anatomy-oriented connected Human topology construction."""
 
+from collections import defaultdict, deque
 from math import cos, pi, sin
 from ..models.mesh import MeshPart, ObjectMesh
 from ..models.proportions import HumanoidProportions
@@ -47,9 +48,6 @@ def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p):
         if ring[i] is not None: continue
         angle=2*pi*i/16; ring[i]=len(vertices); vertices.append((center[0]+width*.5*cos(angle),center[1]+depth*.5*sin(angle),center[2]))
     first=tuple(ring)
-    # Each sector has three in-between vertices. Fan those three triangles to the
-    # next shared opening vertex; stop before the shared endpoint itself or the
-    # final triangle would repeat the same vertex twice and become degenerate.
     for sector in range(4):
         a=cardinal[sector]; b=cardinal[(sector+1)%4]; end=16 if sector==3 else b
         for i in range(a,end-1): faces.append((first[i%16],first[(i+1)%16],opening[(sector+1)%4]))
@@ -67,17 +65,36 @@ def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p):
     previous=rings[-1]
     for idx,(center,width,depth) in enumerate(zip(centers[1:],widths[1:],depths[1:])):
         current=[]
-        sides=8
-        for i in range(sides):
-            angle=2*pi*i/sides
-            vz=max(0.0,center[2]+depth*.5*sin(angle)); vy=center[1]
-            current.append(len(vertices)); vertices.append((center[0]+width*.5*cos(angle),vy,vz))
+        for i in range(8):
+            angle=2*pi*i/8; vz=max(0.0,center[2]+depth*.5*sin(angle)); current.append(len(vertices)); vertices.append((center[0]+width*.5*cos(angle),center[1],vz))
         current=tuple(current)
         if idx==0: _append_16_to_8_transition(faces,previous,current)
         else:
             for i in range(8): faces.append((previous[i],previous[(i+1)%8],current[(i+1)%8],current[i]))
         previous=current
     faces.append(tuple(previous))
+
+def _orient_faces_consistently(faces):
+    """Orient each connected manifold surface so shared edges run opposite ways."""
+    edge_faces=defaultdict(list)
+    for fi,face in enumerate(faces):
+        for i,a in enumerate(face):
+            b=face[(i+1)%len(face)]; edge_faces[tuple(sorted((a,b)))].append((fi,a,b))
+    flip=[None]*len(faces)
+    for seed in range(len(faces)):
+        if flip[seed] is not None: continue
+        flip[seed]=False; queue=deque([seed])
+        while queue:
+            fi=queue.popleft(); face=faces[fi]
+            for i,a in enumerate(face):
+                b=face[(i+1)%len(face)]; entries=edge_faces[tuple(sorted((a,b)))]
+                for other,oa,ob in entries:
+                    if other==fi: continue
+                    same=(a==oa and b==ob)
+                    required=flip[fi] ^ same
+                    if flip[other] is None: flip[other]=required; queue.append(other)
+                    elif flip[other]!=required: raise ValueError("anatomical Human surface cannot be oriented consistently")
+    return tuple(tuple(reversed(face)) if flip[i] else tuple(face) for i,face in enumerate(faces))
 
 def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh:
     if not isinstance(proportions,HumanoidProportions): raise TypeError("proportions must be HumanoidProportions")
@@ -91,4 +108,4 @@ def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh
         shoulder=pts["shoulder."+side]; elbow=pts["elbow."+side]; wrist=pts["wrist."+side]; fingertips=pts["fingertips."+side]; shoulder_exit=_lerp_point(shoulder,elbow,.12); palm=_lerp_point(wrist,fingertips,.42); knuckles=_lerp_point(wrist,fingertips,.72); hw=p.forearm_thickness_cm*.92; hd=p.forearm_thickness_cm*.40
         ac,aw,ad=_supported_joint_chain((shoulder,shoulder_exit,elbow,wrist,palm,knuckles,fingertips),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hw,hw*.94,hw*.48),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hd,hd*.88,hd*.54)); _append_branch(vertices,faces,openings[("shoulder",side)],ac,aw,ad)
         _append_anatomical_leg(vertices,faces,openings[("hip",side)],pts["hip."+side],pts["knee."+side],pts["ankle."+side],p)
-    vertices=tuple(vertices); faces=tuple(faces); return ObjectMesh((MeshPart("human",vertices,faces,_generate_face_atlas_uvs(vertices,faces)),))
+    vertices=tuple(vertices); faces=_orient_faces_consistently(faces); return ObjectMesh((MeshPart("human",vertices,faces,_generate_face_atlas_uvs(vertices,faces)),))
