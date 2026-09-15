@@ -36,32 +36,34 @@ def config(m,mode):
 def main():
     a=args(); clear(); shape=NeutralPelvisShape(width=a.width,depth=a.depth,height=a.height,hip_fullness=a.hip_fullness,glute_projection=a.glute_projection,crotch_width=a.crotch_width,thigh_spacing=a.thigh_spacing); verts,faces,_=generate_neutral_pelvis(shape); material=mat()
 
-    # Center the diagnostic layout from the actual generated bounds instead of
-    # assuming the pelvis is centered at world origin.
     min_x=min(v[0] for v in verts); max_x=max(v[0] for v in verts)
     min_y=min(v[1] for v in verts); max_y=max(v[1] for v in verts)
     min_z=min(v[2] for v in verts); max_z=max(v[2] for v in verts)
     mesh_center=Vector(((min_x+max_x)*.5,(min_y+max_y)*.5,(min_z+max_z)*.5))
+    # Recenter the actual vertex coordinates before rotating. Object translation is
+    # applied after rotation in Blender, so translating an uncentered mesh does NOT
+    # change its rotation pivot. That was why the side/back copies wandered out of frame.
+    centered_verts=tuple((x-mesh_center.x,y-mesh_center.y,z-mesh_center.z) for x,y,z in verts)
     mesh_width=max_x-min_x; mesh_depth=max_y-min_y; mesh_height=max_z-min_z
-    view_width=max(mesh_width,mesh_depth)
-    gutter=max(6.0,view_width*.28)
+    # A rotation-safe footprint keeps every view inside its own slot.
+    horizontal_radius=max(math.hypot(x,y) for x,y,_ in centered_verts)
+    view_width=2.0*horizontal_radius
+    gutter=max(6.0,view_width*.22)
     spacing=view_width+gutter
     xs=(-1.5*spacing,-.5*spacing,.5*spacing,1.5*spacing)
 
     for (name,angle),x in zip(VIEWS,xs):
-        mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(verts,[],faces); mesh.update(); obj=bpy.data.objects.new("Pelvis "+name,mesh); bpy.context.collection.objects.link(obj)
-        # Rotate each copy about its own geometric center so the views stay aligned.
-        obj.location=(x-mesh_center.x,-mesh_center.y,-mesh_center.z)
-        obj.rotation_mode="XYZ"; obj.rotation_euler.z=math.radians(angle); obj.data.materials.append(material)
+        mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(centered_verts,[],faces); mesh.update(); obj=bpy.data.objects.new("Pelvis "+name,mesh); bpy.context.collection.objects.link(obj)
+        obj.location=(x,0,0); obj.rotation_mode="XYZ"; obj.rotation_euler.z=math.radians(angle); obj.data.materials.append(material)
 
     scene=bpy.context.scene; scene.render.engine="CYCLES"; scene.cycles.device="CPU"; scene.cycles.samples=32; scene.cycles.use_denoising=True; scene.render.resolution_x=1800; scene.render.resolution_y=900; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"
     world=scene.world or bpy.data.worlds.new("Pelvis World"); scene.world=world; world.use_nodes=True; bg=world.node_tree.nodes.get("Background"); bg.inputs["Color"].default_value=(.055,.065,.08,1); bg.inputs["Strength"].default_value=.22
 
-    # Fit all four views from their calculated layout.  The 2:1 image aspect means
-    # horizontal framing normally dominates; vertical scale is still protected.
-    layout_width=3.0*spacing+2.0*view_width
-    required_vertical=max(mesh_height,view_width)*1.35
-    required_horizontal=(layout_width/2.0)*1.10
+    # Orthographic scale is vertical world span; the 1800x900 render exposes twice
+    # that span horizontally. Fit the complete four-view sheet with a safe margin.
+    layout_width=3.0*spacing+view_width
+    required_vertical=max(mesh_height,view_width)*1.30
+    required_horizontal=(layout_width/2.0)*1.08
     ortho_scale=max(required_vertical,required_horizontal)
     camd=bpy.data.cameras.new("Camera"); camd.type="ORTHO"; camd.ortho_scale=ortho_scale; cam=bpy.data.objects.new("Camera",camd); bpy.context.collection.objects.link(cam); cam.location=(0,-150,0); look(cam,(0,0,0)); scene.camera=cam
 
