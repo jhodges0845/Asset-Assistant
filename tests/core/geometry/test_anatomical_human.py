@@ -28,6 +28,14 @@ class AnatomicalHumanTopologyTests(unittest.TestCase):
         self.assertTrue(lateral); self.assertTrue(medial)
         self.assertGreater(max(v[2] for v in lateral),min(v[2] for v in medial))
 
+    def test_pelvis_has_no_full_width_conversion_belts(self):
+        hip_z=self.landmarks["hip_center"][2]
+        # Human V2 previously inserted complete 16-vertex loops at both of these
+        # offsets before splitting into the thighs.  Those circumferential belts
+        # created the visible skirt/shelf in the diagnostic wireframe.
+        for old_level in (hip_z-1.5,hip_z-3.8):
+            self.assertLess(len([v for v in self.part.vertices if abs(v[2]-old_level)<=1e-7]),16)
+
     def test_pelvis_carries_rear_volume_into_upper_thigh(self):
         hip=self.landmarks["hip.left"]; knee=self.landmarks["knee.left"]
         z18=hip[2]+(knee[2]-hip[2])*.18; z52=hip[2]+(knee[2]-hip[2])*.52
