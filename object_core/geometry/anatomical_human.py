@@ -52,32 +52,30 @@ def _append_ring_band(faces, upper, lower):
     for i in range(16): faces.append((upper[i],upper[(i+1)%16],lower[(i+1)%16],lower[i]))
 
 def _append_dual_leg_bridge(vertices,faces,pelvis_boundary,left_points,right_points):
-    """Create two thigh openings plus a central groin bridge without radial fans.
+    """Tile a pair-of-pants patch between one pelvis loop and two thigh loops.
 
-    Each 16-point thigh root is connected to a dedicated half of the 16-point pelvic
-    boundary. The remaining medial half-rings are paired edge-for-edge across the
-    midline. Front and rear closure quads join the ends of that medial strip back to
-    the pelvic boundary, yielding one closed pair-of-pants surface rather than two
-    independent radial fans.
+    The patch has exactly three boundaries: the 16-edge pelvis loop and the two
+    16-edge thigh-root loops. Outer thigh arcs follow the pelvic boundary while
+    the medial arcs pair across the crotch. Two triangular end caps close the
+    internal front/rear seams. This gives the patch Euler characteristic -1 and
+    leaves each of its three boundary loops available for exactly one adjoining
+    surface band.
     """
     left=_append_ring(vertices,left_points); right=_append_ring(vertices,right_points)
     left_p=(0,1,2,3,4,5,6,7); right_p=(8,9,10,11,12,13,14,15)
     left_t=(0,1,2,3,4,5,6,7); right_t=(8,9,10,11,12,13,14,15)
     for seq_p,seq_t,ring in ((left_p,left_t,left),(right_p,right_t,right)):
         for j in range(len(seq_p)-1): faces.append((pelvis_boundary[seq_p[j]],pelvis_boundary[seq_p[j+1]],ring[seq_t[j+1]],ring[seq_t[j]]))
-    # Outer seam sectors connect each thigh root back around the pelvic ring.
     faces.append((pelvis_boundary[15],pelvis_boundary[0],left[0],left[15]))
     faces.append((pelvis_boundary[7],pelvis_boundary[8],right[8],right[7]))
-    # Pair the complete medial half of each thigh root. The mirrored right-hand
-    # traversal consumes each remaining root edge exactly once.
     for j in range(8):
         li=7+j; r0=(7-j)%16; r1=(6-j)%16
         faces.append((left[li],left[(li+1)%16],right[r1],right[r0]))
-    # The medial strip has one front and one rear cross-edge. Close those two
-    # boundaries to the corresponding pelvic seam vertices; without these quads
-    # the surface is orientable but still has two open boundary loops.
-    faces.append((pelvis_boundary[7],left[7],right[7],pelvis_boundary[8]))
-    faces.append((pelvis_boundary[15],right[15],left[15],pelvis_boundary[0]))
+    # The strip ends are three-edge holes, not quads. Closing them as triangles
+    # consumes each internal seam edge once while leaving pelvis/thigh loop edges
+    # as the only boundaries of this pair-of-pants patch.
+    faces.append((pelvis_boundary[7],left[7],right[7]))
+    faces.append((pelvis_boundary[15],right[15],left[15]))
     return left,right
 
 def _append_anatomical_leg_from_root(vertices,faces,root,sections,p):
@@ -129,7 +127,6 @@ def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh
     for side in ("left","right"):
         idx,face=_opening_face(body_faces,fmap,_SHOULDER_OPENING_LEVEL,side); openings[side]=face; removed.add(idx)
     faces=[f for i,f in enumerate(body_faces) if i not in removed]
-    # Arms retain the proven legacy seam while the lower body owns one coordinated patch.
     for side in ("left","right"):
         shoulder=pts["shoulder."+side]; elbow=pts["elbow."+side]; wrist=pts["wrist."+side]; fingertips=pts["fingertips."+side]; shoulder_exit=_lerp_point(shoulder,elbow,.12); palm=_lerp_point(wrist,fingertips,.42); knuckles=_lerp_point(wrist,fingertips,.72); hw=p.forearm_thickness_cm*.92; hd=p.forearm_thickness_cm*.40
         ac,aw,ad=_supported_joint_chain((shoulder,shoulder_exit,elbow,wrist,palm,knuckles,fingertips),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hw,hw*.94,hw*.48),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hd,hd*.88,hd*.54)); _append_branch(vertices,faces,openings[side],ac,aw,ad)
