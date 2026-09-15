@@ -40,9 +40,6 @@ def _opening_face(faces,fmap,level,side):
 def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p):
     """Attach deliberate thigh/knee/calf loops while sharing the torso opening seam."""
     sections=((_lerp_point(hip,knee,.08),p.thigh_thickness_cm*1.08,p.thigh_thickness_cm*1.02),(_lerp_point(hip,knee,.25),p.thigh_thickness_cm*1.04,p.thigh_thickness_cm),(_lerp_point(hip,knee,.52),p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92),(_lerp_point(hip,knee,.82),p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96),(knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88),(_lerp_point(knee,ankle,.24),p.calf_thickness_cm*1.02,p.calf_thickness_cm*.98),(_lerp_point(knee,ankle,.48),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04),(_lerp_point(knee,ankle,.72),p.calf_thickness_cm*.86,p.calf_thickness_cm*.82),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58))
-    # The torso opening is four boundary vertices. Reuse those vertices as four cardinal
-    # points of the first 16-point ring; only create the twelve in-between points. This
-    # keeps every opening edge incident to exactly two faces and therefore manifold.
     center,width,depth=sections[0]; ring=[None]*16
     cardinal=(0,4,8,12)
     for slot,vertex_index in zip(cardinal,opening): ring[slot]=vertex_index
@@ -50,10 +47,12 @@ def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p):
         if ring[i] is not None: continue
         angle=2*pi*i/16; ring[i]=len(vertices); vertices.append((center[0]+width*.5*cos(angle),center[1]+depth*.5*sin(angle),center[2]))
     first=tuple(ring)
-    # Fill each opening-edge sector with triangles using the shared endpoints.
+    # Each sector has three in-between vertices. Fan those three triangles to the
+    # next shared opening vertex; stop before the shared endpoint itself or the
+    # final triangle would repeat the same vertex twice and become degenerate.
     for sector in range(4):
         a=cardinal[sector]; b=cardinal[(sector+1)%4]; end=16 if sector==3 else b
-        for i in range(a,end): faces.append((first[i%16],first[(i+1)%16],opening[(sector+1)%4]))
+        for i in range(a,end-1): faces.append((first[i%16],first[(i+1)%16],opening[(sector+1)%4]))
     rings=[first]
     for center,width,depth in sections[1:]:
         current=[]
@@ -71,8 +70,6 @@ def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p):
         sides=8
         for i in range(sides):
             angle=2*pi*i/sides
-            # Foot cross-sections are vertical in Z and extend along Y. Clamp the sole
-            # exactly to ground while preserving the requested foot height.
             vz=max(0.0,center[2]+depth*.5*sin(angle)); vy=center[1]
             current.append(len(vertices)); vertices.append((center[0]+width*.5*cos(angle),vy,vz))
         current=tuple(current)
