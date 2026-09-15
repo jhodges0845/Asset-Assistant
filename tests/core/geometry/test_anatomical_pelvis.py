@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import unittest
 
-from object_core.geometry.anatomical_pelvis import pelvis_ring, pelvic_transition_ring, pelvis_surface_ring, upper_thigh_ring
+from object_core.geometry.anatomical_pelvis import pelvis_ring, pelvic_transition_ring, pelvis_surface_ring, thigh_opening_ring, upper_thigh_ring
 
 
 class AnatomicalPelvisProfileTests(unittest.TestCase):
@@ -43,6 +43,20 @@ class AnatomicalPelvisProfileTests(unittest.TestCase):
     def test_left_and_right_thigh_profiles_mirror(self):
         left=upper_thigh_ring((9.0,0.0,75.0),17.0,16.0,"left",.8)
         right=upper_thigh_ring((-9.0,0.0,75.0),17.0,16.0,"right",.8)
+        left_set={(round(-x,6),round(y,6),round(z,6)) for x,y,z in left}
+        right_set={(round(x,6),round(y,6),round(z,6)) for x,y,z in right}
+        self.assertEqual(left_set,right_set)
+
+    def test_thigh_opening_is_non_planar_with_outer_hip_above_inner_origin(self):
+        center=(9.0,0.0,75.0); ring=thigh_opening_ring(center,17.0,16.0,"left",.86)
+        self.assertEqual(len(ring),16)
+        outer=max(ring,key=lambda v:v[0]); inner=min(ring,key=lambda v:v[0])
+        self.assertGreater(outer[2],inner[2])
+        self.assertGreater(max(v[2] for v in ring)-min(v[2] for v in ring),1.5)
+
+    def test_thigh_openings_mirror_exactly(self):
+        left=thigh_opening_ring((9.0,0.0,75.0),17.0,16.0,"left",.86)
+        right=thigh_opening_ring((-9.0,0.0,75.0),17.0,16.0,"right",.86)
         left_set={(round(-x,6),round(y,6),round(z,6)) for x,y,z in left}
         right_set={(round(x,6),round(y,6),round(z,6)) for x,y,z in right}
         self.assertEqual(left_set,right_set)
