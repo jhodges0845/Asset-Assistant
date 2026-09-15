@@ -1,11 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Anatomical landmark and surface profiles for the Human V2 pelvis.
-
-Human V2 treats the pelvis as an anatomical surface, not merely a stack of torso
-rings. The landmark field gives the constructor stable semantic anchors for iliac
-crest, greater trochanter, pubic/crotch and glute regions while retaining the
-existing 16-point boundary contract during migration.
-"""
+"""Anatomical landmark and surface profiles for the Human V2 pelvis."""
 from math import cos, pi, sin
 RING_SIDES=16
 
@@ -33,6 +27,16 @@ def pelvis_surface_ring(z,width,depth,thigh_thickness,descent):
         x=width*.5*(1.0-t*(.07+.10*medial))*c; y=depth*.5*(1.0-.04*t)*s-depth*rear*(.07+.12*t)+depth*front*.015*(1.0-t)
         target=iliac_z*lateral+crotch_z*medial; target=target*(1.0-.28*rear)+glute_z*(.28*rear); points.append((x,y,z*(1.0-t)+target*t))
     return tuple(points)
+
+def pelvis_thigh_paths(z,width,depth,thigh_thickness):
+    """Expose longitudinal anatomical paths that future topology can connect directly."""
+    lm=pelvis_landmarks(z,width,depth,thigh_thickness); paths={}
+    for side in ("left","right"):
+        sign=1.0 if side=="left" else -1.0; iliac=lm["iliac."+side]; troch=lm["trochanter."+side]; glute=lm["glute."+side]
+        paths["outer."+side]=(iliac,troch,(troch[0]*.96,troch[1],troch[2]-thigh_thickness*.28))
+        paths["rear."+side]=(glute,(glute[0]*1.06,glute[1]*.92,glute[2]-thigh_thickness*.18),(sign*width*.24,-depth*.42,glute[2]-thigh_thickness*.38))
+        paths["inner."+side]=(lm["crotch.center"],(sign*width*.12,0.0,lm["crotch.center"][2]-thigh_thickness*.10),(sign*width*.18,0.0,lm["crotch.center"][2]-thigh_thickness*.34))
+    return paths
 
 def upper_thigh_ring(center,width,depth,side,pelvis_influence):
     sign=1.0 if side=="left" else -1.0; points=[]
