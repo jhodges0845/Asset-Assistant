@@ -38,7 +38,7 @@ def main():
     xs=(-57,-19,19,57)
     for (name,angle),x in zip(VIEWS,xs):
         mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(verts,[],faces); mesh.update(); obj=bpy.data.objects.new("Pelvis "+name,mesh); bpy.context.collection.objects.link(obj); obj.location.x=x; obj.rotation_euler.z=math.radians(angle); obj.data.materials.append(material)
-    scene=bpy.context.scene; scene.render.engine="BLENDER_EEVEE_NEXT"; scene.render.resolution_x=1800; scene.render.resolution_y=900; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"; world=scene.world or bpy.data.worlds.new("Pelvis World"); scene.world=world; world.color=(.075,.085,.10)
+    scene=bpy.context.scene; scene.render.engine="CYCLES"; scene.cycles.device="CPU"; scene.cycles.samples=32; scene.cycles.use_denoising=True; scene.render.resolution_x=1800; scene.render.resolution_y=900; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"; world=scene.world or bpy.data.worlds.new("Pelvis World"); scene.world=world; world.color=(.075,.085,.10)
     camd=bpy.data.cameras.new("Camera"); camd.type="ORTHO"; camd.ortho_scale=82; cam=bpy.data.objects.new("Camera",camd); bpy.context.collection.objects.link(cam); cam.location=(0,-160,0); look(cam,(0,0,0)); scene.camera=cam
     ld=bpy.data.lights.new("Key","AREA"); ld.energy=900; ld.size=70; light=bpy.data.objects.new("Key",ld); bpy.context.collection.objects.link(light); light.location=(-40,-80,50); look(light,(0,0,0))
     out=Path(a.output); out=out if out.is_absolute() else REPO_ROOT/out; out.parent.mkdir(parents=True,exist_ok=True)
