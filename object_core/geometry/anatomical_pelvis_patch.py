@@ -2,7 +2,7 @@
 """Structured lower-pelvis surface construction for Human V2.
 
 This module owns the migration from the shared abdominal/pelvic boundary into two
-thigh roots.  The important contract is that the split is followed by longitudinal
+thigh roots. The important contract is that the split is followed by longitudinal
 surface rows instead of one long conversion fan terminating directly at the legs.
 """
 
@@ -30,9 +30,18 @@ def _split_shared_boundary(vertices, faces, pelvis_boundary, left_points, right_
     right = _append_ring(vertices, right_points)
     left_p = tuple(range(8))
     right_p = tuple(range(8, 16))
-    for seq_p, ring in ((left_p, left), (right_p, right)):
+    left_t = tuple(range(8))
+    right_t = tuple(range(8, 16))
+    for seq_p, seq_t, ring in ((left_p, left_t, left), (right_p, right_t, right)):
         for j in range(7):
-            faces.append((pelvis_boundary[seq_p[j]], pelvis_boundary[seq_p[j + 1]], ring[j + 1], ring[j]))
+            faces.append(
+                (
+                    pelvis_boundary[seq_p[j]],
+                    pelvis_boundary[seq_p[j + 1]],
+                    ring[seq_t[j + 1]],
+                    ring[seq_t[j]],
+                )
+            )
     faces.append((pelvis_boundary[15], pelvis_boundary[0], left[0], left[15]))
     faces.append((pelvis_boundary[7], pelvis_boundary[8], right[8], right[7]))
     for j in range(8):
@@ -41,7 +50,7 @@ def _split_shared_boundary(vertices, faces, pelvis_boundary, left_points, right_
         r1 = (6 - j) % 16
         faces.append((left[li], left[(li + 1) % 16], right[r1], right[r0]))
     # Two poles are topologically required for a one-boundary-to-two-boundary
-    # pair-of-pants surface.  Keep them at the short split, away from the thigh rows.
+    # pair-of-pants surface. Keep them at the short split, away from the thigh rows.
     faces.append((pelvis_boundary[7], left[7], right[7]))
     faces.append((pelvis_boundary[15], right[15], left[15]))
     return left, right
@@ -58,7 +67,7 @@ def append_anatomical_pelvis_patch(
 ):
     """Build a shared pelvis that resolves into longitudinal left/right thigh rows.
 
-    Three non-planar opening rows distribute the anatomical transition.  Only the
+    Three non-planar opening rows distribute the anatomical transition. Only the
     first row participates in the topological split; subsequent rows are quad bands,
     so outer-hip, anterior, posterior/glute and inner-thigh paths continue down the
     surface instead of stretching from abdomen to thigh in a single face.
