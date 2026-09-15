@@ -46,12 +46,7 @@ def pelvic_transition_ring(z, width, depth, thigh_thickness):
 
 
 def pelvis_surface_ring(z, width, depth, thigh_thickness, descent):
-    """Return an intermediate pelvis loop between iliac crest and thigh openings.
-
-    ``descent`` runs from 0 at the upper pelvic boundary to 1 near the groin. The
-    loop narrows gradually rather than collapsing at one Z level. Rear sectors keep
-    glute projection longer while front/medial sectors descend toward the groin.
-    """
+    """Return an intermediate pelvis loop between iliac crest and thigh openings."""
     t = max(0.0, min(1.0, descent))
     drop = max(2.0, thigh_thickness * (0.18 + 0.34 * t))
     points = []
@@ -91,4 +86,29 @@ def upper_thigh_ring(center, width, depth, side, pelvis_influence):
         y -= depth * pelvis_influence * 0.12 * rear
         y += depth * pelvis_influence * 0.02 * front
         points.append((x, y, center[2]))
+    return tuple(points)
+
+
+def thigh_opening_ring(center, width, depth, side, pelvis_influence):
+    """Return a non-planar anatomical thigh opening for the pelvis split.
+
+    The outer hip sits higher than the inner-thigh origin, while the rear quadrant
+    carries glute depth downward.  The pair-of-pants bridge can therefore follow an
+    anatomical saddle instead of terminating at a horizontal cylindrical leg ring.
+    """
+    sign = 1.0 if side == "left" else -1.0
+    base = upper_thigh_ring(center, width, depth, side, pelvis_influence)
+    relief = max(1.2, width * 0.16)
+    points = []
+    for i, (x, y, _) in enumerate(base):
+        angle = 2 * pi * i / RING_SIDES
+        c, s = cos(angle), sin(angle)
+        lateral = max(0.0, sign * c)
+        medial = max(0.0, -sign * c)
+        rear = max(0.0, -s)
+        front = max(0.0, s)
+        z = center[2] + relief * (0.55 * lateral - 0.70 * medial - 0.12 * front - 0.05 * rear)
+        # Carry the glute fold into the opening rather than making it a separate shelf.
+        y -= depth * pelvis_influence * 0.055 * rear * medial
+        points.append((x, y, z))
     return tuple(points)
