@@ -35,14 +35,38 @@ def config(m,mode):
         sh=n.new("ShaderNodeEmission"); wire=n.new("ShaderNodeWireframe"); wire.use_pixel_size=True; wire.inputs["Size"].default_value=1.25; ramp=n.new("ShaderNodeValToRGB"); ramp.color_ramp.elements[0].position=.40; ramp.color_ramp.elements[0].color=(.055,.065,.08,1); ramp.color_ramp.elements[1].position=.60; ramp.color_ramp.elements[1].color=(.94,.94,.94,1); m.node_tree.links.new(wire.outputs["Fac"],ramp.inputs["Fac"]); m.node_tree.links.new(ramp.outputs["Color"],sh.inputs["Color"]); m.node_tree.links.new(sh.outputs["Emission"],out.inputs["Surface"])
 def main():
     a=args(); clear(); shape=NeutralPelvisShape(width=a.width,depth=a.depth,height=a.height,hip_fullness=a.hip_fullness,glute_projection=a.glute_projection,crotch_width=a.crotch_width,thigh_spacing=a.thigh_spacing); verts,faces,_=generate_neutral_pelvis(shape); material=mat()
-    xs=(-63,-21,21,63)
+
+    # Center the diagnostic layout from the actual generated bounds instead of
+    # assuming the pelvis is centered at world origin.
+    min_x=min(v[0] for v in verts); max_x=max(v[0] for v in verts)
+    min_y=min(v[1] for v in verts); max_y=max(v[1] for v in verts)
+    min_z=min(v[2] for v in verts); max_z=max(v[2] for v in verts)
+    mesh_center=Vector(((min_x+max_x)*.5,(min_y+max_y)*.5,(min_z+max_z)*.5))
+    mesh_width=max_x-min_x; mesh_depth=max_y-min_y; mesh_height=max_z-min_z
+    view_width=max(mesh_width,mesh_depth)
+    gutter=max(6.0,view_width*.28)
+    spacing=view_width+gutter
+    xs=(-1.5*spacing,-.5*spacing,.5*spacing,1.5*spacing)
+
     for (name,angle),x in zip(VIEWS,xs):
-        mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(verts,[],faces); mesh.update(); obj=bpy.data.objects.new("Pelvis "+name,mesh); bpy.context.collection.objects.link(obj); obj.location.x=x; obj.rotation_euler.z=math.radians(angle); obj.data.materials.append(material)
+        mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(verts,[],faces); mesh.update(); obj=bpy.data.objects.new("Pelvis "+name,mesh); bpy.context.collection.objects.link(obj)
+        # Rotate each copy about its own geometric center so the views stay aligned.
+        obj.location=(x-mesh_center.x,-mesh_center.y,-mesh_center.z)
+        obj.rotation_mode="XYZ"; obj.rotation_euler.z=math.radians(angle); obj.data.materials.append(material)
+
     scene=bpy.context.scene; scene.render.engine="CYCLES"; scene.cycles.device="CPU"; scene.cycles.samples=32; scene.cycles.use_denoising=True; scene.render.resolution_x=1800; scene.render.resolution_y=900; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"
     world=scene.world or bpy.data.worlds.new("Pelvis World"); scene.world=world; world.use_nodes=True; bg=world.node_tree.nodes.get("Background"); bg.inputs["Color"].default_value=(.055,.065,.08,1); bg.inputs["Strength"].default_value=.22
-    camd=bpy.data.cameras.new("Camera"); camd.type="ORTHO"; camd.ortho_scale=38; cam=bpy.data.objects.new("Camera",camd); bpy.context.collection.objects.link(cam); cam.location=(0,-150,0); look(cam,(0,0,0)); scene.camera=cam
+
+    # Fit all four views from their calculated layout.  The 2:1 image aspect means
+    # horizontal framing normally dominates; vertical scale is still protected.
+    layout_width=3.0*spacing+2.0*view_width
+    required_vertical=max(mesh_height,view_width)*1.35
+    required_horizontal=(layout_width/2.0)*1.10
+    ortho_scale=max(required_vertical,required_horizontal)
+    camd=bpy.data.cameras.new("Camera"); camd.type="ORTHO"; camd.ortho_scale=ortho_scale; cam=bpy.data.objects.new("Camera",camd); bpy.context.collection.objects.link(cam); cam.location=(0,-150,0); look(cam,(0,0,0)); scene.camera=cam
+
     keyd=bpy.data.lights.new("Key","AREA"); keyd.energy=1150; keyd.size=55; key=bpy.data.objects.new("Key",keyd); bpy.context.collection.objects.link(key); key.location=(-45,-70,55); look(key,(0,0,0))
-    filld=bpy.data.lights.new("Fill","AREA"); filld.energy=500; filld.size=65; fill=bpy.data.objects.new("Fill",filld); bpy.context.collection.objects.link(fill); fill.location=(45,-45,15); look(fill,(0,0,-2))
+    filld=bpy.data.lights.new("Fill","AREA"); filld.energy=500; filld.size=65; fill=bpy.data.objects.new("Fill",filld); bpy.context.collection.objects.link(fill); fill.location=(45,-45,15); look(fill,(0,0,0))
     rimd=bpy.data.lights.new("Rim","AREA"); rimd.energy=650; rimd.size=45; rim=bpy.data.objects.new("Rim",rimd); bpy.context.collection.objects.link(rim); rim.location=(0,35,35); look(rim,(0,0,0))
     out=Path(a.output); out=out if out.is_absolute() else REPO_ROOT/out; out.parent.mkdir(parents=True,exist_ok=True)
     for mode in a.modes:
