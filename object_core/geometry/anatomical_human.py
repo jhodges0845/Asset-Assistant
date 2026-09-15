@@ -55,26 +55,27 @@ def _append_dual_leg_bridge(vertices,faces,pelvis_boundary,left_points,right_poi
     """Create two thigh openings plus a central groin bridge without radial fans.
 
     Each 16-point thigh root is connected to a dedicated half of the 16-point pelvic
-    boundary.  The front and rear medial arcs are then joined across the midline,
-    making the crotch a bridge between two openings rather than two four-edge holes
-    independently expanded into circular leg rings.
+    boundary. The remaining medial half-rings are paired edge-for-edge across the
+    midline, so every thigh-root edge participates in exactly one bridge face before
+    continuing into the leg band. This forms one orientable pair-of-pants surface
+    instead of two independent radial fans.
     """
     left=_append_ring(vertices,left_points); right=_append_ring(vertices,right_points)
-    # Outer/lateral halves flow directly from the pelvic boundary into each thigh.
-    # Pelvis indices 0..4 are left/front-lateral and 12..15 left/rear-lateral;
-    # mirrored indices feed the right side.  The remaining medial arcs form groin.
     left_p=(0,1,2,3,4,5,6,7); right_p=(8,9,10,11,12,13,14,15)
     left_t=(0,1,2,3,4,5,6,7); right_t=(8,9,10,11,12,13,14,15)
     for seq_p,seq_t,ring in ((left_p,left_t,left),(right_p,right_t,right)):
         for j in range(len(seq_p)-1): faces.append((pelvis_boundary[seq_p[j]],pelvis_boundary[seq_p[j+1]],ring[seq_t[j+1]],ring[seq_t[j]]))
-    # Close the rear/front outer wrap sectors that cross the ring seam.
+    # The two pelvis seam edges terminate on the outer seam edges of the thigh roots.
     faces.append((pelvis_boundary[15],pelvis_boundary[0],left[0],left[15]))
     faces.append((pelvis_boundary[7],pelvis_boundary[8],right[8],right[7]))
-    # Medial thigh arcs face each other and create a longitudinal crotch bridge.
-    # Use quads between corresponding front-medial and rear-medial points instead
-    # of collapsing either leg into a single pelvic corner (the old radial fan).
-    for a,b in ((7,8),(6,9),(5,10)):
-        faces.append((left[a],right[15-a],right[15-b],left[b]))
+    # Pair the complete medial half of each thigh root. The mirrored right-hand
+    # traversal is intentional: it consumes each remaining root edge exactly once
+    # and keeps the crotch patch orientable rather than crossing non-adjacent arcs.
+    for j in range(8):
+        li=7+j
+        r0=(7-j)%16
+        r1=(6-j)%16
+        faces.append((left[li],left[(li+1)%16],right[r1],right[r0]))
     return left,right
 
 def _append_anatomical_leg_from_root(vertices,faces,root,sections,p):
