@@ -4,15 +4,18 @@ The post-#279 clay, silhouette and wireframe review established that contour tun
 
 ## Construction rule
 
-Human V2 now treats the pelvis as a semantic anatomical region. The constructor should derive surface flow from stable landmarks such as iliac crest, greater trochanter, pubic/crotch region and glute mass. Rings may remain temporarily as compatibility boundaries during migration, but they are no longer the source of anatomical intent.
+Human V2 treats the pelvis as a semantic anatomical region. The constructor derives surface intent from stable landmarks such as iliac crest, greater trochanter, pubic/crotch region and glute mass. Rings may remain temporarily as compatibility boundaries during migration, but they are no longer the source of anatomical intent.
+
+The first reconstruction slice introduces explicit longitudinal paths for outer hip, rear/glute and inner-thigh/crotch flow. These paths are intentionally independent of mesh connectivity so the next slice can replace the conversion band without rediscovering anatomy from ring indices.
 
 ## Migration
 
 1. Establish a bilateral pelvis landmark field and tests.
 2. Drive lower-pelvis surface placement from those landmarks.
-3. Replace the remaining pair-of-pants conversion band with explicit glute, outer-hip, crotch and inner-thigh paths.
-4. Prefer quad-dominant authoring topology through deformation regions; triangulation belongs downstream where possible.
-5. Preserve manifold/orientation, printable-solid, symmetry, UV and provider/semantic workflow gates throughout.
+3. Establish explicit outer-hip, rear/glute and inner-thigh longitudinal paths.
+4. Replace the remaining pair-of-pants conversion band with topology that follows those paths.
+5. Prefer quad-dominant authoring topology through deformation regions; triangulation belongs downstream where possible.
+6. Preserve manifold/orientation, printable-solid, symmetry, UV and provider/semantic workflow gates throughout.
 
 ## Visual gate
 
