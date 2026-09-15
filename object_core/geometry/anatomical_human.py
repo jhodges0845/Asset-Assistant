@@ -38,30 +38,50 @@ def _build_body(p,hip_z,shoulder_z,chin_z,crown_z):
     for level in range(len(rings)-1):
         if len(rings[level])==len(rings[level+1]): _append_equal_ring_band(vertices,faces,rings[level],rings[level+1],fmap,level)
         else: _append_16_to_8_transition(faces,rings[level],rings[level+1])
-    faces.append(tuple(rings[-1])); return vertices,faces,fmap
+    faces.append(tuple(rings[-1])); return vertices,faces,fmap,rings
 
 def _opening_face(faces,fmap,level,side):
     segment=0 if side=="left" else 7; return fmap[(level,segment)],faces[fmap[(level,segment)]]
 
-def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p,side):
-    """Continue the shared pelvic region through thigh, knee, calf, ankle and foot."""
-    sections=((_lerp_point(hip,knee,.08),p.thigh_thickness_cm*1.14,p.thigh_thickness_cm*1.10,.96),(_lerp_point(hip,knee,.18),p.thigh_thickness_cm*1.11,p.thigh_thickness_cm*1.07,.72),(_lerp_point(hip,knee,.30),p.thigh_thickness_cm*1.04,p.thigh_thickness_cm,.40),(_lerp_point(hip,knee,.52),p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92,0.0),(_lerp_point(hip,knee,.82),p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96,0.0),(knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88,0.0),(_lerp_point(knee,ankle,.18),p.calf_thickness_cm*.98,p.calf_thickness_cm*.94,0.0),(_lerp_point(knee,ankle,.38),p.calf_thickness_cm*1.08,p.calf_thickness_cm,0.0),(_lerp_point(knee,ankle,.55),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04,0.0),(_lerp_point(knee,ankle,.76),p.calf_thickness_cm*.84,p.calf_thickness_cm*.80,0.0),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58,0.0))
-    center,width,depth,blend=sections[0]; shaped=upper_thigh_ring(center,width,depth,side,blend); ring=[None]*16; cardinal=(0,4,8,12)
-    for slot,vertex_index in zip(cardinal,opening): ring[slot]=vertex_index
-    for i in range(16):
-        if ring[i] is None: ring[i]=len(vertices); vertices.append(shaped[i])
-    first=tuple(ring)
-    for sector in range(4):
-        a=cardinal[sector]; b=cardinal[(sector+1)%4]; end=16 if sector==3 else b
-        for i in range(a,end-1): faces.append((first[i%16],first[(i+1)%16],opening[(sector+1)%4]))
-    rings=[first]
-    for center,width,depth,blend in sections[1:]:
-        shaped=upper_thigh_ring(center,width,depth,side,blend); current=[]
-        for point in shaped: current.append(len(vertices)); vertices.append(point)
-        current=tuple(current)
-        for i in range(16): faces.append((rings[-1][i],rings[-1][(i+1)%16],current[(i+1)%16],current[i]))
-        rings.append(current)
-    foot_h=p.foot_height_cm; fw=p.calf_thickness_cm*.88; z=foot_h*.5; heel=(ankle[0],-p.foot_length_cm*.18,z); mid=(ankle[0],p.foot_length_cm*.22,z); ball=(ankle[0],p.foot_length_cm*.56,z); toe=(ankle[0],p.foot_length_cm*.82,z)
+def _append_ring(vertices, points):
+    ring=[]
+    for point in points: ring.append(len(vertices)); vertices.append(point)
+    return tuple(ring)
+
+def _append_ring_band(faces, upper, lower):
+    for i in range(16): faces.append((upper[i],upper[(i+1)%16],lower[(i+1)%16],lower[i]))
+
+def _append_dual_leg_bridge(vertices,faces,pelvis_boundary,left_points,right_points):
+    """Create two thigh openings plus a central groin bridge without radial fans.
+
+    Each 16-point thigh root is connected to a dedicated half of the 16-point pelvic
+    boundary.  The front and rear medial arcs are then joined across the midline,
+    making the crotch a bridge between two openings rather than two four-edge holes
+    independently expanded into circular leg rings.
+    """
+    left=_append_ring(vertices,left_points); right=_append_ring(vertices,right_points)
+    # Outer/lateral halves flow directly from the pelvic boundary into each thigh.
+    # Pelvis indices 0..4 are left/front-lateral and 12..15 left/rear-lateral;
+    # mirrored indices feed the right side.  The remaining medial arcs form groin.
+    left_p=(0,1,2,3,4,5,6,7); right_p=(8,9,10,11,12,13,14,15)
+    left_t=(0,1,2,3,4,5,6,7); right_t=(8,9,10,11,12,13,14,15)
+    for seq_p,seq_t,ring in ((left_p,left_t,left),(right_p,right_t,right)):
+        for j in range(len(seq_p)-1): faces.append((pelvis_boundary[seq_p[j]],pelvis_boundary[seq_p[j+1]],ring[seq_t[j+1]],ring[seq_t[j]]))
+    # Close the rear/front outer wrap sectors that cross the ring seam.
+    faces.append((pelvis_boundary[15],pelvis_boundary[0],left[0],left[15]))
+    faces.append((pelvis_boundary[7],pelvis_boundary[8],right[8],right[7]))
+    # Medial thigh arcs face each other and create a longitudinal crotch bridge.
+    # Use quads between corresponding front-medial and rear-medial points instead
+    # of collapsing either leg into a single pelvic corner (the old radial fan).
+    for a,b in ((7,8),(6,9),(5,10)):
+        faces.append((left[a],right[15-a],right[15-b],left[b]))
+    return left,right
+
+def _append_anatomical_leg_from_root(vertices,faces,root,sections,p):
+    rings=[root]
+    for center,width,depth,blend,side in sections:
+        current=_append_ring(vertices,upper_thigh_ring(center,width,depth,side,blend)); _append_ring_band(faces,rings[-1],current); rings.append(current)
+    ankle=sections[-1][0]; foot_h=p.foot_height_cm; fw=p.calf_thickness_cm*.88; z=foot_h*.5; heel=(ankle[0],-p.foot_length_cm*.18,z); mid=(ankle[0],p.foot_length_cm*.22,z); ball=(ankle[0],p.foot_length_cm*.56,z); toe=(ankle[0],p.foot_length_cm*.82,z)
     centers,widths,depths=_supported_joint_chain((ankle,heel,mid,ball,toe),(p.calf_thickness_cm*.6,fw*.82,fw,fw*1.06,fw*.74),(p.calf_thickness_cm*.58,foot_h*.92,foot_h,foot_h*.82,foot_h*.56)); previous=rings[-1]
     for idx,(center,width,depth) in enumerate(zip(centers[1:],widths[1:],depths[1:])):
         current=[]
@@ -73,6 +93,12 @@ def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p,side):
             for i in range(8): faces.append((previous[i],previous[(i+1)%8],current[(i+1)%8],current[i]))
         previous=current
     faces.append(tuple(previous))
+
+def _leg_sections(hip,knee,ankle,p,side):
+    data=((.18,p.thigh_thickness_cm*1.11,p.thigh_thickness_cm*1.07,.72),(.30,p.thigh_thickness_cm*1.04,p.thigh_thickness_cm,.40),(.52,p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92,0.0),(.82,p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96,0.0))
+    result=[(_lerp_point(hip,knee,f),w,d,b,side) for f,w,d,b in data]
+    result.extend(((knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88,0.0,side),(_lerp_point(knee,ankle,.18),p.calf_thickness_cm*.98,p.calf_thickness_cm*.94,0.0,side),(_lerp_point(knee,ankle,.38),p.calf_thickness_cm*1.08,p.calf_thickness_cm,0.0,side),(_lerp_point(knee,ankle,.55),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04,0.0,side),(_lerp_point(knee,ankle,.76),p.calf_thickness_cm*.84,p.calf_thickness_cm*.80,0.0,side),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58,0.0,side)))
+    return tuple(result)
 
 def _orient_faces_consistently(faces):
     edge_faces=defaultdict(list)
@@ -96,13 +122,17 @@ def _orient_faces_consistently(faces):
 
 def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh:
     if not isinstance(proportions,HumanoidProportions): raise TypeError("proportions must be HumanoidProportions")
-    p=proportions; pts=generate_landmarks(p); vertices,body_faces,fmap=_build_body(p,pts["hip_center"][2],pts["shoulder_center"][2],pts["chin"][2],pts["crown"][2]); vertices=_shape_head_surface(vertices,p,pts["chin"][2],pts["crown"][2]); openings={}; removed=set()
-    for level,region in ((_HIP_OPENING_LEVEL,"hip"),(_SHOULDER_OPENING_LEVEL,"shoulder")):
-        for side in ("left","right"):
-            idx,face=_opening_face(body_faces,fmap,level,side); openings[(region,side)]=face; removed.add(idx)
+    p=proportions; pts=generate_landmarks(p); vertices,body_faces,fmap,rings=_build_body(p,pts["hip_center"][2],pts["shoulder_center"][2],pts["chin"][2],pts["crown"][2]); vertices=_shape_head_surface(vertices,p,pts["chin"][2],pts["crown"][2]); openings={}; removed={0}
+    for side in ("left","right"):
+        idx,face=_opening_face(body_faces,fmap,_SHOULDER_OPENING_LEVEL,side); openings[side]=face; removed.add(idx)
     faces=[f for i,f in enumerate(body_faces) if i not in removed]
+    # Arms retain the proven legacy seam while the lower body owns one coordinated patch.
     for side in ("left","right"):
         shoulder=pts["shoulder."+side]; elbow=pts["elbow."+side]; wrist=pts["wrist."+side]; fingertips=pts["fingertips."+side]; shoulder_exit=_lerp_point(shoulder,elbow,.12); palm=_lerp_point(wrist,fingertips,.42); knuckles=_lerp_point(wrist,fingertips,.72); hw=p.forearm_thickness_cm*.92; hd=p.forearm_thickness_cm*.40
-        ac,aw,ad=_supported_joint_chain((shoulder,shoulder_exit,elbow,wrist,palm,knuckles,fingertips),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hw,hw*.94,hw*.48),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hd,hd*.88,hd*.54)); _append_branch(vertices,faces,openings[("shoulder",side)],ac,aw,ad)
-        _append_anatomical_leg(vertices,faces,openings[("hip",side)],pts["hip."+side],pts["knee."+side],pts["ankle."+side],p,side)
+        ac,aw,ad=_supported_joint_chain((shoulder,shoulder_exit,elbow,wrist,palm,knuckles,fingertips),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hw,hw*.94,hw*.48),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hd,hd*.88,hd*.54)); _append_branch(vertices,faces,openings[side],ac,aw,ad)
+    lh=pts["hip.left"]; rh=pts["hip.right"]; lk=pts["knee.left"]; rk=pts["knee.right"]; la=pts["ankle.left"]; ra=pts["ankle.right"]
+    lc=_lerp_point(lh,lk,.08); rc=_lerp_point(rh,rk,.08)
+    lp=upper_thigh_ring(lc,p.thigh_thickness_cm*1.14,p.thigh_thickness_cm*1.10,"left",.96); rp=upper_thigh_ring(rc,p.thigh_thickness_cm*1.14,p.thigh_thickness_cm*1.10,"right",.96)
+    left_root,right_root=_append_dual_leg_bridge(vertices,faces,rings[0],lp,rp)
+    _append_anatomical_leg_from_root(vertices,faces,left_root,_leg_sections(lh,lk,la,p,"left"),p); _append_anatomical_leg_from_root(vertices,faces,right_root,_leg_sections(rh,rk,ra,p,"right"),p)
     vertices=tuple(vertices); faces=_orient_faces_consistently(faces); return ObjectMesh((MeshPart("human",vertices,faces,_generate_face_atlas_uvs(vertices,faces)),))
