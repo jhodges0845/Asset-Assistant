@@ -1,205 +1,111 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Anatomy-oriented connected Human topology construction.
+"""Anatomy-oriented connected Human topology construction."""
 
-The legacy deformable Human uses one eight-sided ring resolution from pelvis to
-crown.  That kept the first deformation foundation simple, but the review
-wireframes show that the torso then depends on later midpoint subdivision to
-approximate human contour.  This constructor makes torso/pelvis topology a
-first-class part of generation while retaining the established eight-sided
-neck/head and limb chains for compatibility with current face, rigging, and
-animation work.
-"""
-
+from collections import defaultdict, deque
 from math import cos, pi, sin
-
 from ..models.mesh import MeshPart, ObjectMesh
 from ..models.proportions import HumanoidProportions
 from ..proportions.landmarks import generate_landmarks
-from .deformable import (
-    _append_branch,
-    _generate_face_atlas_uvs,
-    _human_body_sections,
-    _lerp_point,
-    _shape_head_surface,
-    _supported_joint_chain,
-)
+from .deformable import _append_branch, _generate_face_atlas_uvs, _human_body_sections, _lerp_point, _shape_head_surface, _supported_joint_chain
 
+_TORSO_RING_SIDES=16; _LEGACY_RING_SIDES=8; _LEG_RING_SIDES=16
+_HIP_OPENING_LEVEL=0; _SHOULDER_OPENING_LEVEL=5; _TORSO_LAST_LEVEL=6
 
-_TORSO_RING_SIDES = 16
-_LEGACY_RING_SIDES = 8
-_HIP_OPENING_LEVEL = 0
-_SHOULDER_OPENING_LEVEL = 5
-_TORSO_LAST_LEVEL = 6
+def _ellipse_ring(z,width,depth,sides):
+    return tuple((width*.5*cos(2*pi*i/sides),depth*.5*sin(2*pi*i/sides),z) for i in range(sides))
 
+def _append_equal_ring_band(vertices,faces,lower,upper,face_map,level):
+    if len(lower)!=len(upper): raise ValueError("equal ring band requires matching ring sizes")
+    for i in range(len(lower)):
+        j=(i+1)%len(lower); face_map[(level,i)]=len(faces); faces.append((lower[i],lower[j],upper[j],upper[i]))
 
-def _ellipse_ring(z, width, depth, sides):
-    return tuple(
-        (
-            width * 0.5 * cos(2.0 * pi * index / sides),
-            depth * 0.5 * sin(2.0 * pi * index / sides),
-            z,
-        )
-        for index in range(sides)
-    )
+def _append_16_to_8_transition(faces,lower,upper):
+    if len(lower)!=16 or len(upper)!=8: raise ValueError("transition expects a 16-point lower and 8-point upper ring")
+    for i in range(8):
+        a,b,c=lower[2*i],lower[2*i+1],lower[(2*i+2)%16]; u,v=upper[i],upper[(i+1)%8]
+        faces.append((a,b,u)); faces.append((b,c,v,u))
 
+def _build_body(p,hip_z,shoulder_z,chin_z,crown_z):
+    sections=_human_body_sections(p,hip_z,shoulder_z,chin_z,crown_z); rings=[]; vertices=[]
+    for level,(z,w,d) in enumerate(sections):
+        sides=16 if level<=_TORSO_LAST_LEVEL else 8; ring=_ellipse_ring(z,w,d,sides); start=len(vertices); vertices.extend(ring); rings.append(tuple(range(start,start+sides)))
+    faces=[tuple(reversed(rings[0]))]; fmap={}
+    for level in range(len(rings)-1):
+        if len(rings[level])==len(rings[level+1]): _append_equal_ring_band(vertices,faces,rings[level],rings[level+1],fmap,level)
+        else: _append_16_to_8_transition(faces,rings[level],rings[level+1])
+    faces.append(tuple(rings[-1])); return vertices,faces,fmap
 
-def _append_equal_ring_band(vertices, faces, lower, upper, face_map, level):
-    sides = len(lower)
-    if sides != len(upper):
-        raise ValueError("equal ring band requires matching ring sizes")
-    for segment in range(sides):
-        nxt = (segment + 1) % sides
-        face_map[(level, segment)] = len(faces)
-        faces.append((lower[segment], lower[nxt], upper[nxt], upper[segment]))
+def _opening_face(faces,fmap,level,side):
+    segment=0 if side=="left" else 7; return fmap[(level,segment)],faces[fmap[(level,segment)]]
 
-
-def _append_16_to_8_transition(faces, lower, upper):
-    """Bridge a sixteen-point shoulder ring into the legacy eight-point neck."""
-    if len(lower) != _TORSO_RING_SIDES or len(upper) != _LEGACY_RING_SIDES:
-        raise ValueError("transition expects a 16-point lower and 8-point upper ring")
-    for index in range(_LEGACY_RING_SIDES):
-        lower_start = lower[(2 * index) % _TORSO_RING_SIDES]
-        lower_mid = lower[(2 * index + 1) % _TORSO_RING_SIDES]
-        lower_end = lower[(2 * index + 2) % _TORSO_RING_SIDES]
-        upper_start = upper[index]
-        upper_end = upper[(index + 1) % _LEGACY_RING_SIDES]
-        faces.append((lower_start, lower_mid, upper_start))
-        faces.append((lower_mid, lower_end, upper_end, upper_start))
-
-
-def _build_body(proportions, hip_z, shoulder_z, chin_z, crown_z):
-    sections = _human_body_sections(proportions, hip_z, shoulder_z, chin_z, crown_z)
-    rings = []
-    vertices = []
-    for level, (z, width, depth) in enumerate(sections):
-        sides = _TORSO_RING_SIDES if level <= _TORSO_LAST_LEVEL else _LEGACY_RING_SIDES
-        ring = _ellipse_ring(z, width, depth, sides)
-        start = len(vertices)
-        vertices.extend(ring)
-        rings.append(tuple(range(start, start + sides)))
-
-    faces = [tuple(reversed(rings[0]))]
-    face_map = {}
-    for level in range(len(rings) - 1):
-        lower = rings[level]
-        upper = rings[level + 1]
-        if len(lower) == len(upper):
-            _append_equal_ring_band(vertices, faces, lower, upper, face_map, level)
+def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p):
+    """Attach deliberate thigh/knee/calf loops while sharing the torso opening seam."""
+    sections=((_lerp_point(hip,knee,.08),p.thigh_thickness_cm*1.08,p.thigh_thickness_cm*1.02),(_lerp_point(hip,knee,.25),p.thigh_thickness_cm*1.04,p.thigh_thickness_cm),(_lerp_point(hip,knee,.52),p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92),(_lerp_point(hip,knee,.82),p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96),(knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88),(_lerp_point(knee,ankle,.24),p.calf_thickness_cm*1.02,p.calf_thickness_cm*.98),(_lerp_point(knee,ankle,.48),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04),(_lerp_point(knee,ankle,.72),p.calf_thickness_cm*.86,p.calf_thickness_cm*.82),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58))
+    center,width,depth=sections[0]; ring=[None]*16
+    cardinal=(0,4,8,12)
+    for slot,vertex_index in zip(cardinal,opening): ring[slot]=vertex_index
+    for i in range(16):
+        if ring[i] is not None: continue
+        angle=2*pi*i/16; ring[i]=len(vertices); vertices.append((center[0]+width*.5*cos(angle),center[1]+depth*.5*sin(angle),center[2]))
+    first=tuple(ring)
+    for sector in range(4):
+        a=cardinal[sector]; b=cardinal[(sector+1)%4]; end=16 if sector==3 else b
+        for i in range(a,end-1): faces.append((first[i%16],first[(i+1)%16],opening[(sector+1)%4]))
+    rings=[first]
+    for center,width,depth in sections[1:]:
+        current=[]
+        for i in range(16):
+            angle=2*pi*i/16; current.append(len(vertices)); vertices.append((center[0]+width*.5*cos(angle),center[1]+depth*.5*sin(angle),center[2]))
+        current=tuple(current)
+        for i in range(16): faces.append((rings[-1][i],rings[-1][(i+1)%16],current[(i+1)%16],current[i]))
+        rings.append(current)
+    foot_h=p.foot_height_cm; fw=p.calf_thickness_cm*.88; z=foot_h*.5
+    heel=(ankle[0],-p.foot_length_cm*.18,z); mid=(ankle[0],p.foot_length_cm*.22,z); ball=(ankle[0],p.foot_length_cm*.56,z); toe=(ankle[0],p.foot_length_cm*.82,z)
+    centers,widths,depths=_supported_joint_chain((ankle,heel,mid,ball,toe),(p.calf_thickness_cm*.6,fw*.82,fw,fw*1.06,fw*.74),(p.calf_thickness_cm*.58,foot_h*.92,foot_h,foot_h*.82,foot_h*.56))
+    previous=rings[-1]
+    for idx,(center,width,depth) in enumerate(zip(centers[1:],widths[1:],depths[1:])):
+        current=[]
+        for i in range(8):
+            angle=2*pi*i/8; vz=max(0.0,center[2]+depth*.5*sin(angle)); current.append(len(vertices)); vertices.append((center[0]+width*.5*cos(angle),center[1],vz))
+        current=tuple(current)
+        if idx==0: _append_16_to_8_transition(faces,previous,current)
         else:
-            _append_16_to_8_transition(faces, lower, upper)
-    faces.append(tuple(rings[-1]))
-    return vertices, faces, face_map
+            for i in range(8): faces.append((previous[i],previous[(i+1)%8],current[(i+1)%8],current[i]))
+        previous=current
+    faces.append(tuple(previous))
 
+def _orient_faces_consistently(faces):
+    """Orient each connected manifold surface so shared edges run opposite ways."""
+    edge_faces=defaultdict(list)
+    for fi,face in enumerate(faces):
+        for i,a in enumerate(face):
+            b=face[(i+1)%len(face)]; edge_faces[tuple(sorted((a,b)))].append((fi,a,b))
+    flip=[None]*len(faces)
+    for seed in range(len(faces)):
+        if flip[seed] is not None: continue
+        flip[seed]=False; queue=deque([seed])
+        while queue:
+            fi=queue.popleft(); face=faces[fi]
+            for i,a in enumerate(face):
+                b=face[(i+1)%len(face)]; entries=edge_faces[tuple(sorted((a,b)))]
+                for other,oa,ob in entries:
+                    if other==fi: continue
+                    same=(a==oa and b==ob)
+                    required=flip[fi] ^ same
+                    if flip[other] is None: flip[other]=required; queue.append(other)
+                    elif flip[other]!=required: raise ValueError("anatomical Human surface cannot be oriented consistently")
+    return tuple(tuple(reversed(face)) if flip[i] else tuple(face) for i,face in enumerate(faces))
 
-def _opening_face(faces, face_map, level, side):
-    if side == "left":
-        segment = 0
-    elif side == "right":
-        segment = _TORSO_RING_SIDES // 2 - 1
-    else:
-        raise ValueError("side must be left or right")
-    return face_map[(level, segment)], faces[face_map[(level, segment)]]
-
-
-def generate_anatomical_human_mesh(proportions: HumanoidProportions) -> ObjectMesh:
-    """Generate one connected Human with intentional torso/pelvis edge loops.
-
-    Torso and pelvis bands use sixteen-point cross-sections from the hip through
-    the shoulder ring.  Neck/head and limb chains deliberately remain on the
-    established eight-point layout for this migration slice.  The result keeps
-    the public mesh, UV, rigging, and provider contracts intact while removing
-    the need for a post-generation torso midpoint-subdivision step.
-    """
-    if not isinstance(proportions, HumanoidProportions):
-        raise TypeError("proportions must be HumanoidProportions")
-
-    p = proportions
-    points = generate_landmarks(p)
-    hip_z = points["hip_center"][2]
-    shoulder_z = points["shoulder_center"][2]
-    chin_z = points["chin"][2]
-    crown_z = points["crown"][2]
-
-    vertices, body_faces, face_map = _build_body(p, hip_z, shoulder_z, chin_z, crown_z)
-    vertices = _shape_head_surface(vertices, p, chin_z, crown_z)
-
-    openings = {}
-    removed = set()
-    for level, region in ((_HIP_OPENING_LEVEL, "hip"), (_SHOULDER_OPENING_LEVEL, "shoulder")):
-        for side in ("left", "right"):
-            face_index, face = _opening_face(body_faces, face_map, level, side)
-            openings[(region, side)] = face
-            removed.add(face_index)
-    faces = [face for index, face in enumerate(body_faces) if index not in removed]
-
-    for side in ("left", "right"):
-        shoulder = points["shoulder." + side]
-        elbow = points["elbow." + side]
-        wrist = points["wrist." + side]
-        fingertips = points["fingertips." + side]
-        shoulder_exit = _lerp_point(shoulder, elbow, 0.12)
-        palm = _lerp_point(wrist, fingertips, 0.42)
-        knuckles = _lerp_point(wrist, fingertips, 0.72)
-        hand_width = p.forearm_thickness_cm * 0.92
-        hand_depth = p.forearm_thickness_cm * 0.40
-        arm_centers, arm_widths, arm_depths = _supported_joint_chain(
-            (shoulder, shoulder_exit, elbow, wrist, palm, knuckles, fingertips),
-            (
-                p.upper_arm_thickness_cm * 1.05,
-                p.upper_arm_thickness_cm,
-                p.upper_arm_thickness_cm * 0.82,
-                p.forearm_thickness_cm * 0.72,
-                hand_width,
-                hand_width * 0.94,
-                hand_width * 0.48,
-            ),
-            (
-                p.upper_arm_thickness_cm * 1.05,
-                p.upper_arm_thickness_cm,
-                p.upper_arm_thickness_cm * 0.82,
-                p.forearm_thickness_cm * 0.72,
-                hand_depth,
-                hand_depth * 0.88,
-                hand_depth * 0.54,
-            ),
-        )
-        _append_branch(vertices, faces, openings[("shoulder", side)], arm_centers, arm_widths, arm_depths)
-
-        hip = points["hip." + side]
-        knee = points["knee." + side]
-        ankle = points["ankle." + side]
-        hip_exit = _lerp_point(hip, knee, 0.10)
-        foot_height = p.foot_height_cm
-        foot_center_z = foot_height * 0.5
-        heel = (ankle[0], -p.foot_length_cm * 0.18, foot_center_z)
-        midfoot = (ankle[0], p.foot_length_cm * 0.22, foot_center_z)
-        ball = (ankle[0], p.foot_length_cm * 0.56, foot_center_z)
-        toe = (ankle[0], p.foot_length_cm * 0.82, foot_center_z)
-        foot_width = p.calf_thickness_cm * 0.88
-        leg_centers, leg_widths, leg_depths = _supported_joint_chain(
-            (hip_exit, knee, ankle, heel, midfoot, ball, toe),
-            (
-                p.thigh_thickness_cm,
-                p.calf_thickness_cm,
-                p.calf_thickness_cm * 0.6,
-                foot_width * 0.82,
-                foot_width,
-                foot_width * 1.06,
-                foot_width * 0.74,
-            ),
-            (
-                p.thigh_thickness_cm,
-                p.calf_thickness_cm,
-                p.calf_thickness_cm * 0.6,
-                foot_height * 0.92,
-                foot_height,
-                foot_height * 0.82,
-                foot_height * 0.56,
-            ),
-        )
-        _append_branch(vertices, faces, openings[("hip", side)], leg_centers, leg_widths, leg_depths)
-
-    vertices = tuple(vertices)
-    faces = tuple(faces)
-    uvs = _generate_face_atlas_uvs(vertices, faces)
-    return ObjectMesh((MeshPart("human", vertices, faces, uvs),))
+def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh:
+    if not isinstance(proportions,HumanoidProportions): raise TypeError("proportions must be HumanoidProportions")
+    p=proportions; pts=generate_landmarks(p); vertices,body_faces,fmap=_build_body(p,pts["hip_center"][2],pts["shoulder_center"][2],pts["chin"][2],pts["crown"][2]); vertices=_shape_head_surface(vertices,p,pts["chin"][2],pts["crown"][2])
+    openings={}; removed=set()
+    for level,region in ((_HIP_OPENING_LEVEL,"hip"),(_SHOULDER_OPENING_LEVEL,"shoulder")):
+        for side in ("left","right"):
+            idx,face=_opening_face(body_faces,fmap,level,side); openings[(region,side)]=face; removed.add(idx)
+    faces=[f for i,f in enumerate(body_faces) if i not in removed]
+    for side in ("left","right"):
+        shoulder=pts["shoulder."+side]; elbow=pts["elbow."+side]; wrist=pts["wrist."+side]; fingertips=pts["fingertips."+side]; shoulder_exit=_lerp_point(shoulder,elbow,.12); palm=_lerp_point(wrist,fingertips,.42); knuckles=_lerp_point(wrist,fingertips,.72); hw=p.forearm_thickness_cm*.92; hd=p.forearm_thickness_cm*.40
+        ac,aw,ad=_supported_joint_chain((shoulder,shoulder_exit,elbow,wrist,palm,knuckles,fingertips),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hw,hw*.94,hw*.48),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hd,hd*.88,hd*.54)); _append_branch(vertices,faces,openings[("shoulder",side)],ac,aw,ad)
+        _append_anatomical_leg(vertices,faces,openings[("hip",side)],pts["hip."+side],pts["knee."+side],pts["ankle."+side],p)
+    vertices=tuple(vertices); faces=_orient_faces_consistently(faces); return ObjectMesh((MeshPart("human",vertices,faces,_generate_face_atlas_uvs(vertices,faces)),))
