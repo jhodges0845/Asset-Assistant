@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Shared anatomical profiles for the Human V2 pelvis and upper thighs.
 
-This module deliberately owns the transition between lower torso and both legs.  It
+This module deliberately owns the transition between lower torso and both legs. It
 keeps pelvis-specific anatomy out of the generic deformable helpers and gives the
 constructor one place to describe iliac width, groin descent, glute projection and
 upper-thigh convergence.
@@ -13,14 +13,47 @@ RING_SIDES = 16
 
 
 def pelvis_ring(z, width, depth, thigh_thickness):
-    """Return a non-planar 16-point pelvic boundary.
+    """Return the upper iliac boundary of the shared pelvis."""
+    drop = max(0.8, thigh_thickness * 0.12)
+    points = []
+    for i in range(RING_SIDES):
+        angle = 2 * pi * i / RING_SIDES
+        c, s = cos(angle), sin(angle)
+        lateral = abs(c)
+        rear = max(0.0, -s)
+        front = max(0.0, s)
+        x = width * 0.5 * c
+        y = depth * 0.5 * s - depth * 0.08 * rear + depth * 0.015 * front
+        vz = z + drop * (0.45 * lateral - 0.35)
+        points.append((x, y, vz))
+    return tuple(points)
 
-    Lateral vertices form the iliac crest, medial front/rear vertices descend toward
-    the groin, the rear half projects for gluteal volume, and the front remains more
-    restrained.  Left and right are generated from the same field so symmetry is
-    exact rather than repaired after construction.
+
+def pelvic_transition_ring(z, width, depth, thigh_thickness):
+    """Return the ring above the iliac boundary with pelvic shape fading into torso."""
+    drop = max(0.5, thigh_thickness * 0.06)
+    points = []
+    for i in range(RING_SIDES):
+        angle = 2 * pi * i / RING_SIDES
+        c, s = cos(angle), sin(angle)
+        lateral = abs(c)
+        rear = max(0.0, -s)
+        x = width * 0.5 * c
+        y = depth * 0.5 * s - depth * 0.035 * rear
+        vz = z + drop * (lateral - 0.5)
+        points.append((x, y, vz))
+    return tuple(points)
+
+
+def pelvis_surface_ring(z, width, depth, thigh_thickness, descent):
+    """Return an intermediate pelvis loop between iliac crest and thigh openings.
+
+    ``descent`` runs from 0 at the upper pelvic boundary to 1 near the groin. The
+    loop narrows gradually rather than collapsing at one Z level. Rear sectors keep
+    glute projection longer while front/medial sectors descend toward the groin.
     """
-    drop = max(1.0, thigh_thickness * 0.20)
+    t = max(0.0, min(1.0, descent))
+    drop = max(2.0, thigh_thickness * (0.18 + 0.34 * t))
     points = []
     for i in range(RING_SIDES):
         angle = 2 * pi * i / RING_SIDES
@@ -29,36 +62,24 @@ def pelvis_ring(z, width, depth, thigh_thickness):
         medial = 1.0 - lateral
         rear = max(0.0, -s)
         front = max(0.0, s)
-        x = width * 0.5 * c
-        y = depth * 0.5 * s - depth * 0.14 * rear + depth * 0.025 * front
-        vz = z - drop * medial + drop * 0.28 * lateral
-        points.append((x, y, vz))
-    return tuple(points)
-
-
-def pelvic_transition_ring(z, width, depth, thigh_thickness):
-    """Return the ring immediately above the pelvis with fading pelvic anatomy."""
-    drop = max(0.6, thigh_thickness * 0.08)
-    points = []
-    for i in range(RING_SIDES):
-        angle = 2 * pi * i / RING_SIDES
-        c, s = cos(angle), sin(angle)
-        lateral = abs(c)
-        rear = max(0.0, -s)
-        x = width * 0.5 * c
-        y = depth * 0.5 * s - depth * 0.055 * rear
-        vz = z + drop * (lateral - 0.5)
+        # Keep iliac breadth high, then converge toward the two upper thighs.
+        width_scale = 1.0 - t * (0.10 + 0.12 * medial)
+        x = width * 0.5 * width_scale * c
+        # Glute volume persists through the lower pelvis; the front stays restrained.
+        depth_scale = 1.0 - 0.08 * t
+        y = depth * 0.5 * depth_scale * s
+        y -= depth * rear * (0.08 + 0.10 * t)
+        y += depth * front * (0.01 + 0.015 * (1.0 - t))
+        # Lateral iliac points remain higher; medial/front/rear points descend into
+        # the saddle so the groin is distributed over several longitudinal bands.
+        sector_drop = 0.35 + 0.65 * medial + 0.12 * front + 0.05 * rear
+        vz = z - drop * sector_drop
         points.append((x, y, vz))
     return tuple(points)
 
 
 def upper_thigh_ring(center, width, depth, side, pelvis_influence):
-    """Return a thigh-root ring whose shape is inherited from the shared pelvis.
-
-    The influence fades to zero before mid-thigh.  Lateral hip and rear glute volume
-    therefore continue through the root while the medial quadrant converges toward
-    the groin instead of producing a circular tube directly below the torso.
-    """
+    """Return a thigh ring whose root inherits pelvic/glute shape and then fades."""
     sign = 1.0 if side == "left" else -1.0
     points = []
     for i in range(RING_SIDES):
@@ -69,9 +90,9 @@ def upper_thigh_ring(center, width, depth, side, pelvis_influence):
         rear = max(0.0, -s)
         front = max(0.0, s)
         x = center[0] + width * 0.5 * c
-        x += sign * width * pelvis_influence * (0.12 * lateral - 0.075 * medial)
+        x += sign * width * pelvis_influence * (0.08 * lateral - 0.045 * medial)
         y = center[1] + depth * 0.5 * s
-        y -= depth * pelvis_influence * 0.17 * rear
-        y += depth * pelvis_influence * 0.025 * front
+        y -= depth * pelvis_influence * 0.12 * rear
+        y += depth * pelvis_influence * 0.02 * front
         points.append((x, y, center[2]))
     return tuple(points)
