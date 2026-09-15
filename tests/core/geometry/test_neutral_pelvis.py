@@ -16,10 +16,12 @@ class NeutralPelvisTests(unittest.TestCase):
         self.assertTrue({"width", "depth", "hip_fullness", "glute_projection", "crotch_width", "crotch_drop", "thigh_spacing"} <= controls)
 
     def test_semantic_changes_move_expected_regions(self):
-        base_vertices, _, base = generate_neutral_pelvis()
-        wide_vertices, _, wide = generate_neutral_pelvis(NeutralPelvisShape(width=40.0, hip_fullness=1.25))
-        base_outer = max(abs(base_vertices[i][0]) for i in base["torso"])
-        wide_outer = max(abs(wide_vertices[i][0]) for i in wide["left_thigh"] + wide["right_thigh"])
+        base_vertices, _, _ = generate_neutral_pelvis()
+        wide_vertices, _, _ = generate_neutral_pelvis(NeutralPelvisShape(width=40.0, hip_fullness=1.25))
+        # Width/hip-fullness shape the pelvic mass itself.  Thigh-opening width is
+        # deliberately an independent semantic control, so do not couple the two.
+        base_outer = max(abs(vertex[0]) for vertex in base_vertices)
+        wide_outer = max(abs(vertex[0]) for vertex in wide_vertices)
         self.assertGreater(wide_outer, base_outer)
 
     def test_default_is_bilaterally_symmetric(self):
