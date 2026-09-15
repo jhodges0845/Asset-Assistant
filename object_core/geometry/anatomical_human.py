@@ -6,7 +6,7 @@ from math import cos, pi, sin
 from ..models.mesh import MeshPart, ObjectMesh
 from ..models.proportions import HumanoidProportions
 from ..proportions.landmarks import generate_landmarks
-from .anatomical_pelvis import pelvis_ring, pelvic_transition_ring, upper_thigh_ring
+from .anatomical_pelvis import pelvis_ring, pelvic_transition_ring, pelvis_surface_ring, upper_thigh_ring
 from .deformable import _append_branch, _generate_face_atlas_uvs, _human_body_sections, _lerp_point, _shape_head_surface, _supported_joint_chain
 
 _TORSO_RING_SIDES=16; _LEGACY_RING_SIDES=8; _LEG_RING_SIDES=16
@@ -52,15 +52,7 @@ def _append_ring_band(faces, upper, lower):
     for i in range(16): faces.append((upper[i],upper[(i+1)%16],lower[(i+1)%16],lower[i]))
 
 def _append_dual_leg_bridge(vertices,faces,pelvis_boundary,left_points,right_points):
-    """Tile a pair-of-pants patch between one pelvis loop and two thigh loops.
-
-    The patch has exactly three boundaries: the 16-edge pelvis loop and the two
-    16-edge thigh-root loops. Outer thigh arcs follow the pelvic boundary while
-    the medial arcs pair across the crotch. Two triangular end caps close the
-    internal front/rear seams. This gives the patch Euler characteristic -1 and
-    leaves each of its three boundary loops available for exactly one adjoining
-    surface band.
-    """
+    """Tile a pair-of-pants patch between one pelvis loop and two thigh loops."""
     left=_append_ring(vertices,left_points); right=_append_ring(vertices,right_points)
     left_p=(0,1,2,3,4,5,6,7); right_p=(8,9,10,11,12,13,14,15)
     left_t=(0,1,2,3,4,5,6,7); right_t=(8,9,10,11,12,13,14,15)
@@ -71,9 +63,6 @@ def _append_dual_leg_bridge(vertices,faces,pelvis_boundary,left_points,right_poi
     for j in range(8):
         li=7+j; r0=(7-j)%16; r1=(6-j)%16
         faces.append((left[li],left[(li+1)%16],right[r1],right[r0]))
-    # The strip ends are three-edge holes, not quads. Closing them as triangles
-    # consumes each internal seam edge once while leaving pelvis/thigh loop edges
-    # as the only boundaries of this pair-of-pants patch.
     faces.append((pelvis_boundary[7],left[7],right[7]))
     faces.append((pelvis_boundary[15],right[15],left[15]))
     return left,right
@@ -131,8 +120,17 @@ def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh
         shoulder=pts["shoulder."+side]; elbow=pts["elbow."+side]; wrist=pts["wrist."+side]; fingertips=pts["fingertips."+side]; shoulder_exit=_lerp_point(shoulder,elbow,.12); palm=_lerp_point(wrist,fingertips,.42); knuckles=_lerp_point(wrist,fingertips,.72); hw=p.forearm_thickness_cm*.92; hd=p.forearm_thickness_cm*.40
         ac,aw,ad=_supported_joint_chain((shoulder,shoulder_exit,elbow,wrist,palm,knuckles,fingertips),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hw,hw*.94,hw*.48),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hd,hd*.88,hd*.54)); _append_branch(vertices,faces,openings[side],ac,aw,ad)
     lh=pts["hip.left"]; rh=pts["hip.right"]; lk=pts["knee.left"]; rk=pts["knee.right"]; la=pts["ankle.left"]; ra=pts["ankle.right"]
-    lc=_lerp_point(lh,lk,.08); rc=_lerp_point(rh,rk,.08)
-    lp=upper_thigh_ring(lc,p.thigh_thickness_cm*1.14,p.thigh_thickness_cm*1.10,"left",.96); rp=upper_thigh_ring(rc,p.thigh_thickness_cm*1.14,p.thigh_thickness_cm*1.10,"right",.96)
-    left_root,right_root=_append_dual_leg_bridge(vertices,faces,rings[0],lp,rp)
+    # Spread the pelvis-to-groin descent across two additional shared loops before
+    # splitting into the two thigh openings. This removes the single dense hip belt
+    # while preserving the proven pair-of-pants topology at the actual split.
+    hip_z=pts["hip_center"][2]
+    base_width=max(abs(v[0]) for v in (vertices[i] for i in rings[0]))*2.0
+    base_depth=(max(vertices[i][1] for i in rings[0])-min(vertices[i][1] for i in rings[0]))
+    pelvis_mid=_append_ring(vertices,pelvis_surface_ring(hip_z-1.5,base_width*.98,base_depth*1.04,p.thigh_thickness_cm,.38))
+    pelvis_low=_append_ring(vertices,pelvis_surface_ring(hip_z-3.8,base_width*.94,base_depth*1.08,p.thigh_thickness_cm,.72))
+    _append_ring_band(faces,rings[0],pelvis_mid); _append_ring_band(faces,pelvis_mid,pelvis_low)
+    lc=_lerp_point(lh,lk,.10); rc=_lerp_point(rh,rk,.10)
+    lp=upper_thigh_ring(lc,p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.08,"left",.86); rp=upper_thigh_ring(rc,p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.08,"right",.86)
+    left_root,right_root=_append_dual_leg_bridge(vertices,faces,pelvis_low,lp,rp)
     _append_anatomical_leg_from_root(vertices,faces,left_root,_leg_sections(lh,lk,la,p,"left"),p); _append_anatomical_leg_from_root(vertices,faces,right_root,_leg_sections(rh,rk,ra,p,"right"),p)
     vertices=tuple(vertices); faces=_orient_faces_consistently(faces); return ObjectMesh((MeshPart("human",vertices,faces,_generate_face_atlas_uvs(vertices,faces)),))

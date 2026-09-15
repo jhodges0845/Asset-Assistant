@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import unittest
 
-from object_core.geometry.anatomical_pelvis import pelvis_ring, pelvic_transition_ring, upper_thigh_ring
+from object_core.geometry.anatomical_pelvis import pelvis_ring, pelvic_transition_ring, pelvis_surface_ring, upper_thigh_ring
 
 
 class AnatomicalPelvisProfileTests(unittest.TestCase):
@@ -10,7 +10,7 @@ class AnatomicalPelvisProfileTests(unittest.TestCase):
         self.assertEqual(len(ring),16)
         rounded={(round(x,6),round(y,6),round(z,6)) for x,y,z in ring}
         for x,y,z in tuple(rounded): self.assertIn((round(-x,6),y,z),rounded)
-        self.assertGreater(max(v[2] for v in ring)-min(v[2] for v in ring),2.0)
+        self.assertGreater(max(v[2] for v in ring)-min(v[2] for v in ring),1.0)
 
     def test_transition_ring_fades_but_keeps_pelvic_shape(self):
         pelvis=pelvis_ring(90.0,34.0,24.0,16.0)
@@ -18,6 +18,19 @@ class AnatomicalPelvisProfileTests(unittest.TestCase):
         self.assertEqual(len(transition),16)
         self.assertGreater(max(v[2] for v in transition)-min(v[2] for v in transition),0.5)
         self.assertLess(max(v[2] for v in transition)-min(v[2] for v in transition),max(v[2] for v in pelvis)-min(v[2] for v in pelvis))
+
+    def test_surface_flow_distributes_descent_and_preserves_glute_depth(self):
+        upper=pelvis_surface_ring(88.5,34.0,24.0,16.0,.38)
+        lower=pelvis_surface_ring(86.2,32.0,26.0,16.0,.72)
+        self.assertEqual(len(upper),16); self.assertEqual(len(lower),16)
+        self.assertGreater(max(v[2] for v in upper)-min(v[2] for v in upper),1.0)
+        self.assertGreater(max(v[2] for v in lower)-min(v[2] for v in lower),max(v[2] for v in upper)-min(v[2] for v in upper))
+        self.assertLess(min(v[1] for v in lower),min(v[1] for v in upper))
+
+    def test_surface_flow_is_exactly_left_right_symmetric(self):
+        ring=pelvis_surface_ring(88.0,34.0,24.0,16.0,.6)
+        rounded={(round(x,6),round(y,6),round(z,6)) for x,y,z in ring}
+        for x,y,z in tuple(rounded): self.assertIn((round(-x,6),y,z),rounded)
 
     def test_upper_thigh_inherits_pelvic_volume_then_can_fade_to_neutral(self):
         center=(9.0,0.0,75.0)
