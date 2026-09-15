@@ -14,6 +14,25 @@ _HIP_OPENING_LEVEL=0; _SHOULDER_OPENING_LEVEL=5; _TORSO_LAST_LEVEL=6
 def _ellipse_ring(z,width,depth,sides):
     return tuple((width*.5*cos(2*pi*i/sides),depth*.5*sin(2*pi*i/sides),z) for i in range(sides))
 
+def _pelvis_ring(z,width,depth,p):
+    """Build the lower torso boundary as a pelvic saddle, not a flat belt.
+
+    The lateral iliac region sits higher, the medial front/rear boundary descends
+    toward the groin, and the rear half carries extra gluteal depth.  The same ring
+    is subsequently shared by the torso bands and both leg openings, so pelvis and
+    upper thighs begin from one anatomical region rather than independent cylinders.
+    """
+    points=[]
+    drop=max(1.0,p.thigh_thickness_cm*.18)
+    for i in range(_TORSO_RING_SIDES):
+        angle=2*pi*i/_TORSO_RING_SIDES; c=cos(angle); s=sin(angle)
+        lateral=abs(c); medial=1.0-lateral; rear=max(0.0,-s)
+        x=width*.5*c
+        y=depth*.5*s-depth*.10*rear
+        vz=z-drop*medial+drop*.22*lateral
+        points.append((x,y,vz))
+    return tuple(points)
+
 def _append_equal_ring_band(vertices,faces,lower,upper,face_map,level):
     if len(lower)!=len(upper): raise ValueError("equal ring band requires matching ring sizes")
     for i in range(len(lower)):
@@ -28,7 +47,9 @@ def _append_16_to_8_transition(faces,lower,upper):
 def _build_body(p,hip_z,shoulder_z,chin_z,crown_z):
     sections=_human_body_sections(p,hip_z,shoulder_z,chin_z,crown_z); rings=[]; vertices=[]
     for level,(z,w,d) in enumerate(sections):
-        sides=16 if level<=_TORSO_LAST_LEVEL else 8; ring=_ellipse_ring(z,w,d,sides); start=len(vertices); vertices.extend(ring); rings.append(tuple(range(start,start+sides)))
+        sides=16 if level<=_TORSO_LAST_LEVEL else 8
+        ring=_pelvis_ring(z,w,d,p) if level==_HIP_OPENING_LEVEL else _ellipse_ring(z,w,d,sides)
+        start=len(vertices); vertices.extend(ring); rings.append(tuple(range(start,start+sides)))
     faces=[tuple(reversed(rings[0]))]; fmap={}
     for level in range(len(rings)-1):
         if len(rings[level])==len(rings[level+1]): _append_equal_ring_band(vertices,faces,rings[level],rings[level+1],fmap,level)
@@ -39,34 +60,21 @@ def _opening_face(faces,fmap,level,side):
     segment=0 if side=="left" else 7; return fmap[(level,segment)],faces[fmap[(level,segment)]]
 
 def _pelvis_thigh_ring(center,width,depth,side,blend):
-    """Shape a 16-point upper-thigh ring as a continuation of the pelvis.
-
-    ``blend`` is strongest at the hip and fades down the thigh.  The outer/lateral
-    and rear quadrants retain more pelvic volume while the inner/groin quadrant is
-    drawn inward.  This gives the neutral constructor a hip/glute/thigh transition
-    instead of attaching a round cylinder below a flat pelvis belt.
-    """
-    sign=1.0 if side=="left" else -1.0
-    result=[]
+    sign=1.0 if side=="left" else -1.0; result=[]
     for i in range(_LEG_RING_SIDES):
-        angle=2*pi*i/_LEG_RING_SIDES; c=cos(angle); s=sin(angle)
-        lateral=max(0.0,sign*c); medial=max(0.0,-sign*c); rear=max(0.0,-s)
-        x=center[0]+width*.5*c
-        y=center[1]+depth*.5*s
-        x+=sign*width*blend*(.10*lateral-.055*medial)
-        y-=depth*blend*.10*rear
+        angle=2*pi*i/_LEG_RING_SIDES; c=cos(angle); s=sin(angle); lateral=max(0.0,sign*c); medial=max(0.0,-sign*c); rear=max(0.0,-s)
+        x=center[0]+width*.5*c+sign*width*blend*(.10*lateral-.055*medial)
+        y=center[1]+depth*.5*s-depth*blend*.14*rear
         result.append((x,y,center[2]))
     return tuple(result)
 
 def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p,side):
-    """Attach thigh/knee/calf loops with an anatomy-aware pelvis transition."""
-    sections=((_lerp_point(hip,knee,.08),p.thigh_thickness_cm*1.12,p.thigh_thickness_cm*1.08,.90),(_lerp_point(hip,knee,.18),p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.06,.62),(_lerp_point(hip,knee,.30),p.thigh_thickness_cm*1.04,p.thigh_thickness_cm, .34),(_lerp_point(hip,knee,.52),p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92,0.0),(_lerp_point(hip,knee,.82),p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96,0.0),(knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88,0.0),(_lerp_point(knee,ankle,.18),p.calf_thickness_cm*.98,p.calf_thickness_cm*.94,0.0),(_lerp_point(knee,ankle,.38),p.calf_thickness_cm*1.08,p.calf_thickness_cm,0.0),(_lerp_point(knee,ankle,.55),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04,0.0),(_lerp_point(knee,ankle,.76),p.calf_thickness_cm*.84,p.calf_thickness_cm*.80,0.0),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58,0.0))
-    center,width,depth,blend=sections[0]; shaped=_pelvis_thigh_ring(center,width,depth,side,blend); ring=[None]*16
-    cardinal=(0,4,8,12)
+    """Continue the shared pelvic region through thigh, knee, calf, ankle and foot."""
+    sections=((_lerp_point(hip,knee,.08),p.thigh_thickness_cm*1.12,p.thigh_thickness_cm*1.08,.90),(_lerp_point(hip,knee,.18),p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.06,.62),(_lerp_point(hip,knee,.30),p.thigh_thickness_cm*1.04,p.thigh_thickness_cm,.34),(_lerp_point(hip,knee,.52),p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92,0.0),(_lerp_point(hip,knee,.82),p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96,0.0),(knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88,0.0),(_lerp_point(knee,ankle,.18),p.calf_thickness_cm*.98,p.calf_thickness_cm*.94,0.0),(_lerp_point(knee,ankle,.38),p.calf_thickness_cm*1.08,p.calf_thickness_cm,0.0),(_lerp_point(knee,ankle,.55),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04,0.0),(_lerp_point(knee,ankle,.76),p.calf_thickness_cm*.84,p.calf_thickness_cm*.80,0.0),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58,0.0))
+    center,width,depth,blend=sections[0]; shaped=_pelvis_thigh_ring(center,width,depth,side,blend); ring=[None]*16; cardinal=(0,4,8,12)
     for slot,vertex_index in zip(cardinal,opening): ring[slot]=vertex_index
     for i in range(16):
-        if ring[i] is not None: continue
-        ring[i]=len(vertices); vertices.append(shaped[i])
+        if ring[i] is None: ring[i]=len(vertices); vertices.append(shaped[i])
     first=tuple(ring)
     for sector in range(4):
         a=cardinal[sector]; b=cardinal[(sector+1)%4]; end=16 if sector==3 else b
@@ -78,10 +86,8 @@ def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p,side):
         current=tuple(current)
         for i in range(16): faces.append((rings[-1][i],rings[-1][(i+1)%16],current[(i+1)%16],current[i]))
         rings.append(current)
-    foot_h=p.foot_height_cm; fw=p.calf_thickness_cm*.88; z=foot_h*.5
-    heel=(ankle[0],-p.foot_length_cm*.18,z); mid=(ankle[0],p.foot_length_cm*.22,z); ball=(ankle[0],p.foot_length_cm*.56,z); toe=(ankle[0],p.foot_length_cm*.82,z)
-    centers,widths,depths=_supported_joint_chain((ankle,heel,mid,ball,toe),(p.calf_thickness_cm*.6,fw*.82,fw,fw*1.06,fw*.74),(p.calf_thickness_cm*.58,foot_h*.92,foot_h,foot_h*.82,foot_h*.56))
-    previous=rings[-1]
+    foot_h=p.foot_height_cm; fw=p.calf_thickness_cm*.88; z=foot_h*.5; heel=(ankle[0],-p.foot_length_cm*.18,z); mid=(ankle[0],p.foot_length_cm*.22,z); ball=(ankle[0],p.foot_length_cm*.56,z); toe=(ankle[0],p.foot_length_cm*.82,z)
+    centers,widths,depths=_supported_joint_chain((ankle,heel,mid,ball,toe),(p.calf_thickness_cm*.6,fw*.82,fw,fw*1.06,fw*.74),(p.calf_thickness_cm*.58,foot_h*.92,foot_h,foot_h*.82,foot_h*.56)); previous=rings[-1]
     for idx,(center,width,depth) in enumerate(zip(centers[1:],widths[1:],depths[1:])):
         current=[]
         for i in range(8):
@@ -94,7 +100,6 @@ def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p,side):
     faces.append(tuple(previous))
 
 def _orient_faces_consistently(faces):
-    """Orient each connected manifold surface so shared edges run opposite ways."""
     edge_faces=defaultdict(list)
     for fi,face in enumerate(faces):
         for i,a in enumerate(face):
@@ -106,8 +111,8 @@ def _orient_faces_consistently(faces):
         while queue:
             fi=queue.popleft(); face=faces[fi]
             for i,a in enumerate(face):
-                b=face[(i+1)%len(face)]; entries=edge_faces[tuple(sorted((a,b)))]
-                for other,oa,ob in entries:
+                b=face[(i+1)%len(face)]
+                for other,oa,ob in edge_faces[tuple(sorted((a,b)))]:
                     if other==fi: continue
                     same=(a==oa and b==ob); required=flip[fi]^same
                     if flip[other] is None: flip[other]=required; queue.append(other)
@@ -116,8 +121,7 @@ def _orient_faces_consistently(faces):
 
 def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh:
     if not isinstance(proportions,HumanoidProportions): raise TypeError("proportions must be HumanoidProportions")
-    p=proportions; pts=generate_landmarks(p); vertices,body_faces,fmap=_build_body(p,pts["hip_center"][2],pts["shoulder_center"][2],pts["chin"][2],pts["crown"][2]); vertices=_shape_head_surface(vertices,p,pts["chin"][2],pts["crown"][2])
-    openings={}; removed=set()
+    p=proportions; pts=generate_landmarks(p); vertices,body_faces,fmap=_build_body(p,pts["hip_center"][2],pts["shoulder_center"][2],pts["chin"][2],pts["crown"][2]); vertices=_shape_head_surface(vertices,p,pts["chin"][2],pts["crown"][2]); openings={}; removed=set()
     for level,region in ((_HIP_OPENING_LEVEL,"hip"),(_SHOULDER_OPENING_LEVEL,"shoulder")):
         for side in ("left","right"):
             idx,face=_opening_face(body_faces,fmap,level,side); openings[(region,side)]=face; removed.add(idx)
