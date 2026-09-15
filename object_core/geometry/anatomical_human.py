@@ -126,12 +126,13 @@ def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh
     pelvis_mid=_append_ring(vertices,pelvis_surface_ring(hip_z-1.5,base_width*.98,base_depth*1.04,p.thigh_thickness_cm,.38))
     pelvis_low=_append_ring(vertices,pelvis_surface_ring(hip_z-3.8,base_width*.94,base_depth*1.08,p.thigh_thickness_cm,.72))
     _append_ring_band(faces,rings[0],pelvis_mid); _append_ring_band(faces,pelvis_mid,pelvis_low)
-    lc=_lerp_point(lh,lk,.10); rc=_lerp_point(rh,rk,.10)
-    # The split now terminates on anatomical, non-planar thigh openings. Lateral hip
-    # points remain high while medial points descend into the crotch seam; rear
-    # points carry glute depth into the upper thigh instead of forming a flat shelf.
-    lp=thigh_opening_ring(lc,p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.08,"left",.86)
-    rp=thigh_opening_ring(rc,p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.08,"right",.86)
+    # Keep the anatomical opening saddle close enough to the shared pelvis that the
+    # evaluated printable volume remains connected through the crotch.  The prior
+    # .10 hip-to-knee placement created a narrow neck that voxel repair split into
+    # two solids even though the source mesh was topologically connected.
+    lc=_lerp_point(lh,lk,.065); rc=_lerp_point(rh,rk,.065)
+    lp=thigh_opening_ring(lc,p.thigh_thickness_cm*1.13,p.thigh_thickness_cm*1.10,"left",.86)
+    rp=thigh_opening_ring(rc,p.thigh_thickness_cm*1.13,p.thigh_thickness_cm*1.10,"right",.86)
     left_root,right_root=_append_dual_leg_bridge(vertices,faces,pelvis_low,lp,rp)
     _append_anatomical_leg_from_root(vertices,faces,left_root,_leg_sections(lh,lk,la,p,"left"),p); _append_anatomical_leg_from_root(vertices,faces,right_root,_leg_sections(rh,rk,ra,p,"right"),p)
     vertices=tuple(vertices); faces=_orient_faces_consistently(faces); return ObjectMesh((MeshPart("human",vertices,faces,_generate_face_atlas_uvs(vertices,faces)),))
