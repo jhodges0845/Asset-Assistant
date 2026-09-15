@@ -6,7 +6,8 @@ from math import cos, pi, sin
 from ..models.mesh import MeshPart, ObjectMesh
 from ..models.proportions import HumanoidProportions
 from ..proportions.landmarks import generate_landmarks
-from .anatomical_pelvis import pelvis_ring, pelvic_transition_ring, thigh_opening_ring, upper_thigh_ring
+from .anatomical_pelvis import pelvis_ring, pelvic_transition_ring, upper_thigh_ring
+from .anatomical_pelvis_patch import append_anatomical_pelvis_patch
 from .deformable import _append_branch, _generate_face_atlas_uvs, _human_body_sections, _lerp_point, _shape_head_surface, _supported_joint_chain
 
 _TORSO_RING_SIDES=16; _LEGACY_RING_SIDES=8; _LEG_RING_SIDES=16
@@ -50,27 +51,6 @@ def _append_ring(vertices, points):
 
 def _append_ring_band(faces, upper, lower):
     for i in range(16): faces.append((upper[i],upper[(i+1)%16],lower[(i+1)%16],lower[i]))
-
-def _append_dual_leg_bridge(vertices,faces,pelvis_boundary,left_points,right_points):
-    """Tile a pair-of-pants patch between one pelvis loop and two thigh loops.
-
-    The pelvis boundary is now the anatomical torso/pelvis saddle itself.  No full
-    circumferential conversion belts are inserted beneath it, so longitudinal edges
-    run directly from the shared pelvis into the two thigh openings.
-    """
-    left=_append_ring(vertices,left_points); right=_append_ring(vertices,right_points)
-    left_p=(0,1,2,3,4,5,6,7); right_p=(8,9,10,11,12,13,14,15)
-    left_t=(0,1,2,3,4,5,6,7); right_t=(8,9,10,11,12,13,14,15)
-    for seq_p,seq_t,ring in ((left_p,left_t,left),(right_p,right_t,right)):
-        for j in range(len(seq_p)-1): faces.append((pelvis_boundary[seq_p[j]],pelvis_boundary[seq_p[j+1]],ring[seq_t[j+1]],ring[seq_t[j]]))
-    faces.append((pelvis_boundary[15],pelvis_boundary[0],left[0],left[15]))
-    faces.append((pelvis_boundary[7],pelvis_boundary[8],right[8],right[7]))
-    for j in range(8):
-        li=7+j; r0=(7-j)%16; r1=(6-j)%16
-        faces.append((left[li],left[(li+1)%16],right[r1],right[r0]))
-    faces.append((pelvis_boundary[7],left[7],right[7]))
-    faces.append((pelvis_boundary[15],right[15],left[15]))
-    return left,right
 
 def _append_anatomical_leg_from_root(vertices,faces,root,sections,p):
     rings=[root]
@@ -125,12 +105,12 @@ def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh
         shoulder=pts["shoulder."+side]; elbow=pts["elbow."+side]; wrist=pts["wrist."+side]; fingertips=pts["fingertips."+side]; shoulder_exit=_lerp_point(shoulder,elbow,.12); palm=_lerp_point(wrist,fingertips,.42); knuckles=_lerp_point(wrist,fingertips,.72); hw=p.forearm_thickness_cm*.92; hd=p.forearm_thickness_cm*.40
         ac,aw,ad=_supported_joint_chain((shoulder,shoulder_exit,elbow,wrist,palm,knuckles,fingertips),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hw,hw*.94,hw*.48),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hd,hd*.88,hd*.54)); _append_branch(vertices,faces,openings[side],ac,aw,ad)
     lh=pts["hip.left"]; rh=pts["hip.right"]; lk=pts["knee.left"]; rk=pts["knee.right"]; la=pts["ankle.left"]; ra=pts["ankle.right"]
-    # The shared pelvis saddle now splits directly into the two anatomical thigh
-    # openings.  This deliberately removes the two full-width lower-pelvis rings
-    # that produced the visible belt/skirt conversion zone in diagnostic renders.
-    lc=_lerp_point(lh,lk,.065); rc=_lerp_point(rh,rk,.065)
-    lp=thigh_opening_ring(lc,p.thigh_thickness_cm*1.13,p.thigh_thickness_cm*1.10,"left",.86)
-    rp=thigh_opening_ring(rc,p.thigh_thickness_cm*1.13,p.thigh_thickness_cm*1.10,"right",.86)
-    left_root,right_root=_append_dual_leg_bridge(vertices,faces,rings[0],lp,rp)
+    # Resolve the shared pelvis through three short anatomical surface rows.  The
+    # first row owns the pair-of-pants split; the next two carry longitudinal quad
+    # flow into the thigh roots instead of stretching one fan from abdomen to leg.
+    fractions=(.022,.043,.065)
+    left_centers=tuple(_lerp_point(lh,lk,f) for f in fractions)
+    right_centers=tuple(_lerp_point(rh,rk,f) for f in fractions)
+    left_root,right_root=append_anatomical_pelvis_patch(vertices,faces,rings[0],left_centers,right_centers,p.thigh_thickness_cm*1.13,p.thigh_thickness_cm*1.10)
     _append_anatomical_leg_from_root(vertices,faces,left_root,_leg_sections(lh,lk,la,p,"left"),p); _append_anatomical_leg_from_root(vertices,faces,right_root,_leg_sections(rh,rk,ra,p,"right"),p)
     vertices=tuple(vertices); faces=_orient_faces_consistently(faces); return ObjectMesh((MeshPart("human",vertices,faces,_generate_face_atlas_uvs(vertices,faces)),))
