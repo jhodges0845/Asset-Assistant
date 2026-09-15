@@ -6,6 +6,7 @@ from math import cos, pi, sin
 from ..models.mesh import MeshPart, ObjectMesh
 from ..models.proportions import HumanoidProportions
 from ..proportions.landmarks import generate_landmarks
+from .anatomical_pelvis import pelvis_ring, pelvic_transition_ring, upper_thigh_ring
 from .deformable import _append_branch, _generate_face_atlas_uvs, _human_body_sections, _lerp_point, _shape_head_surface, _supported_joint_chain
 
 _TORSO_RING_SIDES=16; _LEGACY_RING_SIDES=8; _LEG_RING_SIDES=16
@@ -13,25 +14,6 @@ _HIP_OPENING_LEVEL=0; _SHOULDER_OPENING_LEVEL=5; _TORSO_LAST_LEVEL=6
 
 def _ellipse_ring(z,width,depth,sides):
     return tuple((width*.5*cos(2*pi*i/sides),depth*.5*sin(2*pi*i/sides),z) for i in range(sides))
-
-def _pelvis_ring(z,width,depth,p):
-    """Build the lower torso boundary as a pelvic saddle, not a flat belt.
-
-    The lateral iliac region sits higher, the medial front/rear boundary descends
-    toward the groin, and the rear half carries extra gluteal depth.  The same ring
-    is subsequently shared by the torso bands and both leg openings, so pelvis and
-    upper thighs begin from one anatomical region rather than independent cylinders.
-    """
-    points=[]
-    drop=max(1.0,p.thigh_thickness_cm*.18)
-    for i in range(_TORSO_RING_SIDES):
-        angle=2*pi*i/_TORSO_RING_SIDES; c=cos(angle); s=sin(angle)
-        lateral=abs(c); medial=1.0-lateral; rear=max(0.0,-s)
-        x=width*.5*c
-        y=depth*.5*s-depth*.10*rear
-        vz=z-drop*medial+drop*.22*lateral
-        points.append((x,y,vz))
-    return tuple(points)
 
 def _append_equal_ring_band(vertices,faces,lower,upper,face_map,level):
     if len(lower)!=len(upper): raise ValueError("equal ring band requires matching ring sizes")
@@ -48,7 +30,9 @@ def _build_body(p,hip_z,shoulder_z,chin_z,crown_z):
     sections=_human_body_sections(p,hip_z,shoulder_z,chin_z,crown_z); rings=[]; vertices=[]
     for level,(z,w,d) in enumerate(sections):
         sides=16 if level<=_TORSO_LAST_LEVEL else 8
-        ring=_pelvis_ring(z,w,d,p) if level==_HIP_OPENING_LEVEL else _ellipse_ring(z,w,d,sides)
+        if level==_HIP_OPENING_LEVEL: ring=pelvis_ring(z,w,d,p.thigh_thickness_cm)
+        elif level==_HIP_OPENING_LEVEL+1: ring=pelvic_transition_ring(z,w,d,p.thigh_thickness_cm)
+        else: ring=_ellipse_ring(z,w,d,sides)
         start=len(vertices); vertices.extend(ring); rings.append(tuple(range(start,start+sides)))
     faces=[tuple(reversed(rings[0]))]; fmap={}
     for level in range(len(rings)-1):
@@ -59,19 +43,10 @@ def _build_body(p,hip_z,shoulder_z,chin_z,crown_z):
 def _opening_face(faces,fmap,level,side):
     segment=0 if side=="left" else 7; return fmap[(level,segment)],faces[fmap[(level,segment)]]
 
-def _pelvis_thigh_ring(center,width,depth,side,blend):
-    sign=1.0 if side=="left" else -1.0; result=[]
-    for i in range(_LEG_RING_SIDES):
-        angle=2*pi*i/_LEG_RING_SIDES; c=cos(angle); s=sin(angle); lateral=max(0.0,sign*c); medial=max(0.0,-sign*c); rear=max(0.0,-s)
-        x=center[0]+width*.5*c+sign*width*blend*(.10*lateral-.055*medial)
-        y=center[1]+depth*.5*s-depth*blend*.14*rear
-        result.append((x,y,center[2]))
-    return tuple(result)
-
 def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p,side):
     """Continue the shared pelvic region through thigh, knee, calf, ankle and foot."""
-    sections=((_lerp_point(hip,knee,.08),p.thigh_thickness_cm*1.12,p.thigh_thickness_cm*1.08,.90),(_lerp_point(hip,knee,.18),p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.06,.62),(_lerp_point(hip,knee,.30),p.thigh_thickness_cm*1.04,p.thigh_thickness_cm,.34),(_lerp_point(hip,knee,.52),p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92,0.0),(_lerp_point(hip,knee,.82),p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96,0.0),(knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88,0.0),(_lerp_point(knee,ankle,.18),p.calf_thickness_cm*.98,p.calf_thickness_cm*.94,0.0),(_lerp_point(knee,ankle,.38),p.calf_thickness_cm*1.08,p.calf_thickness_cm,0.0),(_lerp_point(knee,ankle,.55),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04,0.0),(_lerp_point(knee,ankle,.76),p.calf_thickness_cm*.84,p.calf_thickness_cm*.80,0.0),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58,0.0))
-    center,width,depth,blend=sections[0]; shaped=_pelvis_thigh_ring(center,width,depth,side,blend); ring=[None]*16; cardinal=(0,4,8,12)
+    sections=((_lerp_point(hip,knee,.08),p.thigh_thickness_cm*1.14,p.thigh_thickness_cm*1.10,.96),(_lerp_point(hip,knee,.18),p.thigh_thickness_cm*1.11,p.thigh_thickness_cm*1.07,.72),(_lerp_point(hip,knee,.30),p.thigh_thickness_cm*1.04,p.thigh_thickness_cm,.40),(_lerp_point(hip,knee,.52),p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92,0.0),(_lerp_point(hip,knee,.82),p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96,0.0),(knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88,0.0),(_lerp_point(knee,ankle,.18),p.calf_thickness_cm*.98,p.calf_thickness_cm*.94,0.0),(_lerp_point(knee,ankle,.38),p.calf_thickness_cm*1.08,p.calf_thickness_cm,0.0),(_lerp_point(knee,ankle,.55),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04,0.0),(_lerp_point(knee,ankle,.76),p.calf_thickness_cm*.84,p.calf_thickness_cm*.80,0.0),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58,0.0))
+    center,width,depth,blend=sections[0]; shaped=upper_thigh_ring(center,width,depth,side,blend); ring=[None]*16; cardinal=(0,4,8,12)
     for slot,vertex_index in zip(cardinal,opening): ring[slot]=vertex_index
     for i in range(16):
         if ring[i] is None: ring[i]=len(vertices); vertices.append(shaped[i])
@@ -81,7 +56,7 @@ def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p,side):
         for i in range(a,end-1): faces.append((first[i%16],first[(i+1)%16],opening[(sector+1)%4]))
     rings=[first]
     for center,width,depth,blend in sections[1:]:
-        shaped=_pelvis_thigh_ring(center,width,depth,side,blend); current=[]
+        shaped=upper_thigh_ring(center,width,depth,side,blend); current=[]
         for point in shaped: current.append(len(vertices)); vertices.append(point)
         current=tuple(current)
         for i in range(16): faces.append((rings[-1][i],rings[-1][(i+1)%16],current[(i+1)%16],current[i]))
