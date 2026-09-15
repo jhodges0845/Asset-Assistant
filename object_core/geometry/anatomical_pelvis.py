@@ -14,7 +14,7 @@ RING_SIDES = 16
 
 def pelvis_ring(z, width, depth, thigh_thickness):
     """Return the upper iliac boundary of the shared pelvis."""
-    drop = max(0.8, thigh_thickness * 0.12)
+    drop = max(1.0, thigh_thickness * 0.16)
     points = []
     for i in range(RING_SIDES):
         angle = 2 * pi * i / RING_SIDES
@@ -24,14 +24,14 @@ def pelvis_ring(z, width, depth, thigh_thickness):
         front = max(0.0, s)
         x = width * 0.5 * c
         y = depth * 0.5 * s - depth * 0.08 * rear + depth * 0.015 * front
-        vz = z + drop * (0.45 * lateral - 0.35)
+        vz = z + drop * (0.55 * lateral - 0.45)
         points.append((x, y, vz))
     return tuple(points)
 
 
 def pelvic_transition_ring(z, width, depth, thigh_thickness):
     """Return the ring above the iliac boundary with pelvic shape fading into torso."""
-    drop = max(0.5, thigh_thickness * 0.06)
+    drop = max(0.5, thigh_thickness * 0.05)
     points = []
     for i in range(RING_SIDES):
         angle = 2 * pi * i / RING_SIDES
@@ -62,16 +62,12 @@ def pelvis_surface_ring(z, width, depth, thigh_thickness, descent):
         medial = 1.0 - lateral
         rear = max(0.0, -s)
         front = max(0.0, s)
-        # Keep iliac breadth high, then converge toward the two upper thighs.
         width_scale = 1.0 - t * (0.10 + 0.12 * medial)
         x = width * 0.5 * width_scale * c
-        # Glute volume persists through the lower pelvis; the front stays restrained.
         depth_scale = 1.0 - 0.08 * t
         y = depth * 0.5 * depth_scale * s
         y -= depth * rear * (0.08 + 0.10 * t)
         y += depth * front * (0.01 + 0.015 * (1.0 - t))
-        # Lateral iliac points remain higher; medial/front/rear points descend into
-        # the saddle so the groin is distributed over several longitudinal bands.
         sector_drop = 0.35 + 0.65 * medial + 0.12 * front + 0.05 * rear
         vz = z - drop * sector_drop
         points.append((x, y, vz))
