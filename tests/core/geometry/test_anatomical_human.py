@@ -29,12 +29,28 @@ class AnatomicalHumanTopologyTests(unittest.TestCase):
 
     def test_legs_have_anatomical_longitudinal_support_loops(self):
         hip=self.landmarks["hip.left"]; knee=self.landmarks["knee.left"]
-        for fraction in (.25,.52,.82):
+        for fraction in (.18,.30,.52,.82):
             z=hip[2]+(knee[2]-hip[2])*fraction
             ring=[v for v in self.part.vertices if abs(v[2]-z)<=1e-7 and v[0]>0]
             self.assertEqual(len(ring),16)
         knee_z=knee[2]
         self.assertGreaterEqual(len([v for v in self.part.vertices if abs(v[2]-knee_z)<=1e-7 and v[0]>0]),16)
+
+    def test_upper_thigh_transitions_from_hip_volume(self):
+        hip=self.landmarks["hip.left"]; knee=self.landmarks["knee.left"]
+        def x_span(fraction):
+            z=hip[2]+(knee[2]-hip[2])*fraction
+            xs=[v[0] for v in self.part.vertices if abs(v[2]-z)<=1e-7 and v[0]>0]
+            return max(xs)-min(xs)
+        self.assertGreater(x_span(.18),x_span(.52))
+
+    def test_upper_thigh_has_rear_glute_contour_that_fades_down_leg(self):
+        hip=self.landmarks["hip.left"]; knee=self.landmarks["knee.left"]
+        def rear(fraction):
+            z=hip[2]+(knee[2]-hip[2])*fraction
+            ys=[v[1] for v in self.part.vertices if abs(v[2]-z)<=1e-7 and v[0]>0]
+            return min(ys)
+        self.assertLess(rear(.18),rear(.52))
 
     def test_calf_belly_is_wider_than_lower_calf(self):
         knee=self.landmarks["knee.left"]; ankle=self.landmarks["ankle.left"]
@@ -42,7 +58,7 @@ class AnatomicalHumanTopologyTests(unittest.TestCase):
             z=knee[2]+(ankle[2]-knee[2])*fraction
             xs=[v[0] for v in self.part.vertices if abs(v[2]-z)<=1e-7 and v[0]>0]
             return max(xs)-min(xs)
-        self.assertGreater(span(.48),span(.72))
+        self.assertGreater(span(.55),span(.76))
 
     def test_neck_and_head_keep_legacy_eight_point_layout(self):
         shoulder_z=self.landmarks["shoulder_center"][2]; chin_z=self.landmarks["chin"][2]
