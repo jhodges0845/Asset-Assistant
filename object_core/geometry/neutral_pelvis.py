@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Standalone, sex-neutral Human V2 pelvis prototype.
 
-The pelvis is intentionally generated independently from the torso and thighs.  It
+The pelvis is intentionally generated independently from the torso and thighs. It
 exposes three named open boundaries so later constructors can extend topology up
-into the abdomen and down into each thigh.  Shape controls are semantic rather
+into the abdomen and down into each thigh. Shape controls are semantic rather
 than sex-specific so Modify can request targeted changes without replacing the
 construction strategy.
 """
@@ -70,73 +70,155 @@ def _ring(z, width, depth, rear_projection=0.0, lateral_fullness=0.0):
     return tuple(points)
 
 
-def _leg_opening(center_x, z, width, depth, side, medial_bias):
+def _leg_loop(center_x, z, width, depth, side, medial_drop=0.0,
+              outer_lift=0.0, rear_projection=0.0):
+    """Create an anatomically biased loop around one leg socket.
+
+    The outside of the socket sits slightly higher than the medial side, while
+    the rear half receives a small gluteal projection. This avoids the old
+    straight tube look without making the attachment boundary irregular enough
+    to become difficult to extend into a thigh later.
+    """
     sign = 1.0 if side == "left" else -1.0
     points = []
     for i in range(SIDES):
         a = 2.0 * pi * i / SIDES
         c, s = cos(a), sin(a)
         medial = max(0.0, -sign * c)
-        x = center_x + width * .5 * c - sign * medial_bias * medial
-        y = depth * .5 * s
-        # Outer hip begins higher; medial crotch descends toward the centerline.
-        zz = z + width * .10 * max(0.0, sign * c) - width * .16 * medial
+        outer = max(0.0, sign * c)
+        x = center_x + width * .5 * c
+        y = depth * .5 * s - rear_projection * max(0.0, -s)
+        zz = z + outer_lift * outer - medial_drop * medial
         points.append((x, y, zz))
     return tuple(points)
+
+
+def _append_loop(vertices, points):
+    start = len(vertices)
+    vertices.extend(points)
+    return tuple(range(start, start + len(points)))
+
+
+def _bridge_loops(faces, a, b):
+    """Bridge two equally sized closed loops with consistently wound quads."""
+    if len(a) != len(b):
+        raise ValueError("Cannot bridge loops with different vertex counts")
+    for i in range(len(a)):
+        j = (i + 1) % len(a)
+        faces.append((a[i], a[j], b[j], b[i]))
+
+
+def _bridge_paths(faces, a, b):
+    """Bridge two equally sized open paths with quads."""
+    if len(a) != len(b):
+        raise ValueError("Cannot bridge paths with different vertex counts")
+    for i in range(len(a) - 1):
+        faces.append((a[i], a[i + 1], b[i + 1], b[i]))
 
 
 def generate_neutral_pelvis(shape=None):
     """Return vertices, faces and three named open boundaries.
 
-    This first prototype deliberately leaves all interfaces open.  It is a visual
-    anatomy primitive, not yet the active Human constructor.
+    The construction deliberately keeps the torso and both thigh interfaces open.
+    Unlike the first prototype, the hip shell no longer collapses directly into
+    two leg holes. A dedicated lower-pelvis/inguinal row creates a readable
+    transition into two separate sockets and a controlled central crotch saddle.
     """
     p = _validated(shape or NeutralPelvisShape())
     vertices, faces = [], []
 
-    upper = _ring(p.height * .5, p.waist_width, p.waist_depth)
-    iliac = _ring(p.height * .15, p.width * .94, p.depth * .94,
-                  rear_projection=p.depth * .035 * p.glute_projection,
-                  lateral_fullness=.055 * p.hip_fullness)
-    hip = _ring(-p.height * .18, p.width, p.depth,
-                rear_projection=p.depth * .10 * p.glute_projection,
-                lateral_fullness=.075 * p.hip_fullness)
+    # Broad torso-to-hip mass. These rows establish the waist, iliac flare and
+    # widest hip before the mesh separates toward the two leg sockets.
+    upper = _ring(p.height * .50, p.waist_width, p.waist_depth)
+    iliac = _ring(
+        p.height * .18,
+        p.width * .94,
+        p.depth * .94,
+        rear_projection=p.depth * .025 * p.glute_projection,
+        lateral_fullness=.045 * p.hip_fullness,
+    )
+    hip = _ring(
+        -p.height * .12,
+        p.width,
+        p.depth,
+        rear_projection=p.depth * .085 * p.glute_projection,
+        lateral_fullness=.070 * p.hip_fullness,
+    )
 
-    rings = []
-    for points in (upper, iliac, hip):
-        start = len(vertices); vertices.extend(points); rings.append(tuple(range(start, start + SIDES)))
-    for a, b in zip(rings, rings[1:]):
-        for i in range(SIDES):
-            j = (i + 1) % SIDES
-            faces.append((a[i], a[j], b[j], b[i]))
+    upper_loop = _append_loop(vertices, upper)
+    iliac_loop = _append_loop(vertices, iliac)
+    hip_loop = _append_loop(vertices, hip)
+    _bridge_loops(faces, upper_loop, iliac_loop)
+    _bridge_loops(faces, iliac_loop, hip_loop)
 
-    # Leg interfaces are deliberately narrower medially than the old thigh tubes.
+    # Two transition loops form the lower pelvis before the actual thigh
+    # attachment loops. Their slightly larger footprint gives the surface room
+    # to describe gluteal volume, inguinal flow and the crotch split rather than
+    # pinching a single hip ring directly into two holes.
     center_offset = p.thigh_spacing * .5 + p.thigh_opening_width * .5
-    leg_z = -p.height * .5 * p.crotch_drop
-    left_points = _leg_opening(center_offset, leg_z, p.thigh_opening_width,
-                               p.thigh_opening_depth, "left", p.crotch_width * .18)
-    right_points = _leg_opening(-center_offset, leg_z, p.thigh_opening_width,
-                                p.thigh_opening_depth, "right", p.crotch_width * .18)
-    left_start = len(vertices); vertices.extend(left_points); left = tuple(range(left_start, left_start + SIDES))
-    right_start = len(vertices); vertices.extend(right_points); right = tuple(range(right_start, right_start + SIDES))
+    transition_z = -p.height * .34
+    transition_width = min(p.width * .46, p.thigh_opening_width * 1.24)
+    transition_depth = min(p.depth * .72, p.thigh_opening_depth * 1.14)
+    medial_drop = p.height * .075 * p.crotch_drop
+    outer_lift = p.height * .030
+    rear_projection = p.depth * .055 * p.glute_projection
 
-    # Path-based provisional bridge: outer/anterior/rear sectors descend from the
-    # hip mass.  The medial crotch remains a neutral central seam.  The standalone
-    # render will tell us where this surface needs another anatomical row.
-    for source_slice, target in ((range(0, 8), left), (range(8, 16), right)):
-        src = tuple(rings[-1][i] for i in source_slice)
-        dst_offset = 0 if target is left else 8
-        dst = tuple(target[(dst_offset + i) % SIDES] for i in range(8))
-        for i in range(7):
-            faces.append((src[i], src[i + 1], dst[i + 1], dst[i]))
-    # Close only the central surface between leg openings; keep the three named
-    # attachment loops themselves open.
-    for i in range(8):
-        li = left[7 + i]
-        ln = left[(8 + i) % SIDES]
-        ri = right[(7 - i) % SIDES]
-        rn = right[(6 - i) % SIDES]
-        faces.append((li, ln, rn, ri))
+    left_transition_points = _leg_loop(
+        center_offset, transition_z, transition_width, transition_depth, "left",
+        medial_drop=medial_drop, outer_lift=outer_lift,
+        rear_projection=rear_projection,
+    )
+    right_transition_points = _leg_loop(
+        -center_offset, transition_z, transition_width, transition_depth, "right",
+        medial_drop=medial_drop, outer_lift=outer_lift,
+        rear_projection=rear_projection,
+    )
+    left_transition = _append_loop(vertices, left_transition_points)
+    right_transition = _append_loop(vertices, right_transition_points)
 
-    boundaries = {"torso": rings[0], "left_thigh": left, "right_thigh": right}
+    # Split the bottom half of the hip ring into left and right 180-degree paths.
+    # With the ring indexing used here, index 0 is +X, 4 is front, 8 is -X,
+    # and 12 is rear. These paths meet only at the front/rear centerline and cover
+    # the complete hip circumference exactly once.
+    left_hip_path = tuple(hip_loop[i % SIDES] for i in range(12, 21))   # 12..15,0..4
+    right_hip_path = tuple(hip_loop[i] for i in range(4, 13))          # 4..12
+
+    # Use the outer halves of each transition loop to receive the hip shell.
+    left_outer_path = tuple(left_transition[i % SIDES] for i in range(12, 21))
+    right_outer_path = tuple(right_transition[i] for i in range(4, 13))
+    _bridge_paths(faces, left_hip_path, left_outer_path)
+    _bridge_paths(faces, right_hip_path, right_outer_path)
+
+    # The medial halves face one another. Bridge them front-to-back to create a
+    # shallow crotch saddle instead of the previous fan-like index collapse.
+    left_medial_path = tuple(left_transition[i] for i in range(4, 13))
+    right_medial_path = tuple(right_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
+    _bridge_paths(faces, left_medial_path, right_medial_path)
+
+    # Final open thigh interfaces. They are a little narrower/deeper than the
+    # transition loops and descend medially, producing a cleaner leg socket while
+    # preserving simple 16-vertex loops for downstream thigh generation.
+    leg_z = -p.height * .50 * p.crotch_drop
+    left_thigh_points = _leg_loop(
+        center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "left",
+        medial_drop=p.height * .050 * p.crotch_drop,
+        outer_lift=p.height * .018,
+        rear_projection=p.depth * .020 * p.glute_projection,
+    )
+    right_thigh_points = _leg_loop(
+        -center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "right",
+        medial_drop=p.height * .050 * p.crotch_drop,
+        outer_lift=p.height * .018,
+        rear_projection=p.depth * .020 * p.glute_projection,
+    )
+    left_thigh = _append_loop(vertices, left_thigh_points)
+    right_thigh = _append_loop(vertices, right_thigh_points)
+    _bridge_loops(faces, left_transition, left_thigh)
+    _bridge_loops(faces, right_transition, right_thigh)
+
+    boundaries = {
+        "torso": upper_loop,
+        "left_thigh": left_thigh,
+        "right_thigh": right_thigh,
+    }
     return tuple(vertices), tuple(faces), boundaries
