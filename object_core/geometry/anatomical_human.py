@@ -6,7 +6,7 @@ from math import cos, pi, sin
 from ..models.mesh import MeshPart, ObjectMesh
 from ..models.proportions import HumanoidProportions
 from ..proportions.landmarks import generate_landmarks
-from .anatomical_pelvis import pelvis_ring, pelvic_transition_ring, pelvis_surface_ring, upper_thigh_ring
+from .anatomical_pelvis import pelvis_ring, pelvic_transition_ring, pelvis_surface_ring, thigh_opening_ring, upper_thigh_ring
 from .deformable import _append_branch, _generate_face_atlas_uvs, _human_body_sections, _lerp_point, _shape_head_surface, _supported_joint_chain
 
 _TORSO_RING_SIDES=16; _LEGACY_RING_SIDES=8; _LEG_RING_SIDES=16
@@ -120,9 +120,6 @@ def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh
         shoulder=pts["shoulder."+side]; elbow=pts["elbow."+side]; wrist=pts["wrist."+side]; fingertips=pts["fingertips."+side]; shoulder_exit=_lerp_point(shoulder,elbow,.12); palm=_lerp_point(wrist,fingertips,.42); knuckles=_lerp_point(wrist,fingertips,.72); hw=p.forearm_thickness_cm*.92; hd=p.forearm_thickness_cm*.40
         ac,aw,ad=_supported_joint_chain((shoulder,shoulder_exit,elbow,wrist,palm,knuckles,fingertips),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hw,hw*.94,hw*.48),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hd,hd*.88,hd*.54)); _append_branch(vertices,faces,openings[side],ac,aw,ad)
     lh=pts["hip.left"]; rh=pts["hip.right"]; lk=pts["knee.left"]; rk=pts["knee.right"]; la=pts["ankle.left"]; ra=pts["ankle.right"]
-    # Spread the pelvis-to-groin descent across two additional shared loops before
-    # splitting into the two thigh openings. This removes the single dense hip belt
-    # while preserving the proven pair-of-pants topology at the actual split.
     hip_z=pts["hip_center"][2]
     base_width=max(abs(v[0]) for v in (vertices[i] for i in rings[0]))*2.0
     base_depth=(max(vertices[i][1] for i in rings[0])-min(vertices[i][1] for i in rings[0]))
@@ -130,7 +127,11 @@ def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh
     pelvis_low=_append_ring(vertices,pelvis_surface_ring(hip_z-3.8,base_width*.94,base_depth*1.08,p.thigh_thickness_cm,.72))
     _append_ring_band(faces,rings[0],pelvis_mid); _append_ring_band(faces,pelvis_mid,pelvis_low)
     lc=_lerp_point(lh,lk,.10); rc=_lerp_point(rh,rk,.10)
-    lp=upper_thigh_ring(lc,p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.08,"left",.86); rp=upper_thigh_ring(rc,p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.08,"right",.86)
+    # The split now terminates on anatomical, non-planar thigh openings. Lateral hip
+    # points remain high while medial points descend into the crotch seam; rear
+    # points carry glute depth into the upper thigh instead of forming a flat shelf.
+    lp=thigh_opening_ring(lc,p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.08,"left",.86)
+    rp=thigh_opening_ring(rc,p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.08,"right",.86)
     left_root,right_root=_append_dual_leg_bridge(vertices,faces,pelvis_low,lp,rp)
     _append_anatomical_leg_from_root(vertices,faces,left_root,_leg_sections(lh,lk,la,p,"left"),p); _append_anatomical_leg_from_root(vertices,faces,right_root,_leg_sections(rh,rk,ra,p,"right"),p)
     vertices=tuple(vertices); faces=_orient_faces_consistently(faces); return ObjectMesh((MeshPart("human",vertices,faces,_generate_face_atlas_uvs(vertices,faces)),))
