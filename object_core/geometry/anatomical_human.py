@@ -38,24 +38,43 @@ def _build_body(p,hip_z,shoulder_z,chin_z,crown_z):
 def _opening_face(faces,fmap,level,side):
     segment=0 if side=="left" else 7; return fmap[(level,segment)],faces[fmap[(level,segment)]]
 
-def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p):
-    """Attach deliberate thigh/knee/calf loops while sharing the torso opening seam."""
-    sections=((_lerp_point(hip,knee,.08),p.thigh_thickness_cm*1.08,p.thigh_thickness_cm*1.02),(_lerp_point(hip,knee,.25),p.thigh_thickness_cm*1.04,p.thigh_thickness_cm),(_lerp_point(hip,knee,.52),p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92),(_lerp_point(hip,knee,.82),p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96),(knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88),(_lerp_point(knee,ankle,.24),p.calf_thickness_cm*1.02,p.calf_thickness_cm*.98),(_lerp_point(knee,ankle,.48),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04),(_lerp_point(knee,ankle,.72),p.calf_thickness_cm*.86,p.calf_thickness_cm*.82),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58))
-    center,width,depth=sections[0]; ring=[None]*16
+def _pelvis_thigh_ring(center,width,depth,side,blend):
+    """Shape a 16-point upper-thigh ring as a continuation of the pelvis.
+
+    ``blend`` is strongest at the hip and fades down the thigh.  The outer/lateral
+    and rear quadrants retain more pelvic volume while the inner/groin quadrant is
+    drawn inward.  This gives the neutral constructor a hip/glute/thigh transition
+    instead of attaching a round cylinder below a flat pelvis belt.
+    """
+    sign=1.0 if side=="left" else -1.0
+    result=[]
+    for i in range(_LEG_RING_SIDES):
+        angle=2*pi*i/_LEG_RING_SIDES; c=cos(angle); s=sin(angle)
+        lateral=max(0.0,sign*c); medial=max(0.0,-sign*c); rear=max(0.0,-s)
+        x=center[0]+width*.5*c
+        y=center[1]+depth*.5*s
+        x+=sign*width*blend*(.10*lateral-.055*medial)
+        y-=depth*blend*.10*rear
+        result.append((x,y,center[2]))
+    return tuple(result)
+
+def _append_anatomical_leg(vertices,faces,opening,hip,knee,ankle,p,side):
+    """Attach thigh/knee/calf loops with an anatomy-aware pelvis transition."""
+    sections=((_lerp_point(hip,knee,.08),p.thigh_thickness_cm*1.12,p.thigh_thickness_cm*1.08,.90),(_lerp_point(hip,knee,.18),p.thigh_thickness_cm*1.10,p.thigh_thickness_cm*1.06,.62),(_lerp_point(hip,knee,.30),p.thigh_thickness_cm*1.04,p.thigh_thickness_cm, .34),(_lerp_point(hip,knee,.52),p.thigh_thickness_cm*.94,p.thigh_thickness_cm*.92,0.0),(_lerp_point(hip,knee,.82),p.calf_thickness_cm*1.04,p.calf_thickness_cm*.96,0.0),(knee,p.calf_thickness_cm*.92,p.calf_thickness_cm*.88,0.0),(_lerp_point(knee,ankle,.18),p.calf_thickness_cm*.98,p.calf_thickness_cm*.94,0.0),(_lerp_point(knee,ankle,.38),p.calf_thickness_cm*1.08,p.calf_thickness_cm,0.0),(_lerp_point(knee,ankle,.55),p.calf_thickness_cm*1.12,p.calf_thickness_cm*1.04,0.0),(_lerp_point(knee,ankle,.76),p.calf_thickness_cm*.84,p.calf_thickness_cm*.80,0.0),(ankle,p.calf_thickness_cm*.60,p.calf_thickness_cm*.58,0.0))
+    center,width,depth,blend=sections[0]; shaped=_pelvis_thigh_ring(center,width,depth,side,blend); ring=[None]*16
     cardinal=(0,4,8,12)
     for slot,vertex_index in zip(cardinal,opening): ring[slot]=vertex_index
     for i in range(16):
         if ring[i] is not None: continue
-        angle=2*pi*i/16; ring[i]=len(vertices); vertices.append((center[0]+width*.5*cos(angle),center[1]+depth*.5*sin(angle),center[2]))
+        ring[i]=len(vertices); vertices.append(shaped[i])
     first=tuple(ring)
     for sector in range(4):
         a=cardinal[sector]; b=cardinal[(sector+1)%4]; end=16 if sector==3 else b
         for i in range(a,end-1): faces.append((first[i%16],first[(i+1)%16],opening[(sector+1)%4]))
     rings=[first]
-    for center,width,depth in sections[1:]:
-        current=[]
-        for i in range(16):
-            angle=2*pi*i/16; current.append(len(vertices)); vertices.append((center[0]+width*.5*cos(angle),center[1]+depth*.5*sin(angle),center[2]))
+    for center,width,depth,blend in sections[1:]:
+        shaped=_pelvis_thigh_ring(center,width,depth,side,blend); current=[]
+        for point in shaped: current.append(len(vertices)); vertices.append(point)
         current=tuple(current)
         for i in range(16): faces.append((rings[-1][i],rings[-1][(i+1)%16],current[(i+1)%16],current[i]))
         rings.append(current)
@@ -90,8 +109,7 @@ def _orient_faces_consistently(faces):
                 b=face[(i+1)%len(face)]; entries=edge_faces[tuple(sorted((a,b)))]
                 for other,oa,ob in entries:
                     if other==fi: continue
-                    same=(a==oa and b==ob)
-                    required=flip[fi] ^ same
+                    same=(a==oa and b==ob); required=flip[fi]^same
                     if flip[other] is None: flip[other]=required; queue.append(other)
                     elif flip[other]!=required: raise ValueError("anatomical Human surface cannot be oriented consistently")
     return tuple(tuple(reversed(face)) if flip[i] else tuple(face) for i,face in enumerate(faces))
@@ -107,5 +125,5 @@ def generate_anatomical_human_mesh(proportions: HumanoidProportions)->ObjectMesh
     for side in ("left","right"):
         shoulder=pts["shoulder."+side]; elbow=pts["elbow."+side]; wrist=pts["wrist."+side]; fingertips=pts["fingertips."+side]; shoulder_exit=_lerp_point(shoulder,elbow,.12); palm=_lerp_point(wrist,fingertips,.42); knuckles=_lerp_point(wrist,fingertips,.72); hw=p.forearm_thickness_cm*.92; hd=p.forearm_thickness_cm*.40
         ac,aw,ad=_supported_joint_chain((shoulder,shoulder_exit,elbow,wrist,palm,knuckles,fingertips),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hw,hw*.94,hw*.48),(p.upper_arm_thickness_cm*1.05,p.upper_arm_thickness_cm,p.upper_arm_thickness_cm*.82,p.forearm_thickness_cm*.72,hd,hd*.88,hd*.54)); _append_branch(vertices,faces,openings[("shoulder",side)],ac,aw,ad)
-        _append_anatomical_leg(vertices,faces,openings[("hip",side)],pts["hip."+side],pts["knee."+side],pts["ankle."+side],p)
+        _append_anatomical_leg(vertices,faces,openings[("hip",side)],pts["hip."+side],pts["knee."+side],pts["ankle."+side],p,side)
     vertices=tuple(vertices); faces=_orient_faces_consistently(faces); return ObjectMesh((MeshPart("human",vertices,faces,_generate_face_atlas_uvs(vertices,faces)),))
