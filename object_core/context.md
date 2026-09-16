@@ -38,6 +38,8 @@ The replacement strategy is pelvis-first:
 
 The standalone pelvis owns three intentional open interfaces: torso, left thigh, and right thigh. It is intentionally not integrated into the active Human until its clay/silhouette/wireframe review passes.
 
+Standalone regression checks: `python -m unittest tests.core.geometry.test_neutral_pelvis -v` protects exact attachment boundaries, connected topology, consistent outward winding, and default non-folded faces. `scripts/render_pelvis_review.py` checks actual camera projection before rendering and shows authored mesh edges in wireframe mode. These checks do not establish anatomical visual acceptance.
+
 Important constraints:
 
 - neutral construction does not assume male or female genital anatomy;
