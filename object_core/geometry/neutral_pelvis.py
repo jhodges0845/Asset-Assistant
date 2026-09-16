@@ -72,13 +72,7 @@ def _ring(z, width, depth, rear_projection=0.0, lateral_fullness=0.0):
 
 def _leg_loop(center_x, z, width, depth, side, medial_drop=0.0,
               outer_lift=0.0, rear_projection=0.0):
-    """Create an anatomically biased loop around one leg socket.
-
-    The outside of the socket sits slightly higher than the medial side, while
-    the rear half receives a small gluteal projection. This avoids the old
-    straight tube look without making the attachment boundary irregular enough
-    to become difficult to extend into a thigh later.
-    """
+    """Create an anatomically biased loop around one leg socket."""
     sign = 1.0 if side == "left" else -1.0
     points = []
     for i in range(SIDES):
@@ -117,30 +111,18 @@ def _bridge_paths(faces, a, b):
 
 
 def generate_neutral_pelvis(shape=None):
-    """Return vertices, faces and three named open boundaries.
-
-    The construction deliberately keeps the torso and both thigh interfaces open.
-    Unlike the first prototype, the hip shell no longer collapses directly into
-    two leg holes. A dedicated lower-pelvis/inguinal row creates a readable
-    transition into two separate sockets and a controlled central crotch saddle.
-    """
+    """Return vertices, faces and three named open boundaries."""
     p = _validated(shape or NeutralPelvisShape())
     vertices, faces = [], []
 
-    # Broad torso-to-hip mass. These rows establish the waist, iliac flare and
-    # widest hip before the mesh separates toward the two leg sockets.
     upper = _ring(p.height * .50, p.waist_width, p.waist_depth)
     iliac = _ring(
-        p.height * .18,
-        p.width * .94,
-        p.depth * .94,
+        p.height * .18, p.width * .94, p.depth * .94,
         rear_projection=p.depth * .025 * p.glute_projection,
         lateral_fullness=.045 * p.hip_fullness,
     )
     hip = _ring(
-        -p.height * .12,
-        p.width,
-        p.depth,
+        -p.height * .12, p.width, p.depth,
         rear_projection=p.depth * .085 * p.glute_projection,
         lateral_fullness=.070 * p.hip_fullness,
     )
@@ -151,10 +133,6 @@ def generate_neutral_pelvis(shape=None):
     _bridge_loops(faces, upper_loop, iliac_loop)
     _bridge_loops(faces, iliac_loop, hip_loop)
 
-    # Two transition loops form the lower pelvis before the actual thigh
-    # attachment loops. Their slightly larger footprint gives the surface room
-    # to describe gluteal volume, inguinal flow and the crotch split rather than
-    # pinching a single hip ring directly into two holes.
     center_offset = p.thigh_spacing * .5 + p.thigh_opening_width * .5
     transition_z = -p.height * .34
     transition_width = min(p.width * .46, p.thigh_opening_width * 1.24)
@@ -176,28 +154,32 @@ def generate_neutral_pelvis(shape=None):
     left_transition = _append_loop(vertices, left_transition_points)
     right_transition = _append_loop(vertices, right_transition_points)
 
-    # Split the bottom half of the hip ring into left and right 180-degree paths.
-    # With the ring indexing used here, index 0 is +X, 4 is front, 8 is -X,
-    # and 12 is rear. These paths meet only at the front/rear centerline and cover
-    # the complete hip circumference exactly once.
-    left_hip_path = tuple(hip_loop[i % SIDES] for i in range(12, 21))   # 12..15,0..4
-    right_hip_path = tuple(hip_loop[i] for i in range(4, 13))          # 4..12
-
-    # Use the outer halves of each transition loop to receive the hip shell.
+    left_hip_path = tuple(hip_loop[i % SIDES] for i in range(12, 21))
+    right_hip_path = tuple(hip_loop[i] for i in range(4, 13))
     left_outer_path = tuple(left_transition[i % SIDES] for i in range(12, 21))
     right_outer_path = tuple(right_transition[i] for i in range(4, 13))
     _bridge_paths(faces, left_hip_path, left_outer_path)
     _bridge_paths(faces, right_hip_path, right_outer_path)
 
-    # The medial halves face one another. Bridge them front-to-back to create a
-    # shallow crotch saddle instead of the previous fan-like index collapse.
+    # The old crotch bridge connected the two complete medial half-loops directly.
+    # At the front and rear those loops are far apart, while their innermost points
+    # nearly touch. Blender therefore triangulated the broad quads into the visible
+    # wedge/fan seen in the review render. Route both halves through a dedicated
+    # center seam instead. This keeps local edge lengths controlled and gives the
+    # saddle a longitudinal path that can continue cleanly into deformation work.
     left_medial_path = tuple(left_transition[i] for i in range(4, 13))
-    right_medial_path = tuple(right_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
-    _bridge_paths(faces, left_medial_path, right_medial_path)
+    right_medial_path = tuple(
+        right_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12)
+    )
+    center_points = []
+    for left_index, right_index in zip(left_medial_path, right_medial_path):
+        lx, ly, lz = vertices[left_index]
+        rx, ry, rz = vertices[right_index]
+        center_points.append((0.0, (ly + ry) * .5, (lz + rz) * .5))
+    center_path = _append_loop(vertices, center_points)
+    _bridge_paths(faces, left_medial_path, center_path)
+    _bridge_paths(faces, center_path, right_medial_path)
 
-    # Final open thigh interfaces. They are a little narrower/deeper than the
-    # transition loops and descend medially, producing a cleaner leg socket while
-    # preserving simple 16-vertex loops for downstream thigh generation.
     leg_z = -p.height * .50 * p.crotch_drop
     left_thigh_points = _leg_loop(
         center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "left",
