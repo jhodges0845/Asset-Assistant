@@ -141,18 +141,16 @@ def generate_neutral_pelvis(shape=None):
     outer_lift = p.height * .030
     rear_projection = p.depth * .055 * p.glute_projection
 
-    left_transition_points = _leg_loop(
+    left_transition = _append_loop(vertices, _leg_loop(
         center_offset, transition_z, transition_width, transition_depth, "left",
         medial_drop=medial_drop, outer_lift=outer_lift,
         rear_projection=rear_projection,
-    )
-    right_transition_points = _leg_loop(
+    ))
+    right_transition = _append_loop(vertices, _leg_loop(
         -center_offset, transition_z, transition_width, transition_depth, "right",
         medial_drop=medial_drop, outer_lift=outer_lift,
         rear_projection=rear_projection,
-    )
-    left_transition = _append_loop(vertices, left_transition_points)
-    right_transition = _append_loop(vertices, right_transition_points)
+    ))
 
     left_hip_path = tuple(hip_loop[i % SIDES] for i in range(12, 21))
     right_hip_path = tuple(hip_loop[i] for i in range(4, 13))
@@ -161,40 +159,47 @@ def generate_neutral_pelvis(shape=None):
     _bridge_paths(faces, left_hip_path, left_outer_path)
     _bridge_paths(faces, right_hip_path, right_outer_path)
 
-    # The old crotch bridge connected the two complete medial half-loops directly.
-    # At the front and rear those loops are far apart, while their innermost points
-    # nearly touch. Blender therefore triangulated the broad quads into the visible
-    # wedge/fan seen in the review render. Route both halves through a dedicated
-    # center seam instead. This keeps local edge lengths controlled and gives the
-    # saddle a longitudinal path that can continue cleanly into deformation work.
+    # Build the crotch from local front-to-rear quad strips.  The medial halves
+    # of the transition loops run in opposite angular directions; pairing them
+    # as if they shared the same direction produced crossed quads and the large
+    # triangular fan visible in the review render.  Both paths below now travel
+    # front -> medial -> rear, so every strip connects neighbouring regions.
     left_medial_path = tuple(left_transition[i] for i in range(4, 13))
-    right_medial_path = tuple(
-        right_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12)
-    )
-    center_points = []
+    right_medial_path = tuple(right_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
+
+    # Use two narrow longitudinal rails instead of collapsing all medial faces
+    # onto x=0.  This preserves a small controllable crotch width and avoids
+    # coincident center vertices while keeping bilateral symmetry.
+    rail_half_width = min(p.crotch_width * .18, p.thigh_spacing * .22)
+    left_rail_points = []
+    right_rail_points = []
     for left_index, right_index in zip(left_medial_path, right_medial_path):
         lx, ly, lz = vertices[left_index]
         rx, ry, rz = vertices[right_index]
-        center_points.append((0.0, (ly + ry) * .5, (lz + rz) * .5))
-    center_path = _append_loop(vertices, center_points)
-    _bridge_paths(faces, left_medial_path, center_path)
-    _bridge_paths(faces, center_path, right_medial_path)
+        y = (ly + ry) * .5
+        z = (lz + rz) * .5
+        left_rail_points.append((rail_half_width, y, z))
+        right_rail_points.append((-rail_half_width, y, z))
+    left_rail = _append_loop(vertices, left_rail_points)
+    right_rail = _append_loop(vertices, right_rail_points)
+
+    _bridge_paths(faces, left_medial_path, left_rail)
+    _bridge_paths(faces, left_rail, right_rail)
+    _bridge_paths(faces, right_rail, right_medial_path)
 
     leg_z = -p.height * .50 * p.crotch_drop
-    left_thigh_points = _leg_loop(
+    left_thigh = _append_loop(vertices, _leg_loop(
         center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "left",
         medial_drop=p.height * .050 * p.crotch_drop,
         outer_lift=p.height * .018,
         rear_projection=p.depth * .020 * p.glute_projection,
-    )
-    right_thigh_points = _leg_loop(
+    ))
+    right_thigh = _append_loop(vertices, _leg_loop(
         -center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "right",
         medial_drop=p.height * .050 * p.crotch_drop,
         outer_lift=p.height * .018,
         rear_projection=p.depth * .020 * p.glute_projection,
-    )
-    left_thigh = _append_loop(vertices, left_thigh_points)
-    right_thigh = _append_loop(vertices, right_thigh_points)
+    ))
     _bridge_loops(faces, left_transition, left_thigh)
     _bridge_loops(faces, right_transition, right_thigh)
 
