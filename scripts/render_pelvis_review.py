@@ -47,7 +47,7 @@ def main():
    spline=curve.splines.new("POLY"); spline.points.add(1)
    for point,index in zip(spline.points,edge.vertices): point.co=(*obj.data.vertices[index].co,1.0)
   overlay=bpy.data.objects.new(obj.name+" edges",curve); bpy.context.collection.objects.link(overlay); overlay.location=obj.location; overlay.rotation_euler=obj.rotation_euler; curve.materials.append(edge_material); overlay.hide_render=True; edge_objects.append(overlay)
- scene=bpy.context.scene; scene.render.engine="CYCLES"; scene.cycles.device="CPU"; scene.cycles.samples=32; scene.cycles.use_denoising=True; scene.render.resolution_x=1800; scene.render.resolution_y=500; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"; scene.view_settings.look=("AgX - Medium High Contrast" if "AgX - Medium High Contrast" in scene.view_settings.bl_rna.properties["look"].enum_items.keys() else "Medium High Contrast"); scene.view_settings.exposure=.35
+ scene=bpy.context.scene; scene.render.engine="CYCLES"; scene.cycles.device="CPU"; scene.cycles.samples=32; scene.cycles.use_denoising=True; scene.render.resolution_x=1800; scene.render.resolution_y=500; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"; scene.view_settings.view_transform="AgX"; scene.view_settings.look="AgX - Medium High Contrast"; scene.view_settings.exposure=.35
  world=scene.world or bpy.data.worlds.new("Pelvis World"); scene.world=world; world.use_nodes=True; bg=world.node_tree.nodes.get("Background"); bg.inputs["Color"].default_value=(.42,.45,.49,1); bg.inputs["Strength"].default_value=.25
  # Separate the camera backdrop from ambient illumination so pale clay stays
  # legible without flattening the surface with an equally bright environment.
