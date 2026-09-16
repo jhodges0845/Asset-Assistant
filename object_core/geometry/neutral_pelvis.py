@@ -123,7 +123,7 @@ def generate_neutral_pelvis(shape=None):
     p = _validated(shape or NeutralPelvisShape())
     vertices, faces = [], []
 
-    # Four body rings now describe one continuous curve: stable torso opening,
+    # Four body rings describe one continuous curve: stable torso opening,
     # gradual iliac flare, rounded maximum hip volume, then a slight inward
     # turn before Astra's leg-socket branches begin.
     upper = _ring(
@@ -158,14 +158,16 @@ def generate_neutral_pelvis(shape=None):
     _bridge_loops(faces, body_loop, hip_loop)
 
     center_offset = p.thigh_spacing * .5 + p.thigh_opening_width * .5
-    transition_z = -p.height * .38
-    transition_width = min(p.width * .46, p.thigh_opening_width * 1.24)
-    transition_depth = min(p.depth * .72, p.thigh_opening_depth * 1.14)
-    medial_drop = p.height * .045 * p.crotch_drop
-    outer_lift = p.height * .040
-    rear_projection = p.depth * .065 * p.glute_projection
-    outer_flare = p.width * .018 * p.hip_fullness
-    medial_fill = min(p.crotch_width * .055, p.thigh_spacing * .10)
+    # Keep the socket topology, but carry the hip volume farther downward so
+    # the leg split emerges from the pelvis instead of reading as a shelf.
+    transition_z = -p.height * .425
+    transition_width = min(p.width * .485, p.thigh_opening_width * 1.31)
+    transition_depth = min(p.depth * .755, p.thigh_opening_depth * 1.20)
+    medial_drop = p.height * .055 * p.crotch_drop
+    outer_lift = p.height * .020
+    rear_projection = p.depth * .072 * p.glute_projection
+    outer_flare = p.width * .026 * p.hip_fullness
+    medial_fill = min(p.crotch_width * .070, p.thigh_spacing * .13)
 
     left_transition = _append_loop(vertices, _leg_loop(
         center_offset, transition_z, transition_width, transition_depth, "left",
@@ -198,7 +200,7 @@ def generate_neutral_pelvis(shape=None):
         lx, ly, lz = vertices[left_index]
         rx, ry, rz = vertices[right_index]
         y = (ly + ry) * .5
-        z = (lz + rz) * .5 + p.height * .010 * (1.0 - min(1.0, abs(y) / max(1.0, p.crotch_depth)))
+        z = (lz + rz) * .5 + p.height * .006 * (1.0 - min(1.0, abs(y) / max(1.0, p.crotch_depth)))
         left_rail_points.append((rail_half_width, y, z))
         right_rail_points.append((-rail_half_width, y, z))
     left_rail = _append_loop(vertices, left_rail_points)
@@ -217,20 +219,20 @@ def generate_neutral_pelvis(shape=None):
             face = (hip_loop[hip_index], a, b)
             faces.append(tuple(reversed(face)) if end == 0 else face)
 
-    leg_z = -p.height * .50 * p.crotch_drop
+    leg_z = -p.height * .53 * p.crotch_drop
     left_thigh = _append_loop(vertices, _leg_loop(
         center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "left",
-        medial_drop=p.height * .030 * p.crotch_drop,
-        outer_lift=p.height * .020,
+        medial_drop=p.height * .026 * p.crotch_drop,
+        outer_lift=p.height * .012,
         rear_projection=p.depth * .025 * p.glute_projection,
-        outer_flare=outer_flare * .35, medial_fill=medial_fill * .45,
+        outer_flare=outer_flare * .28, medial_fill=medial_fill * .40,
     ))
     right_thigh = _append_loop(vertices, _leg_loop(
         -center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "right",
-        medial_drop=p.height * .030 * p.crotch_drop,
-        outer_lift=p.height * .020,
+        medial_drop=p.height * .026 * p.crotch_drop,
+        outer_lift=p.height * .012,
         rear_projection=p.depth * .025 * p.glute_projection,
-        outer_flare=outer_flare * .35, medial_fill=medial_fill * .45,
+        outer_flare=outer_flare * .28, medial_fill=medial_fill * .40,
     ))
     _bridge_loops(faces, left_transition, left_thigh)
     _bridge_loops(faces, right_transition, right_thigh)
