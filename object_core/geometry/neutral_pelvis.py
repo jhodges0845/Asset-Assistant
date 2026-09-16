@@ -126,28 +126,20 @@ def generate_neutral_pelvis(shape=None):
     p = _validated(shape or NeutralPelvisShape())
     vertices, faces = [], []
 
-    upper = _ring(
-        p.height * .50, p.waist_width * 1.015, p.waist_depth,
-        front_softness=.020, quarter_fullness=.008,
-    )
-    iliac = _ring(
-        p.height * .28, p.width * .925, p.depth * .935,
-        rear_projection=p.depth * .026 * p.glute_projection,
-        lateral_fullness=.030 * p.hip_fullness, front_softness=.034,
-        lower_side_drop=p.height * .024, quarter_fullness=.012 * p.hip_fullness,
-    )
-    body = _ring(
-        p.height * .10, p.width * .985, p.depth * .990,
-        rear_projection=p.depth * .058 * p.glute_projection,
-        lateral_fullness=.058 * p.hip_fullness, front_softness=.044,
-        lower_side_drop=p.height * .052, quarter_fullness=.024 * p.hip_fullness,
-    )
-    hip = _ring(
-        -p.height * .04, p.width * .955, p.depth * 1.010,
-        rear_projection=p.depth * .096 * p.glute_projection,
-        lateral_fullness=.025 * p.hip_fullness, front_softness=.052,
-        lower_side_drop=p.height * .040, quarter_fullness=.017 * p.hip_fullness,
-    )
+    upper = _ring(p.height * .50, p.waist_width * 1.015, p.waist_depth,
+                  front_softness=.020, quarter_fullness=.008)
+    iliac = _ring(p.height * .28, p.width * .925, p.depth * .935,
+                  rear_projection=p.depth * .026 * p.glute_projection,
+                  lateral_fullness=.030 * p.hip_fullness, front_softness=.034,
+                  lower_side_drop=p.height * .024, quarter_fullness=.012 * p.hip_fullness)
+    body = _ring(p.height * .10, p.width * .985, p.depth * .990,
+                 rear_projection=p.depth * .058 * p.glute_projection,
+                 lateral_fullness=.058 * p.hip_fullness, front_softness=.044,
+                 lower_side_drop=p.height * .052, quarter_fullness=.024 * p.hip_fullness)
+    hip = _ring(-p.height * .04, p.width * .955, p.depth * 1.010,
+                rear_projection=p.depth * .096 * p.glute_projection,
+                lateral_fullness=.025 * p.hip_fullness, front_softness=.052,
+                lower_side_drop=p.height * .040, quarter_fullness=.017 * p.hip_fullness)
 
     upper_loop = _append_loop(vertices, upper)
     iliac_loop = _append_loop(vertices, iliac)
@@ -158,133 +150,96 @@ def generate_neutral_pelvis(shape=None):
     _bridge_loops(faces, body_loop, hip_loop)
 
     center_offset = p.thigh_spacing * .5 + p.thigh_opening_width * .5
-    transition_z = -p.height * .405
-    transition_width = min(p.width * .46, p.thigh_opening_width * 1.24)
-    transition_depth = min(p.depth * .86, p.thigh_opening_depth * 1.48)
-    medial_drop = p.height * .080 * p.crotch_drop
-    outer_lift = 0.0
-    outer_drop = p.height * .050
-    quarter_drop = p.height * .022
-    rear_projection = p.depth * .075 * p.glute_projection
-    outer_flare = p.width * .015 * p.hip_fullness
     medial_fill = min(p.crotch_width * .082, p.thigh_spacing * .15)
+    outer_flare = p.width * .018 * p.hip_fullness
 
-    # Curve the socket loop rather than keeping it nearly horizontal: the outer
-    # vertices retain hip width but descend with the hip skirt, while the medial
-    # vertices descend farther into the crotch. This preserves Astra's branch
-    # topology and all three public boundaries.
+    # Two progressively smaller anatomical rows carry the hip mass into each
+    # thigh root.  Keeping this turn in explicit rows makes the underside read
+    # as two descending sockets instead of a common rectangular pelvis floor.
+    lower_z = -p.height * .245
+    lower_width = min(p.width * .54, p.thigh_opening_width * 1.50)
+    lower_depth = min(p.depth * .91, p.thigh_opening_depth * 1.56)
+    transition_z = -p.height * .405
+    transition_width = min(p.width * .45, p.thigh_opening_width * 1.23)
+    transition_depth = min(p.depth * .80, p.thigh_opening_depth * 1.40)
+
+    left_lower = _append_loop(vertices, _leg_loop(
+        center_offset, lower_z, lower_width, lower_depth, "left",
+        medial_drop=p.height * .035 * p.crotch_drop,
+        rear_projection=p.depth * .080 * p.glute_projection,
+        outer_flare=outer_flare, medial_fill=medial_fill * .55,
+        outer_drop=p.height * .020, quarter_drop=p.height * .010))
+    right_lower = _append_loop(vertices, _leg_loop(
+        -center_offset, lower_z, lower_width, lower_depth, "right",
+        medial_drop=p.height * .035 * p.crotch_drop,
+        rear_projection=p.depth * .080 * p.glute_projection,
+        outer_flare=outer_flare, medial_fill=medial_fill * .55,
+        outer_drop=p.height * .020, quarter_drop=p.height * .010))
     left_transition = _append_loop(vertices, _leg_loop(
         center_offset, transition_z, transition_width, transition_depth, "left",
-        medial_drop=medial_drop, outer_lift=outer_lift,
-        rear_projection=rear_projection, outer_flare=outer_flare,
-        medial_fill=medial_fill, outer_drop=outer_drop, quarter_drop=quarter_drop,
-    ))
+        medial_drop=p.height * .065 * p.crotch_drop,
+        rear_projection=p.depth * .060 * p.glute_projection,
+        outer_flare=outer_flare * .45, medial_fill=medial_fill,
+        outer_drop=p.height * .022, quarter_drop=p.height * .010))
     right_transition = _append_loop(vertices, _leg_loop(
         -center_offset, transition_z, transition_width, transition_depth, "right",
-        medial_drop=medial_drop, outer_lift=outer_lift,
-        rear_projection=rear_projection, outer_flare=outer_flare,
-        medial_fill=medial_fill, outer_drop=outer_drop, quarter_drop=quarter_drop,
-    ))
+        medial_drop=p.height * .065 * p.crotch_drop,
+        rear_projection=p.depth * .060 * p.glute_projection,
+        outer_flare=outer_flare * .45, medial_fill=medial_fill,
+        outer_drop=p.height * .022, quarter_drop=p.height * .010))
 
     left_hip_path = tuple(hip_loop[i % SIDES] for i in range(12, 21))
-    left_outer_path = tuple(left_transition[i % SIDES] for i in range(12, 21))
     right_hip_path = tuple(hip_loop[i] for i in range(4, 13))
-    right_outer_path = tuple(right_transition[i] for i in range(4, 13))
-    # Cubic longitudinal profiles turn gradually beneath the hip instead of
-    # collapsing the entire lower third across a single sloping polygon band.
-    columns = []
-    for source, target in ((left_hip_path, left_outer_path),
-                           (right_hip_path, right_outer_path)):
-        previous = source
-        rows = [source]
-        for t in (.33, .67):
-            radial = t * t * (2.0 - t)
-            row = []
-            for a, b in zip(source, target):
-                x, y, z = vertices[a]
-                tx, ty, tz = vertices[b]
-                row.append(len(vertices))
-                vertices.append((x + radial * (tx - x),
-                                 y + radial * (ty - y), z + t * (tz - z)))
-            _bridge_paths(faces, previous, row)
-            previous = row
-            rows.append(row)
-        _bridge_paths(faces, previous, target)
-        rows.append(target)
-        columns.append(rows)
+    left_lower_outer = tuple(left_lower[i % SIDES] for i in range(12, 21))
+    right_lower_outer = tuple(right_lower[i] for i in range(4, 13))
+    _bridge_paths(faces, left_hip_path, left_lower_outer)
+    _bridge_paths(faces, right_hip_path, right_lower_outer)
 
-    left_medial_path = tuple(left_transition[i] for i in range(4, 13))
-    right_medial_path = tuple(right_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
-
+    # Close the front and rear of the split at the lower row.  The saddle then
+    # occupies only the medial gap while complete tubes continue downward.
+    left_medial = tuple(left_lower[i] for i in range(4, 13))
+    right_medial = tuple(right_lower[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
     rail_half_width = min(p.crotch_width * .18, p.thigh_spacing * .22,
-                          max(0.01, center_offset - transition_width * .5 - medial_fill) * .5)
-    left_rail_points = []
-    right_rail_points = []
-    for left_index, right_index in zip(left_medial_path, right_medial_path):
-        lx, ly, lz = vertices[left_index]
-        rx, ry, rz = vertices[right_index]
+                          max(.01, center_offset - lower_width * .5 - medial_fill * .55) * .55)
+    left_rail_points, right_rail_points = [], []
+    for li, ri in zip(left_medial, right_medial):
+        lx, ly, lz = vertices[li]
+        rx, ry, rz = vertices[ri]
         y = (ly + ry) * .5
-        z = (lz + rz) * .5 + p.height * .004 * (1.0 - min(1.0, abs(y) / max(1.0, p.crotch_depth)))
+        center = 1.0 - min(1.0, abs(y) / max(1.0, p.crotch_depth))
+        z = (lz + rz) * .5 - p.height * .020 * center
         left_rail_points.append((rail_half_width, y, z))
         right_rail_points.append((-rail_half_width, y, z))
     left_rail = _append_loop(vertices, left_rail_points)
     right_rail = _append_loop(vertices, right_rail_points)
+    saddle = []
+    _bridge_paths(saddle, left_medial, left_rail)
+    _bridge_paths(saddle, left_rail, right_rail)
+    _bridge_paths(saddle, right_rail, right_medial)
+    faces.extend(tuple(reversed(face)) for face in saddle)
 
-    saddle_faces = []
-    _bridge_paths(saddle_faces, left_medial_path, left_rail)
-    _bridge_paths(saddle_faces, left_rail, right_rail)
-    _bridge_paths(saddle_faces, right_rail, right_medial_path)
-    faces.extend(tuple(reversed(face)) for face in saddle_faces)
+    for end, hip_index in ((0, 4), (-1, 12)):
+        seam = (left_medial[end], left_rail[end], right_rail[end], right_medial[end])
+        for a, b in zip(seam, seam[1:]):
+            face = (hip_loop[hip_index], a, b)
+            faces.append(tuple(reversed(face)) if end == 0 else face)
 
-    # Continue the new front/rear rows into the existing narrow crotch rails.
-    # Matching the rail columns avoids a large centerline fan or extra holes.
-    left_rows, right_rows = columns
-    for end, li, ri in ((0, -1, 0), (-1, 0, -1)):
-        bottom = (left_medial_path[end], left_rail[end],
-                  right_rail[end], right_medial_path[end])
-        half_width = vertices[bottom[0]][0]
-        fractions = tuple((half_width - vertices[i][0]) / (2 * half_width)
-                          for i in bottom)
-        patch_rows = []
-        for left_row, right_row in zip(left_rows[1:-1], right_rows[1:-1]):
-            a, b = left_row[li], right_row[ri]
-            row = [a]
-            for fraction in fractions[1:-1]:
-                row.append(len(vertices))
-                vertices.append(tuple(x + fraction * (y - x)
-                                      for x, y in zip(vertices[a], vertices[b])))
-            row.append(b)
-            patch_rows.append(row)
-        patch_rows.append(bottom)
-        patch = [(left_rows[0][li], b, a)
-                 for a, b in zip(patch_rows[0], patch_rows[0][1:])]
-        for upper_row, lower_row in zip(patch_rows, patch_rows[1:]):
-            for j in range(3):
-                patch.append((upper_row[j], upper_row[j+1],
-                              lower_row[j+1], lower_row[j]))
-        faces.extend(patch if end == 0 else [tuple(reversed(f)) for f in patch])
+    _bridge_loops(faces, left_lower, left_transition)
+    _bridge_loops(faces, right_lower, right_transition)
 
-    leg_z = -p.height * .55 * p.crotch_drop
+    leg_z = -p.height * .56 * p.crotch_drop
     left_thigh = _append_loop(vertices, _leg_loop(
         center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "left",
         medial_drop=p.height * .024 * p.crotch_drop,
-        outer_lift=0.0,
         rear_projection=p.depth * .025 * p.glute_projection,
-        outer_flare=outer_flare * .20, medial_fill=medial_fill * .34,
-    ))
+        outer_flare=outer_flare * .15, medial_fill=medial_fill * .34))
     right_thigh = _append_loop(vertices, _leg_loop(
         -center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "right",
         medial_drop=p.height * .024 * p.crotch_drop,
-        outer_lift=0.0,
         rear_projection=p.depth * .025 * p.glute_projection,
-        outer_flare=outer_flare * .20, medial_fill=medial_fill * .34,
-    ))
+        outer_flare=outer_flare * .15, medial_fill=medial_fill * .34))
     _bridge_loops(faces, left_transition, left_thigh)
     _bridge_loops(faces, right_transition, right_thigh)
 
-    boundaries = {
-        "torso": upper_loop,
-        "left_thigh": left_thigh,
-        "right_thigh": right_thigh,
-    }
+    boundaries = {"torso": upper_loop, "left_thigh": left_thigh, "right_thigh": right_thigh}
     return tuple(vertices), tuple(tuple(reversed(face)) for face in faces), boundaries
