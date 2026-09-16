@@ -123,30 +123,30 @@ def generate_neutral_pelvis(shape=None):
     p = _validated(shape or NeutralPelvisShape())
     vertices, faces = [], []
 
+    # Four body rings now describe one continuous curve: stable torso opening,
+    # gradual iliac flare, rounded maximum hip volume, then a slight inward
+    # turn before Astra's leg-socket branches begin.
     upper = _ring(
         p.height * .50, p.waist_width * 1.015, p.waist_depth,
-        front_softness=.025, quarter_fullness=.010,
+        front_softness=.020, quarter_fullness=.008,
     )
     iliac = _ring(
-        p.height * .17, p.width * .945, p.depth * .945,
-        rear_projection=p.depth * .030 * p.glute_projection,
-        lateral_fullness=.035 * p.hip_fullness, front_softness=.040,
-        lower_side_drop=p.height * .030, quarter_fullness=.014 * p.hip_fullness,
+        p.height * .20, p.width * .925, p.depth * .935,
+        rear_projection=p.depth * .026 * p.glute_projection,
+        lateral_fullness=.030 * p.hip_fullness, front_softness=.034,
+        lower_side_drop=p.height * .024, quarter_fullness=.012 * p.hip_fullness,
     )
-    # Extra vertical resolution where the silhouette changes fastest.  This
-    # body loop carries the iliac flare into the full hip gradually while the
-    # existing hip loop remains the stable parent of Astra's socket branches.
     body = _ring(
-        -p.height * .015, p.width * .990, p.depth * .985,
-        rear_projection=p.depth * .060 * p.glute_projection,
-        lateral_fullness=.052 * p.hip_fullness, front_softness=.050,
-        lower_side_drop=p.height * .055, quarter_fullness=.021 * p.hip_fullness,
+        -p.height * .005, p.width * .985, p.depth * .990,
+        rear_projection=p.depth * .058 * p.glute_projection,
+        lateral_fullness=.058 * p.hip_fullness, front_softness=.044,
+        lower_side_drop=p.height * .052, quarter_fullness=.024 * p.hip_fullness,
     )
     hip = _ring(
-        -p.height * .19, p.width * .975, p.depth * 1.020,
-        rear_projection=p.depth * .105 * p.glute_projection,
-        lateral_fullness=.032 * p.hip_fullness, front_softness=.060,
-        lower_side_drop=p.height * .090, quarter_fullness=.020 * p.hip_fullness,
+        -p.height * .20, p.width * .955, p.depth * 1.010,
+        rear_projection=p.depth * .096 * p.glute_projection,
+        lateral_fullness=.025 * p.hip_fullness, front_softness=.052,
+        lower_side_drop=p.height * .082, quarter_fullness=.017 * p.hip_fullness,
     )
 
     upper_loop = _append_loop(vertices, upper)
