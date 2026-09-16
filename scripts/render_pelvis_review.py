@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Render the standalone Human V2 neutral-pelvis prototype."""
+# Visual-testing trigger marker: no functional render changes in this commit.
 from __future__ import annotations
 import argparse, math, os, sys
 from pathlib import Path
