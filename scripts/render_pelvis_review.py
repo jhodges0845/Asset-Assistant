@@ -47,7 +47,7 @@ def main():
    spline=curve.splines.new("POLY"); spline.points.add(1)
    for point,index in zip(spline.points,edge.vertices): point.co=(*obj.data.vertices[index].co,1.0)
   overlay=bpy.data.objects.new(obj.name+" edges",curve); bpy.context.collection.objects.link(overlay); overlay.location=obj.location; overlay.rotation_euler=obj.rotation_euler; curve.materials.append(edge_material); overlay.hide_render=True; edge_objects.append(overlay)
- scene=bpy.context.scene; scene.render.engine="CYCLES"; scene.cycles.device="CPU"; scene.cycles.samples=32; scene.cycles.use_denoising=True; scene.render.resolution_x=1800; scene.render.resolution_y=500; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"; scene.view_settings.look="AgX - Medium High Contrast"; scene.view_settings.exposure=.35
+ scene=bpy.context.scene; scene.render.engine="CYCLES"; scene.cycles.device="CPU"; scene.cycles.samples=32; scene.cycles.use_denoising=True; scene.render.resolution_x=1800; scene.render.resolution_y=500; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"; scene.view_settings.look=("AgX - Medium High Contrast" if "AgX - Medium High Contrast" in scene.view_settings.bl_rna.properties["look"].enum_items.keys() else "Medium High Contrast"); scene.view_settings.exposure=.35
  world=scene.world or bpy.data.worlds.new("Pelvis World"); scene.world=world; world.use_nodes=True; bg=world.node_tree.nodes.get("Background"); bg.inputs["Color"].default_value=(.42,.45,.49,1); bg.inputs["Strength"].default_value=.25
  # Separate the camera backdrop from ambient illumination so pale clay stays
  # legible without flattening the surface with an equally bright environment.
@@ -76,6 +76,7 @@ def main():
   ld=bpy.data.lights.new(name,"AREA"); ld.energy=energy*8; ld.size=size; ob=bpy.data.objects.new(name,ld); bpy.context.collection.objects.link(ob); ob.location=loc; look(ob,target)
  out=Path(a.output); out=out if out.is_absolute() else REPO_ROOT/out; out.parent.mkdir(parents=True,exist_ok=True)
  for mode in a.modes:
+  scene.cycles.use_denoising=mode=="clay"
   for overlay in edge_objects: overlay.hide_render=mode!="wireframe"
   config(material,mode); target=out if mode=="clay" else out.with_name(out.stem+"_"+mode+out.suffix); scene.render.filepath=os.fspath(target); bpy.ops.render.render(write_still=True); print("Pelvis review",mode,"written to",target)
 if __name__=="__main__": main()

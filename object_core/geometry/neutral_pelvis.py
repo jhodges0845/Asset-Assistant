@@ -131,22 +131,22 @@ def generate_neutral_pelvis(shape=None):
         front_softness=.020, quarter_fullness=.008,
     )
     iliac = _ring(
-        p.height * .20, p.width * .925, p.depth * .935,
+        p.height * .28, p.width * .925, p.depth * .935,
         rear_projection=p.depth * .026 * p.glute_projection,
         lateral_fullness=.030 * p.hip_fullness, front_softness=.034,
         lower_side_drop=p.height * .024, quarter_fullness=.012 * p.hip_fullness,
     )
     body = _ring(
-        -p.height * .005, p.width * .985, p.depth * .990,
+        p.height * .10, p.width * .985, p.depth * .990,
         rear_projection=p.depth * .058 * p.glute_projection,
         lateral_fullness=.058 * p.hip_fullness, front_softness=.044,
         lower_side_drop=p.height * .052, quarter_fullness=.024 * p.hip_fullness,
     )
     hip = _ring(
-        -p.height * .20, p.width * .955, p.depth * 1.010,
+        -p.height * .04, p.width * .955, p.depth * 1.010,
         rear_projection=p.depth * .096 * p.glute_projection,
         lateral_fullness=.025 * p.hip_fullness, front_softness=.052,
-        lower_side_drop=p.height * .082, quarter_fullness=.017 * p.hip_fullness,
+        lower_side_drop=p.height * .040, quarter_fullness=.017 * p.hip_fullness,
     )
 
     upper_loop = _append_loop(vertices, upper)
@@ -159,14 +159,14 @@ def generate_neutral_pelvis(shape=None):
 
     center_offset = p.thigh_spacing * .5 + p.thigh_opening_width * .5
     transition_z = -p.height * .405
-    transition_width = min(p.width * .505, p.thigh_opening_width * 1.36)
-    transition_depth = min(p.depth * .775, p.thigh_opening_depth * 1.23)
+    transition_width = min(p.width * .46, p.thigh_opening_width * 1.24)
+    transition_depth = min(p.depth * .86, p.thigh_opening_depth * 1.48)
     medial_drop = p.height * .080 * p.crotch_drop
     outer_lift = 0.0
     outer_drop = p.height * .050
     quarter_drop = p.height * .022
     rear_projection = p.depth * .075 * p.glute_projection
-    outer_flare = p.width * .034 * p.hip_fullness
+    outer_flare = p.width * .015 * p.hip_fullness
     medial_fill = min(p.crotch_width * .082, p.thigh_spacing * .15)
 
     # Curve the socket loop rather than keeping it nearly horizontal: the outer
@@ -190,14 +190,34 @@ def generate_neutral_pelvis(shape=None):
     left_outer_path = tuple(left_transition[i % SIDES] for i in range(12, 21))
     right_hip_path = tuple(hip_loop[i] for i in range(4, 13))
     right_outer_path = tuple(right_transition[i] for i in range(4, 13))
-    _bridge_paths(faces, left_hip_path, left_outer_path)
-    _bridge_paths(faces, right_hip_path, right_outer_path)
+    # Cubic longitudinal profiles turn gradually beneath the hip instead of
+    # collapsing the entire lower third across a single sloping polygon band.
+    columns = []
+    for source, target in ((left_hip_path, left_outer_path),
+                           (right_hip_path, right_outer_path)):
+        previous = source
+        rows = [source]
+        for t in (.33, .67):
+            radial = t * t * (2.0 - t)
+            row = []
+            for a, b in zip(source, target):
+                x, y, z = vertices[a]
+                tx, ty, tz = vertices[b]
+                row.append(len(vertices))
+                vertices.append((x + radial * (tx - x),
+                                 y + radial * (ty - y), z + t * (tz - z)))
+            _bridge_paths(faces, previous, row)
+            previous = row
+            rows.append(row)
+        _bridge_paths(faces, previous, target)
+        rows.append(target)
+        columns.append(rows)
 
     left_medial_path = tuple(left_transition[i] for i in range(4, 13))
     right_medial_path = tuple(right_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
 
     rail_half_width = min(p.crotch_width * .18, p.thigh_spacing * .22,
-                          max(0.01, center_offset - transition_width * .5) * .5)
+                          max(0.01, center_offset - transition_width * .5 - medial_fill) * .5)
     left_rail_points = []
     right_rail_points = []
     for left_index, right_index in zip(left_medial_path, right_medial_path):
@@ -216,12 +236,33 @@ def generate_neutral_pelvis(shape=None):
     _bridge_paths(saddle_faces, right_rail, right_medial_path)
     faces.extend(tuple(reversed(face)) for face in saddle_faces)
 
-    for end, hip_index in ((0, 4), (-1, 12)):
-        seam = (left_medial_path[end], left_rail[end],
-                right_rail[end], right_medial_path[end])
-        for a, b in zip(seam, seam[1:]):
-            face = (hip_loop[hip_index], a, b)
-            faces.append(tuple(reversed(face)) if end == 0 else face)
+    # Continue the new front/rear rows into the existing narrow crotch rails.
+    # Matching the rail columns avoids a large centerline fan or extra holes.
+    left_rows, right_rows = columns
+    for end, li, ri in ((0, -1, 0), (-1, 0, -1)):
+        bottom = (left_medial_path[end], left_rail[end],
+                  right_rail[end], right_medial_path[end])
+        half_width = vertices[bottom[0]][0]
+        fractions = tuple((half_width - vertices[i][0]) / (2 * half_width)
+                          for i in bottom)
+        patch_rows = []
+        for left_row, right_row in zip(left_rows[1:-1], right_rows[1:-1]):
+            a, b = left_row[li], right_row[ri]
+            row = [a]
+            for fraction in fractions[1:-1]:
+                row.append(len(vertices))
+                vertices.append(tuple(x + fraction * (y - x)
+                                      for x, y in zip(vertices[a], vertices[b])))
+            row.append(b)
+            patch_rows.append(row)
+        patch_rows.append(bottom)
+        patch = [(left_rows[0][li], b, a)
+                 for a, b in zip(patch_rows[0], patch_rows[0][1:])]
+        for upper_row, lower_row in zip(patch_rows, patch_rows[1:]):
+            for j in range(3):
+                patch.append((upper_row[j], upper_row[j+1],
+                              lower_row[j+1], lower_row[j]))
+        faces.extend(patch if end == 0 else [tuple(reversed(f)) for f in patch])
 
     leg_z = -p.height * .55 * p.crotch_drop
     left_thigh = _append_loop(vertices, _leg_loop(

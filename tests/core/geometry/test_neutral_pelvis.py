@@ -78,6 +78,18 @@ class NeutralPelvisTests(unittest.TestCase):
             for normal in normals:
                 self.assertGreater(sum(x*y for x, y in zip(normal, average)), 1e-8, face)
 
+    def test_lower_hip_turn_is_distributed_over_multiple_surface_rows(self):
+        vertices, _, _ = generate_neutral_pelvis()
+        # Follow the lateral silhouette down from its widest point. Each step
+        # must descend more than it moves inward, avoiding a horizontal shelf.
+        lateral = sorted((v for v in vertices if abs(v[1]) < 1e-6 and v[0] > 13),
+                         key=lambda v: -v[2])
+        widest = max(range(len(lateral)), key=lambda i: lateral[i][0])
+        lower = lateral[widest:]
+        self.assertGreaterEqual(len(lower), 4)
+        for a, b in zip(lower, lower[1:]):
+            self.assertGreater(a[2] - b[2], abs(a[0] - b[0]))
+
     def test_semantic_controls_cover_modify_facing_shape_dimensions(self):
         controls = set(semantic_controls())
         self.assertTrue({"width", "depth", "hip_fullness", "glute_projection", "crotch_width", "crotch_drop", "thigh_spacing"} <= controls)

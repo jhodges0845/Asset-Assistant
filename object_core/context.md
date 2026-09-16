@@ -72,3 +72,7 @@ Do not reopen broad architecture cleanup during Human V2 unless a concrete featu
 Fast checks:
 - `python -m unittest discover -s tests/core -v`
 - boundary tests in `tests/core/test_architecture_boundaries.py` and `tests/core/test_provider_boundaries.py`
+
+### Lower-pelvis transition review
+
+The standalone prototype now distributes the lower-hip turn across cubic longitudinal rows, carries those rows into the existing crotch rails, and preserves three 16-vertex attachment boundaries. `tests/core/geometry/test_neutral_pelvis.py` guards the lateral taper, face folding, winding, and declared boundaries.
