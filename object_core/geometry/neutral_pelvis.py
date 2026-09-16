@@ -152,24 +152,22 @@ def generate_neutral_pelvis(shape=None):
         rear_projection=rear_projection,
     ))
 
-    left_hip_path = tuple(hip_loop[i % SIDES] for i in range(12, 21))
+    # Both hip-to-transition paths must describe their outside half in the same
+    # anatomical direction: front -> outer side -> rear.  The previous left path
+    # ran rear -> outer -> front while its transition partner was interpreted in
+    # the opposite direction by the split construction.  That mismatch produced
+    # the long diagonal/fan visible only on the left review view.  Make the left
+    # pairing explicit and directionally mirror the right side.
+    left_hip_path = tuple(hip_loop[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
+    left_outer_path = tuple(left_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
     right_hip_path = tuple(hip_loop[i] for i in range(4, 13))
-    left_outer_path = tuple(left_transition[i % SIDES] for i in range(12, 21))
     right_outer_path = tuple(right_transition[i] for i in range(4, 13))
     _bridge_paths(faces, left_hip_path, left_outer_path)
     _bridge_paths(faces, right_hip_path, right_outer_path)
 
-    # Build the crotch from local front-to-rear quad strips.  The medial halves
-    # of the transition loops run in opposite angular directions; pairing them
-    # as if they shared the same direction produced crossed quads and the large
-    # triangular fan visible in the review render.  Both paths below now travel
-    # front -> medial -> rear, so every strip connects neighbouring regions.
     left_medial_path = tuple(left_transition[i] for i in range(4, 13))
     right_medial_path = tuple(right_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
 
-    # Use two narrow longitudinal rails instead of collapsing all medial faces
-    # onto x=0.  This preserves a small controllable crotch width and avoids
-    # coincident center vertices while keeping bilateral symmetry.
     rail_half_width = min(p.crotch_width * .18, p.thigh_spacing * .22)
     left_rail_points = []
     right_rail_points = []
