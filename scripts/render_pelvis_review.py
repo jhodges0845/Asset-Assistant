@@ -17,23 +17,31 @@ def mat(): m=bpy.data.materials.new("Pelvis Review"); m.use_nodes=True; return m
 def config(m,mode):
  n=m.node_tree.nodes; n.clear(); out=n.new("ShaderNodeOutputMaterial")
  if mode=="clay":
-  sh=n.new("ShaderNodeBsdfPrincipled"); sh.inputs["Base Color"].default_value=(.82,.84,.87,1); sh.inputs["Roughness"].default_value=.7; m.node_tree.links.new(sh.outputs["BSDF"],out.inputs["Surface"])
- elif mode=="silhouette": sh=n.new("ShaderNodeEmission"); sh.inputs["Color"].default_value=(.95,.95,.95,1); sh.inputs["Strength"].default_value=1.0; m.node_tree.links.new(sh.outputs["Emission"],out.inputs["Surface"])
+  sh=n.new("ShaderNodeBsdfPrincipled"); sh.inputs["Base Color"].default_value=(.92,.92,.90,1); sh.inputs["Roughness"].default_value=.78; sh.inputs["Metallic"].default_value=0.0; m.node_tree.links.new(sh.outputs["BSDF"],out.inputs["Surface"])
+ elif mode=="silhouette": sh=n.new("ShaderNodeEmission"); sh.inputs["Color"].default_value=(.03,.035,.045,1); sh.inputs["Strength"].default_value=1.0; m.node_tree.links.new(sh.outputs["Emission"],out.inputs["Surface"])
  else:
-  sh=n.new("ShaderNodeEmission"); wire=n.new("ShaderNodeWireframe"); wire.use_pixel_size=True; wire.inputs["Size"].default_value=1.25; ramp=n.new("ShaderNodeValToRGB"); ramp.color_ramp.elements[0].position=.40; ramp.color_ramp.elements[0].color=(.055,.065,.08,1); ramp.color_ramp.elements[1].position=.60; ramp.color_ramp.elements[1].color=(.94,.94,.94,1); m.node_tree.links.new(wire.outputs["Fac"],ramp.inputs["Fac"]); m.node_tree.links.new(ramp.outputs["Color"],sh.inputs["Color"]); m.node_tree.links.new(sh.outputs["Emission"],out.inputs["Surface"])
+  sh=n.new("ShaderNodeEmission"); wire=n.new("ShaderNodeWireframe"); wire.use_pixel_size=True; wire.inputs["Size"].default_value=1.25; ramp=n.new("ShaderNodeValToRGB"); ramp.color_ramp.elements[0].position=.40; ramp.color_ramp.elements[0].color=(.88,.88,.86,1); ramp.color_ramp.elements[1].position=.60; ramp.color_ramp.elements[1].color=(.04,.045,.055,1); m.node_tree.links.new(wire.outputs["Fac"],ramp.inputs["Fac"]); m.node_tree.links.new(ramp.outputs["Color"],sh.inputs["Color"]); m.node_tree.links.new(sh.outputs["Emission"],out.inputs["Surface"])
 def main():
  a=args(); clear(); shape=NeutralPelvisShape(width=a.width,depth=a.depth,height=a.height,hip_fullness=a.hip_fullness,glute_projection=a.glute_projection,crotch_width=a.crotch_width,thigh_spacing=a.thigh_spacing); verts,faces,_=generate_neutral_pelvis(shape); material=mat()
  min_x=min(v[0] for v in verts); max_x=max(v[0] for v in verts); min_y=min(v[1] for v in verts); max_y=max(v[1] for v in verts); min_z=min(v[2] for v in verts); max_z=max(v[2] for v in verts); c=Vector(((min_x+max_x)*.5,(min_y+max_y)*.5,(min_z+max_z)*.5)); cv=tuple((x-c.x,y-c.y,z-c.z) for x,y,z in verts); h=max_z-min_z
  widths=[]
  for _,angle in VIEWS:
   r=math.radians(angle); ca=math.cos(r); sa=math.sin(r); px=[x*ca-y*sa for x,y,_ in cv]; widths.append(max(px)-min(px))
- mw=max(widths); spacing=mw+max(3.0,mw*.11); xs=(-1.5*spacing,-.5*spacing,.5*spacing,1.5*spacing)
+ # Use each view's own width when laying out the diagnostic strip. This keeps all
+ # four views visible while wasting much less frame space than max-width slots.
+ gutter=max(2.5,max(widths)*.09); total=sum(widths)+gutter*3; cursor=-total*.5; xs=[]
+ for w in widths:
+  xs.append(cursor+w*.5); cursor+=w+gutter
  for (name,angle),x in zip(VIEWS,xs):
   mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(cv,[],faces); mesh.update(); obj=bpy.data.objects.new("Pelvis "+name,mesh); bpy.context.collection.objects.link(obj); obj.location=(x,0,0); obj.rotation_euler.z=math.radians(angle); obj.data.materials.append(material)
- scene=bpy.context.scene; scene.render.engine="CYCLES"; scene.cycles.device="CPU"; scene.cycles.samples=48; scene.cycles.use_denoising=True; scene.render.resolution_x=1800; scene.render.resolution_y=900; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"; scene.view_settings.look="AgX - Medium High Contrast"; scene.view_settings.exposure=1.0
- world=scene.world or bpy.data.worlds.new("Pelvis World"); scene.world=world; world.use_nodes=True; bg=world.node_tree.nodes.get("Background"); bg.inputs["Color"].default_value=(.04,.05,.065,1); bg.inputs["Strength"].default_value=.3
- layout=(xs[-1]+widths[-1]*.5)-(xs[0]-widths[0]*.5); scale=max(h*1.28,(layout/2.0)*1.06); camd=bpy.data.cameras.new("Camera"); camd.type="ORTHO"; camd.ortho_scale=scale; cam=bpy.data.objects.new("Camera",camd); bpy.context.collection.objects.link(cam); cam.location=(0,-150,0); look(cam,(0,0,0)); scene.camera=cam
- for name,energy,size,loc,target in (("Key",3200,65,(-55,-70,65),(0,0,0)),("Fill",2400,80,(55,-55,30),(0,0,0)),("Rim",1800,60,(0,45,55),(0,0,0)),("Under Fill",1500,70,(0,-30,-45),(0,0,-2))):
+ scene=bpy.context.scene; scene.render.engine="CYCLES"; scene.cycles.device="CPU"; scene.cycles.samples=32; scene.cycles.use_denoising=True; scene.render.resolution_x=1800; scene.render.resolution_y=900; scene.render.resolution_percentage=100; scene.render.image_settings.file_format="PNG"; scene.view_settings.look="AgX - Medium High Contrast"; scene.view_settings.exposure=.35
+ world=scene.world or bpy.data.worlds.new("Pelvis World"); scene.world=world; world.use_nodes=True; bg=world.node_tree.nodes.get("Background"); bg.inputs["Color"].default_value=(.42,.45,.49,1); bg.inputs["Strength"].default_value=.8
+ # At 2:1 resolution ortho_scale is the vertical span and twice that horizontally.
+ # Fit the full strip with modest margins and make the pelvis occupy most of the image.
+ scale=max(h*1.18,(total/2.0)*1.04); camd=bpy.data.cameras.new("Camera"); camd.type="ORTHO"; camd.ortho_scale=scale; cam=bpy.data.objects.new("Camera",camd); bpy.context.collection.objects.link(cam); cam.location=(0,-150,0); look(cam,(0,0,0)); scene.camera=cam
+ # Broad, frontal studio illumination. The purpose is shape diagnosis, not drama:
+ # no region of the clay should disappear into shadow.
+ for name,energy,size,loc,target in (("Key",5000,90,(-45,-75,60),(0,0,0)),("Fill",4200,100,(45,-65,35),(0,0,0)),("Top",3200,100,(0,-25,85),(0,0,0)),("Under",2600,90,(0,-35,-55),(0,0,0)),("Back Fill",2200,100,(0,55,35),(0,0,0))):
   ld=bpy.data.lights.new(name,"AREA"); ld.energy=energy; ld.size=size; ob=bpy.data.objects.new(name,ld); bpy.context.collection.objects.link(ob); ob.location=loc; look(ob,target)
  out=Path(a.output); out=out if out.is_absolute() else REPO_ROOT/out; out.parent.mkdir(parents=True,exist_ok=True)
  for mode in a.modes:
