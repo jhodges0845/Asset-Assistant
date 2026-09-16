@@ -46,8 +46,24 @@ def upper_thigh_ring(center,width,depth,side,pelvis_influence):
     return tuple(points)
 
 def thigh_opening_ring(center,width,depth,side,pelvis_influence):
+    """Shape a non-planar thigh root with a broad medial saddle.
+
+    The medial vertices previously dropped much farther than their neighbours,
+    producing a pointed crotch wedge in clay.  Spread that descent into the
+    front/rear-medial quadrants and taper it as rows travel down the thigh so the
+    crotch resolves into two continuous inner-thigh paths instead of a V-shaped fan.
+    """
     sign=1.0 if side=="left" else -1.0; base=upper_thigh_ring(center,width,depth,side,pelvis_influence); relief=max(1.2,width*.16); points=[]
     for i,(x,y,_) in enumerate(base):
         a=2*pi*i/RING_SIDES; c,s=cos(a),sin(a); lateral=max(0.0,sign*c); medial=max(0.0,-sign*c); rear=max(0.0,-s); front=max(0.0,s)
-        vz=center[2]+relief*(.55*lateral-.70*medial-.12*front-.05*rear); y-=depth*pelvis_influence*.055*rear*medial; points.append((x,y,vz))
+        # A softer medial depression keeps the opening anatomical without making
+        # the innermost vertex a spike.  Adjacent front/rear vertices share part
+        # of the descent, creating a saddle rather than a triangular notch.
+        medial_blend=medial*(.48+.20*(front+rear))
+        vz=center[2]+relief*(.50*lateral-.43*medial_blend-.08*front-.04*rear)
+        # Pull the medial surface slightly toward the thigh centre and keep the
+        # posterior seam rounded as it leaves the glute mass.
+        x-=sign*width*pelvis_influence*.018*medial
+        y-=depth*pelvis_influence*(.035*rear*medial-.012*front*medial)
+        points.append((x,y,vz))
     return tuple(points)
