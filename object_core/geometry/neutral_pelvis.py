@@ -35,7 +35,6 @@ def _clamp(value, low, high):
 
 
 def _validated(shape):
-    """Keep semantic edits inside a structurally useful neutral range."""
     return NeutralPelvisShape(
         width=max(20.0, shape.width), depth=max(12.0, shape.depth), height=max(12.0, shape.height),
         waist_width=max(16.0, shape.waist_width), waist_depth=max(10.0, shape.waist_depth),
@@ -51,7 +50,6 @@ def _validated(shape):
 
 
 def semantic_controls():
-    """Stable controls intended for Modify/JSON round-trip integration."""
     return (
         "width", "depth", "height", "waist_width", "waist_depth", "hip_fullness",
         "glute_projection", "crotch_width", "crotch_depth", "crotch_drop",
@@ -61,7 +59,6 @@ def semantic_controls():
 
 def _ring(z, width, depth, rear_projection=0.0, lateral_fullness=0.0,
           front_softness=0.0, lower_side_drop=0.0, quarter_fullness=0.0):
-    """Create a soft anatomical torso/pelvis ring without changing topology."""
     points = []
     for i in range(SIDES):
         a = 2.0 * pi * i / SIDES
@@ -80,7 +77,6 @@ def _ring(z, width, depth, rear_projection=0.0, lateral_fullness=0.0,
 def _leg_loop(center_x, z, width, depth, side, medial_drop=0.0,
               outer_lift=0.0, rear_projection=0.0, outer_flare=0.0,
               medial_fill=0.0):
-    """Create an anatomically biased loop around one leg socket."""
     sign = 1.0 if side == "left" else -1.0
     points = []
     for i in range(SIDES):
@@ -108,7 +104,6 @@ def _append_loop(vertices, points):
 
 
 def _bridge_loops(faces, a, b):
-    """Bridge two equally sized closed loops with consistently wound quads."""
     if len(a) != len(b):
         raise ValueError("Cannot bridge loops with different vertex counts")
     for i in range(len(a)):
@@ -117,7 +112,6 @@ def _bridge_loops(faces, a, b):
 
 
 def _bridge_paths(faces, a, b):
-    """Bridge two equally sized open paths with quads."""
     if len(a) != len(b):
         raise ValueError("Cannot bridge paths with different vertex counts")
     for i in range(len(a) - 1):
@@ -129,34 +123,42 @@ def generate_neutral_pelvis(shape=None):
     p = _validated(shape or NeutralPelvisShape())
     vertices, faces = [], []
 
-    # Keep the torso attachment stable, then distribute most of the widening
-    # through the iliac ring instead of making the body read as a straight
-    # trapezoid from waist to hip.
     upper = _ring(
         p.height * .50, p.waist_width * 1.015, p.waist_depth,
         front_softness=.025, quarter_fullness=.010,
     )
     iliac = _ring(
-        p.height * .14, p.width * .965, p.depth * .955,
-        rear_projection=p.depth * .035 * p.glute_projection,
-        lateral_fullness=.045 * p.hip_fullness, front_softness=.045,
-        lower_side_drop=p.height * .040, quarter_fullness=.018 * p.hip_fullness,
+        p.height * .17, p.width * .945, p.depth * .945,
+        rear_projection=p.depth * .030 * p.glute_projection,
+        lateral_fullness=.035 * p.hip_fullness, front_softness=.040,
+        lower_side_drop=p.height * .030, quarter_fullness=.014 * p.hip_fullness,
+    )
+    # Extra vertical resolution where the silhouette changes fastest.  This
+    # body loop carries the iliac flare into the full hip gradually while the
+    # existing hip loop remains the stable parent of Astra's socket branches.
+    body = _ring(
+        -p.height * .015, p.width * .990, p.depth * .985,
+        rear_projection=p.depth * .060 * p.glute_projection,
+        lateral_fullness=.052 * p.hip_fullness, front_softness=.050,
+        lower_side_drop=p.height * .055, quarter_fullness=.021 * p.hip_fullness,
     )
     hip = _ring(
-        -p.height * .17, p.width * .985, p.depth * 1.015,
+        -p.height * .19, p.width * .975, p.depth * 1.020,
         rear_projection=p.depth * .105 * p.glute_projection,
-        lateral_fullness=.040 * p.hip_fullness, front_softness=.060,
-        lower_side_drop=p.height * .085, quarter_fullness=.022 * p.hip_fullness,
+        lateral_fullness=.032 * p.hip_fullness, front_softness=.060,
+        lower_side_drop=p.height * .090, quarter_fullness=.020 * p.hip_fullness,
     )
 
     upper_loop = _append_loop(vertices, upper)
     iliac_loop = _append_loop(vertices, iliac)
+    body_loop = _append_loop(vertices, body)
     hip_loop = _append_loop(vertices, hip)
     _bridge_loops(faces, upper_loop, iliac_loop)
-    _bridge_loops(faces, iliac_loop, hip_loop)
+    _bridge_loops(faces, iliac_loop, body_loop)
+    _bridge_loops(faces, body_loop, hip_loop)
 
     center_offset = p.thigh_spacing * .5 + p.thigh_opening_width * .5
-    transition_z = -p.height * .37
+    transition_z = -p.height * .38
     transition_width = min(p.width * .46, p.thigh_opening_width * 1.24)
     transition_depth = min(p.depth * .72, p.thigh_opening_depth * 1.14)
     medial_drop = p.height * .045 * p.crotch_drop
