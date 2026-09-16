@@ -60,15 +60,17 @@ def semantic_controls():
 
 
 def _ring(z, width, depth, rear_projection=0.0, lateral_fullness=0.0,
-          front_softness=0.0, lower_side_drop=0.0):
+          front_softness=0.0, lower_side_drop=0.0, quarter_fullness=0.0):
     """Create a soft anatomical torso/pelvis ring without changing topology."""
     points = []
     for i in range(SIDES):
         a = 2.0 * pi * i / SIDES
         c, s = cos(a), sin(a)
         lateral = abs(c)
-        x = width * .5 * c * (1.0 + lateral_fullness * lateral)
+        quarter = 4.0 * lateral * abs(s)
+        x = width * .5 * c * (1.0 + lateral_fullness * lateral + quarter_fullness * quarter)
         y = depth * .5 * s * (1.0 - front_softness * max(0.0, s) * lateral)
+        y *= 1.0 + quarter_fullness * .30 * quarter
         y -= rear_projection * max(0.0, -s)
         zz = z - lower_side_drop * lateral * lateral
         points.append((x, y, zz))
@@ -88,9 +90,6 @@ def _leg_loop(center_x, z, width, depth, side, medial_drop=0.0,
         outer = max(0.0, sign * c)
         front = max(0.0, s)
         rear = max(0.0, -s)
-        # Carry the lateral hip volume farther down the socket, while nudging
-        # the medial quarter outward so the groin reads as a rounded bridge
-        # instead of a sharp V-shaped cutout.
         x = center_x + width * .5 * c
         x += sign * outer_flare * outer * (.65 + .35 * (1.0 - abs(s)))
         x -= sign * medial_fill * medial * (.70 + .30 * front)
@@ -130,18 +129,24 @@ def generate_neutral_pelvis(shape=None):
     p = _validated(shape or NeutralPelvisShape())
     vertices, faces = [], []
 
-    upper = _ring(p.height * .50, p.waist_width, p.waist_depth, front_softness=.035)
+    # Keep the torso attachment stable, then distribute most of the widening
+    # through the iliac ring instead of making the body read as a straight
+    # trapezoid from waist to hip.
+    upper = _ring(
+        p.height * .50, p.waist_width * 1.015, p.waist_depth,
+        front_softness=.025, quarter_fullness=.010,
+    )
     iliac = _ring(
-        p.height * .16, p.width * .93, p.depth * .93,
-        rear_projection=p.depth * .030 * p.glute_projection,
-        lateral_fullness=.030 * p.hip_fullness, front_softness=.055,
-        lower_side_drop=p.height * .035,
+        p.height * .14, p.width * .965, p.depth * .955,
+        rear_projection=p.depth * .035 * p.glute_projection,
+        lateral_fullness=.045 * p.hip_fullness, front_softness=.045,
+        lower_side_drop=p.height * .040, quarter_fullness=.018 * p.hip_fullness,
     )
     hip = _ring(
-        -p.height * .16, p.width, p.depth,
-        rear_projection=p.depth * .095 * p.glute_projection,
-        lateral_fullness=.050 * p.hip_fullness, front_softness=.075,
-        lower_side_drop=p.height * .080,
+        -p.height * .17, p.width * .985, p.depth * 1.015,
+        rear_projection=p.depth * .105 * p.glute_projection,
+        lateral_fullness=.040 * p.hip_fullness, front_softness=.060,
+        lower_side_drop=p.height * .085, quarter_fullness=.022 * p.hip_fullness,
     )
 
     upper_loop = _append_loop(vertices, upper)
@@ -191,8 +196,6 @@ def generate_neutral_pelvis(shape=None):
         lx, ly, lz = vertices[left_index]
         rx, ry, rz = vertices[right_index]
         y = (ly + ry) * .5
-        # Lift the saddle slightly relative to the medial socket floor. This
-        # softens the visible crotch notch without changing seam connectivity.
         z = (lz + rz) * .5 + p.height * .010 * (1.0 - min(1.0, abs(y) / max(1.0, p.crotch_depth)))
         left_rail_points.append((rail_half_width, y, z))
         right_rail_points.append((-rail_half_width, y, z))
