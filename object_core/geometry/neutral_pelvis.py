@@ -152,14 +152,10 @@ def generate_neutral_pelvis(shape=None):
         rear_projection=rear_projection,
     ))
 
-    # Both hip-to-transition paths must describe their outside half in the same
-    # anatomical direction: front -> outer side -> rear.  The previous left path
-    # ran rear -> outer -> front while its transition partner was interpreted in
-    # the opposite direction by the split construction.  That mismatch produced
-    # the long diagonal/fan visible only on the left review view.  Make the left
-    # pairing explicit and directionally mirror the right side.
-    left_hip_path = tuple(hip_loop[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
-    left_outer_path = tuple(left_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
+    # Follow the same ring winding on both sides; reversing only the left
+    # path flips that strip's normals even when vertex correspondence is correct.
+    left_hip_path = tuple(hip_loop[i % SIDES] for i in range(12, 21))
+    left_outer_path = tuple(left_transition[i % SIDES] for i in range(12, 21))
     right_hip_path = tuple(hip_loop[i] for i in range(4, 13))
     right_outer_path = tuple(right_transition[i] for i in range(4, 13))
     _bridge_paths(faces, left_hip_path, left_outer_path)
@@ -168,7 +164,10 @@ def generate_neutral_pelvis(shape=None):
     left_medial_path = tuple(left_transition[i] for i in range(4, 13))
     right_medial_path = tuple(right_transition[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
 
-    rail_half_width = min(p.crotch_width * .18, p.thigh_spacing * .22)
+    # Keep each rail strictly inside its medial socket path. A fixed rail
+    # width can cross the socket at its narrowest point, folding the saddle.
+    rail_half_width = min(p.crotch_width * .18, p.thigh_spacing * .22,
+                          max(0.01, center_offset - transition_width * .5) * .5)
     left_rail_points = []
     right_rail_points = []
     for left_index, right_index in zip(left_medial_path, right_medial_path):
@@ -181,9 +180,21 @@ def generate_neutral_pelvis(shape=None):
     left_rail = _append_loop(vertices, left_rail_points)
     right_rail = _append_loop(vertices, right_rail_points)
 
-    _bridge_paths(faces, left_medial_path, left_rail)
-    _bridge_paths(faces, left_rail, right_rail)
-    _bridge_paths(faces, right_rail, right_medial_path)
+    saddle_faces = []
+    _bridge_paths(saddle_faces, left_medial_path, left_rail)
+    _bridge_paths(saddle_faces, left_rail, right_rail)
+    _bridge_paths(saddle_faces, right_rail, right_medial_path)
+    faces.extend(tuple(reversed(face)) for face in saddle_faces)
+
+    # Close the front/rear seams between the shell and saddle. Only the three
+    # declared attachment loops should remain open. Small local triangles retain
+    # bilateral symmetry without a non-planar pentagon or a cross-pelvis fan.
+    for end, hip_index in ((0, 4), (-1, 12)):
+        seam = (left_medial_path[end], left_rail[end],
+                right_rail[end], right_medial_path[end])
+        for a, b in zip(seam, seam[1:]):
+            face = (hip_loop[hip_index], a, b)
+            faces.append(tuple(reversed(face)) if end == 0 else face)
 
     leg_z = -p.height * .50 * p.crotch_drop
     left_thigh = _append_loop(vertices, _leg_loop(
@@ -206,4 +217,6 @@ def generate_neutral_pelvis(shape=None):
         "left_thigh": left_thigh,
         "right_thigh": right_thigh,
     }
-    return tuple(vertices), tuple(faces), boundaries
+    # Ring bridges were assembled top-to-bottom. Reverse once, consistently,
+    # so the exterior shell points out and the crotch underside points down.
+    return tuple(vertices), tuple(tuple(reversed(face)) for face in faces), boundaries
