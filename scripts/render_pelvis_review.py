@@ -35,7 +35,11 @@ def main():
  for w,center in zip(widths,centers):
   xs.append(cursor+w*.5-center); cursor+=w+gutter
  for (name,angle),x in zip(VIEWS,xs):
-  mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(cv,[],faces); mesh.update(calc_edges=True); obj=bpy.data.objects.new("Pelvis "+name,mesh); bpy.context.collection.objects.link(obj); obj.location=(x,0,0); obj.rotation_euler.z=math.radians(angle); obj.data.materials.append(material)
+  mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(cv,[],faces); mesh.update(calc_edges=True)
+  # Clay should diagnose the finished surface, not polygon-normal faceting. The
+  # separate wireframe render still shows every authored control edge explicitly.
+  for polygon in mesh.polygons: polygon.use_smooth=True
+  obj=bpy.data.objects.new("Pelvis "+name,mesh); bpy.context.collection.objects.link(obj); obj.location=(x,0,0); obj.rotation_euler.z=math.radians(angle); obj.data.materials.append(material)
  # Draw authored mesh edges, not shader tessellation diagonals inside quads.
  edge_material=bpy.data.materials.new("Topology edges"); edge_material.use_nodes=True
  nodes=edge_material.node_tree.nodes; nodes.clear(); output=nodes.new("ShaderNodeOutputMaterial"); emission=nodes.new("ShaderNodeEmission"); emission.inputs["Color"].default_value=(.025,.03,.04,1); edge_material.node_tree.links.new(emission.outputs["Emission"],output.inputs["Surface"])
