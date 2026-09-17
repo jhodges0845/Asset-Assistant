@@ -2,8 +2,8 @@
 """Generic shared-edge patch-surface construction and sculpt helpers.
 
 A patch boundary is sampled exactly once and then referenced by every adjacent
-patch.  Patches therefore share vertex ids along complete edges instead of being
-welded later by coordinate coincidence.  The module intentionally contains no
+patch. Patches therefore share vertex ids along complete edges instead of being
+welded later by coordinate coincidence. The module intentionally contains no
 object/anatomy vocabulary; recipes own all semantic meaning.
 """
 from collections import defaultdict, deque
@@ -85,11 +85,11 @@ class PatchNetwork:
     def patch(self, name, top, right, bottom, left, control=(0.0, 0.0, 0.0)):
         """Fill four already-authored shared boundaries with a Coons-style patch.
 
-        Boundary orientation is explicit:
-        ``top`` and ``bottom`` run left->right, while ``left`` and ``right`` run
-        top->bottom. Opposite boundaries must have matching sample counts. The
-        patch creates only interior vertices; every edge vertex belongs to its
-        boundary object and is therefore genuinely shared with neighbouring patches.
+        Boundary orientation is explicit: ``top`` and ``bottom`` run left->right,
+        while ``left`` and ``right`` run top->bottom. Opposite boundaries must
+        have matching sample counts. The patch creates only interior vertices;
+        every edge vertex belongs to its boundary object and is therefore truly
+        shared with neighbouring patches.
         """
         top = self._resolve(top)
         right = self._resolve(right)
@@ -235,6 +235,53 @@ def brush(vertices, indices, center, radius, delta=(0.0, 0.0, 0.0), normal_amoun
         if normals is not None and normal_amount:
             move = add(move, mul(normals[index], normal_amount * weight))
         vertices[index] = add(vertices[index], move)
+
+
+def fair_boundaries(vertices, faces, boundaries, locked=(), strength=0.30, iterations=2):
+    """Fair internal shared edges toward compatible cross-patch tangents.
+
+    Positional continuity alone can still leave a visible crease when the first
+    interior rows on neighbouring patches leave their common edge in different
+    directions. For each non-corner boundary vertex that has surface neighbours
+    on both sides, move the shared vertex toward the midpoint of those cross-edge
+    neighbours while lightly preserving the boundary's own longitudinal curve.
+    Open attachment edges naturally have only one cross-edge neighbour and are
+    therefore ignored.
+    """
+    neighbors = vertex_neighbors(faces, len(vertices))
+    locked = set(locked)
+    boundary_list = [tuple(boundary) for boundary in boundaries]
+    for _ in range(iterations):
+        old = list(vertices)
+        proposals = defaultdict(list)
+        for boundary in boundary_list:
+            boundary_set = set(boundary)
+            for position in range(1, len(boundary) - 1):
+                index = boundary[position]
+                if index in locked:
+                    continue
+                across = neighbors[index] - boundary_set
+                if len(across) < 2:
+                    continue
+                cross_target = tuple(
+                    sum(old[other][axis] for other in across) / len(across)
+                    for axis in range(3)
+                )
+                curve_target = tuple(
+                    (old[boundary[position - 1]][axis] + old[boundary[position + 1]][axis]) * 0.5
+                    for axis in range(3)
+                )
+                target = tuple(cross_target[axis] * 0.72 + curve_target[axis] * 0.28 for axis in range(3))
+                proposals[index].append(target)
+        for index, targets in proposals.items():
+            target = tuple(
+                sum(point[axis] for point in targets) / len(targets)
+                for axis in range(3)
+            )
+            vertices[index] = tuple(
+                old[index][axis] + (target[axis] - old[index][axis]) * strength
+                for axis in range(3)
+            )
 
 
 def relax(vertices, faces, indices, locked=(), strength=0.10, iterations=2):
