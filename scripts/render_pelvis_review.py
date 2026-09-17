@@ -142,60 +142,92 @@ def apply_modifier(obj, modifier):
 
 
 def build_astra_pelvis(width, depth, height, hip_fullness, glute_projection, crotch_width, thigh_spacing):
-    """Build the lower torso, glutes, and proximal thighs as overlapping masses.
+    """Build a second-pass overlapping-mass pelvis for visual diagnosis.
 
-    Ratios are adapted from the Maxine study rather than copied as fixed meters.
-    Posterior is -Y here to match the existing pelvis-review camera convention.
+    The first mass-union render proved the construction pipeline but exposed bad
+    source proportions: oversized spherical glutes, blocky proximal thighs, a
+    hard torso/glute shelf, and a narrow V-shaped crotch.  This pass changes the
+    authored masses rather than asking smoothing to repair them.
+
+    Posterior is -Y to match the established pelvis-review camera convention.
     """
     half_w = width * 0.5
     half_d = depth * 0.5
-    hip = max(0.65, hip_fullness)
-    glute = max(0.55, glute_projection)
+    hip = max(0.75, hip_fullness)
+    glute = max(0.65, glute_projection)
     crotch = max(0.5, crotch_width)
     spacing = max(0.0, thigh_spacing)
 
-    # Astra's useful pelvis pattern is the width profile, not the absolute
-    # coordinates: a narrow central root expands rapidly into the hip bowl,
-    # reaches its broadest point above the thigh origins, then tapers into the
-    # waist.  The slight -Y bias carries the lower torso into the rear masses.
-    torso_rows = (
-        (0.0, -depth * 0.035, -height * 0.54, max(crotch * 0.95, half_w * 0.20), half_d * 0.58),
-        (0.0, -depth * 0.040, -height * 0.24, half_w * 0.84 * hip, half_d * 0.84),
-        (0.0, -depth * 0.035, height * 0.12, half_w * 1.00 * hip, half_d * 0.95),
-        (0.0, -depth * 0.015, height * 0.48, half_w * 0.86, half_d * 0.79),
-        (0.0, 0.0, height * 0.68, half_w * 0.70, half_d * 0.68),
-    )
-    parts = [add_loft("Astra lower torso", torso_rows)]
+    parts = []
 
-    # Explicit glute volumes are intentionally established before remeshing.
-    # Smoothing is not responsible for inventing posterior anatomy.
-    glute_x = half_w * 0.50
-    glute_y = -half_d * (0.60 + 0.10 * (glute - 1.0))
-    glute_z = -height * 0.02
+    # Gradual pelvic-bowl flare.  More rows distribute the change in width and
+    # depth so the torso no longer reads as a box sitting on the thigh roots.
+    torso_rows = (
+        (0.0, -depth * 0.010, -height * 0.56, max(crotch * 0.82, half_w * 0.18), half_d * 0.48),
+        (0.0, -depth * 0.016, -height * 0.38, half_w * 0.50, half_d * 0.56),
+        (0.0, -depth * 0.022, -height * 0.18, half_w * 0.70 * hip, half_d * 0.68),
+        (0.0, -depth * 0.024, height * 0.04, half_w * 0.86 * hip, half_d * 0.79),
+        (0.0, -depth * 0.018, height * 0.22, half_w * 0.94 * hip, half_d * 0.86),
+        (0.0, -depth * 0.008, height * 0.42, half_w * 0.84, half_d * 0.76),
+        (0.0, 0.0, height * 0.62, half_w * 0.70, half_d * 0.65),
+        (0.0, 0.0, height * 0.74, half_w * 0.62, half_d * 0.58),
+    )
+    parts.append(add_loft("Astra lower torso", torso_rows))
+
+    # Smaller and lower posterior masses.  They should contribute gluteal
+    # projection without becoming two dominant spheres in the rear silhouette.
+    glute_x = half_w * 0.40
+    glute_y = -half_d * (0.38 + 0.05 * (glute - 1.0))
+    glute_z = -height * 0.12
     glute_scale = (
-        half_w * 0.58 * hip,
-        half_d * 0.66 * glute,
-        height * 0.56,
+        half_w * 0.39 * hip,
+        half_d * 0.43 * glute,
+        height * 0.34,
     )
     parts.append(add_ellipsoid("Astra glute L", (-glute_x, glute_y, glute_z), glute_scale))
     parts.append(add_ellipsoid("Astra glute R", (glute_x, glute_y, glute_z), glute_scale))
 
-    # The proximal thighs rise high into the pelvis and overlap it substantially.
-    # Their inner edges stay close to center while lateral width is carried by
-    # the hip/trochanter region instead of a wide crotch bridge.
-    thigh_center = max(crotch * 0.50 + spacing * 0.30, half_w * 0.30)
+    # Carry width through the lateral hip / greater-trochanter region instead
+    # of making posterior masses responsible for the entire hip silhouette.
+    troch_x = half_w * 0.68
+    troch_y = -half_d * 0.08
+    troch_z = -height * 0.10
+    troch_scale = (
+        half_w * 0.22 * hip,
+        half_d * 0.25,
+        height * 0.27,
+    )
+    parts.append(add_ellipsoid("Astra trochanter L", (-troch_x, troch_y, troch_z), troch_scale))
+    parts.append(add_ellipsoid("Astra trochanter R", (troch_x, troch_y, troch_z), troch_scale))
+
+    # A restrained anterior/central saddle bridges the inner thigh roots into
+    # the lower pelvis.  It is deliberately shallow so this remains a neutral
+    # anatomical base rather than defining sex-specific external anatomy.
+    bridge_scale_x = max(crotch * 0.34, half_w * 0.11)
+    parts.append(
+        add_ellipsoid(
+            "Astra central pelvic saddle",
+            (0.0, depth * 0.035, -height * 0.24),
+            (bridge_scale_x, half_d * 0.18, height * 0.14),
+        )
+    )
+
+    # Narrower proximal thighs.  The top row reaches high into the pelvic bowl,
+    # while the centers drift outward down the leg.  This makes the inner origin
+    # close to the midline without turning the whole upper thigh into a cylinder.
+    thigh_center = max(crotch * 0.34 + spacing * 0.16, half_w * 0.23)
     for side, label in ((-1.0, "L"), (1.0, "R")):
         rows = (
-            (side * thigh_center, -depth * 0.015, -height * 0.04, half_w * 0.52, half_d * 0.76),
-            (side * (thigh_center + width * 0.025), -depth * 0.005, -height * 0.33, half_w * 0.47, half_d * 0.66),
-            (side * (thigh_center + width * 0.075), 0.0, -height * 0.70, half_w * 0.38, half_d * 0.54),
-            (side * (thigh_center + width * 0.095), 0.0, -height * 0.94, half_w * 0.34, half_d * 0.49),
+            (side * thigh_center, -depth * 0.010, -height * 0.04, half_w * 0.33, half_d * 0.45),
+            (side * (thigh_center + width * 0.020), -depth * 0.004, -height * 0.22, half_w * 0.35, half_d * 0.45),
+            (side * (thigh_center + width * 0.050), depth * 0.004, -height * 0.44, half_w * 0.33, half_d * 0.41),
+            (side * (thigh_center + width * 0.080), depth * 0.010, -height * 0.68, half_w * 0.29, half_d * 0.36),
+            (side * (thigh_center + width * 0.095), depth * 0.012, -height * 0.92, half_w * 0.26, half_d * 0.33),
         )
         parts.append(add_loft("Astra proximal thigh " + label, rows))
 
-    # Match the useful ordering in the Maxine experiment: soften each analytic
-    # source before union, then fuse at a fine voxel size and only lightly relax
-    # the already-established anatomy afterward.
+    # As in the Maxine study, soften each authored source before union.  The
+    # remesher should fuse already-smooth anatomy, not invent the anatomy.
     for source in parts:
         rounding = source.modifiers.new("Round construction form", "SUBSURF")
         rounding.levels = 2
@@ -212,15 +244,18 @@ def build_astra_pelvis(width, depth, height, hip_fullness, glute_projection, cro
 
     remesh = body.modifiers.new("Unify anatomy - fine voxels", "REMESH")
     remesh.mode = "VOXEL"
-    # With the review defaults expressed at roughly centimetre scale this is
-    # about a 3 mm union, matching the successful Maxine study closely.
-    remesh.voxel_size = max(0.12, min(width, depth, height) * 0.015)
+    # Keep the union fine enough to preserve the source silhouette.  With the
+    # review defaults this is roughly a 2-3 mm equivalent sampling interval.
+    remesh.voxel_size = max(0.10, min(width, depth, height) * 0.012)
     remesh.use_smooth_shade = True
     apply_modifier(body, remesh)
 
+    # Use less post-union smoothing than the first pass.  The test is now about
+    # whether the authored masses are correct, not whether they can be blurred
+    # into a plausible blob.
     smooth = body.modifiers.new("Relax anatomical intersections", "SMOOTH")
-    smooth.factor = 0.72
-    smooth.iterations = 5
+    smooth.factor = 0.50
+    smooth.iterations = 4
     apply_modifier(body, smooth)
 
     finish = body.modifiers.new("Surface finish", "SUBSURF")
