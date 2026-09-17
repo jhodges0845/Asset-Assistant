@@ -1,132 +1,111 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Procedural construct -> sculpt -> finish pelvis experiment.
-
-The recipe first builds an editable cage, then applies generic proportional
-vertex sculpting and relaxation before a generic subdivision finish. Object
-meaning remains in the recipe; the modeling operations are reusable.
-"""
+"""Procedural construct -> sculpt -> smooth pelvis experiment."""
 from dataclasses import dataclass
-from math import cos, pi, sin
-
+from math import cos, pi, sin, sqrt
 
 @dataclass(frozen=True)
 class NeutralPelvisShape:
-    width: float=34.0; depth: float=24.0; height: float=20.0
-    waist_width: float=28.0; waist_depth: float=20.0
-    hip_fullness: float=1.0; glute_projection: float=1.0
-    crotch_width: float=7.0; crotch_depth: float=8.0; crotch_drop: float=1.0
-    thigh_opening_width: float=12.0; thigh_opening_depth: float=13.0; thigh_spacing: float=4.0
-
+    width: float=34.; depth: float=24.; height: float=20.; waist_width: float=28.; waist_depth: float=20.
+    hip_fullness: float=1.; glute_projection: float=1.; crotch_width: float=7.; crotch_depth: float=8.; crotch_drop: float=1.
+    thigh_opening_width: float=12.; thigh_opening_depth: float=13.; thigh_spacing: float=4.
 
 def semantic_controls(): return tuple(NeutralPelvisShape.__dataclass_fields__)
-
-def _loop(cx,z,width,depth,sides=16,rear=0,side_drop=0):
-    out=[]
-    for i in range(sides):
-        a=2*pi*i/sides; c=cos(a); s=sin(a)
-        out.append((cx+width*.5*c,depth*.5*s+rear*max(0,-s)**2,z-side_drop*abs(c)**1.7))
-    return tuple(out)
-
-def _append(v,pts): start=len(v); v.extend(pts); return tuple(range(start,start+len(pts)))
+def _add(a,b): return tuple(a[i]+b[i] for i in range(3))
+def _mul(a,s): return tuple(x*s for x in a)
+def _sub(a,b): return tuple(a[i]-b[i] for i in range(3))
+def _cross(a,b): return (a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0])
+def _norm(a):
+    m=sqrt(sum(x*x for x in a)) or 1.; return tuple(x/m for x in a)
+def _loop(cx,z,w,d,n=16,rear=0,drop=0):
+    return tuple((cx+w*.5*cos(2*pi*i/n),d*.5*sin(2*pi*i/n)+rear*max(0,-sin(2*pi*i/n))**2,z-drop*abs(cos(2*pi*i/n))**1.7) for i in range(n))
+def _append(v,pts): s=len(v); v.extend(pts); return tuple(range(s,s+len(pts)))
 def _bridge(f,a,b):
     for i in range(len(a)): j=(i+1)%len(a); f.append((a[i],a[j],b[j],b[i]))
-def _extrude(v,f,boundary,pts): result=_append(v,pts); _bridge(f,boundary,result); return result
+def _extrude(v,f,b,pts): q=_append(v,pts); _bridge(f,b,q); return q
 
+def _neighbors(f,n):
+    out=[set() for _ in range(n)]
+    for face in f:
+        for i,a in enumerate(face):
+            b=face[(i+1)%len(face)]; out[a].add(b); out[b].add(a)
+    return out
 
-def _sculpt(vertices, indices, center, radius, delta):
-    """Generic proportional-edit push/pull with smooth radial falloff."""
-    cx,cy,cz=center
+def _normals(v,f):
+    ns=[(0.,0.,0.) for _ in v]
+    for face in f:
+        if len(face)<3: continue
+        a,b,c=(v[face[i]] for i in range(3)); n=_cross(_sub(b,a),_sub(c,a))
+        for i in face: ns[i]=_add(ns[i],n)
+    return [_norm(n) for n in ns]
+def _brush(v,indices,center,radius,delta=None,normal_amount=0.,normals=None):
     for i in indices:
-        x,y,z=vertices[i]; dist=((x-cx)**2+(y-cy)**2+(z-cz)**2)**.5
-        if dist>=radius: continue
-        t=1-dist/radius; weight=t*t*(3-2*t)
-        vertices[i]=(x+delta[0]*weight,y+delta[1]*weight,z+delta[2]*weight)
+        d=sqrt(sum((v[i][k]-center[k])**2 for k in range(3)))
+        if d>=radius: continue
+        t=1-d/radius; q=t*t*(3-2*t); move=(0.,0.,0.)
+        if delta: move=_mul(delta,q)
+        if normals and normal_amount: move=_add(move,_mul(normals[i],normal_amount*q))
+        v[i]=_add(v[i],move)
+def _smooth(v,f,indices,strength=.18,iters=2):
+    nb=_neighbors(f,len(v)); selected=set(indices)
+    for _ in range(iters):
+        old=list(v); updates={}
+        for i in selected:
+            if not nb[i]: continue
+            avg=tuple(sum(old[j][k] for j in nb[i])/len(nb[i]) for k in range(3))
+            updates[i]=tuple(old[i][k]+(avg[k]-old[i][k])*strength for k in range(3))
+        for i,p in updates.items(): v[i]=p
 
-
-def _relax(vertices, faces, indices, strength=.18, iterations=2):
-    """Generic Laplacian relax used on selected cage vertices."""
-    selected=set(indices); neighbors={i:set() for i in selected}
-    for face in faces:
-        for a,b in zip(face,face[1:]+face[:1]):
-            if a in selected: neighbors[a].add(b)
-            if b in selected: neighbors[b].add(a)
-    for _ in range(iterations):
-        updates={}
-        for i,ns in neighbors.items():
-            if not ns: continue
-            avg=tuple(sum(vertices[j][k] for j in ns)/len(ns) for k in range(3))
-            updates[i]=tuple(vertices[i][k]+(avg[k]-vertices[i][k])*strength for k in range(3))
-        for i,p in updates.items(): vertices[i]=p
-
-
-def _subdivide(vertices, faces):
-    """One generic face-center/edge-midpoint subdivision pass."""
-    source=list(vertices); result=list(vertices); cache={}; out=[]
-    def midpoint(a,b):
-        key=tuple(sorted((a,b)))
-        if key not in cache:
-            pa,pb=source[a],source[b]; cache[key]=len(result)
-            result.append(tuple((pa[k]+pb[k])*.5 for k in range(3)))
-        return cache[key]
-    for face in faces:
-        center=len(result); result.append(tuple(sum(source[i][k] for i in face)/len(face) for k in range(3)))
-        mids=[midpoint(face[i],face[(i+1)%len(face)]) for i in range(len(face))]
-        for i,v in enumerate(face): out.append((v,mids[i],center,mids[i-1]))
-    return result,out
-
+def _catmull_clark(v,faces):
+    """One Catmull-Clark pass with boundary vertices held to avoid open-edge shrinkage."""
+    old=list(v); face_pts=[]; edge_faces={}; vertex_faces=[[] for _ in old]; vertex_edges=[set() for _ in old]
+    for fi,face in enumerate(faces):
+        fp=tuple(sum(old[i][k] for i in face)/len(face) for k in range(3)); face_pts.append(fp)
+        for i,a in enumerate(face):
+            b=face[(i+1)%len(face)]; e=tuple(sorted((a,b))); edge_faces.setdefault(e,[]).append(fi); vertex_edges[a].add(e); vertex_edges[b].add(e); vertex_faces[a].append(fi)
+    new=list(old); boundary=set()
+    for e,fs in edge_faces.items():
+        if len(fs)==1: boundary.update(e)
+    for i,p in enumerate(old):
+        if i in boundary or not vertex_faces[i]: continue
+        fs=vertex_faces[i]; F=tuple(sum(face_pts[j][k] for j in fs)/len(fs) for k in range(3))
+        mids=[tuple((old[e[0]][k]+old[e[1]][k])*.5 for k in range(3)) for e in vertex_edges[i]]
+        R=tuple(sum(q[k] for q in mids)/len(mids) for k in range(3)); n=len(fs)
+        new[i]=tuple((F[k]+2*R[k]+(n-3)*p[k])/n for k in range(3))
+    edge_idx={}
+    for e,fs in edge_faces.items():
+        if len(fs)==2: p=tuple((old[e[0]][k]+old[e[1]][k]+face_pts[fs[0]][k]+face_pts[fs[1]][k])*.25 for k in range(3))
+        else: p=tuple((old[e[0]][k]+old[e[1]][k])*.5 for k in range(3))
+        edge_idx[e]=len(new); new.append(p)
+    fp_idx=[]
+    for p in face_pts: fp_idx.append(len(new)); new.append(p)
+    out=[]
+    for fi,face in enumerate(faces):
+        for j,a in enumerate(face):
+            prev=face[j-1]; nxt=face[(j+1)%len(face)]
+            out.append((a,edge_idx[tuple(sorted((a,nxt)))],fp_idx[fi],edge_idx[tuple(sorted((prev,a)))]))
+    return new,out
 
 def generate_neutral_pelvis(shape=None):
-    p=shape or NeutralPelvisShape(); w,d,h=p.width,p.depth,p.height
-    v=[]; f=[]; n=16
-
-    # CONSTRUCT: deliberately simple cage.
-    top=_append(v,_loop(0,h*.50,p.waist_width*.94,p.waist_depth*.94,n,side_drop=h*.018))
-    upper=_append(v,_loop(0,h*.30,w*.91,d*.91,n,rear=-d*.025*p.glute_projection,side_drop=h*.045))
-    widest=_append(v,_loop(0,h*.04,w*1.00*p.hip_fullness,d*.98,n,rear=-d*.080*p.glute_projection,side_drop=h*.075))
-    lower=_append(v,_loop(0,-h*.17,w*.88,d*.84,n,rear=-d*.060*p.glute_projection,side_drop=h*.070))
+    p=shape or NeutralPelvisShape(); w,d,h=p.width,p.depth,p.height; v=[]; f=[]; n=16
+    top=_append(v,_loop(0,h*.50,p.waist_width*.94,p.waist_depth*.94,n,drop=h*.018))
+    upper=_append(v,_loop(0,h*.30,w*.91,d*.91,n,rear=-d*.025*p.glute_projection,drop=h*.045))
+    widest=_append(v,_loop(0,h*.04,w,d*.98,n,rear=-d*.08*p.glute_projection,drop=h*.075))
+    lower=_append(v,_loop(0,-h*.17,w*.88,d*.84,n,rear=-d*.06*p.glute_projection,drop=h*.07))
     _bridge(f,top,upper); _bridge(f,upper,widest); _bridge(f,widest,lower)
-
-    gap=p.thigh_spacing*.5; cut_z=-h*.17; front_y=d*.34; rear_y=-d*(.38+.025*p.glute_projection)
-    lf=_append(v,((-gap,front_y,cut_z+h*.09),))[0]; lr=_append(v,((-gap,rear_y,cut_z+h*.055),))[0]
-    rf=_append(v,(( gap,front_y,cut_z+h*.09),))[0]; rr=_append(v,(( gap,rear_y,cut_z+h*.055),))[0]
-    left_open=(lower[8],lower[7],lower[6],lower[5],lower[4],lf,lr,lower[12])
-    right_open=(lower[0],lower[15],lower[14],lower[13],lower[12],rr,rf,lower[4])
-    f.extend([(lower[8],lower[9],lower[10],lower[11],lower[12],lr),
-              (lower[8],lf,lower[4],lower[5],lower[6],lower[7]),
-              (lower[12],lower[13],lower[14],lower[15],lower[0],rr),
-              (lower[4],rf,lower[0],lower[1],lower[2],lower[3]),(lf,rf,rr,lr)])
-
+    gap=p.thigh_spacing*.5; z=-h*.17; fy=d*.34; ry=-d*(.38+.025*p.glute_projection)
+    lf=_append(v,((-gap,fy,z+h*.09),))[0]; lr=_append(v,((-gap,ry,z+h*.055),))[0]; rf=_append(v,((gap,fy,z+h*.09),))[0]; rr=_append(v,((gap,ry,z+h*.055),))[0]
+    lo=(lower[8],lower[7],lower[6],lower[5],lower[4],lf,lr,lower[12]); ro=(lower[0],lower[15],lower[14],lower[13],lower[12],rr,rf,lower[4])
+    f.extend([(lower[8],lower[9],lower[10],lower[11],lower[12],lr),(lower[8],lf,lower[4],lower[5],lower[6],lower[7]),(lower[12],lower[13],lower[14],lower[15],lower[0],rr),(lower[4],rf,lower[0],lower[1],lower[2],lower[3]),(lf,rf,rr,lr)])
     center=gap+p.thigh_opening_width*.5
-    def target(sign,z,width,depth):
-        return tuple((sign*center+width*.5*cos(pi*i/4),depth*.5*sin(pi*i/4),z) for i in range(8))
-    left_root=_extrude(v,f,left_open,target(-1,-h*.27,p.thigh_opening_width*1.16,p.thigh_opening_depth*1.18))
-    right_root=_extrude(v,f,right_open,target(1,-h*.27,p.thigh_opening_width*1.16,p.thigh_opening_depth*1.18))
-    out_z=-h*.55
-    left_out=_extrude(v,f,left_root,target(-1,out_z,p.thigh_opening_width,p.thigh_opening_depth))
-    right_out=_extrude(v,f,right_root,target(1,out_z,p.thigh_opening_width,p.thigh_opening_depth))
-
-    # SCULPT: operate on the cage after construction, as an artist would.
-    cage=tuple(range(len(v)))
-    # Round the lateral upper mass and pull the lower sides inward/upward.
-    _sculpt(v,cage,(-w*.43,0,h*.08),w*.34,(-w*.045,0,h*.025))
-    _sculpt(v,cage,( w*.43,0,h*.08),w*.34,( w*.045,0,h*.025))
-    # Build front volume and a distinct, stronger rear volume.
-    _sculpt(v,cage,(0,d*.42,h*.03),d*.55,(0,d*.055,-h*.005))
-    _sculpt(v,cage,(0,-d*.43,-h*.01),d*.62,(0,-d*.115*p.glute_projection,-h*.015))
-    # Lift and soften the center root while pulling each outlet slightly outward.
-    _sculpt(v,cage,(0,0,-h*.18),w*.27,(0,0,h*.075))
-    _sculpt(v,cage,(-center,0,-h*.31),w*.22,(-w*.018,0,h*.015))
-    _sculpt(v,cage,( center,0,-h*.31),w*.22,( w*.018,0,h*.015))
-    # Relax only interior construction rings; preserve attachment openings.
-    _relax(v,f,upper+widest+lower+left_root+right_root,strength=.12,iterations=2)
-
-    # FINISH: one subdivision pass. It increases surface continuity without
-    # being asked to invent the underlying silhouette.
-    v,f=_subdivide(v,f)
-
-    # Attachment metadata remains stable and independent from finished topology.
-    def public(cx,z,width,depth): return _append(v,_loop(cx,z,width,depth,16))
-    torso=public(0,h*.50,p.waist_width,p.waist_depth)
-    left=public(-center,out_z,p.thigh_opening_width,p.thigh_opening_depth)
-    right=public(center,out_z,p.thigh_opening_width,p.thigh_opening_depth)
-    return tuple(v),tuple(tuple(reversed(face)) for face in f),{"torso":torso,"left_thigh":left,"right_thigh":right}
+    def target(sign,z,wid,dep): return tuple((sign*center+wid*.5*cos(pi*i/4),dep*.5*sin(pi*i/4),z) for i in range(8))
+    lroot=_extrude(v,f,lo,target(-1,-h*.27,p.thigh_opening_width*1.16,p.thigh_opening_depth*1.18)); rroot=_extrude(v,f,ro,target(1,-h*.27,p.thigh_opening_width*1.16,p.thigh_opening_depth*1.18))
+    outz=-h*.55; lout=_extrude(v,f,lroot,target(-1,outz,p.thigh_opening_width,p.thigh_opening_depth)); rout=_extrude(v,f,rroot,target(1,outz,p.thigh_opening_width,p.thigh_opening_depth))
+    cage=tuple(range(len(v))); ns=_normals(v,f)
+    _brush(v,cage,(-w*.42,0,h*.06),w*.34,(-w*.035,0,h*.025)); _brush(v,cage,(w*.42,0,h*.06),w*.34,(w*.035,0,h*.025))
+    _brush(v,cage,(0,d*.42,h*.02),d*.55,(0,d*.045,0)); _brush(v,cage,(0,-d*.43,0),d*.62,(0,-d*.09*p.glute_projection,-h*.01))
+    ns=_normals(v,f); _brush(v,cage,(0,0,-h*.12),w*.34,normal_amount=w*.025,normals=ns)
+    _brush(v,cage,(0,0,-h*.19),w*.25,(0,0,h*.06)); _smooth(v,f,upper+widest+lower+lroot+rroot,.14,3)
+    v,f=_catmull_clark(v,f)
+    def public(cx,z,wid,dep): return _append(v,_loop(cx,z,wid,dep,16))
+    torso=public(0,h*.50,p.waist_width,p.waist_depth); left=public(-center,outz,p.thigh_opening_width,p.thigh_opening_depth); right=public(center,outz,p.thigh_opening_width,p.thigh_opening_depth)
+    return tuple(v),tuple(tuple(reversed(x)) for x in f),{"torso":torso,"left_thigh":left,"right_thigh":right}
