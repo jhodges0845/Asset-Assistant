@@ -238,41 +238,57 @@ def brush(vertices, indices, center, radius, delta=(0.0, 0.0, 0.0), normal_amoun
 
 
 def fair_boundaries(vertices, faces, boundaries, locked=(), strength=0.30, iterations=2):
-    """Fair internal shared edges toward compatible cross-patch tangents.
+    """Align first interior rows while preserving authored shared boundaries.
 
-    Positional continuity alone can still leave a visible crease when the first
-    interior rows on neighbouring patches leave their common edge in different
-    directions. For each non-corner boundary vertex that has surface neighbours
-    on both sides, move the shared vertex toward the midpoint of those cross-edge
-    neighbours while lightly preserving the boundary's own longitudinal curve.
-    Open attachment edges naturally have only one cross-edge neighbour and are
-    therefore ignored.
+    A shared edge already provides positional continuity. Moving that edge to
+    improve smoothness deforms the recipe silhouette and can create spikes where
+    several patches meet. Instead, keep every boundary point fixed and rotate the
+    first surface step on each side toward a common tangent line through the edge.
+
+    At an ordinary internal boundary vertex the mesh has exactly two neighbours
+    that are not on the boundary: one from each adjacent patch. Their directions
+    are made increasingly opposite while preserving each side's local edge-to-row
+    distance. Junctions with more than two cross-edge neighbours are deliberately
+    skipped rather than averaged into an ambiguous tangent.
     """
     neighbors = vertex_neighbors(faces, len(vertices))
     locked = set(locked)
     boundary_list = [tuple(boundary) for boundary in boundaries]
+
     for _ in range(iterations):
         old = list(vertices)
         proposals = defaultdict(list)
         for boundary in boundary_list:
             boundary_set = set(boundary)
             for position in range(1, len(boundary) - 1):
-                index = boundary[position]
-                if index in locked:
-                    continue
-                across = neighbors[index] - boundary_set
-                if len(across) < 2:
-                    continue
-                cross_target = tuple(
-                    sum(old[other][axis] for other in across) / len(across)
-                    for axis in range(3)
+                boundary_index = boundary[position]
+                cross_indices = tuple(
+                    index
+                    for index in neighbors[boundary_index] - boundary_set
+                    if index not in locked
                 )
-                curve_target = tuple(
-                    (old[boundary[position - 1]][axis] + old[boundary[position + 1]][axis]) * 0.5
-                    for axis in range(3)
-                )
-                target = tuple(cross_target[axis] * 0.72 + curve_target[axis] * 0.28 for axis in range(3))
-                proposals[index].append(target)
+                if len(cross_indices) != 2:
+                    continue
+
+                first_index, second_index = cross_indices
+                boundary_point = old[boundary_index]
+                first_delta = sub(old[first_index], boundary_point)
+                second_delta = sub(old[second_index], boundary_point)
+                first_length = sqrt(sum(value * value for value in first_delta))
+                second_length = sqrt(sum(value * value for value in second_delta))
+                tangent = sub(first_delta, second_delta)
+                tangent_length = sqrt(sum(value * value for value in tangent))
+                if first_length <= 1e-10 or second_length <= 1e-10 or tangent_length <= 1e-10:
+                    continue
+                tangent = tuple(value / tangent_length for value in tangent)
+                if sum(tangent[axis] * first_delta[axis] for axis in range(3)) < 0.0:
+                    tangent = mul(tangent, -1.0)
+
+                first_target = add(boundary_point, mul(tangent, first_length))
+                second_target = add(boundary_point, mul(tangent, -second_length))
+                proposals[first_index].append(first_target)
+                proposals[second_index].append(second_target)
+
         for index, targets in proposals.items():
             target = tuple(
                 sum(point[axis] for point in targets) / len(targets)
