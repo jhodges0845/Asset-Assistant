@@ -142,92 +142,73 @@ def apply_modifier(obj, modifier):
 
 
 def build_astra_pelvis(width, depth, height, hip_fullness, glute_projection, crotch_width, thigh_spacing):
-    """Build a second-pass overlapping-mass pelvis for visual diagnosis.
+    """Build a loft-led pelvis test with only restrained posterior helper masses.
 
-    The first mass-union render proved the construction pipeline but exposed bad
-    source proportions: oversized spherical glutes, blocky proximal thighs, a
-    hard torso/glute shelf, and a narrow V-shaped crotch.  This pass changes the
-    authored masses rather than asking smoothing to repair them.
+    The previous pass showed that separate trochanter pods and a central crotch
+    bridge were reading as obvious add-on lumps. This pivot folds that shaping
+    back into the lower-torso and proximal-thigh lofts so the mass-union test
+    depends on fewer explicit helper objects.
 
     Posterior is -Y to match the established pelvis-review camera convention.
     """
     half_w = width * 0.5
     half_d = depth * 0.5
-    hip = max(0.75, hip_fullness)
-    glute = max(0.65, glute_projection)
+    hip = max(0.78, hip_fullness)
+    glute = max(0.68, glute_projection)
     crotch = max(0.5, crotch_width)
     spacing = max(0.0, thigh_spacing)
 
     parts = []
 
-    # Gradual pelvic-bowl flare.  More rows distribute the change in width and
-    # depth so the torso no longer reads as a box sitting on the thigh roots.
+    # Make the pelvic bowl do more of the anatomical work directly. The lower
+    # rows stay narrow near the crotch origin, widen through the iliac/hip zone,
+    # then taper gradually into the waist. Lower rows keep a slight posterior
+    # bias so the glutes fuse into a form that already has volume behind it.
     torso_rows = (
-        (0.0, -depth * 0.010, -height * 0.56, max(crotch * 0.82, half_w * 0.18), half_d * 0.48),
-        (0.0, -depth * 0.016, -height * 0.38, half_w * 0.50, half_d * 0.56),
-        (0.0, -depth * 0.022, -height * 0.18, half_w * 0.70 * hip, half_d * 0.68),
-        (0.0, -depth * 0.024, height * 0.04, half_w * 0.86 * hip, half_d * 0.79),
-        (0.0, -depth * 0.018, height * 0.22, half_w * 0.94 * hip, half_d * 0.86),
-        (0.0, -depth * 0.008, height * 0.42, half_w * 0.84, half_d * 0.76),
-        (0.0, 0.0, height * 0.62, half_w * 0.70, half_d * 0.65),
-        (0.0, 0.0, height * 0.74, half_w * 0.62, half_d * 0.58),
+        (0.0, -depth * 0.010, -height * 0.58, max(crotch * 0.82, half_w * 0.17), half_d * 0.46),
+        (0.0, -depth * 0.014, -height * 0.42, half_w * 0.40, half_d * 0.52),
+        (0.0, -depth * 0.020, -height * 0.24, half_w * 0.58 * hip, half_d * 0.62),
+        (0.0, -depth * 0.024, -height * 0.06, half_w * 0.75 * hip, half_d * 0.72),
+        (0.0, -depth * 0.024, height * 0.10, half_w * 0.88 * hip, half_d * 0.80),
+        (0.0, -depth * 0.018, height * 0.24, half_w * 0.95 * hip, half_d * 0.84),
+        (0.0, -depth * 0.010, height * 0.40, half_w * 0.88, half_d * 0.77),
+        (0.0, 0.0, height * 0.56, half_w * 0.76, half_d * 0.68),
+        (0.0, 0.0, height * 0.72, half_w * 0.64, half_d * 0.58),
     )
     parts.append(add_loft("Astra lower torso", torso_rows))
 
-    # Smaller and lower posterior masses.  They should contribute gluteal
-    # projection without becoming two dominant spheres in the rear silhouette.
-    glute_x = half_w * 0.40
-    glute_y = -half_d * (0.38 + 0.05 * (glute - 1.0))
-    glute_z = -height * 0.12
+    # Keep only restrained glute helpers. They should support posterior volume,
+    # not define the entire rear silhouette by themselves.
+    glute_x = half_w * 0.38
+    glute_y = -half_d * (0.34 + 0.05 * (glute - 1.0))
+    glute_z = -height * 0.14
     glute_scale = (
-        half_w * 0.39 * hip,
-        half_d * 0.43 * glute,
-        height * 0.34,
+        half_w * 0.34 * hip,
+        half_d * 0.38 * glute,
+        height * 0.30,
     )
     parts.append(add_ellipsoid("Astra glute L", (-glute_x, glute_y, glute_z), glute_scale))
     parts.append(add_ellipsoid("Astra glute R", (glute_x, glute_y, glute_z), glute_scale))
 
-    # Carry width through the lateral hip / greater-trochanter region instead
-    # of making posterior masses responsible for the entire hip silhouette.
-    troch_x = half_w * 0.68
-    troch_y = -half_d * 0.08
-    troch_z = -height * 0.10
-    troch_scale = (
-        half_w * 0.22 * hip,
-        half_d * 0.25,
-        height * 0.27,
-    )
-    parts.append(add_ellipsoid("Astra trochanter L", (-troch_x, troch_y, troch_z), troch_scale))
-    parts.append(add_ellipsoid("Astra trochanter R", (troch_x, troch_y, troch_z), troch_scale))
-
-    # A restrained anterior/central saddle bridges the inner thigh roots into
-    # the lower pelvis.  It is deliberately shallow so this remains a neutral
-    # anatomical base rather than defining sex-specific external anatomy.
-    bridge_scale_x = max(crotch * 0.34, half_w * 0.11)
-    parts.append(
-        add_ellipsoid(
-            "Astra central pelvic saddle",
-            (0.0, depth * 0.035, -height * 0.24),
-            (bridge_scale_x, half_d * 0.18, height * 0.14),
-        )
-    )
-
-    # Narrower proximal thighs.  The top row reaches high into the pelvic bowl,
-    # while the centers drift outward down the leg.  This makes the inner origin
-    # close to the midline without turning the whole upper thigh into a cylinder.
-    thigh_center = max(crotch * 0.34 + spacing * 0.16, half_w * 0.23)
+    # The top thigh rows now carry more of the crotch and lateral-hip shaping.
+    # Their roots start close to the midline, overlap high into the pelvic bowl,
+    # and sweep outward as they descend. This should integrate the upper thighs
+    # without relying on extra side pods or a central bridge blob.
+    thigh_center = max(crotch * 0.30 + spacing * 0.14, half_w * 0.20)
+    thigh_root_rx = max(half_w * 0.25, crotch * 0.26)
     for side, label in ((-1.0, "L"), (1.0, "R")):
         rows = (
-            (side * thigh_center, -depth * 0.010, -height * 0.04, half_w * 0.33, half_d * 0.45),
-            (side * (thigh_center + width * 0.020), -depth * 0.004, -height * 0.22, half_w * 0.35, half_d * 0.45),
-            (side * (thigh_center + width * 0.050), depth * 0.004, -height * 0.44, half_w * 0.33, half_d * 0.41),
-            (side * (thigh_center + width * 0.080), depth * 0.010, -height * 0.68, half_w * 0.29, half_d * 0.36),
-            (side * (thigh_center + width * 0.095), depth * 0.012, -height * 0.92, half_w * 0.26, half_d * 0.33),
+            (side * thigh_center, -depth * 0.010, -height * 0.02, thigh_root_rx, half_d * 0.34),
+            (side * (thigh_center + width * 0.012), -depth * 0.008, -height * 0.16, half_w * 0.30, half_d * 0.39),
+            (side * (thigh_center + width * 0.032), -depth * 0.002, -height * 0.34, half_w * 0.32, half_d * 0.41),
+            (side * (thigh_center + width * 0.060), depth * 0.004, -height * 0.56, half_w * 0.30, half_d * 0.38),
+            (side * (thigh_center + width * 0.088), depth * 0.010, -height * 0.80, half_w * 0.27, half_d * 0.34),
+            (side * (thigh_center + width * 0.100), depth * 0.012, -height * 0.98, half_w * 0.24, half_d * 0.30),
         )
         parts.append(add_loft("Astra proximal thigh " + label, rows))
 
-    # As in the Maxine study, soften each authored source before union.  The
-    # remesher should fuse already-smooth anatomy, not invent the anatomy.
+    # As in the Maxine study, soften each authored source before union. The
+    # remesher should fuse already-shaped anatomy rather than invent it.
     for source in parts:
         rounding = source.modifiers.new("Round construction form", "SUBSURF")
         rounding.levels = 2
@@ -244,17 +225,14 @@ def build_astra_pelvis(width, depth, height, hip_fullness, glute_projection, cro
 
     remesh = body.modifiers.new("Unify anatomy - fine voxels", "REMESH")
     remesh.mode = "VOXEL"
-    # Keep the union fine enough to preserve the source silhouette.  With the
-    # review defaults this is roughly a 2-3 mm equivalent sampling interval.
     remesh.voxel_size = max(0.10, min(width, depth, height) * 0.012)
     remesh.use_smooth_shade = True
     apply_modifier(body, remesh)
 
-    # Use less post-union smoothing than the first pass.  The test is now about
-    # whether the authored masses are correct, not whether they can be blurred
-    # into a plausible blob.
+    # Keep smoothing modest so the render reveals whether the authored masses
+    # actually blend, rather than simply being blurred together.
     smooth = body.modifiers.new("Relax anatomical intersections", "SMOOTH")
-    smooth.factor = 0.50
+    smooth.factor = 0.46
     smooth.iterations = 4
     apply_modifier(body, smooth)
 
