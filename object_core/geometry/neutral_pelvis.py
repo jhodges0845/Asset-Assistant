@@ -1,16 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Standalone, sex-neutral Human V2 pelvis prototype.
+"""Recipe-driven patch-and-stitch pelvis experiment.
 
-The pelvis is intentionally generated independently from the torso and thighs. It
-exposes three named open boundaries so later constructors can extend topology up
-into the abdomen and down into each thigh. Shape controls are semantic rather
-than sex-specific so Modify can request targeted changes without replacing the
-construction strategy.
+The construction below deliberately avoids stacked anatomical rings.  A recipe
+places generic control rows on front and rear surfaces; rectangular patches are
+then stitched through shared vertices.  Human meaning lives in the recipe data,
+not in the patch helpers.
 """
 from dataclasses import dataclass
-from math import cos, pi, sin
-
-SIDES = 16
 
 
 @dataclass(frozen=True)
@@ -30,216 +26,125 @@ class NeutralPelvisShape:
     thigh_spacing: float = 4.0
 
 
-def _clamp(value, low, high):
-    return max(low, min(high, value))
-
-
-def _validated(shape):
-    return NeutralPelvisShape(
-        width=max(20.0, shape.width), depth=max(12.0, shape.depth), height=max(12.0, shape.height),
-        waist_width=max(16.0, shape.waist_width), waist_depth=max(10.0, shape.waist_depth),
-        hip_fullness=_clamp(shape.hip_fullness, .55, 1.55),
-        glute_projection=_clamp(shape.glute_projection, .55, 1.65),
-        crotch_width=_clamp(shape.crotch_width, 3.0, 12.0),
-        crotch_depth=_clamp(shape.crotch_depth, 4.0, 14.0),
-        crotch_drop=_clamp(shape.crotch_drop, .55, 1.55),
-        thigh_opening_width=_clamp(shape.thigh_opening_width, 7.0, 18.0),
-        thigh_opening_depth=_clamp(shape.thigh_opening_depth, 8.0, 20.0),
-        thigh_spacing=_clamp(shape.thigh_spacing, 1.5, 10.0),
-    )
-
-
 def semantic_controls():
-    return (
-        "width", "depth", "height", "waist_width", "waist_depth", "hip_fullness",
-        "glute_projection", "crotch_width", "crotch_depth", "crotch_drop",
-        "thigh_opening_width", "thigh_opening_depth", "thigh_spacing",
-    )
+    return tuple(NeutralPelvisShape.__dataclass_fields__)
 
 
-def _ring(z, width, depth, rear_projection=0.0, lateral_fullness=0.0,
-          front_softness=0.0, lower_side_drop=0.0, quarter_fullness=0.0):
-    points = []
-    for i in range(SIDES):
-        a = 2.0 * pi * i / SIDES
-        c, s = cos(a), sin(a)
-        lateral = abs(c)
-        quarter = 4.0 * lateral * abs(s)
-        x = width * .5 * c * (1.0 + lateral_fullness * lateral + quarter_fullness * quarter)
-        y = depth * .5 * s * (1.0 - front_softness * max(0.0, s) * lateral)
-        y *= 1.0 + quarter_fullness * .30 * quarter
-        y -= rear_projection * max(0.0, -s)
-        zz = z - lower_side_drop * lateral * lateral
-        points.append((x, y, zz))
-    return tuple(points)
+def _lerp(a, b, t):
+    return tuple(x + (y - x) * t for x, y in zip(a, b))
 
 
-def _leg_loop(center_x, z, width, depth, side, medial_drop=0.0,
-              outer_lift=0.0, rear_projection=0.0, outer_flare=0.0,
-              medial_fill=0.0, outer_drop=0.0, quarter_drop=0.0):
-    sign = 1.0 if side == "left" else -1.0
-    points = []
-    for i in range(SIDES):
-        a = 2.0 * pi * i / SIDES
-        c, s = cos(a), sin(a)
-        medial = max(0.0, -sign * c)
-        outer = max(0.0, sign * c)
-        front = max(0.0, s)
-        rear = max(0.0, -s)
-        quarter = 4.0 * abs(c) * abs(s)
-        x = center_x + width * .5 * c
-        x += sign * outer_flare * outer * (.65 + .35 * (1.0 - abs(s)))
-        x -= sign * medial_fill * medial * (.70 + .30 * front)
-        y = depth * .5 * s - rear_projection * rear
-        zz = z + outer_lift * outer * (.58 + .42 * front)
-        zz -= outer_drop * outer * outer
-        zz -= quarter_drop * quarter * outer
-        zz -= medial_drop * medial * (.66 + .18 * front)
-        zz += outer_lift * .28 * front * (1.0 - medial)
-        points.append((x, y, zz))
-    return tuple(points)
+def _add_vertex(vertices, cache, point):
+    key = tuple(round(v, 7) for v in point)
+    if key not in cache:
+        cache[key] = len(vertices)
+        vertices.append(point)
+    return cache[key]
 
 
-def _append_loop(vertices, points):
-    start = len(vertices)
-    vertices.extend(points)
-    return tuple(range(start, start + len(points)))
+def _curve(a, b, bulge=(0.0, 0.0, 0.0), steps=4):
+    """Generic bowed boundary curve used by recipes."""
+    result = []
+    for i in range(steps + 1):
+        t = i / steps
+        q = 4.0 * t * (1.0 - t)
+        p = _lerp(a, b, t)
+        result.append(tuple(p[j] + bulge[j] * q for j in range(3)))
+    return result
 
 
-def _bridge_loops(faces, a, b):
-    if len(a) != len(b):
-        raise ValueError("Cannot bridge loops with different vertex counts")
-    for i in range(len(a)):
-        j = (i + 1) % len(a)
-        faces.append((a[i], a[j], b[j], b[i]))
-
-
-def _bridge_paths(faces, a, b):
-    if len(a) != len(b):
-        raise ValueError("Cannot bridge paths with different vertex counts")
-    for i in range(len(a) - 1):
-        faces.append((a[i], a[i + 1], b[i + 1], b[i]))
+def _patch(vertices, faces, cache, top, bottom, bow=(0.0, 0.0, 0.0), rows=3):
+    """Stitch two equal boundary curves with shared, optionally bowed rows."""
+    grid = []
+    for r in range(rows + 1):
+        t = r / rows
+        q = 4.0 * t * (1.0 - t)
+        row = []
+        for a, b in zip(top, bottom):
+            p = _lerp(a, b, t)
+            p = tuple(p[j] + bow[j] * q for j in range(3))
+            row.append(_add_vertex(vertices, cache, p))
+        grid.append(row)
+    for r in range(rows):
+        for c in range(len(top) - 1):
+            faces.append((grid[r][c], grid[r][c + 1], grid[r + 1][c + 1], grid[r + 1][c]))
+    return tuple(grid[0]), tuple(grid[-1])
 
 
 def generate_neutral_pelvis(shape=None):
-    """Return vertices, faces and three named open boundaries."""
-    p = _validated(shape or NeutralPelvisShape())
-    vertices, faces = [], []
+    p = shape or NeutralPelvisShape()
+    w, d, h = p.width, p.depth, p.height
+    vertices, faces, cache = [], [], {}
 
-    upper = _ring(p.height * .50, p.waist_width * 1.015, p.waist_depth,
-                  front_softness=.020, quarter_fullness=.008)
-    iliac = _ring(p.height * .28, p.width * .925, p.depth * .935,
-                  rear_projection=p.depth * .026 * p.glute_projection,
-                  lateral_fullness=.030 * p.hip_fullness, front_softness=.034,
-                  lower_side_drop=p.height * .024, quarter_fullness=.012 * p.hip_fullness)
-    body = _ring(p.height * .10, p.width * .985, p.depth * .990,
-                 rear_projection=p.depth * .058 * p.glute_projection,
-                 lateral_fullness=.058 * p.hip_fullness, front_softness=.044,
-                 lower_side_drop=p.height * .052, quarter_fullness=.024 * p.hip_fullness)
-    hip = _ring(-p.height * .04, p.width * .955, p.depth * 1.010,
-                rear_projection=p.depth * .096 * p.glute_projection,
-                lateral_fullness=.025 * p.hip_fullness, front_softness=.052,
-                lower_side_drop=p.height * .040, quarter_fullness=.017 * p.hip_fullness)
+    # Recipe landmarks.  These names describe positions, not anatomy; the patch
+    # engine above is reusable for unrelated object recipes.
+    x0 = p.thigh_spacing * .5
+    x1 = x0 + p.thigh_opening_width
+    x2 = w * .52
+    z_top, z_mid, z_split, z_out = h * .50, h * .02, -h * .27, -h * .55
+    yf_top, yr_top = p.waist_depth * .50, -p.waist_depth * .50
+    yf_mid, yr_mid = d * .50, -d * (.50 + .055 * p.glute_projection)
+    yf_low, yr_low = d * .39, -d * (.45 + .035 * p.glute_projection)
+    yf_out, yr_out = p.thigh_opening_depth * .50, -p.thigh_opening_depth * .50
 
-    upper_loop = _append_loop(vertices, upper)
-    iliac_loop = _append_loop(vertices, iliac)
-    body_loop = _append_loop(vertices, body)
-    hip_loop = _append_loop(vertices, hip)
-    _bridge_loops(faces, upper_loop, iliac_loop)
-    _bridge_loops(faces, iliac_loop, body_loop)
-    _bridge_loops(faces, body_loop, hip_loop)
+    # Five-point curves give four patch columns per half. Mirroring these curves
+    # produces the opposite half while preserving a shared center seam.
+    def half_curve(z, y, inner, outer, front=True):
+        bulge = (0.0, (0.35 if front else -0.55) * p.hip_fullness, 0.0)
+        return _curve((inner, y, z), (outer, y * .84, z), bulge=bulge, steps=4)
 
-    center_offset = p.thigh_spacing * .5 + p.thigh_opening_width * .5
-    medial_fill = min(p.crotch_width * .082, p.thigh_spacing * .15)
-    outer_flare = p.width * .018 * p.hip_fullness
+    for sign in (1.0, -1.0):
+        # Front and rear are independent surface regions sharing their side and
+        # center boundaries with adjacent patches through the vertex cache.
+        top_f = half_curve(z_top, yf_top, 0.0, sign * p.waist_width * .50, True)
+        mid_f = half_curve(z_mid, yf_mid, 0.0, sign * x2, True)
+        split_f = half_curve(z_split, yf_low, sign * x0, sign * x1, True)
+        out_f = half_curve(z_out, yf_out, sign * x0, sign * x1, True)
 
-    # Two progressively smaller anatomical rows carry the hip mass into each
-    # thigh root.  Keeping this turn in explicit rows makes the underside read
-    # as two descending sockets instead of a common rectangular pelvis floor.
-    lower_z = -p.height * .245
-    lower_width = min(p.width * .54, p.thigh_opening_width * 1.50)
-    lower_depth = min(p.depth * .91, p.thigh_opening_depth * 1.56)
-    transition_z = -p.height * .405
-    transition_width = min(p.width * .45, p.thigh_opening_width * 1.23)
-    transition_depth = min(p.depth * .80, p.thigh_opening_depth * 1.40)
+        top_r = half_curve(z_top, yr_top, 0.0, sign * p.waist_width * .50, False)
+        mid_r = half_curve(z_mid, yr_mid, 0.0, sign * x2, False)
+        split_r = half_curve(z_split, yr_low, sign * x0, sign * x1, False)
+        out_r = half_curve(z_out, yr_out, sign * x0, sign * x1, False)
 
-    left_lower = _append_loop(vertices, _leg_loop(
-        center_offset, lower_z, lower_width, lower_depth, "left",
-        medial_drop=p.height * .035 * p.crotch_drop,
-        rear_projection=p.depth * .080 * p.glute_projection,
-        outer_flare=outer_flare, medial_fill=medial_fill * .55,
-        outer_drop=p.height * .020, quarter_drop=p.height * .010))
-    right_lower = _append_loop(vertices, _leg_loop(
-        -center_offset, lower_z, lower_width, lower_depth, "right",
-        medial_drop=p.height * .035 * p.crotch_drop,
-        rear_projection=p.depth * .080 * p.glute_projection,
-        outer_flare=outer_flare, medial_fill=medial_fill * .55,
-        outer_drop=p.height * .020, quarter_drop=p.height * .010))
-    left_transition = _append_loop(vertices, _leg_loop(
-        center_offset, transition_z, transition_width, transition_depth, "left",
-        medial_drop=p.height * .065 * p.crotch_drop,
-        rear_projection=p.depth * .060 * p.glute_projection,
-        outer_flare=outer_flare * .45, medial_fill=medial_fill,
-        outer_drop=p.height * .022, quarter_drop=p.height * .010))
-    right_transition = _append_loop(vertices, _leg_loop(
-        -center_offset, transition_z, transition_width, transition_depth, "right",
-        medial_drop=p.height * .065 * p.crotch_drop,
-        rear_projection=p.depth * .060 * p.glute_projection,
-        outer_flare=outer_flare * .45, medial_fill=medial_fill,
-        outer_drop=p.height * .022, quarter_drop=p.height * .010))
+        _patch(vertices, faces, cache, top_f, mid_f, bow=(sign * w * .018, 0.0, 0.0), rows=2)
+        _patch(vertices, faces, cache, mid_f, split_f, bow=(sign * w * .028, 0.0, -h * .025), rows=3)
+        _patch(vertices, faces, cache, split_f, out_f, bow=(0.0, -d * .025, 0.0), rows=2)
+        _patch(vertices, faces, cache, top_r, mid_r, bow=(sign * w * .018, -d * .035, 0.0), rows=2)
+        _patch(vertices, faces, cache, mid_r, split_r, bow=(sign * w * .030, -d * .050, -h * .020), rows=3)
+        _patch(vertices, faces, cache, split_r, out_r, bow=(0.0, -d * .025, 0.0), rows=2)
 
-    left_hip_path = tuple(hip_loop[i % SIDES] for i in range(12, 21))
-    right_hip_path = tuple(hip_loop[i] for i in range(4, 13))
-    left_lower_outer = tuple(left_lower[i % SIDES] for i in range(12, 21))
-    right_lower_outer = tuple(right_lower[i] for i in range(4, 13))
-    _bridge_paths(faces, left_hip_path, left_lower_outer)
-    _bridge_paths(faces, right_hip_path, right_lower_outer)
+        # Lateral region: stitch front to rear with deliberately rounded depth.
+        for af, ar, bf, br in ((top_f, top_r, mid_f, mid_r),
+                               (mid_f, mid_r, split_f, split_r),
+                               (split_f, split_r, out_f, out_r)):
+            front_edge = [af[-1], bf[-1]]
+            rear_edge = [ar[-1], br[-1]]
+            _patch(vertices, faces, cache, front_edge, rear_edge,
+                   bow=(sign * w * .035, -d * .02, 0.0), rows=4)
 
-    # Close the front and rear of the split at the lower row.  The saddle then
-    # occupies only the medial gap while complete tubes continue downward.
-    left_medial = tuple(left_lower[i] for i in range(4, 13))
-    right_medial = tuple(right_lower[i % SIDES] for i in (4, 3, 2, 1, 0, 15, 14, 13, 12))
-    rail_half_width = min(p.crotch_width * .18, p.thigh_spacing * .22,
-                          max(.01, center_offset - lower_width * .5 - medial_fill * .55) * .55)
-    left_rail_points, right_rail_points = [], []
-    for li, ri in zip(left_medial, right_medial):
-        lx, ly, lz = vertices[li]
-        rx, ry, rz = vertices[ri]
-        y = (ly + ry) * .5
-        center = 1.0 - min(1.0, abs(y) / max(1.0, p.crotch_depth))
-        z = (lz + rz) * .5 - p.height * .020 * center
-        left_rail_points.append((rail_half_width, y, z))
-        right_rail_points.append((-rail_half_width, y, z))
-    left_rail = _append_loop(vertices, left_rail_points)
-    right_rail = _append_loop(vertices, right_rail_points)
-    saddle = []
-    _bridge_paths(saddle, left_medial, left_rail)
-    _bridge_paths(saddle, left_rail, right_rail)
-    _bridge_paths(saddle, right_rail, right_medial)
-    faces.extend(tuple(reversed(face)) for face in saddle)
+        # Inner outlet wall is another generic patch, not a generated tube.
+        _patch(vertices, faces, cache,
+               [split_f[0], out_f[0]], [split_r[0], out_r[0]],
+               bow=(-sign * p.crotch_width * .10, 0.0, -h * .035), rows=4)
 
-    for end, hip_index in ((0, 4), (-1, 12)):
-        seam = (left_medial[end], left_rail[end], right_rail[end], right_medial[end])
-        for a, b in zip(seam, seam[1:]):
-            face = (hip_loop[hip_index], a, b)
-            faces.append(tuple(reversed(face)) if end == 0 else face)
+    # Center front/rear regions stitch the two mirrored halves above the split.
+    center_top_f = _curve((0.0, yf_top, z_top), (0.0, yf_mid, z_mid), steps=4)
+    center_top_r = _curve((0.0, yr_top, z_top), (0.0, yr_mid, z_mid), steps=4)
+    _patch(vertices, faces, cache, center_top_f, center_top_r, bow=(0.0, 0.0, h * .015), rows=4)
 
-    _bridge_loops(faces, left_lower, left_transition)
-    _bridge_loops(faces, right_lower, right_transition)
+    # Lower center saddle: a narrow patch only between the two outlet roots.
+    lf = _curve((-x0, yf_low, z_split), (-x0, yr_low, z_split), bulge=(0, 0, -h*.055), steps=4)
+    rf = _curve((x0, yf_low, z_split), (x0, yr_low, z_split), bulge=(0, 0, -h*.055), steps=4)
+    _patch(vertices, faces, cache, lf, rf, bow=(0.0, 0.0, -h * .025), rows=3)
 
-    leg_z = -p.height * .56 * p.crotch_drop
-    left_thigh = _append_loop(vertices, _leg_loop(
-        center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "left",
-        medial_drop=p.height * .024 * p.crotch_drop,
-        rear_projection=p.depth * .025 * p.glute_projection,
-        outer_flare=outer_flare * .15, medial_fill=medial_fill * .34))
-    right_thigh = _append_loop(vertices, _leg_loop(
-        -center_offset, leg_z, p.thigh_opening_width, p.thigh_opening_depth, "right",
-        medial_drop=p.height * .024 * p.crotch_drop,
-        rear_projection=p.depth * .025 * p.glute_projection,
-        outer_flare=outer_flare * .15, medial_fill=medial_fill * .34))
-    _bridge_loops(faces, left_transition, left_thigh)
-    _bridge_loops(faces, right_transition, right_thigh)
-
-    boundaries = {"torso": upper_loop, "left_thigh": left_thigh, "right_thigh": right_thigh}
-    return tuple(vertices), tuple(tuple(reversed(face)) for face in faces), boundaries
+    # The experiment currently exposes geometric edge sets rather than assuming
+    # that every attachment must itself have been generated as a ring.
+    torso = tuple(_add_vertex(vertices, cache, q) for q in
+                  _curve((-p.waist_width*.5, yf_top, z_top),
+                         (p.waist_width*.5, yf_top, z_top), steps=15))
+    left_thigh = tuple(_add_vertex(vertices, cache, q) for q in
+                       _curve((x0, yf_out, z_out), (x1, yf_out, z_out), steps=15))
+    right_thigh = tuple(_add_vertex(vertices, cache, q) for q in
+                        _curve((-x1, yf_out, z_out), (-x0, yf_out, z_out), steps=15))
+    boundaries = {"torso": torso, "left_thigh": left_thigh, "right_thigh": right_thigh}
+    return tuple(vertices), tuple(tuple(reversed(f)) for f in faces), boundaries
