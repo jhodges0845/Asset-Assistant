@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Recipe-driven patch-and-stitch pelvis experiment.
+"""Procedural mesh-editing pelvis experiment.
 
-Generic boundaries and controlled four-sided surface patches form the geometry
-layer. Object meaning lives only in the recipe/control locations.
+This prototype models by evolving a coarse mesh: create a seed cage, split it
+with additional sections, move/scale those sections, and extrude two outlets.
+The editing vocabulary is generic; this recipe supplies only coordinates.
 """
 from dataclasses import dataclass
+from math import cos, pi, sin
 
 
 @dataclass(frozen=True)
@@ -17,117 +19,83 @@ class NeutralPelvisShape:
 
 
 def semantic_controls(): return tuple(NeutralPelvisShape.__dataclass_fields__)
-def _lerp(a,b,t): return tuple(x+(y-x)*t for x,y in zip(a,b))
-def _vadd(a,b): return tuple(x+y for x,y in zip(a,b))
-def _vscale(a,s): return tuple(x*s for x in a)
 
 
-def _curve(a,b,bulge=(0,0,0),steps=4):
-    out=[]
-    for i in range(steps+1):
-        t=i/steps; q=4*t*(1-t); p=_lerp(a,b,t)
-        out.append(_vadd(p,_vscale(bulge,q)))
-    return tuple(out)
+def _section(cx, z, width, depth, sides=12, rear=0.0, side_drop=0.0):
+    """Generic editable polygon section; used as temporary construction cage."""
+    pts=[]
+    for i in range(sides):
+        a=2*pi*i/sides; c=cos(a); s=sin(a)
+        x=cx+width*.5*c
+        y=depth*.5*s + rear*max(0.0,-s)**2
+        zz=z-side_drop*abs(c)**1.7
+        pts.append((x,y,zz))
+    return tuple(pts)
 
 
-def _add(vertices,cache,p):
-    key=tuple(round(v,7) for v in p)
-    if key not in cache: cache[key]=len(vertices); vertices.append(p)
-    return cache[key]
+def _append_section(vertices, points):
+    start=len(vertices); vertices.extend(points); return tuple(range(start,start+len(points)))
 
 
-def _surface_patch(vertices,faces,cache,top,bottom,control=(0,0,0),rows=4):
-    """Generic controlled surface patch between equal sampled boundaries.
-
-    Unlike a ruled strip, displacement varies in both patch directions.  The
-    supplied vector reaches full influence at the patch center and zero on all
-    four edges, so neighboring patches retain exact shared boundaries.
-    """
-    if len(top)!=len(bottom): raise ValueError("patch boundaries require equal samples")
-    cols=len(top); grid=[]
-    for r in range(rows+1):
-        v=r/rows; rv=4*v*(1-v); row=[]
-        for c,(a,b) in enumerate(zip(top,bottom)):
-            u=c/(cols-1); ru=4*u*(1-u)
-            p=_lerp(a,b,v)
-            p=_vadd(p,_vscale(control,ru*rv))
-            row.append(_add(vertices,cache,p))
-        grid.append(row)
-    for r in range(rows):
-        for c in range(cols-1):
-            faces.append((grid[r][c],grid[r][c+1],grid[r+1][c+1],grid[r+1][c]))
+def _bridge(faces,a,b):
+    if len(a)!=len(b): raise ValueError("editable sections require matching edge counts")
+    n=len(a)
+    for i in range(n): faces.append((a[i],a[(i+1)%n],b[(i+1)%n],b[i]))
 
 
-def _cross(xs,y,zs,bulge=0):
-    n=len(xs); out=[]
-    for i,(x,z) in enumerate(zip(xs,zs)):
-        t=i/(n-1); out.append((x,y+bulge*4*t*(1-t),z))
-    return tuple(out)
+def _cap_annulus(faces, outer, left, right):
+    """Connect lower seed section to two extruded branches with a center saddle."""
+    # Section indices: 0=+X, 3=front, 6=-X, 9=rear for 12 sides.
+    # Outer halves flow into the corresponding outside halves of each branch.
+    for i in range(9,16):
+        a=outer[i%12]; b=outer[(i+1)%12]
+        j=(i-9)%12
+        faces.append((a,b,left[(j+1)%12],left[j]))
+    for i in range(3,10):
+        a=outer[i%12]; b=outer[(i+1)%12]
+        j=(i-3)%12
+        faces.append((a,b,right[(j+1)%12],right[j]))
+    # Central front/rear bridge closes the branch split without a vertical wall.
+    faces.append((outer[3],left[6],right[0]))
+    faces.append((outer[9],right[6],left[0]))
+    faces.append((left[6],left[7],right[11],right[0]))
+    faces.append((left[5],left[6],right[0],right[1]))
 
 
 def generate_neutral_pelvis(shape=None):
     p=shape or NeutralPelvisShape(); w,d,h=p.width,p.depth,p.height
-    vertices=[]; faces=[]; cache={}; gap=p.thigh_spacing*.5; outer=gap+p.thigh_opening_width
-    z=(h*.50,h*.30,h*.06,-h*.20,-h*.55)
-    spans=(p.waist_width*.47,w*.485,w*.515)
-    fy=(p.waist_depth*.46,d*.49,d*.505,d*.405)
-    ry=(-p.waist_depth*.46,-d*(.50+.020*p.glute_projection),-d*(.515+.060*p.glute_projection),-d*(.455+.050*p.glute_projection))
+    vertices=[]; faces=[]; sides=12
 
-    def xs(s): return (-s,-s*.78,-s*.48,-s*.20,0,s*.20,s*.48,s*.78,s)
-    front=[]; rear=[]
-    for k in range(3):
-        xx=xs(spans[k]); zz=tuple(z[k]-h*(.030*(abs(x)/spans[k])**1.7) for x in xx)
-        front.append(_cross(xx,fy[k],zz,d*(.008+.004*k)))
-        rear.append(_cross(xx,ry[k],zz,-d*(.012+.010*k)*p.glute_projection))
+    # Artist-like construction history: begin with a very coarse torso-facing
+    # seed, insert sections only where silhouette control is needed, and reshape
+    # each new section before continuing downward.
+    seed=_append_section(vertices,_section(0,h*.50,p.waist_width,p.waist_depth,sides,side_drop=h*.015))
+    split_a=_append_section(vertices,_section(0,h*.28,w*.92,d*.94,sides,rear=-d*.025*p.glute_projection,side_drop=h*.035))
+    split_b=_append_section(vertices,_section(0,h*.04,w*1.02*p.hip_fullness,d*1.02,sides,rear=-d*.080*p.glute_projection,side_drop=h*.055))
+    lower=_append_section(vertices,_section(0,-h*.20,w*.88,d*.88,sides,rear=-d*.060*p.glute_projection,side_drop=h*.040))
+    _bridge(faces,seed,split_a); _bridge(faces,split_a,split_b); _bridge(faces,split_b,lower)
 
-    lx=(-outer,-outer*.78,-outer*.50,-gap); rx=(gap,outer*.50,outer*.78,outer)
-    inner=z[3]+h*.075; zl=(z[3]-h*.01,z[3],z[3]+h*.03,inner); zr=tuple(reversed(zl))
-    rfl=_cross(lx,fy[3],zl,d*.006); rfr=_cross(rx,fy[3],zr,d*.006)
-    rrl=_cross(lx,ry[3],tuple(q-h*.018 for q in zl),-d*.015); rrr=_cross(rx,ry[3],tuple(q-h*.018 for q in zr),-d*.015)
-    ofl=_cross(lx,p.thigh_opening_depth*.5,(z[4],)*4); ofr=_cross(rx,p.thigh_opening_depth*.5,(z[4],)*4)
-    orl=_cross(lx,-p.thigh_opening_depth*.5,(z[4],)*4); orr=_cross(rx,-p.thigh_opening_depth*.5,(z[4],)*4)
+    # Extrude two branches from the lower edited mass.  A wider root is created
+    # first; a second extrusion reaches the public thigh opening.  These are
+    # generic duplicate/move/scale operations expressed directly as sections.
+    center=p.thigh_spacing*.5+p.thigh_opening_width*.5
+    root_w=p.thigh_opening_width*1.20; root_d=p.thigh_opening_depth*1.22
+    left_root=_append_section(vertices,_section(-center,-h*.24,root_w,root_d,sides,rear=-d*.025,side_drop=h*.020))
+    right_root=_append_section(vertices,_section(center,-h*.24,root_w,root_d,sides,rear=-d*.025,side_drop=h*.020))
+    _cap_annulus(faces,lower,left_root,right_root)
 
-    # Upper front and rear regions now have local center controls.  The front
-    # gains a gentle convex volume while the rear gets independent projection.
-    _surface_patch(vertices,faces,cache,front[0],front[1],(0,d*.030,-h*.010),4)
-    _surface_patch(vertices,faces,cache,front[1],front[2],(0,d*.050,-h*.018),5)
-    _surface_patch(vertices,faces,cache,rear[0],rear[1],(0,-d*.045*p.glute_projection,-h*.008),4)
-    _surface_patch(vertices,faces,cache,rear[1],rear[2],(0,-d*.095*p.glute_projection,-h*.016),5)
+    left_out=_append_section(vertices,_section(-center,-h*.55,p.thigh_opening_width,p.thigh_opening_depth,sides,rear=-d*.010))
+    right_out=_append_section(vertices,_section(center,-h*.55,p.thigh_opening_width,p.thigh_opening_depth,sides,rear=-d*.010))
+    _bridge(faces,left_root,left_out); _bridge(faces,right_root,right_out)
 
-    fl=front[2][:4]; fr=front[2][5:]; rl=rear[2][:4]; rr=rear[2][5:]
-    _surface_patch(vertices,faces,cache,fl,rfl,(-w*.055,d*.025,-h*.025),5)
-    _surface_patch(vertices,faces,cache,fr,rfr,(w*.055,d*.025,-h*.025),5)
-    _surface_patch(vertices,faces,cache,rl,rrl,(-w*.060,-d*.070*p.glute_projection,-h*.018),5)
-    _surface_patch(vertices,faces,cache,rr,rrr,(w*.060,-d*.070*p.glute_projection,-h*.018),5)
-
-    # Dedicated center arch regions; their center control creates curvature
-    # without pulling their shared edges away from adjacent lower regions.
-    aft=front[2][3:6]; art=rear[2][3:6]
-    afb=(rfl[-1],(0,fy[3]*.92,inner+h*.035),rfr[0]); arb=(rrl[-1],(0,ry[3]*.94,inner+h*.020),rrr[0])
-    _surface_patch(vertices,faces,cache,aft,afb,(0,d*.065,h*.035),5)
-    _surface_patch(vertices,faces,cache,art,arb,(0,-d*.075*p.glute_projection,h*.025),5)
-
-    # Side regions use four-sided patches too, so side-view volume can bow in
-    # depth and width while every perimeter edge remains stitched.
-    for fa,fb,ra,rb,amount in ((front[0],front[1],rear[0],rear[1],.045),(front[1],front[2],rear[1],rear[2],.065)):
-        _surface_patch(vertices,faces,cache,(fa[0],fb[0]),(ra[0],rb[0]),(-w*amount,0,-h*.010),6)
-        _surface_patch(vertices,faces,cache,(fa[-1],fb[-1]),(ra[-1],rb[-1]),(w*amount,0,-h*.010),6)
-    _surface_patch(vertices,faces,cache,(fl[0],rfl[0]),(rl[0],rrl[0]),(-w*.055,0,-h*.012),6)
-    _surface_patch(vertices,faces,cache,(fr[-1],rfr[-1]),(rr[-1],rrr[-1]),(w*.055,0,-h*.012),6)
-
-    # Four explicit patches per outlet, with local controls for front/rear and
-    # inner/outer curvature rather than a hidden tube primitive.
-    for sign,rf,rb,of,ob in ((-1,rfl,rrl,ofl,orl),(1,rfr,rrr,ofr,orr)):
-        _surface_patch(vertices,faces,cache,rf,of,(sign*w*.025,d*.035,h*.025),5)
-        _surface_patch(vertices,faces,cache,rb,ob,(sign*w*.025,-d*.045,h*.020),5)
-        oi=0 if sign<0 else -1; ii=-1 if sign<0 else 0
-        _surface_patch(vertices,faces,cache,(rf[oi],of[oi]),(rb[oi],ob[oi]),(sign*w*.030,0,0),6)
-        _surface_patch(vertices,faces,cache,(rf[ii],of[ii]),(rb[ii],ob[ii]),(-sign*p.crotch_width*.12,0,h*.025),6)
-
-    sl=_curve(rfl[-1],rrl[-1],(0,0,h*.035),5); sr=_curve(rfr[0],rrr[0],(0,0,h*.035),5)
-    _surface_patch(vertices,faces,cache,sl,sr,(0,0,-h*.045*p.crotch_drop),6)
-
-    torso=tuple(_add(vertices,cache,q) for q in _curve((-p.waist_width*.5,fy[0],z[0]),(p.waist_width*.5,fy[0],z[0]),steps=15))
-    left=tuple(_add(vertices,cache,q) for q in _curve((-outer,p.thigh_opening_depth*.5,z[4]),(-gap,p.thigh_opening_depth*.5,z[4]),steps=15))
-    right=tuple(_add(vertices,cache,q) for q in _curve((gap,p.thigh_opening_depth*.5,z[4]),(outer,p.thigh_opening_depth*.5,z[4]),steps=15))
+    # Keep the established 16-sample attachment API independent of the coarse
+    # editing cage.  Later the generic editor can resample selected boundary edges.
+    def boundary(cx,z,width,depth):
+        out=[]
+        for i in range(16):
+            a=2*pi*i/16; out.append((cx+width*.5*cos(a),depth*.5*sin(a),z))
+        return tuple(_append_section(vertices,out))
+    torso=boundary(0,h*.50,p.waist_width,p.waist_depth)
+    left=boundary(-center,-h*.55,p.thigh_opening_width,p.thigh_opening_depth)
+    right=boundary(center,-h*.55,p.thigh_opening_width,p.thigh_opening_depth)
     return tuple(vertices),tuple(tuple(reversed(f)) for f in faces),{"torso":torso,"left_thigh":left,"right_thigh":right}
