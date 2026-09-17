@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Procedural mesh-editing pelvis experiment.
 
-This prototype models by evolving a coarse mesh: create a seed cage, split it
-with additional sections, move/scale those sections, and extrude two outlets.
-The editing vocabulary is generic; this recipe supplies only coordinates.
+The recipe evolves a coarse mesh using generic modeling ideas: create a cage,
+insert/split topology where needed, reshape selected vertices, then extrude
+selected boundaries.  Object meaning is kept out of the editing helpers.
 """
 from dataclasses import dataclass
 from math import cos, pi, sin
@@ -21,81 +21,91 @@ class NeutralPelvisShape:
 def semantic_controls(): return tuple(NeutralPelvisShape.__dataclass_fields__)
 
 
-def _section(cx, z, width, depth, sides=12, rear=0.0, side_drop=0.0):
-    """Generic editable polygon section; used as temporary construction cage."""
+def _loop(cx,z,width,depth,sides=16,rear=0.0,side_drop=0.0):
     pts=[]
     for i in range(sides):
         a=2*pi*i/sides; c=cos(a); s=sin(a)
-        x=cx+width*.5*c
-        y=depth*.5*s + rear*max(0.0,-s)**2
-        zz=z-side_drop*abs(c)**1.7
-        pts.append((x,y,zz))
+        pts.append((cx+width*.5*c,
+                    depth*.5*s + rear*max(0.0,-s)**2,
+                    z-side_drop*abs(c)**1.7))
     return tuple(pts)
 
 
-def _append_section(vertices, points):
+def _append(vertices, points):
     start=len(vertices); vertices.extend(points); return tuple(range(start,start+len(points)))
 
 
 def _bridge(faces,a,b):
-    if len(a)!=len(b): raise ValueError("editable sections require matching edge counts")
-    n=len(a)
-    for i in range(n): faces.append((a[i],a[(i+1)%n],b[(i+1)%n],b[i]))
+    if len(a)!=len(b): raise ValueError("boundary sizes must match")
+    for i in range(len(a)):
+        j=(i+1)%len(a); faces.append((a[i],a[j],b[j],b[i]))
 
 
-def _cap_annulus(faces, outer, left, right):
-    """Connect lower seed section to two extruded branches with a center saddle."""
-    # Section indices: 0=+X, 3=front, 6=-X, 9=rear for 12 sides.
-    # Outer halves flow into the corresponding outside halves of each branch.
-    for i in range(9,16):
-        a=outer[i%12]; b=outer[(i+1)%12]
-        j=(i-9)%12
-        faces.append((a,b,left[(j+1)%12],left[j]))
-    for i in range(3,10):
-        a=outer[i%12]; b=outer[(i+1)%12]
-        j=(i-3)%12
-        faces.append((a,b,right[(j+1)%12],right[j]))
-    # Central front/rear bridge closes the branch split without a vertical wall.
-    faces.append((outer[3],left[6],right[0]))
-    faces.append((outer[9],right[6],left[0]))
-    faces.append((left[6],left[7],right[11],right[0]))
-    faces.append((left[5],left[6],right[0],right[1]))
+def _strip(faces,a,b):
+    """Bridge two open edge chains, the generic equivalent of filling a strip."""
+    if len(a)!=len(b): raise ValueError("edge chains must match")
+    for i in range(len(a)-1): faces.append((a[i],a[i+1],b[i+1],b[i]))
 
 
 def generate_neutral_pelvis(shape=None):
     p=shape or NeutralPelvisShape(); w,d,h=p.width,p.depth,p.height
-    vertices=[]; faces=[]; sides=12
+    vertices=[]; faces=[]; n=16
 
-    # Artist-like construction history: begin with a very coarse torso-facing
-    # seed, insert sections only where silhouette control is needed, and reshape
-    # each new section before continuing downward.
-    seed=_append_section(vertices,_section(0,h*.50,p.waist_width,p.waist_depth,sides,side_drop=h*.015))
-    split_a=_append_section(vertices,_section(0,h*.28,w*.92,d*.94,sides,rear=-d*.025*p.glute_projection,side_drop=h*.035))
-    split_b=_append_section(vertices,_section(0,h*.04,w*1.02*p.hip_fullness,d*1.02,sides,rear=-d*.080*p.glute_projection,side_drop=h*.055))
-    lower=_append_section(vertices,_section(0,-h*.20,w*.88,d*.88,sides,rear=-d*.060*p.glute_projection,side_drop=h*.040))
-    _bridge(faces,seed,split_a); _bridge(faces,split_a,split_b); _bridge(faces,split_b,lower)
+    # Start coarse and insert three horizontal cuts while shaping the main mass.
+    top=_append(vertices,_loop(0,h*.50,p.waist_width,p.waist_depth,n,side_drop=h*.010))
+    a=_append(vertices,_loop(0,h*.29,w*.91,d*.93,n,rear=-d*.020*p.glute_projection,side_drop=h*.030))
+    b=_append(vertices,_loop(0,h*.07,w*1.00*p.hip_fullness,d*1.00,n,rear=-d*.070*p.glute_projection,side_drop=h*.050))
+    lower=_append(vertices,_loop(0,-h*.16,w*.90,d*.89,n,rear=-d*.050*p.glute_projection,side_drop=h*.045))
+    _bridge(faces,top,a); _bridge(faces,a,b); _bridge(faces,b,lower)
 
-    # Extrude two branches from the lower edited mass.  A wider root is created
-    # first; a second extrusion reaches the public thigh opening.  These are
-    # generic duplicate/move/scale operations expressed directly as sections.
-    center=p.thigh_spacing*.5+p.thigh_opening_width*.5
-    root_w=p.thigh_opening_width*1.20; root_d=p.thigh_opening_depth*1.22
-    left_root=_append_section(vertices,_section(-center,-h*.24,root_w,root_d,sides,rear=-d*.025,side_drop=h*.020))
-    right_root=_append_section(vertices,_section(center,-h*.24,root_w,root_d,sides,rear=-d*.025,side_drop=h*.020))
-    _cap_annulus(faces,lower,left_root,right_root)
+    # SPLIT operation: rather than attaching two complete loops to `lower`, use
+    # its existing front/rear/lateral vertices as the outside boundary and add
+    # only the new center-cut vertices required to form two selectable openings.
+    # Loop indexing: 0=right, 4=front, 8=left, 12=rear.
+    gap=p.thigh_spacing*.5
+    root_z=-h*.20
+    front_y=d*.40; rear_y=-d*(.43+.025*p.glute_projection)
+    inner_front_l=_append(vertices,(( -gap,front_y,root_z+h*.035),))[0]
+    inner_rear_l =_append(vertices,(( -gap,rear_y, root_z+h*.020),))[0]
+    inner_front_r=_append(vertices,((  gap,front_y,root_z+h*.035),))[0]
+    inner_rear_r =_append(vertices,((  gap,rear_y, root_z+h*.020),))[0]
 
-    left_out=_append_section(vertices,_section(-center,-h*.55,p.thigh_opening_width,p.thigh_opening_depth,sides,rear=-d*.010))
-    right_out=_append_section(vertices,_section(center,-h*.55,p.thigh_opening_width,p.thigh_opening_depth,sides,rear=-d*.010))
+    # New opening boundaries reuse the lower cage's outside vertices.  Each is
+    # an 8-edge polygon made by the split, not a separately generated tube.
+    left_root=(lower[8],lower[7],lower[6],lower[5],lower[4],inner_front_l,inner_rear_l,lower[12])
+    right_root=(lower[0],lower[15],lower[14],lower[13],lower[12],inner_rear_r,inner_front_r,lower[4])
+
+    # Fill the remaining lower surface with local strips/faces.  No long fan
+    # triangles cross from the center to unrelated vertices.
+    faces.extend([
+        (lower[4],lower[5],lower[6],lower[7],lower[8],inner_front_l),
+        (lower[12],inner_rear_l,lower[8],lower[9],lower[10],lower[11]),
+        (lower[0],lower[1],lower[2],lower[3],lower[4],inner_front_r),
+        (lower[12],lower[13],lower[14],lower[15],lower[0],inner_rear_r),
+        (inner_front_l,inner_front_r,inner_rear_r,inner_rear_l),
+    ])
+
+    # EXTRUDE operation: duplicate each selected opening boundary downward and
+    # reshape the duplicate.  This is deliberately the same conceptual action
+    # an artist performs after selecting the new lower faces/edge loops.
+    center=gap+p.thigh_opening_width*.5
+    out_z=-h*.55
+    def outlet(sign):
+        pts=[]
+        for i in range(8):
+            a=2*pi*i/8
+            pts.append((sign*center+p.thigh_opening_width*.5*cos(a),
+                        p.thigh_opening_depth*.5*sin(a),out_z))
+        return _append(vertices,pts)
+    left_out=outlet(-1); right_out=outlet(1)
     _bridge(faces,left_root,left_out); _bridge(faces,right_root,right_out)
 
-    # Keep the established 16-sample attachment API independent of the coarse
-    # editing cage.  Later the generic editor can resample selected boundary edges.
-    def boundary(cx,z,width,depth):
-        out=[]
-        for i in range(16):
-            a=2*pi*i/16; out.append((cx+width*.5*cos(a),depth*.5*sin(a),z))
-        return tuple(_append_section(vertices,out))
-    torso=boundary(0,h*.50,p.waist_width,p.waist_depth)
-    left=boundary(-center,-h*.55,p.thigh_opening_width,p.thigh_opening_depth)
-    right=boundary(center,-h*.55,p.thigh_opening_width,p.thigh_opening_depth)
-    return tuple(vertices),tuple(tuple(reversed(f)) for f in faces),{"torso":torso,"left_thigh":left,"right_thigh":right}
+    # Public boundaries remain 16 samples.  They are independent API metadata;
+    # the editing cage is free to use the topology appropriate to each operation.
+    def public_loop(cx,z,width,depth): return _append(vertices,_loop(cx,z,width,depth,16))
+    torso=public_loop(0,h*.50,p.waist_width,p.waist_depth)
+    left=public_loop(-center,out_z,p.thigh_opening_width,p.thigh_opening_depth)
+    right=public_loop(center,out_z,p.thigh_opening_width,p.thigh_opening_depth)
+    return tuple(vertices),tuple(tuple(reversed(f)) for f in faces),{
+        "torso":torso,"left_thigh":left,"right_thigh":right,
+    }
