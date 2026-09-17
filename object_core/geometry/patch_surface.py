@@ -87,7 +87,7 @@ class PatchNetwork:
 
         Boundary orientation is explicit:
         ``top`` and ``bottom`` run left->right, while ``left`` and ``right`` run
-        top->bottom.  Opposite boundaries must have matching sample counts.  The
+        top->bottom. Opposite boundaries must have matching sample counts. The
         patch creates only interior vertices; every edge vertex belongs to its
         boundary object and is therefore genuinely shared with neighbouring patches.
         """
@@ -201,13 +201,23 @@ def vertex_neighbors(faces, vertex_count):
     return result
 
 
+def _face_normal(vertices, face):
+    """Newell polygon normal; unlike one triangle of a quad it is mirror-stable."""
+    x = y = z = 0.0
+    for index, a_index in enumerate(face):
+        b_index = face[(index + 1) % len(face)]
+        a = vertices[a_index]
+        b = vertices[b_index]
+        x += (a[1] - b[1]) * (a[2] + b[2])
+        y += (a[2] - b[2]) * (a[0] + b[0])
+        z += (a[0] - b[0]) * (a[1] + b[1])
+    return (x, y, z)
+
+
 def vertex_normals(vertices, faces):
     result = [(0.0, 0.0, 0.0) for _ in vertices]
     for face in faces:
-        if len(face) < 3:
-            continue
-        a, b, c = (vertices[face[index]] for index in range(3))
-        normal = cross(sub(b, a), sub(c, a))
+        normal = _face_normal(vertices, face)
         for index in face:
             result[index] = add(result[index], normal)
     return tuple(normalized(normal) for normal in result)
