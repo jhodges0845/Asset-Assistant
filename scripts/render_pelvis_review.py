@@ -1,57 +1,75 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Render an Astra-style overlapping-mass pelvis experiment.
+"""Render an A-Z geometry stress-test scene for the visual-testing branch.
 
-This is deliberately a visual-test-only construction.  It does not change the
-portable Human V2 pelvis generator in object_core.  The experiment asks one
-specific question: does shaping the pelvis from overlapping analytic masses,
-then voxel-unifying them, produce a more convincing neutral hip/crotch surface
-than asking the current patch surface to solve the whole form directly?
+This intentionally reuses the pelvis review script entry point and output naming
+so the existing visual-testing automation can keep running unchanged.  The scene
+contains one extruded mesh for each uppercase letter A-Z.  Natural glyph
+geometry gives us a compact test bed for straight runs, diagonals, acute corners,
+bowls, counters, S-curves, junctions, and mixed sharp/rounded transitions.
 """
 from __future__ import annotations
 
 import argparse
 import math
-import os
 import sys
 from pathlib import Path
 
 import bpy
 from mathutils import Vector
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-VIEWS = (("Front", 180.0), ("3/4", 135.0), ("Side", 90.0), ("Back", 0.0))
 MODES = ("clay", "silhouette", "wireframe")
+LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+ANGULAR = set("AEFHKILMNTVWXYZ")
+ROUND = set("BCDGOPQSU")
 
 
 def args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="pelvis_review.png")
     parser.add_argument("--modes", nargs="+", choices=MODES, default=list(MODES))
-    parser.add_argument("--width", type=float, default=34.0)
-    parser.add_argument("--depth", type=float, default=24.0)
-    parser.add_argument("--height", type=float, default=20.0)
-    parser.add_argument("--hip-fullness", type=float, default=1.0)
-    parser.add_argument("--glute-projection", type=float, default=1.0)
-    parser.add_argument("--crotch-width", type=float, default=7.0)
-    parser.add_argument("--thigh-spacing", type=float, default=4.0)
+    parser.add_argument("--columns", type=int, default=7)
+    parser.add_argument("--letter-size", type=float, default=3.0)
+    parser.add_argument("--spacing-x", type=float, default=4.6)
+    parser.add_argument("--spacing-z", type=float, default=4.2)
+    parser.add_argument("--extrude", type=float, default=0.42)
+
+    # Backward-compatible no-op options from the pelvis renderer. The external
+    # visual-test runner can keep its existing command line while we repurpose
+    # this script for the alphabet experiment.
+    parser.add_argument("--width", type=float, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--depth", type=float, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--height", type=float, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--hip-fullness", type=float, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--glute-projection", type=float, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--crotch-width", type=float, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--thigh-spacing", type=float, default=None, help=argparse.SUPPRESS)
+
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(argv)
 
 
-def clear():
+def clear_scene():
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
 
+    for datablocks in (
+        bpy.data.curves,
+        bpy.data.meshes,
+        bpy.data.materials,
+        bpy.data.cameras,
+        bpy.data.lights,
+    ):
+        for datablock in list(datablocks):
+            if datablock.users == 0:
+                datablocks.remove(datablock)
 
-def look(obj, target):
+
+def look_at(obj, target):
     obj.rotation_euler = (Vector(target) - obj.location).to_track_quat("-Z", "Y").to_euler()
 
 
 def make_material():
-    material = bpy.data.materials.new("Pelvis Review")
+    material = bpy.data.materials.new("Alphabet Geometry Review")
     material.use_nodes = True
     return material
 
@@ -64,340 +82,216 @@ def configure_material(material, mode):
 
     if mode == "clay":
         shader = nodes.new("ShaderNodeBsdfPrincipled")
-        shader.inputs["Base Color"].default_value = (0.66, 0.68, 0.71, 1.0)
-        shader.inputs["Roughness"].default_value = 0.8
+        shader.inputs["Base Color"].default_value = (0.56, 0.59, 0.64, 1.0)
+        shader.inputs["Roughness"].default_value = 0.68
         shader.inputs["Metallic"].default_value = 0.0
         links.new(shader.outputs["BSDF"], output.inputs["Surface"])
         return
 
     if mode == "silhouette":
         shader = nodes.new("ShaderNodeEmission")
-        shader.inputs["Color"].default_value = (0.95, 0.95, 0.95, 1.0)
+        shader.inputs["Color"].default_value = (0.97, 0.97, 0.97, 1.0)
         shader.inputs["Strength"].default_value = 1.0
         links.new(shader.outputs["Emission"], output.inputs["Surface"])
         return
 
-    # Render the actual voxel-unified surface edges without constructing a
-    # separate curve object for every dense remesh edge.
     wire = nodes.new("ShaderNodeWireframe")
     if hasattr(wire, "use_pixel_size"):
         wire.use_pixel_size = True
     size_input = wire.inputs.get("Size")
     if size_input is not None:
-        size_input.default_value = 1.0
+        size_input.default_value = 1.15
+
     mix = nodes.new("ShaderNodeMixRGB")
     mix.blend_type = "MIX"
-    mix.inputs[1].default_value = (0.88, 0.89, 0.87, 1.0)
-    mix.inputs[2].default_value = (0.025, 0.03, 0.04, 1.0)
+    mix.inputs[1].default_value = (0.055, 0.065, 0.08, 1.0)
+    mix.inputs[2].default_value = (0.92, 0.94, 0.97, 1.0)
     links.new(wire.outputs["Fac"], mix.inputs[0])
+
     shader = nodes.new("ShaderNodeEmission")
     links.new(mix.outputs["Color"], shader.inputs["Color"])
+    shader.inputs["Strength"].default_value = 1.0
     links.new(shader.outputs["Emission"], output.inputs["Surface"])
 
 
-def add_loft(name, rows, segments=48):
-    """Create a capped elliptical loft from (x, y, z, rx, ry) rows."""
-    vertices = []
-    faces = []
-    for x, y, z, rx, ry in rows:
-        for index in range(segments):
-            angle = 2.0 * math.pi * index / segments
-            vertices.append((x + rx * math.cos(angle), y + ry * math.sin(angle), z))
-
-    for row in range(len(rows) - 1):
-        for index in range(segments):
-            a = row * segments + index
-            b = row * segments + (index + 1) % segments
-            faces.append((a, b, b + segments, a + segments))
-
-    faces.append(tuple(reversed(range(segments))))
-    faces.append(tuple((len(rows) - 1) * segments + index for index in range(segments)))
-
-    mesh = bpy.data.meshes.new(name + " Mesh")
-    mesh.from_pydata(vertices, [], faces)
-    mesh.update(calc_edges=True)
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.collection.objects.link(obj)
-    for polygon in mesh.polygons:
-        polygon.use_smooth = True
-    return obj
-
-
-def add_ellipsoid(name, location, scale):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=20, location=location)
-    obj = bpy.context.object
-    obj.name = name
-    obj.scale = scale
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    for polygon in obj.data.polygons:
-        polygon.use_smooth = True
-    return obj
-
-
-def apply_modifier(obj, modifier):
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.modifier_apply(modifier=modifier.name)
-
-
-def build_astra_pelvis(width, depth, height, hip_fullness, glute_projection, crotch_width, thigh_spacing):
-    """Build a loft-led pelvis test with only restrained posterior helper masses.
-
-    The previous pass showed that separate trochanter pods and a central crotch
-    bridge were reading as obvious add-on lumps. This pivot folds that shaping
-    back into the lower-torso and proximal-thigh lofts so the mass-union test
-    depends on fewer explicit helper objects.
-
-    Posterior is -Y to match the established pelvis-review camera convention.
-    """
-    half_w = width * 0.5
-    half_d = depth * 0.5
-    hip = max(0.78, hip_fullness)
-    glute = max(0.68, glute_projection)
-    crotch = max(0.5, crotch_width)
-    spacing = max(0.0, thigh_spacing)
-
-    parts = []
-
-    # Make the pelvic bowl do more of the anatomical work directly. The lower
-    # rows stay narrow near the crotch origin, widen through the iliac/hip zone,
-    # then taper gradually into the waist. Lower rows keep a slight posterior
-    # bias so the glutes fuse into a form that already has volume behind it.
-    torso_rows = (
-        (0.0, -depth * 0.010, -height * 0.58, max(crotch * 0.82, half_w * 0.17), half_d * 0.46),
-        (0.0, -depth * 0.014, -height * 0.42, half_w * 0.40, half_d * 0.52),
-        (0.0, -depth * 0.020, -height * 0.24, half_w * 0.58 * hip, half_d * 0.62),
-        (0.0, -depth * 0.024, -height * 0.06, half_w * 0.75 * hip, half_d * 0.72),
-        (0.0, -depth * 0.024, height * 0.10, half_w * 0.88 * hip, half_d * 0.80),
-        (0.0, -depth * 0.018, height * 0.24, half_w * 0.95 * hip, half_d * 0.84),
-        (0.0, -depth * 0.010, height * 0.40, half_w * 0.88, half_d * 0.77),
-        (0.0, 0.0, height * 0.56, half_w * 0.76, half_d * 0.68),
-        (0.0, 0.0, height * 0.72, half_w * 0.64, half_d * 0.58),
-    )
-    parts.append(add_loft("Astra lower torso", torso_rows))
-
-    # Keep only restrained glute helpers. They should support posterior volume,
-    # not define the entire rear silhouette by themselves.
-    glute_x = half_w * 0.38
-    glute_y = -half_d * (0.34 + 0.05 * (glute - 1.0))
-    glute_z = -height * 0.14
-    glute_scale = (
-        half_w * 0.34 * hip,
-        half_d * 0.38 * glute,
-        height * 0.30,
-    )
-    parts.append(add_ellipsoid("Astra glute L", (-glute_x, glute_y, glute_z), glute_scale))
-    parts.append(add_ellipsoid("Astra glute R", (glute_x, glute_y, glute_z), glute_scale))
-
-    # The top thigh rows now carry more of the crotch and lateral-hip shaping.
-    # Their roots start close to the midline, overlap high into the pelvic bowl,
-    # and sweep outward as they descend. This should integrate the upper thighs
-    # without relying on extra side pods or a central bridge blob.
-    thigh_center = max(crotch * 0.30 + spacing * 0.14, half_w * 0.20)
-    thigh_root_rx = max(half_w * 0.25, crotch * 0.26)
-    for side, label in ((-1.0, "L"), (1.0, "R")):
-        rows = (
-            (side * thigh_center, -depth * 0.010, -height * 0.02, thigh_root_rx, half_d * 0.34),
-            (side * (thigh_center + width * 0.012), -depth * 0.008, -height * 0.16, half_w * 0.30, half_d * 0.39),
-            (side * (thigh_center + width * 0.032), -depth * 0.002, -height * 0.34, half_w * 0.32, half_d * 0.41),
-            (side * (thigh_center + width * 0.060), depth * 0.004, -height * 0.56, half_w * 0.30, half_d * 0.38),
-            (side * (thigh_center + width * 0.088), depth * 0.010, -height * 0.80, half_w * 0.27, half_d * 0.34),
-            (side * (thigh_center + width * 0.100), depth * 0.012, -height * 0.98, half_w * 0.24, half_d * 0.30),
-        )
-        parts.append(add_loft("Astra proximal thigh " + label, rows))
-
-    # As in the Maxine study, soften each authored source before union. The
-    # remesher should fuse already-shaped anatomy rather than invent it.
-    for source in parts:
-        rounding = source.modifiers.new("Round construction form", "SUBSURF")
-        rounding.levels = 2
-        rounding.render_levels = 2
-        apply_modifier(source, rounding)
-
-    bpy.ops.object.select_all(action="DESELECT")
-    for source in parts:
-        source.select_set(True)
-    bpy.context.view_layer.objects.active = parts[0]
-    bpy.ops.object.join()
-    body = bpy.context.object
-    body.name = "Astra mass-union pelvis experiment"
-
-    remesh = body.modifiers.new("Unify anatomy - fine voxels", "REMESH")
-    remesh.mode = "VOXEL"
-    remesh.voxel_size = max(0.10, min(width, depth, height) * 0.012)
-    remesh.use_smooth_shade = True
-    apply_modifier(body, remesh)
-
-    # Keep smoothing modest so the render reveals whether the authored masses
-    # actually blend, rather than simply being blurred together.
-    smooth = body.modifiers.new("Relax anatomical intersections", "SMOOTH")
-    smooth.factor = 0.46
-    smooth.iterations = 4
-    apply_modifier(body, smooth)
-
-    finish = body.modifiers.new("Surface finish", "SUBSURF")
-    finish.levels = 1
-    finish.render_levels = 1
-    for polygon in body.data.polygons:
-        polygon.use_smooth = True
-    return body
-
-
-def arrange_views(body, material):
-    verts = [tuple(vertex.co) for vertex in body.data.vertices]
-    min_z = min(vertex[2] for vertex in verts)
-    max_z = max(vertex[2] for vertex in verts)
-    center_z = (min_z + max_z) * 0.5
-    centered = tuple((x, y, z - center_z) for x, y, z in verts)
-    height = max_z - min_z
-
-    widths = []
-    centers = []
-    for _, angle in VIEWS:
-        radians = math.radians(angle)
-        ca = math.cos(radians)
-        sa = math.sin(radians)
-        projected_x = [x * ca - y * sa for x, y, _ in centered]
-        widths.append(max(projected_x) - min(projected_x))
-        centers.append((max(projected_x) + min(projected_x)) * 0.5)
-
-    gutter = max(2.5, max(widths) * 0.09)
-    total = sum(widths) + gutter * 3
-    cursor = -total * 0.5
-    xs = []
-    for view_width, center in zip(widths, centers):
-        xs.append(cursor + view_width * 0.5 - center)
-        cursor += view_width + gutter
-
-    body.location = (xs[0], 0.0, -center_z)
-    body.rotation_euler.z = math.radians(VIEWS[0][1])
-    body.data.materials.clear()
-    body.data.materials.append(material)
-    body.name = "Pelvis " + VIEWS[0][0]
-    objects = [body]
-
-    for (name, angle), x in zip(VIEWS[1:], xs[1:]):
-        obj = body.copy()
-        obj.data = body.data
-        obj.name = "Pelvis " + name
-        bpy.context.collection.objects.link(obj)
-        obj.location = (x, 0.0, -center_z)
-        obj.rotation_euler.z = math.radians(angle)
-        objects.append(obj)
-
-    return objects, total, height
-
-
-def configure_scene(total_width, body_height):
+def configure_world(mode):
     scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    scene.cycles.device = "CPU"
-    scene.cycles.samples = 32
-    scene.cycles.use_denoising = True
-    scene.render.resolution_x = 1800
-    scene.render.resolution_y = 500
-    scene.render.resolution_percentage = 100
-    scene.render.image_settings.file_format = "PNG"
-    scene.view_settings.view_transform = "AgX"
-    scene.view_settings.look = "AgX - Medium High Contrast"
-    scene.view_settings.exposure = 0.35
-
-    world = scene.world or bpy.data.worlds.new("Pelvis World")
+    world = scene.world or bpy.data.worlds.new("Alphabet Review World")
     scene.world = world
     world.use_nodes = True
+
     nodes = world.node_tree.nodes
     links = world.node_tree.links
     nodes.clear()
     output = nodes.new("ShaderNodeOutputWorld")
-    ambient = nodes.new("ShaderNodeBackground")
-    ambient.inputs["Color"].default_value = (0.42, 0.45, 0.49, 1.0)
-    ambient.inputs["Strength"].default_value = 0.25
-    camera_bg = nodes.new("ShaderNodeBackground")
-    camera_bg.inputs["Color"].default_value = (0.045, 0.055, 0.07, 1.0)
-    light_path = nodes.new("ShaderNodeLightPath")
-    mix = nodes.new("ShaderNodeMixShader")
-    links.new(light_path.outputs["Is Camera Ray"], mix.inputs[0])
-    links.new(ambient.outputs[0], mix.inputs[1])
-    links.new(camera_bg.outputs[0], mix.inputs[2])
-    links.new(mix.outputs[0], output.inputs["Surface"])
+    background = nodes.new("ShaderNodeBackground")
 
-    camera_data = bpy.data.cameras.new("Camera")
-    camera_data.type = "ORTHO"
-    camera_data.ortho_scale = 1.0
-    frame = camera_data.view_frame(scene=scene)
-    frame_width = max(v.x for v in frame) - min(v.x for v in frame)
-    frame_height = max(v.y for v in frame) - min(v.y for v in frame)
-    camera_data.ortho_scale = max(total_width * 1.08 / frame_width, body_height * 1.18 / frame_height)
-    camera = bpy.data.objects.new("Camera", camera_data)
+    if mode == "clay":
+        background.inputs["Color"].default_value = (0.075, 0.09, 0.115, 1.0)
+        background.inputs["Strength"].default_value = 0.34
+    else:
+        background.inputs["Color"].default_value = (0.008, 0.010, 0.014, 1.0)
+        background.inputs["Strength"].default_value = 0.05
+
+    links.new(background.outputs["Background"], output.inputs["Surface"])
+
+
+def bevel_for(letter):
+    if letter in ROUND:
+        return 0.11, 5, "round"
+    if letter in ANGULAR:
+        return 0.035, 1, "sharp"
+    return 0.07, 3, "mixed"
+
+
+def add_letter(letter, location, size, extrude, material):
+    bpy.ops.object.text_add(location=location, rotation=(math.radians(90.0), 0.0, 0.0))
+    obj = bpy.context.object
+    obj.name = f"Letter {letter}"
+
+    curve = obj.data
+    curve.body = letter
+    curve.align_x = "CENTER"
+    curve.align_y = "CENTER"
+    curve.size = size
+    curve.extrude = extrude
+
+    bevel_depth, bevel_resolution, family = bevel_for(letter)
+    curve.bevel_depth = bevel_depth
+    curve.bevel_resolution = bevel_resolution
+    curve.resolution_u = 12
+    obj["shape_family"] = family
+    obj["source_letter"] = letter
+
+    bpy.ops.object.convert(target="MESH")
+    obj = bpy.context.object
+    obj.name = f"Letter {letter} [{family}]"
+    obj.data.materials.append(material)
+
+    # Keep the front/back glyph faces crisp while the authored bevel geometry
+    # itself supplies the rounded transition where requested.
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = False
+
+    return obj
+
+
+def build_alphabet(material, columns, size, spacing_x, spacing_z, extrude):
+    columns = max(1, min(int(columns), 13))
+    rows = math.ceil(len(LETTERS) / columns)
+
+    objects = []
+    for index, letter in enumerate(LETTERS):
+        row = index // columns
+        column = index % columns
+        count_in_row = min(columns, len(LETTERS) - row * columns)
+
+        x = (column - (count_in_row - 1) * 0.5) * spacing_x
+        z = ((rows - 1) * 0.5 - row) * spacing_z
+        y = 0.0
+
+        obj = add_letter(letter, (x, y, z), size, extrude, material)
+        objects.append(obj)
+
+    return objects, rows
+
+
+def add_area_light(name, location, energy, size, target=(0.0, 0.0, 0.0)):
+    data = bpy.data.lights.new(name, type="AREA")
+    data.energy = energy
+    data.shape = "DISK"
+    data.size = size
+    obj = bpy.data.objects.new(name, data)
+    bpy.context.collection.objects.link(obj)
+    obj.location = location
+    look_at(obj, target)
+    return obj
+
+
+def add_lights():
+    add_area_light("Key", (-15.0, -18.0, 16.0), 1450.0, 8.0)
+    add_area_light("Fill", (15.0, -12.0, 7.0), 900.0, 10.0)
+    add_area_light("Rim", (0.0, 7.0, 13.0), 1250.0, 7.0)
+
+
+def configure_camera(columns, rows, size, spacing_x, spacing_z):
+    visible_width = max(size * 1.8, (columns - 1) * spacing_x + size * 1.7)
+    visible_height = max(size * 1.8, (rows - 1) * spacing_z + size * 1.8)
+
+    camera_data = bpy.data.cameras.new("Alphabet Review Camera")
+    camera = bpy.data.objects.new("Alphabet Review Camera", camera_data)
     bpy.context.collection.objects.link(camera)
-    camera.location = (0.0, -180.0, 0.0)
-    look(camera, (0.0, 0.0, 0.0))
-    scene.camera = camera
 
-    for name, energy, size, location in (
-        ("Key", 40000, 90, (-45, -75, 60)),
-        ("Fill", 12000, 100, (45, -65, 35)),
-        ("Top", 16000, 100, (0, -25, 85)),
-        ("Under", 6400, 90, (0, -35, -55)),
-        ("Back Fill", 12800, 100, (0, 55, 35)),
-    ):
-        light_data = bpy.data.lights.new(name, "AREA")
-        light_data.energy = energy
-        light_data.size = size
-        light = bpy.data.objects.new(name, light_data)
-        bpy.context.collection.objects.link(light)
-        light.location = location
-        look(light, (0.0, 0.0, 0.0))
+    camera.location = (3.6, -42.0, 5.2)
+    look_at(camera, (0.0, 0.0, 0.0))
+    camera_data.type = "ORTHO"
 
-    return scene, camera
+    aspect = 1800.0 / 900.0
+    camera_data.ortho_scale = max(visible_height * 1.16, visible_width / aspect * 1.12)
+    bpy.context.scene.camera = camera
 
 
-def assert_views_fit(scene, camera, objects):
-    from bpy_extras.object_utils import world_to_camera_view
+def configure_scene(columns, rows, size, spacing_x, spacing_z):
+    scene = bpy.context.scene
+    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    scene.render.resolution_x = 1800
+    scene.render.resolution_y = 900
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.film_transparent = False
 
-    bpy.context.view_layer.update()
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-    for obj in objects:
-        evaluated = obj.evaluated_get(depsgraph)
-        mesh = evaluated.to_mesh()
-        try:
-            for vertex in mesh.vertices:
-                projected = world_to_camera_view(scene, camera, evaluated.matrix_world @ vertex.co)
-                if not (0.0 < projected.x < 1.0 and 0.0 < projected.y < 1.0 and projected.z > 0.0):
-                    raise RuntimeError("Pelvis diagnostic view falls outside camera: " + obj.name)
-        finally:
-            evaluated.to_mesh_clear()
+    scene.view_settings.view_transform = "AgX"
+    scene.view_settings.look = "AgX - Medium High Contrast"
+    scene.view_settings.exposure = 0.15
+
+    configure_camera(columns, rows, size, spacing_x, spacing_z)
+    add_lights()
+
+
+def output_for_mode(base, mode):
+    base = Path(base)
+    if mode == "clay":
+        return base
+    return base.with_name(f"{base.stem}_{mode}{base.suffix}")
+
+
+def render_mode(material, mode, output):
+    configure_material(material, mode)
+    configure_world(mode)
+
+    # Lighting helps the clay pass reveal bevel depth. Emission-based diagnostic
+    # passes ignore these lights naturally.
+    scene = bpy.context.scene
+    scene.render.filepath = str(output)
+    bpy.ops.render.render(write_still=True)
+    print(f"Rendered {mode}: {output}")
 
 
 def main():
     options = args()
-    clear()
-    body = build_astra_pelvis(
-        options.width,
-        options.depth,
-        options.height,
-        options.hip_fullness,
-        options.glute_projection,
-        options.crotch_width,
-        options.thigh_spacing,
-    )
-    material = make_material()
-    objects, total_width, body_height = arrange_views(body, material)
-    scene, camera = configure_scene(total_width, body_height)
-    assert_views_fit(scene, camera, objects)
+    clear_scene()
 
-    output = Path(options.output)
-    output = output if output.is_absolute() else REPO_ROOT / output
-    output.parent.mkdir(parents=True, exist_ok=True)
+    material = make_material()
+    objects, rows = build_alphabet(
+        material,
+        options.columns,
+        options.letter_size,
+        options.spacing_x,
+        options.spacing_z,
+        options.extrude,
+    )
+    configure_scene(options.columns, rows, options.letter_size, options.spacing_x, options.spacing_z)
+
+    base = Path(options.output).resolve()
+    base.parent.mkdir(parents=True, exist_ok=True)
 
     for mode in options.modes:
-        scene.cycles.use_denoising = mode == "clay"
-        configure_material(material, mode)
-        target = output if mode == "clay" else output.with_name(output.stem + "_" + mode + output.suffix)
-        scene.render.filepath = os.fspath(target)
-        bpy.ops.render.render(write_still=True)
-        print("Astra pelvis mass-union review", mode, "written to", target)
+        render_mode(material, mode, output_for_mode(base, mode))
+
+    print(
+        "Alphabet geometry review complete: "
+        f"{len(objects)} letters, {rows} rows, modes={','.join(options.modes)}"
+    )
 
 
 if __name__ == "__main__":
