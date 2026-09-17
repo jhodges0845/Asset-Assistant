@@ -1,116 +1,393 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Welded patch -> sculpt -> smooth pelvis experiment."""
+"""Shared-edge patch -> regional sculpt -> smooth neutral-pelvis experiment."""
 from dataclasses import dataclass
-from math import sqrt
+
+from .patch_surface import (
+    PatchNetwork,
+    brush,
+    curve_points,
+    orient_faces_consistently,
+    relax,
+    vertex_normals,
+)
+
 
 @dataclass(frozen=True)
 class NeutralPelvisShape:
-    width: float=34.; depth: float=24.; height: float=20.; waist_width: float=28.; waist_depth: float=20.
-    hip_fullness: float=1.; glute_projection: float=1.; crotch_width: float=7.; crotch_depth: float=8.; crotch_drop: float=1.
-    thigh_opening_width: float=12.; thigh_opening_depth: float=13.; thigh_spacing: float=4.
+    width: float = 34.0
+    depth: float = 24.0
+    height: float = 20.0
+    waist_width: float = 28.0
+    waist_depth: float = 20.0
+    hip_fullness: float = 1.0
+    glute_projection: float = 1.0
+    crotch_width: float = 7.0
+    crotch_depth: float = 8.0
+    crotch_drop: float = 1.0
+    thigh_opening_width: float = 12.0
+    thigh_opening_depth: float = 13.0
+    thigh_spacing: float = 4.0
 
-def semantic_controls(): return tuple(NeutralPelvisShape.__dataclass_fields__)
-def _lerp(a,b,t): return tuple(x+(y-x)*t for x,y in zip(a,b))
-def _addv(a,b): return tuple(a[i]+b[i] for i in range(3))
-def _mul(a,s): return tuple(x*s for x in a)
-def _sub(a,b): return tuple(a[i]-b[i] for i in range(3))
-def _cross(a,b): return (a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0])
-def _norm(a):
-    m=sqrt(sum(x*x for x in a)) or 1.; return tuple(x/m for x in a)
-def _curve(a,b,bulge=(0,0,0),steps=4):
-    return tuple(_addv(_lerp(a,b,i/steps),_mul(bulge,4*(i/steps)*(1-i/steps))) for i in range(steps+1))
-def _add(vertices,cache,p):
-    key=tuple(round(x,7) for x in p)
-    if key not in cache: cache[key]=len(vertices); vertices.append(p)
-    return cache[key]
-def _patch(v,f,cache,top,bottom,control=(0,0,0),rows=4):
-    if len(top)!=len(bottom): raise ValueError("patch boundaries require equal samples")
-    grid=[]; cols=len(top)
-    for r in range(rows+1):
-        y=r/rows; row=[]
-        for c,(a,b) in enumerate(zip(top,bottom)):
-            x=c/(cols-1); influence=16*x*(1-x)*y*(1-y)
-            row.append(_add(v,cache,_addv(_lerp(a,b,y),_mul(control,influence))))
-        grid.append(row)
-    for r in range(rows):
-        for c in range(cols-1): f.append((grid[r][c],grid[r][c+1],grid[r+1][c+1],grid[r+1][c]))
-def _crossline(xs,y,zs,bulge=0):
-    n=len(xs); return tuple((x,y+bulge*4*(i/(n-1))*(1-i/(n-1)),z) for i,(x,z) in enumerate(zip(xs,zs)))
-def _neighbors(f,n):
-    out=[set() for _ in range(n)]
-    for face in f:
-        for i,a in enumerate(face): b=face[(i+1)%len(face)]; out[a].add(b); out[b].add(a)
-    return out
-def _normals(v,f):
-    ns=[(0.,0.,0.) for _ in v]
-    for face in f:
-        if len(face)<3: continue
-        a,b,c=(v[face[i]] for i in range(3)); n=_cross(_sub(b,a),_sub(c,a))
-        for i in face: ns[i]=_addv(ns[i],n)
-    return [_norm(x) for x in ns]
-def _brush(v,ids,center,radius,delta=(0,0,0),normal_amount=0,normals=None):
-    for i in ids:
-        d=sqrt(sum((v[i][k]-center[k])**2 for k in range(3)))
-        if d>=radius: continue
-        t=1-d/radius; q=t*t*(3-2*t); move=_mul(delta,q)
-        if normals and normal_amount: move=_addv(move,_mul(normals[i],normal_amount*q))
-        v[i]=_addv(v[i],move)
-def _smooth(v,f,ids,strength=.12,iters=2):
-    nb=_neighbors(f,len(v)); selected=set(ids)
-    for _ in range(iters):
-        old=list(v); updates={}
-        for i in selected:
-            if not nb[i]: continue
-            avg=tuple(sum(old[j][k] for j in nb[i])/len(nb[i]) for k in range(3))
-            updates[i]=tuple(old[i][k]+(avg[k]-old[i][k])*strength for k in range(3))
-        for i,p in updates.items(): v[i]=p
-def _catmull(v,faces):
-    old=list(v); fps=[]; edge_faces={}; vf=[[] for _ in old]; ve=[set() for _ in old]
-    for fi,face in enumerate(faces):
-        fps.append(tuple(sum(old[i][k] for i in face)/len(face) for k in range(3)))
-        for j,a in enumerate(face):
-            b=face[(j+1)%len(face)]; e=tuple(sorted((a,b))); edge_faces.setdefault(e,[]).append(fi); ve[a].add(e); ve[b].add(e); vf[a].append(fi)
-    new=list(old); boundary=set()
-    for e,fs in edge_faces.items():
-        if len(fs)==1: boundary.update(e)
-    for i,p in enumerate(old):
-        if i in boundary or not vf[i]: continue
-        fs=vf[i]; F=tuple(sum(fps[j][k] for j in fs)/len(fs) for k in range(3)); mids=[tuple((old[e[0]][k]+old[e[1]][k])*.5 for k in range(3)) for e in ve[i]]; R=tuple(sum(q[k] for q in mids)/len(mids) for k in range(3)); n=len(fs)
-        new[i]=tuple((F[k]+2*R[k]+(n-3)*p[k])/n for k in range(3))
-    ei={}
-    for e,fs in edge_faces.items():
-        p=tuple((old[e[0]][k]+old[e[1]][k]+fps[fs[0]][k]+fps[fs[1]][k])*.25 for k in range(3)) if len(fs)==2 else tuple((old[e[0]][k]+old[e[1]][k])*.5 for k in range(3)); ei[e]=len(new); new.append(p)
-    fi=[]
-    for p in fps: fi.append(len(new)); new.append(p)
-    out=[]
-    for q,face in enumerate(faces):
-        for j,a in enumerate(face): out.append((a,ei[tuple(sorted((a,face[(j+1)%len(face)])))],fi[q],ei[tuple(sorted((face[j-1],a))) ]))
-    return new,out
+
+def semantic_controls():
+    return tuple(NeutralPelvisShape.__dataclass_fields__)
+
+
+def _crossline(xs, y, zs, bulge=0.0):
+    count = len(xs)
+    result = []
+    for index, (x, z) in enumerate(zip(xs, zs)):
+        t = index / (count - 1)
+        result.append((x, y + bulge * 4.0 * t * (1.0 - t), z))
+    return tuple(result)
+
+
+def _build_network(p):
+    """Author one manifold pair-of-openings surface from explicit shared edges."""
+    w, d, h = p.width, p.depth, p.height
+    gap = p.thigh_spacing * 0.5
+    outer = gap + p.thigh_opening_width
+    level_z = (h * 0.50, h * 0.30, h * 0.05, -h * 0.20, -h * 0.55)
+    half_width = (p.waist_width * 0.47, w * 0.485, w * 0.515)
+    front_y = (p.waist_depth * 0.46, d * 0.49, d * 0.505, d * 0.405)
+    rear_y = (
+        -p.waist_depth * 0.46,
+        -d * (0.50 + 0.020 * p.glute_projection),
+        -d * (0.515 + 0.060 * p.glute_projection),
+        -d * (0.455 + 0.050 * p.glute_projection),
+    )
+    net = PatchNetwork()
+    upper = {}
+
+    # The large mass is four-sided patchwork, not rings.  Each front/rear level
+    # is split at the centre and joined to explicit depth boundaries at the sides.
+    for level, (z, span) in enumerate(zip(level_z[:3], half_width)):
+        left_x = (-span, -span * 0.52, 0.0)
+        right_x = (0.0, span * 0.52, span)
+        left_z = tuple(z - h * 0.030 * (abs(x) / span) ** 1.7 for x in left_x)
+        right_z = tuple(z - h * 0.030 * (abs(x) / span) ** 1.7 for x in right_x)
+        for side_name, y, bulge in (
+            ("front", front_y[level], d * (0.008 + 0.004 * level)),
+            ("rear", rear_y[level], -d * (0.012 + 0.010 * level) * p.glute_projection),
+        ):
+            upper[f"{side_name}.{level}.left"] = net.boundary(
+                f"{side_name}.{level}.left", _crossline(left_x, y, left_z, bulge)
+            )
+            upper[f"{side_name}.{level}.right"] = net.boundary(
+                f"{side_name}.{level}.right", _crossline(right_x, y, right_z, bulge)
+            )
+        net.boundary(
+            f"side.{level}.left",
+            curve_points(
+                net.vertices[upper[f"front.{level}.left"][0]],
+                net.vertices[upper[f"rear.{level}.left"][0]],
+                6,
+                (-w * 0.020, 0.0, -h * 0.005),
+            ),
+        )
+        net.boundary(
+            f"side.{level}.right",
+            curve_points(
+                net.vertices[upper[f"front.{level}.right"][-1]],
+                net.vertices[upper[f"rear.{level}.right"][-1]],
+                6,
+                (w * 0.020, 0.0, -h * 0.005),
+            ),
+        )
+
+    for level in (0, 1):
+        for side_name in ("front", "rear"):
+            for position in ("left", "center", "right"):
+                if position == "left":
+                    a = upper[f"{side_name}.{level}.left"][0]
+                    b = upper[f"{side_name}.{level + 1}.left"][0]
+                elif position == "center":
+                    a = upper[f"{side_name}.{level}.left"][-1]
+                    b = upper[f"{side_name}.{level + 1}.left"][-1]
+                else:
+                    a = upper[f"{side_name}.{level}.right"][-1]
+                    b = upper[f"{side_name}.{level + 1}.right"][-1]
+                depth_push = d * (0.020 if side_name == "front" else -0.035)
+                net.boundary(
+                    f"vertical.{side_name}.{level}.{position}",
+                    curve_points(net.vertices[a], net.vertices[b], 4, (0.0, depth_push, 0.0)),
+                )
+
+        net.patch(
+            f"front.{level}.left",
+            upper[f"front.{level}.left"],
+            f"vertical.front.{level}.center",
+            upper[f"front.{level + 1}.left"],
+            f"vertical.front.{level}.left",
+            (0.0, d * 0.025, -h * 0.010),
+        )
+        net.patch(
+            f"front.{level}.right",
+            upper[f"front.{level}.right"],
+            f"vertical.front.{level}.right",
+            upper[f"front.{level + 1}.right"],
+            f"vertical.front.{level}.center",
+            (0.0, d * 0.025, -h * 0.010),
+        )
+        net.patch(
+            f"rear.{level}.left",
+            upper[f"rear.{level}.left"],
+            f"vertical.rear.{level}.center",
+            upper[f"rear.{level + 1}.left"],
+            f"vertical.rear.{level}.left",
+            (0.0, -d * 0.060 * p.glute_projection, -h * 0.010),
+        )
+        net.patch(
+            f"rear.{level}.right",
+            upper[f"rear.{level}.right"],
+            f"vertical.rear.{level}.right",
+            upper[f"rear.{level + 1}.right"],
+            f"vertical.rear.{level}.center",
+            (0.0, -d * 0.060 * p.glute_projection, -h * 0.010),
+        )
+        net.patch(
+            f"side.{level}.left",
+            f"side.{level}.left",
+            f"vertical.rear.{level}.left",
+            f"side.{level + 1}.left",
+            f"vertical.front.{level}.left",
+            (-w * 0.035 * p.hip_fullness, 0.0, -h * 0.010),
+        )
+        net.patch(
+            f"side.{level}.right",
+            f"side.{level}.right",
+            f"vertical.rear.{level}.right",
+            f"side.{level + 1}.right",
+            f"vertical.front.{level}.right",
+            (w * 0.035 * p.hip_fullness, 0.0, -h * 0.010),
+        )
+
+    # Split the lower region into two openings around one shared centre spine.
+    left_x = (-outer, -(outer + gap) * 0.5, -gap)
+    right_x = (gap, (outer + gap) * 0.5, outer)
+    inner_z = level_z[3] + h * 0.070
+    left_root_z = (level_z[3] - h * 0.015, level_z[3] + h * 0.015, inner_z)
+    right_root_z = tuple(reversed(left_root_z))
+    root = {}
+    for side_name, y, z_offset, bulge in (
+        ("front", front_y[3], 0.0, d * 0.006),
+        ("rear", rear_y[3], -h * 0.018, -d * 0.015),
+    ):
+        root[f"{side_name}.left"] = net.boundary(
+            f"root.{side_name}.left",
+            _crossline(left_x, y, tuple(z + z_offset for z in left_root_z), bulge),
+        )
+        root[f"{side_name}.right"] = net.boundary(
+            f"root.{side_name}.right",
+            _crossline(right_x, y, tuple(z + z_offset for z in right_root_z), bulge),
+        )
+
+    net.boundary(
+        "root.side.left",
+        curve_points(net.vertices[root["front.left"][0]], net.vertices[root["rear.left"][0]], 6, (-w * 0.040, 0.0, -h * 0.010)),
+    )
+    net.boundary(
+        "root.side.right",
+        curve_points(net.vertices[root["front.right"][-1]], net.vertices[root["rear.right"][-1]], 6, (w * 0.040, 0.0, -h * 0.010)),
+    )
+    net.boundary(
+        "root.inner.left",
+        curve_points(net.vertices[root["front.left"][-1]], net.vertices[root["rear.left"][-1]], 6, (p.crotch_width * 0.060, 0.0, h * 0.020)),
+    )
+    net.boundary(
+        "root.inner.right",
+        curve_points(net.vertices[root["front.right"][0]], net.vertices[root["rear.right"][0]], 6, (-p.crotch_width * 0.060, 0.0, h * 0.020)),
+    )
+    front_center = upper["front.2.left"][-1]
+    rear_center = upper["rear.2.left"][-1]
+    net.boundary(
+        "center.spine",
+        curve_points(net.vertices[front_center], net.vertices[rear_center], 6, (0.0, 0.0, h * 0.055)),
+    )
+
+    transition = {}
+    for side_name in ("front", "rear"):
+        for half_name in ("left", "right"):
+            top = upper[f"{side_name}.2.{half_name}"]
+            bottom = root[f"{side_name}.{half_name}"]
+            sign = -1.0 if half_name == "left" else 1.0
+            top_outer = top[0] if half_name == "left" else top[-1]
+            top_inner = top[-1] if half_name == "left" else top[0]
+            bottom_outer = bottom[0] if half_name == "left" else bottom[-1]
+            bottom_inner = bottom[-1] if half_name == "left" else bottom[0]
+            transition[f"{side_name}.{half_name}.outer"] = net.boundary(
+                f"transition.{side_name}.{half_name}.outer",
+                curve_points(net.vertices[top_outer], net.vertices[bottom_outer], 4, (sign * w * 0.025, 0.0, -h * 0.010)),
+            )
+            transition[f"{side_name}.{half_name}.inner"] = net.boundary(
+                f"transition.{side_name}.{half_name}.inner",
+                curve_points(net.vertices[top_inner], net.vertices[bottom_inner], 4, (-sign * p.crotch_width * 0.030, 0.0, h * 0.020)),
+            )
+
+    for side_name, depth_push in (("front", d * 0.030), ("rear", -d * 0.060)):
+        net.patch(
+            f"transition.{side_name}.left",
+            upper[f"{side_name}.2.left"],
+            transition[f"{side_name}.left.inner"],
+            root[f"{side_name}.left"],
+            transition[f"{side_name}.left.outer"],
+            (-w * 0.045, depth_push, -h * 0.015),
+        )
+        net.patch(
+            f"transition.{side_name}.right",
+            upper[f"{side_name}.2.right"],
+            transition[f"{side_name}.right.outer"],
+            root[f"{side_name}.right"],
+            transition[f"{side_name}.right.inner"],
+            (w * 0.045, depth_push, -h * 0.015),
+        )
+
+    net.patch(
+        "transition.side.left",
+        "side.2.left",
+        transition["rear.left.outer"],
+        "root.side.left",
+        transition["front.left.outer"],
+        (-w * 0.040, 0.0, -h * 0.015),
+    )
+    net.patch(
+        "transition.side.right",
+        "side.2.right",
+        transition["rear.right.outer"],
+        "root.side.right",
+        transition["front.right.outer"],
+        (w * 0.040, 0.0, -h * 0.015),
+    )
+    net.patch(
+        "transition.inner.left",
+        "center.spine",
+        transition["rear.left.inner"],
+        "root.inner.left",
+        transition["front.left.inner"],
+        (-p.crotch_width * 0.080, 0.0, h * 0.010),
+    )
+    net.patch(
+        "transition.inner.right",
+        "center.spine",
+        transition["rear.right.inner"],
+        "root.inner.right",
+        transition["front.right.inner"],
+        (p.crotch_width * 0.080, 0.0, h * 0.010),
+    )
+
+    # Continue each opening with the same four-sided construction so the inner,
+    # outer, front and rear surfaces are all longitudinal patch regions.
+    outlet = {}
+    outlet_z = (level_z[4],) * 3
+    for side_name, y in (("front", p.thigh_opening_depth * 0.5), ("rear", -p.thigh_opening_depth * 0.5)):
+        outlet[f"{side_name}.left"] = net.boundary(
+            f"outlet.{side_name}.left", _crossline(left_x, y, outlet_z)
+        )
+        outlet[f"{side_name}.right"] = net.boundary(
+            f"outlet.{side_name}.right", _crossline(right_x, y, outlet_z)
+        )
+    net.boundary("outlet.side.left", curve_points(net.vertices[outlet["front.left"][0]], net.vertices[outlet["rear.left"][0]], 6))
+    net.boundary("outlet.side.right", curve_points(net.vertices[outlet["front.right"][-1]], net.vertices[outlet["rear.right"][-1]], 6))
+    net.boundary("outlet.inner.left", curve_points(net.vertices[outlet["front.left"][-1]], net.vertices[outlet["rear.left"][-1]], 6))
+    net.boundary("outlet.inner.right", curve_points(net.vertices[outlet["front.right"][0]], net.vertices[outlet["rear.right"][0]], 6))
+
+    descent = {}
+    for side_name in ("front", "rear"):
+        for half_name in ("left", "right"):
+            sign = -1.0 if half_name == "left" else 1.0
+            root_edge = root[f"{side_name}.{half_name}"]
+            outlet_edge = outlet[f"{side_name}.{half_name}"]
+            root_outer = root_edge[0] if half_name == "left" else root_edge[-1]
+            root_inner = root_edge[-1] if half_name == "left" else root_edge[0]
+            outlet_outer = outlet_edge[0] if half_name == "left" else outlet_edge[-1]
+            outlet_inner = outlet_edge[-1] if half_name == "left" else outlet_edge[0]
+            descent[f"{side_name}.{half_name}.outer"] = net.boundary(
+                f"descent.{side_name}.{half_name}.outer",
+                curve_points(net.vertices[root_outer], net.vertices[outlet_outer], 5, (sign * w * 0.015, 0.0, 0.0)),
+            )
+            descent[f"{side_name}.{half_name}.inner"] = net.boundary(
+                f"descent.{side_name}.{half_name}.inner",
+                curve_points(net.vertices[root_inner], net.vertices[outlet_inner], 5, (-sign * p.crotch_width * 0.025, 0.0, h * 0.010)),
+            )
+
+    for side_name, depth_push in (("front", d * 0.020), ("rear", -d * 0.025)):
+        net.patch(
+            f"descent.{side_name}.left",
+            root[f"{side_name}.left"],
+            descent[f"{side_name}.left.inner"],
+            outlet[f"{side_name}.left"],
+            descent[f"{side_name}.left.outer"],
+            (-w * 0.015, depth_push, h * 0.010),
+        )
+        net.patch(
+            f"descent.{side_name}.right",
+            root[f"{side_name}.right"],
+            descent[f"{side_name}.right.outer"],
+            outlet[f"{side_name}.right"],
+            descent[f"{side_name}.right.inner"],
+            (w * 0.015, depth_push, h * 0.010),
+        )
+
+    net.patch("descent.side.left", "root.side.left", descent["rear.left.outer"], "outlet.side.left", descent["front.left.outer"], (-w * 0.020, 0.0, 0.0))
+    net.patch("descent.side.right", "root.side.right", descent["rear.right.outer"], "outlet.side.right", descent["front.right.outer"], (w * 0.020, 0.0, 0.0))
+    net.patch("descent.inner.left", "root.inner.left", descent["rear.left.inner"], "outlet.inner.left", descent["front.left.inner"], (p.crotch_width * 0.040, 0.0, h * 0.015))
+    net.patch("descent.inner.right", "root.inner.right", descent["rear.right.inner"], "outlet.inner.right", descent["front.right.inner"], (-p.crotch_width * 0.040, 0.0, h * 0.015))
+
+    torso = net.ordered_loop(
+        (
+            ("front.0.left", False),
+            ("front.0.right", False),
+            ("side.0.right", False),
+            ("rear.0.right", True),
+            ("rear.0.left", True),
+            ("side.0.left", True),
+        )
+    )
+    left = net.ordered_loop(
+        (("outlet.front.left", False), ("outlet.inner.left", False), ("outlet.rear.left", True), ("outlet.side.left", True))
+    )
+    right = net.ordered_loop(
+        (("outlet.front.right", False), ("outlet.side.right", False), ("outlet.rear.right", True), ("outlet.inner.right", True))
+    )
+    return net, torso, left, right
+
 
 def generate_neutral_pelvis(shape=None):
-    p=shape or NeutralPelvisShape(); w,d,h=p.width,p.depth,p.height; v=[]; f=[]; cache={}; gap=p.thigh_spacing*.5; outer=gap+p.thigh_opening_width
-    z=(h*.50,h*.30,h*.06,-h*.20,-h*.55); spans=(p.waist_width*.47,w*.485,w*.515); fy=(p.waist_depth*.46,d*.49,d*.505,d*.405); ry=(-p.waist_depth*.46,-d*(.50+.020*p.glute_projection),-d*(.515+.060*p.glute_projection),-d*(.455+.050*p.glute_projection))
-    def xs(s): return (-s,-s*.78,-s*.48,-s*.20,0,s*.20,s*.48,s*.78,s)
-    front=[]; rear=[]
-    for k in range(3):
-        xx=xs(spans[k]); zz=tuple(z[k]-h*(.030*(abs(x)/spans[k])**1.7) for x in xx); front.append(_crossline(xx,fy[k],zz,d*(.008+.004*k))); rear.append(_crossline(xx,ry[k],zz,-d*(.012+.010*k)*p.glute_projection))
-    lx=(-outer,-outer*.78,-outer*.50,-gap); rx=(gap,outer*.50,outer*.78,outer); inner=z[3]+h*.075; zl=(z[3]-h*.01,z[3],z[3]+h*.03,inner); zr=tuple(reversed(zl))
-    rfl=_crossline(lx,fy[3],zl,d*.006); rfr=_crossline(rx,fy[3],zr,d*.006); rrl=_crossline(lx,ry[3],tuple(q-h*.018 for q in zl),-d*.015); rrr=_crossline(rx,ry[3],tuple(q-h*.018 for q in zr),-d*.015)
-    ofl=_crossline(lx,p.thigh_opening_depth*.5,(z[4],)*4); ofr=_crossline(rx,p.thigh_opening_depth*.5,(z[4],)*4); orl=_crossline(lx,-p.thigh_opening_depth*.5,(z[4],)*4); orr=_crossline(rx,-p.thigh_opening_depth*.5,(z[4],)*4)
-    _patch(v,f,cache,front[0],front[1],(0,d*.03,-h*.01),4); _patch(v,f,cache,front[1],front[2],(0,d*.05,-h*.018),5); _patch(v,f,cache,rear[0],rear[1],(0,-d*.045,-h*.008),4); _patch(v,f,cache,rear[1],rear[2],(0,-d*.095*p.glute_projection,-h*.016),5)
-    fl,fr,rl,rr=front[2][:4],front[2][5:],rear[2][:4],rear[2][5:]
-    for a,b,c in ((fl,rfl,(-w*.055,d*.025,-h*.025)),(fr,rfr,(w*.055,d*.025,-h*.025)),(rl,rrl,(-w*.06,-d*.07,-h*.018)),(rr,rrr,(w*.06,-d*.07,-h*.018))): _patch(v,f,cache,a,b,c,5)
-    aft,art=front[2][3:6],rear[2][3:6]; afb=(rfl[-1],(0,fy[3]*.92,inner+h*.035),rfr[0]); arb=(rrl[-1],(0,ry[3]*.94,inner+h*.020),rrr[0]); _patch(v,f,cache,aft,afb,(0,d*.065,h*.035),5); _patch(v,f,cache,art,arb,(0,-d*.075,h*.025),5)
-    for fa,fb,ra,rb,amount in ((front[0],front[1],rear[0],rear[1],.045),(front[1],front[2],rear[1],rear[2],.065)):
-        _patch(v,f,cache,(fa[0],fb[0]),(ra[0],rb[0]),(-w*amount,0,-h*.01),6); _patch(v,f,cache,(fa[-1],fb[-1]),(ra[-1],rb[-1]),(w*amount,0,-h*.01),6)
-    _patch(v,f,cache,(fl[0],rfl[0]),(rl[0],rrl[0]),(-w*.055,0,-h*.012),6); _patch(v,f,cache,(fr[-1],rfr[-1]),(rr[-1],rrr[-1]),(w*.055,0,-h*.012),6)
-    for sign,rf,rb,of,ob in ((-1,rfl,rrl,ofl,orl),(1,rfr,rrr,ofr,orr)):
-        _patch(v,f,cache,rf,of,(sign*w*.025,d*.035,h*.025),5); _patch(v,f,cache,rb,ob,(sign*w*.025,-d*.045,h*.02),5); oi=0 if sign<0 else -1; ii=-1 if sign<0 else 0; _patch(v,f,cache,(rf[oi],of[oi]),(rb[oi],ob[oi]),(sign*w*.03,0,0),6); _patch(v,f,cache,(rf[ii],of[ii]),(rb[ii],ob[ii]),(-sign*p.crotch_width*.12,0,h*.025),6)
-    sl=_curve(rfl[-1],rrl[-1],(0,0,h*.035),5); sr=_curve(rfr[0],rrr[0],(0,0,h*.035),5); _patch(v,f,cache,sl,sr,(0,0,-h*.045*p.crotch_drop),6)
-    # Weld is inherent in the coordinate cache: every coincident patch edge resolves to one vertex id.
-    cage=tuple(range(len(v))); ns=_normals(v,f)
-    _brush(v,cage,(-w*.42,0,h*.04),w*.34,(-w*.035,0,h*.02)); _brush(v,cage,(w*.42,0,h*.04),w*.34,(w*.035,0,h*.02)); _brush(v,cage,(0,d*.43,h*.02),d*.60,(0,d*.04,0)); _brush(v,cage,(0,-d*.45,0),d*.68,(0,-d*.085*p.glute_projection,-h*.01)); _brush(v,cage,(0,0,-h*.17),w*.28,(0,0,h*.05)); ns=_normals(v,f); _brush(v,cage,(0,0,-h*.05),w*.44,normal_amount=w*.018,normals=ns)
-    # Smooth only vertices that are not public attachment edges; attachments are added after finish.
-    _smooth(v,f,cage,.10,2); v,f=_catmull(v,f)
-    torso=tuple(_add(v,cache,q) for q in _curve((-p.waist_width*.5,fy[0],z[0]),(p.waist_width*.5,fy[0],z[0]),steps=15)); left=tuple(_add(v,cache,q) for q in _curve((-outer,p.thigh_opening_depth*.5,z[4]),(-gap,p.thigh_opening_depth*.5,z[4]),steps=15)); right=tuple(_add(v,cache,q) for q in _curve((gap,p.thigh_opening_depth*.5,z[4]),(outer,p.thigh_opening_depth*.5,z[4]),steps=15))
-    return tuple(v),tuple(tuple(reversed(x)) for x in f),{"torso":torso,"left_thigh":left,"right_thigh":right}
+    p = shape or NeutralPelvisShape()
+    net, torso, left, right = _build_network(p)
+    net.faces = list(orient_faces_consistently(net.faces))
+
+    # SCULPT: region selection is based on authored patch membership rather than
+    # global coordinate-only brushes.  The engine remains generic; this recipe
+    # decides which connected surface regions receive which operations.
+    upper_side = net.region_vertices(("side.0.left", "side.1.left", "transition.side.left"))
+    upper_side_r = net.region_vertices(("side.0.right", "side.1.right", "transition.side.right"))
+    rear_regions = net.region_vertices(
+        (
+            "rear.0.left", "rear.0.right", "rear.1.left", "rear.1.right",
+            "transition.rear.left", "transition.rear.right",
+        )
+    )
+    inner_regions = net.region_vertices(("transition.inner.left", "transition.inner.right", "descent.inner.left", "descent.inner.right"))
+    transition_regions = net.region_vertices(
+        (
+            "transition.front.left", "transition.front.right", "transition.rear.left", "transition.rear.right",
+            "transition.side.left", "transition.side.right", "transition.inner.left", "transition.inner.right",
+        )
+    )
+
+    brush(net.vertices, upper_side, (-p.width * 0.43, 0.0, p.height * 0.04), p.width * 0.34, (-p.width * 0.032, 0.0, p.height * 0.018))
+    brush(net.vertices, upper_side_r, (p.width * 0.43, 0.0, p.height * 0.04), p.width * 0.34, (p.width * 0.032, 0.0, p.height * 0.018))
+    brush(net.vertices, rear_regions, (0.0, -p.depth * 0.47, 0.0), p.depth * 0.72, (0.0, -p.depth * 0.080 * p.glute_projection, -p.height * 0.008))
+    brush(net.vertices, inner_regions, (0.0, 0.0, -p.height * 0.17), p.width * 0.30, (0.0, 0.0, p.height * 0.040))
+    normals = vertex_normals(net.vertices, net.faces)
+    brush(net.vertices, transition_regions, (0.0, 0.0, -p.height * 0.02), p.width * 0.46, normal_amount=p.width * 0.010, normals=normals)
+
+    locked = set(torso) | set(left) | set(right)
+    relax(net.vertices, net.faces, range(len(net.vertices)), locked=locked, strength=0.085, iterations=3)
+    net.faces = list(orient_faces_consistently(net.faces))
+    return (
+        tuple(net.vertices),
+        tuple(net.faces),
+        {"torso": torso, "left_thigh": left, "right_thigh": right},
+    )
