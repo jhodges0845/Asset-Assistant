@@ -33,7 +33,7 @@ def args():
     parser.add_argument("--letter-size", type=float, default=2.75)
     parser.add_argument("--spacing-x", type=float, default=5.0)
     parser.add_argument("--spacing-z", type=float, default=5.0)
-    parser.add_argument("--depth", type=float, default=1.6)
+    parser.add_argument("--depth", type=float, default=2.25)
     parser.add_argument("--depth-cuts", type=int, default=7)
 
     parser.add_argument("--width", type=float, default=None, help=argparse.SUPPRESS)
