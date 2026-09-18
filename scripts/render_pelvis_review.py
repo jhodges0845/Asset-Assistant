@@ -4,9 +4,9 @@
 This intentionally reuses the pelvis review script entry point and output naming
 so the existing visual-testing automation can keep running unchanged.
 
-Unlike the previous flat-text extrusion study, this one builds each letter from
-multiple depth slices. Those slices are shifted, scaled, and rotated differently
-through space, then voxel-unified into a single volume.
+This version deforms one coherent extruded letter mesh through its depth. The
+front, middle, and back can shift, scale, bulge, and twist independently while
+remaining one connected surface.
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ import math
 import sys
 from pathlib import Path
 
+import bmesh
 import bpy
 from mathutils import Vector
 
@@ -33,8 +34,7 @@ def args():
     parser.add_argument("--spacing-x", type=float, default=5.0)
     parser.add_argument("--spacing-z", type=float, default=5.0)
     parser.add_argument("--depth", type=float, default=1.6)
-    parser.add_argument("--slices", type=int, default=6)
-    parser.add_argument("--voxel", type=float, default=0.09)
+    parser.add_argument("--depth-cuts", type=int, default=7)
 
     parser.add_argument("--width", type=float, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--height", type=float, default=None, help=argparse.SUPPRESS)
@@ -140,112 +140,140 @@ def configure_world(mode):
     links.new(background.outputs["Background"], output.inputs["Surface"])
 
 
-def letter_style(letter):
-    idx = ord(letter) - ord("A")
-    family = "mixed"
+def family_for(letter):
+    if letter in ROUND:
+        return "round"
     if letter in ANGULAR:
-        family = "angular"
-    elif letter in ROUND:
-        family = "round"
+        return "angular"
+    return "mixed"
 
+
+def style_for(letter):
+    idx = ord(letter) - ord("A")
+    family = family_for(letter)
+    direction = -1.0 if idx % 2 else 1.0
     return {
         "family": family,
-        "x_amp": 0.12 + 0.02 * (idx % 4),
-        "z_amp": 0.10 + 0.025 * (idx % 3),
-        "rot_amp": math.radians(3.0 + (idx % 5) * 1.2),
-        "front_scale_x": 1.0 + 0.06 * ((idx % 3) - 1),
-        "back_scale_x": 1.0 - 0.05 * ((idx % 4) - 1.5) / 1.5,
-        "front_scale_z": 1.0 + 0.05 * (((idx + 1) % 3) - 1),
-        "back_scale_z": 1.0 - 0.04 * (((idx + 2) % 4) - 1.5) / 1.5,
+        "direction": direction,
+        "sway_x": 0.22 + 0.035 * (idx % 4),
+        "sway_y": 0.14 + 0.03 * ((idx + 1) % 4),
+        "twist": math.radians(10.0 + 2.0 * (idx % 5)),
+        "bulge_x": 0.12 + 0.025 * (idx % 3),
+        "bulge_y": 0.10 + 0.02 * ((idx + 2) % 3),
+        "front_x": 0.94 + 0.04 * (idx % 3),
+        "back_x": 1.06 - 0.03 * ((idx + 1) % 3),
+        "front_y": 1.04 - 0.03 * (idx % 3),
+        "back_y": 0.95 + 0.035 * ((idx + 2) % 3),
     }
 
 
-def make_slice(letter, center, size):
-    bpy.ops.object.text_add(location=center, rotation=(math.radians(90.0), 0.0, 0.0))
+def subdivide_depth_edges(mesh, cuts):
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    depth_edges = [
+        edge for edge in bm.edges
+        if abs(edge.verts[0].co.z - edge.verts[1].co.z) > 1.0e-5
+    ]
+    if depth_edges and cuts > 0:
+        bmesh.ops.subdivide_edges(
+            bm,
+            edges=depth_edges,
+            cuts=cuts,
+            use_grid_fill=False,
+        )
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+
+
+def deform_through_depth(obj, letter):
+    verts = obj.data.vertices
+    if not verts:
+        return
+
+    min_z = min(v.co.z for v in verts)
+    max_z = max(v.co.z for v in verts)
+    depth = max(max_z - min_z, 1.0e-6)
+
+    min_x = min(v.co.x for v in verts)
+    max_x = max(v.co.x for v in verts)
+    min_y = min(v.co.y for v in verts)
+    max_y = max(v.co.y for v in verts)
+    cx = (min_x + max_x) * 0.5
+    cy = (min_y + max_y) * 0.5
+    width = max(max_x - min_x, 1.0e-6)
+    height = max(max_y - min_y, 1.0e-6)
+
+    style = style_for(letter)
+    direction = style["direction"]
+
+    for vert in verts:
+        t = (vert.co.z - min_z) / depth
+        centered = t - 0.5
+        mid = math.sin(math.pi * t)
+        wave = math.sin(math.pi * (1.35 * t + 0.12 * direction))
+
+        sx = (1.0 - t) * style["front_x"] + t * style["back_x"]
+        sy = (1.0 - t) * style["front_y"] + t * style["back_y"]
+        sx *= 1.0 + style["bulge_x"] * mid
+        sy *= 1.0 + style["bulge_y"] * mid
+
+        if style["family"] == "angular":
+            sy *= 1.0 - 0.035 * mid
+        elif style["family"] == "round":
+            sx *= 1.0 + 0.055 * mid
+            sy *= 1.0 + 0.04 * mid
+
+        x = (vert.co.x - cx) * sx
+        y = (vert.co.y - cy) * sy
+
+        angle = style["twist"] * math.sin(math.pi * centered) * direction
+        ca = math.cos(angle)
+        sa = math.sin(angle)
+        xr = x * ca - y * sa
+        yr = x * sa + y * ca
+
+        shift_x = width * style["sway_x"] * wave * direction
+        shift_y = height * style["sway_y"] * math.cos(math.pi * (1.1 * t + 0.2))
+
+        vert.co.x = cx + xr + shift_x
+        vert.co.y = cy + yr + shift_y
+
+
+def make_letter(letter, location, size, depth, depth_cuts, material):
+    family = family_for(letter)
+    bpy.ops.object.text_add(location=(0.0, 0.0, 0.0))
     obj = bpy.context.object
     curve = obj.data
     curve.body = letter
     curve.align_x = "CENTER"
     curve.align_y = "CENTER"
     curve.size = size
+    curve.extrude = depth * 0.5
     curve.resolution_u = 12
-    curve.fill_mode = "BOTH"
+    curve.bevel_depth = 0.055 if family == "angular" else 0.075
+    curve.bevel_resolution = 2 if family == "angular" else 3
+
     bpy.ops.object.convert(target="MESH")
-    return bpy.context.object
-
-
-def sculpt_slice(obj, letter, t, base_x, base_z):
-    style = letter_style(letter)
-    wave = math.sin(t * math.pi)
-    twist = math.sin((t - 0.5) * math.pi)
-    sway_x = style["x_amp"] * base_x * math.sin(t * math.pi * 1.15)
-    sway_z = style["z_amp"] * base_z * math.cos(t * math.pi * 1.35)
-    bulge = 1.0 + 0.18 * wave
-
-    scale_x = (1.0 - t) * style["front_scale_x"] + t * style["back_scale_x"]
-    scale_z = (1.0 - t) * style["front_scale_z"] + t * style["back_scale_z"]
-
-    if style["family"] == "angular":
-        scale_x *= 1.0 + 0.05 * wave
-        scale_z *= 1.0 - 0.03 * wave
-    elif style["family"] == "round":
-        scale_x *= bulge
-        scale_z *= bulge
-
-    obj.location.x += sway_x
-    obj.location.z += sway_z
-    obj.rotation_euler.y = style["rot_amp"] * twist
-    obj.scale = (scale_x, 1.0, scale_z)
-
-
-def make_letter_volume(letter, location, size, depth, slices, voxel, material):
-    slices = max(3, int(slices))
-    step = depth / (slices - 1)
-    created = []
-    base_x = size * 0.45
-    base_z = size * 0.45
-
-    for i in range(slices):
-        t = i / (slices - 1)
-        y = location[1] - depth * 0.5 + i * step
-        obj = make_slice(letter, (location[0], y, location[2]), size)
-        sculpt_slice(obj, letter, t, base_x, base_z)
-        created.append(obj)
-
-    bpy.ops.object.select_all(action="DESELECT")
-    for obj in created:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = created[0]
-    bpy.ops.object.join()
     obj = bpy.context.object
-    obj.name = f"Letter {letter} volume"
+    obj.name = f"Letter {letter} multidirectional"
 
-    remesh = obj.modifiers.new("Voxel unify", "REMESH")
-    remesh.mode = "VOXEL"
-    remesh.voxel_size = voxel
-    remesh.use_smooth_shade = True
-    apply_modifier(obj, remesh.name)
+    subdivide_depth_edges(obj.data, max(1, int(depth_cuts)))
+    deform_through_depth(obj, letter)
 
-    smooth = obj.modifiers.new("Smooth", "SMOOTH")
-    smooth.factor = 0.35
-    smooth.iterations = 6
-    apply_modifier(obj, smooth.name)
-
-    subdiv = obj.modifiers.new("Subsurf", "SUBSURF")
-    subdiv.levels = 1
-    subdiv.render_levels = 1
-
-    obj.data.materials.clear()
+    # Glyph plane -> global X/Z; extrusion/deformation depth -> global Y.
+    obj.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+    obj.location = location
     obj.data.materials.append(material)
+    obj["source_letter"] = letter
+    obj["shape_family"] = family
+
     for poly in obj.data.polygons:
         poly.use_smooth = True
-
-    obj["source_letter"] = letter
-    obj["shape_family"] = letter_style(letter)["family"]
     return obj
 
 
-def build_letters(material, columns, size, spacing_x, spacing_z, depth, slices, voxel):
+def build_letters(material, columns, size, spacing_x, spacing_z, depth, depth_cuts):
     columns = max(1, min(int(columns), 7))
     rows = math.ceil(len(LETTERS) / columns)
     objects = []
@@ -254,18 +282,16 @@ def build_letters(material, columns, size, spacing_x, spacing_z, depth, slices, 
         row = index // columns
         column = index % columns
         count_in_row = min(columns, len(LETTERS) - row * columns)
-
         x = (column - (count_in_row - 1) * 0.5) * spacing_x
         z = ((rows - 1) * 0.5 - row) * spacing_z
 
         objects.append(
-            make_letter_volume(
+            make_letter(
                 letter,
                 (x, 0.0, z),
                 size,
                 depth,
-                slices,
-                voxel,
+                depth_cuts,
                 material,
             )
         )
@@ -299,8 +325,7 @@ def configure_camera(columns, rows, size, spacing_x, spacing_z):
     camera = bpy.data.objects.new("Volumetric Letters Camera", camera_data)
     bpy.context.collection.objects.link(camera)
 
-    camera.location = (4.0, -46.0, 6.0)
-    look_at(camera, (0.0, 0.2, 0.0))
+    # Strong three-quarter view so depth deformation is obvious.\n    camera.location = (19.0, -38.0, 12.0)\n    look_at(camera, (0.0, 0.2, 0.0))
     camera_data.type = "ORTHO"
 
     aspect = 1800.0 / 900.0
@@ -356,8 +381,7 @@ def main():
         options.spacing_x,
         options.spacing_z,
         options.depth,
-        options.slices,
-        options.voxel,
+        options.depth_cuts,
     )
 
     configure_scene(
