@@ -255,8 +255,7 @@ def configure_camera(radius, spacing):
     # Orthographic view keeps all three spheres the same apparent size and
     # removes perspective as a variable in the comparison.
     camera_data.type = "ORTHO"
-    camera_data.ortho_scale = radius * 5.2
-    camera.location = (0.0, -radius * 11.0, radius * 3.0)
+    # Blender orthographic scale controls the camera width here. The three\n    # sphere centers span 6.9 radii, and their silhouettes add another 2 radii.\n    # Use a little over 10 radii so all three fit with clear side margins.\n    camera_data.ortho_scale = radius * 10.2\n    camera.location = (0.0, -radius * 11.0, radius * 3.0)
     look_at(camera, (0.0, 0.0, radius * 0.55))
     bpy.context.scene.camera = camera
 
