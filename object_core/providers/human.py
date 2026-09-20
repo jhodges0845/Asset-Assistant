@@ -120,6 +120,22 @@ def _human_v2_mesh(height_cm):
     return ObjectMesh((MeshPart("human", part.vertices, part.faces, uvs),))
 
 
+@lru_cache(maxsize=32)
+def _human_v2_skeleton(height_cm, weight_kg, body_type):
+    proportions = generate_proportions(
+        HumanoidSpec(float(height_cm), float(weight_kg), BodyType(body_type))
+    )
+    return generate_deforming_skeleton(proportions)
+
+
+@lru_cache(maxsize=32)
+def _human_v2_skin_weights(height_cm, weight_kg, body_type):
+    """Cache deterministic immutable skin weights for repeated Human V2 requests."""
+    mesh = _human_v2_mesh(float(height_cm))
+    skeleton = _human_v2_skeleton(float(height_cm), float(weight_kg), body_type)
+    return generate_skin_weights(mesh, skeleton)
+
+
 class HumanExperimentalProvider:
     """Deformable Human provider used for new human assets."""
 
@@ -141,9 +157,22 @@ class HumanExperimentalProvider:
         return apply_human_semantic_operations(mesh, self.proportions(values), operations)
 
     def skeleton(self, values):
-        return generate_deforming_skeleton(self.proportions(values))
+        return _human_v2_skeleton(
+            float(values["height_cm"]),
+            float(values["weight_kg"]),
+            values["body_type"],
+        )
 
     def skin_weights(self, mesh, values):
+        cached_mesh = _human_v2_mesh(float(values["height_cm"]))
+        if mesh is cached_mesh or mesh == cached_mesh:
+            return _human_v2_skin_weights(
+                float(values["height_cm"]),
+                float(values["weight_kg"]),
+                values["body_type"],
+            )
+        # Semantic edits can change vertex positions while retaining the same
+        # Human controls, so only reuse weights for the unmodified base mesh.
         return generate_skin_weights(mesh, self.skeleton(values))
 
     def idle(self, duration, strength):
