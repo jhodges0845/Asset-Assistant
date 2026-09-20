@@ -3,6 +3,7 @@
 
 from ..animation import generate_idle, generate_run, generate_walk
 from ..geometry import generate_anatomical_human_mesh, generate_mesh
+from ..geometry.deformable import _generate_face_atlas_uvs
 from .surface_human import SurfaceHumanProvider
 from ..geometry.anatomical_base_contour import refine_human_anatomical_base_contour
 from ..geometry.cranium_refinement import refine_human_cranium_cross_sections
@@ -127,7 +128,11 @@ class HumanExperimentalProvider:
         # established Human V2 part identity used by materials, validation,
         # rigging and downstream export contracts.
         part = mesh.parts[0]
-        return ObjectMesh((MeshPart("human", part.vertices, part.faces, part.uvs),))
+        # Mathematical Human deliberately remains UV-free as a standalone study.
+        # Human V2, however, promises portable generated materials and game-engine
+        # export, so adapt the same geometry to the established deterministic atlas.
+        uvs = part.uvs or _generate_face_atlas_uvs(part.vertices, part.faces)
+        return ObjectMesh((MeshPart("human", part.vertices, part.faces, uvs),))
 
     def semantic_mesh(self, mesh, values, operations):
         return apply_human_semantic_operations(mesh, self.proportions(values), operations)
