@@ -126,6 +126,14 @@ def _configure_review_camera(roots):
     scene.render.image_settings.file_format = "PNG"
     scene.render.filepath = str(_find_repo_root(_script_path()) / "human_v2_deformation_review.png")
 
+    # Cycles CPU is already proven headless in this CI job by the standard
+    # Human review renderer. Avoid Workbench/Eevee because they require an EGL
+    # graphics context that is not available on the Linux runner.
+    scene.render.engine = "CYCLES"
+    scene.cycles.device = "CPU"
+    scene.cycles.samples = 8
+    scene.cycles.use_denoising = True
+
     bpy.ops.object.light_add(type="AREA", location=(center.x - width * 0.25, minimum.y - 2.0, center.z + height * 0.3))
     bpy.context.object.data.energy = 900
     bpy.context.object.data.shape = "DISK"
@@ -135,8 +143,6 @@ def _configure_review_camera(roots):
     bpy.context.object.data.energy = 500
     bpy.context.object.data.size = max(2.0, height)
     _look_at(bpy.context.object, center)
-
-    scene.render.engine = "BLENDER_WORKBENCH"
     bpy.ops.render.render(write_still=True)
     print("Human V2 deformation review image written to: " + scene.render.filepath)
 
