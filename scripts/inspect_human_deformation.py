@@ -136,7 +136,7 @@ def _configure_review_camera(roots):
     bpy.context.object.data.size = max(2.0, height)
     _look_at(bpy.context.object, center)
 
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    scene.render.engine = "BLENDER_EEVEE"
     bpy.ops.render.render(write_still=True)
     print("Human V2 deformation review image written to: " + scene.render.filepath)
 
