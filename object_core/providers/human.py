@@ -165,7 +165,7 @@ class HumanExperimentalProvider:
 
     def skin_weights(self, mesh, values):
         cached_mesh = _human_v2_mesh(float(values["height_cm"]))
-        if mesh is cached_mesh or mesh == cached_mesh:
+        if mesh is cached_mesh:
             return _human_v2_skin_weights(
                 float(values["height_cm"]),
                 float(values["weight_kg"]),
