@@ -192,9 +192,12 @@ def main():
     _clear_scene()
     cases = (("Neutral", None, None, 0.0),) + POSES
 
+    # Give every pose its own silhouette. The previous 1.4 m spacing was
+    # narrower than an arm span, so neighboring cases overlapped in the
+    # orthographic review even though the deformation checks were valid.
     columns = 4
-    column_spacing = 1.4
-    row_spacing = 2.4
+    column_spacing = 2.8
+    row_spacing = 2.8
     x_offset = -column_spacing * (columns - 1) / 2.0
     y_offset = row_spacing / 2.0
 
@@ -207,7 +210,8 @@ def main():
         roots.append(root)
         root.location.x = x
         root.location.y = y
-        _label(name, (x, y - 0.42, 1.95))
+        # Labels face the same -Y review camera as the humans.
+        _label(name, (x, y - 0.42, 2.05))
 
         if bone_name is not None:
             _apply_and_verify_pose(name, obj, armature, bone_name, axis, angle)
