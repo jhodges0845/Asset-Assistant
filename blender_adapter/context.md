@@ -2,6 +2,14 @@
 
 Scope: Blender-specific host behavior. `object_core` remains the portable source of domain behavior.
 
+## Current Human V2 integration (2026-09-20)
+
+Create > Human now uses the mathematical surface with a surface-aligned deforming
+rig and shared mesh/rig body-control mapping. The separate Mathematical Human
+provider remains a static study. See `docs/visual-testing-integration.md` for current integration,
+review commands, CI timing and quality limits. Earlier pelvis-first notes below
+are experimental history, not the active provider composition.
+
 ## Main seams
 
 - `core_gateway.py` — Blender-facing facade into portable core behavior.
@@ -40,7 +48,7 @@ Use focused tests under `tests/blender/` first. Full CI also includes Blender 5.
 ## Mathematical Human plugin option
 
 - `human_surface_study` is registered as Mathematical Human in Create; static,
-  no rig/animation/UV support. Existing Human stays compatible.
+  no rig/animation/UV support. Human uses this surface with a separate rigged provider.
 - `object_core/geometry/surface_human.py` and `surface_pelvis.py`: mathematical
   geometry, rounded pelvis and bounded fairing; no imported anatomical assets.
 - `blender_adapter/surface_human_runtime.py`: normal asset creation with the same

@@ -18,6 +18,7 @@ from ..geometry.pelvis_refinement import refine_human_pelvis
 from ..geometry.shoulder_refinement import refine_human_shoulders
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
 from ..models.mesh import MeshPart, ObjectMesh
+from ..rigging.surface_human import surface_skeleton, shape_surface_point
 from ..proportions import generate_proportions
 from ..rigging import generate_deforming_skeleton, generate_skin_weights, generate_skeleton
 from .base import Parameter
@@ -97,8 +98,43 @@ class HumanoidProvider:
         return generate_idle(duration, strength)
 
 
+@lru_cache(maxsize=1)
+def _neutral_surface_data():
+    from ..geometry.surface_human import SurfaceHumanSpec
+    mesh, _report, arms = SurfaceHumanProvider().build(
+        SurfaceHumanSpec(), include_arm_indices=True)
+    part = mesh.parts[0]
+    return ObjectMesh((MeshPart("human", part.vertices, part.faces,
+                               _generate_face_atlas_uvs(part.vertices, part.faces)),)), arms
+
+
+def _neutral_surface_mesh():
+    return _neutral_surface_data()[0]
+
+
+def _surface_skin_weights(mesh, skeleton):
+    neutral, arm_indices = _neutral_surface_data()
+    # Semantic edits preserve topology: ownership follows authored indices even
+    # when an artist moves a hand beside the pelvis. Never infer arm ownership
+    # from proximity to bones in this arms-down rest pose.
+    if len(mesh.parts) != 1 or mesh.parts[0].faces != neutral.parts[0].faces or len(mesh.parts[0].vertices) != len(neutral.parts[0].vertices):
+        raise ValueError("Human surface skinning requires the authored surface topology")
+    owners = {index: side for side, indices in arm_indices for index in indices}
+    groups = {}
+    def bone_filter(part_name, index, vertex, bones):
+        side = owners.get(index)
+        if side not in groups:
+            if side is not None:
+                names = {"torso", "upper_arm." + side, "forearm." + side, "hand." + side}
+                groups[side] = tuple(b for b in bones if b.name in names)
+            else:
+                groups[side] = tuple(b for b in bones if not b.name.startswith(("forearm.", "hand.")))
+        return groups[side]
+    return generate_skin_weights(mesh, skeleton, bone_filter=bone_filter)
+
+
 @lru_cache(maxsize=16)
-def _human_v2_mesh(height_cm):
+def _human_v2_mesh(height_cm, weight_kg=95.0, body_type="average"):
     """Cache immutable Human V2 geometry for repeated in-process consumers.
 
     Blender integration tests and UI validation frequently request the same
@@ -106,18 +142,14 @@ def _human_v2_mesh(height_cm):
     the generated core mesh avoids rebuilding and re-auditing ~42k vertices
     without sharing mutable Blender objects.
     """
-    surface_values = {
-        "height_cm": float(height_cm),
-        "shoulder_scale": 1.0,
-        "hip_scale": 1.0,
-        "waist_scale": 1.0,
-        "chest_fullness": 0.55,
-        "muscle_definition": 0.45,
-    }
-    mesh = SurfaceHumanProvider().mesh(surface_values)
+    mesh = _neutral_surface_mesh()
     part = mesh.parts[0]
-    uvs = part.uvs or _generate_face_atlas_uvs(part.vertices, part.faces)
-    return ObjectMesh((MeshPart("human", part.vertices, part.faces, uvs),))
+    proportions = generate_proportions(HumanoidSpec(height_cm, weight_kg, BodyType(body_type)))
+    reference = generate_proportions(HumanoidSpec(height_cm, 95.0, BodyType.AVERAGE))
+    height_scale = height_cm / 175.0
+    vertices = tuple(shape_surface_point(tuple(v * height_scale for v in point),
+                                        proportions, reference) for point in part.vertices)
+    return ObjectMesh((MeshPart("human", vertices, part.faces, part.uvs),))
 
 
 @lru_cache(maxsize=32)
@@ -125,15 +157,15 @@ def _human_v2_skeleton(height_cm, weight_kg, body_type):
     proportions = generate_proportions(
         HumanoidSpec(float(height_cm), float(weight_kg), BodyType(body_type))
     )
-    return generate_deforming_skeleton(proportions)
+    return surface_skeleton(proportions)
 
 
 @lru_cache(maxsize=32)
 def _human_v2_skin_weights(height_cm, weight_kg, body_type):
     """Cache deterministic immutable skin weights for repeated Human V2 requests."""
-    mesh = _human_v2_mesh(float(height_cm))
+    mesh = _human_v2_mesh(float(height_cm), float(weight_kg), body_type)
     skeleton = _human_v2_skeleton(float(height_cm), float(weight_kg), body_type)
-    return generate_skin_weights(mesh, skeleton)
+    return _surface_skin_weights(mesh, skeleton)
 
 
 class HumanExperimentalProvider:
@@ -151,10 +183,11 @@ class HumanExperimentalProvider:
 
     def mesh(self, values):
         """Generate Human V2 from the cached immutable Mathematical Human surface."""
-        return _human_v2_mesh(float(values["height_cm"]))
+        return _human_v2_mesh(float(values["height_cm"]), float(values["weight_kg"]), values["body_type"])
 
     def semantic_mesh(self, mesh, values, operations):
-        return apply_human_semantic_operations(mesh, self.proportions(values), operations)
+        return apply_human_semantic_operations(mesh, self.proportions(values), operations,
+                                               skeleton=self.skeleton(values))
 
     def skeleton(self, values):
         return _human_v2_skeleton(
@@ -164,7 +197,7 @@ class HumanExperimentalProvider:
         )
 
     def skin_weights(self, mesh, values):
-        cached_mesh = _human_v2_mesh(float(values["height_cm"]))
+        cached_mesh = _human_v2_mesh(float(values["height_cm"]), float(values["weight_kg"]), values["body_type"])
         if mesh is cached_mesh:
             return _human_v2_skin_weights(
                 float(values["height_cm"]),
@@ -173,7 +206,7 @@ class HumanExperimentalProvider:
             )
         # Semantic edits can change vertex positions while retaining the same
         # Human controls, so only reuse weights for the unmodified base mesh.
-        return generate_skin_weights(mesh, self.skeleton(values))
+        return _surface_skin_weights(mesh, self.skeleton(values))
 
     def idle(self, duration, strength):
         return generate_idle(duration, strength)

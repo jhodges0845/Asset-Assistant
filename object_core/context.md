@@ -4,6 +4,14 @@ Scope: host-independent Asset Assistant behavior. Source code and tests are auth
 
 Last structural rescan: 2026-09-15
 
+## Current Human V2 integration (2026-09-20)
+
+Create > Human now uses the mathematical surface with a surface-aligned deforming
+rig and shared mesh/rig body-control mapping. The separate Mathematical Human
+provider remains a static study. See `docs/visual-testing-integration.md` for current integration,
+review commands, CI timing and quality limits. Earlier pelvis-first notes below
+are experimental history, not the active provider composition.
+
 ## Ownership by area
 
 - `providers/` — provider capabilities and composition; Human enters through `providers/human.py`.
@@ -14,39 +22,24 @@ Last structural rescan: 2026-09-15
 - `modification.py`, `modify_exchange.py` — modification planning/exchange contracts.
 - `validation/` — portable validation rules.
 
-## Human V2 geometry direction
+## Active Human V2 composition
 
-The older `generate_deformable_mesh` plus repeated cross-section-refinement description is historical and no longer the Human V2 target architecture. Human V2 is intentionally migrating toward **anatomy-oriented construction** while keeping shared workflow architecture frozen.
+- `providers/human.py` — Human plugin provider; validates legacy controls, caches a
+  neutral surface plus provisional UVs, and keys shaped meshes/weights by all controls.
+- `geometry/surface_human.py` + `surface_pelvis.py` — mathematical surface geometry.
+- `rigging/surface_human.py` — authored-surface rest rig and shared body-control mapping.
+- `providers/human_semantic.py` — topology-preserving Modify using provider rig bounds.
+- `geometry/neutral_pelvis.py` — earlier standalone pelvis experiment, separate from Human.
 
-Current relevant geometry includes:
-
-- `geometry/anatomical_human.py` — anatomy-oriented Human constructor/integration work;
-- `geometry/anatomical_pelvis.py` — semantic pelvic landmarks and paths;
-- `geometry/anatomical_pelvis_patch.py` — earlier integrated pelvis surface experiment retained as current Human behavior while the replacement is evaluated;
-- `geometry/neutral_pelvis.py` — standalone sex-neutral pelvis prototype from #283 with semantic shape controls and three named attachment boundaries;
-- legacy/refinement modules remain relevant where active Human generation still uses them, but they are not the desired long-term construction strategy.
-
-Always verify the exact active composition in `providers/human.py` and `geometry/anatomical_human.py` before editing it.
-
-## Active pelvis checkpoint
-
-The current blocker is pelvic topology, not mesh density. Diagnostics rejected both radial torso-to-thigh fans and stacked circumferential thigh-opening belts.
-
-The replacement strategy is pelvis-first:
-
-`standalone neutral pelvis -> extend upward into lower torso -> extend downward into left/right thighs`
-
-The standalone pelvis owns three intentional open interfaces: torso, left thigh, and right thigh. It is intentionally not integrated into the active Human until its clay/silhouette/wireframe review passes.
-
-Standalone regression checks: `python -m unittest tests.core.geometry.test_neutral_pelvis -v` protects exact attachment boundaries, connected topology, consistent outward winding, and default non-folded faces. `scripts/render_pelvis_review.py` checks actual camera projection before rendering and shows authored mesh edges in wireframe mode. These checks do not establish anatomical visual acceptance.
-
-Important constraints:
-
-- neutral construction does not assume male or female genital anatomy;
-- inner-thigh/crotch origin should remain close to centerline while outer hip/trochanter carries width;
-- prefer structured anatomical longitudinal flow over conversion belts;
-- preserve deterministic output and bilateral symmetry in the neutral default;
-- structural tests protect manifoldness/boundaries/orientation; visual renders decide anatomy quality.
+Keep surface rest landmarks synchronized with authored geometry centerlines. Preserve
+bone names/parents used by existing animations and recompute weights for edited meshes.
+Tests: `tests/core/test_provider_boundaries.py`, `tests/core/test_human_semantic.py`,
+`tests/blender/test_deformation_review.py`; the full Blender suite protects plugin workflows.
+The surface generator optionally returns authored arm indices; Human skinning
+uses them to keep wrist/forearm weights off the body, including after semantic
+edits. Shared weighting remains in `rigging/deforming.py` through its optional
+bone filter. Pose displacement and manifold tests do not establish anatomical
+visual acceptance.
 
 ## Semantic shaping / Modify
 
@@ -54,11 +47,12 @@ Human V2 must preserve the current Modify and model JSON round-trip workflow. An
 
 `geometry/neutral_pelvis.py` exposes independent semantic controls including pelvis/waist dimensions, hip fullness, glute projection, crotch dimensions/drop, thigh-opening dimensions, and thigh spacing. Do not couple independent controls merely to satisfy a test or visual default.
 
-`providers/human_semantic.py` remains the Human semantic-operation layer. Future constructor integration should provide stable anatomy-aware seams for semantic changes rather than bypassing Modify.
+`providers/human_semantic.py` remains the Human semantic-operation layer. Provider integration must provide stable anatomy-aware seams for semantic changes rather than bypassing Modify.
 
 ## Rig/deformation
 
-- `rigging/deforming.py` owns Human deformation skeleton/weights.
+- `rigging/deforming.py` owns shared skin weights and the legacy skeleton;
+  `rigging/surface_human.py` owns the active Human rest skeleton.
 - Current quality work has softened major-joint blending without introducing a separate animator control rig.
 - Keep export/deformation concerns distinct from future animator-control abstractions.
 - Deeper rig/weight changes follow topology evidence rather than speculative skeleton expansion.
@@ -79,7 +73,7 @@ The standalone prototype now distributes the lower-hip turn across cubic longitu
 ## Mathematical Human plugin option
 
 - `human_surface_study` is registered as Mathematical Human in Create; static,
-  no rig/animation/UV support. Existing Human stays compatible.
+  no rig/animation/UV support. Human uses this surface with a separate rigged provider.
 - `object_core/geometry/surface_human.py` and `surface_pelvis.py`: mathematical
   geometry, rounded pelvis and bounded fairing; no imported anatomical assets.
 - `blender_adapter/surface_human_runtime.py`: normal asset creation with the same
@@ -90,10 +84,5 @@ The standalone prototype now distributes the lower-hip turn across cubic longitu
 - See `docs/mathematical-human-plugin.md` and the mathematical-human development
   journal for usage, limitations, and reproducible standalone studies.
 
-### Existing visual-testing regression (before mathematical Human merge)
-
-The separate curved-landmark neutral pelvis currently fails the symmetry tests
-in `test_neutral_pelvis.py` and `test_neutral_pelvis_curved_landmarks.py`. Confirmed
-on c8541f6 before merging main. These do not exercise `human_surface_study`; its
-main CI passed. Preserve the experimental source when synchronizing branches;
-repairing its symmetry is separate anatomy work, not a test-threshold change.
+The earlier neutral-pelvis symmetry regression was repaired on visual-testing
+before this integration pass; keep its geometry tests as regression coverage.

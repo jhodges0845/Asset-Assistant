@@ -54,8 +54,10 @@ class SurfaceHumanProvider:
     )
     def build_values(self,values):return self.build(SurfaceHumanSpec(**values))
     def mesh(self,values):return self.build(SurfaceHumanSpec(**values))[0]
-    def build(self,spec):
-        mesh=generate_surface_human(spec);report=audit_surface(mesh)
+    def build(self,spec, *, include_arm_indices=False):
+        generated=generate_surface_human(spec, include_arm_indices=include_arm_indices)
+        mesh, arms = generated if include_arm_indices else (generated, ())
+        report=audit_surface(mesh)
         if not report['passed']:raise ValueError('surface validation failed: '+json.dumps(report))
         report.update(generator=VERSION,parameters=asdict(spec),geometry_sha256=hashlib.sha256(json.dumps({'vertices':mesh.parts[0].vertices,'faces':mesh.parts[0].faces},separators=(',',':')).encode()).hexdigest(),quality_status='experimental_anatomical_study')
-        return mesh,report
+        return (mesh,report,arms) if include_arm_indices else (mesh,report)

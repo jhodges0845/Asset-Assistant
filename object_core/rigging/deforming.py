@@ -140,7 +140,7 @@ def _weights_for_vertex(vertex, bones, max_influences=4):
     return tuple(BoneWeight(name, value) for name, value in normalized if value > 0.0)
 
 
-def generate_skin_weights(mesh: ObjectMesh, skeleton: Skeleton, *, max_influences=4):
+def generate_skin_weights(mesh: ObjectMesh, skeleton: Skeleton, *, max_influences=4, bone_filter=None):
     """Return deterministic normalized weights for each vertex of each mesh part."""
     if not isinstance(mesh, ObjectMesh):
         raise TypeError("mesh must be ObjectMesh")
@@ -153,10 +153,18 @@ def generate_skin_weights(mesh: ObjectMesh, skeleton: Skeleton, *, max_influence
     deform_bones = tuple(bone for bone in skeleton.bones if bone.name != "root")
     if not deform_bones:
         raise ValueError("skeleton must contain deform bones")
+    allowed_bones = frozenset(deform_bones)
+    def weights(part, index, vertex):
+        if bone_filter is None:
+            return _weights_for_vertex(vertex, deform_bones, max_influences)
+        candidates = bone_filter(part.name, index, vertex, deform_bones)
+        if not candidates or any(bone not in allowed_bones for bone in candidates):
+            raise ValueError("bone_filter must return a nonempty subset of deform bones")
+        return _weights_for_vertex(vertex, candidates, max_influences)
     return tuple(
         SkinWeights(
             part.name,
-            tuple(_weights_for_vertex(vertex, deform_bones, max_influences) for vertex in part.vertices),
+            tuple(weights(part, index, vertex) for index, vertex in enumerate(part.vertices)),
         )
         for part in mesh.parts
     )

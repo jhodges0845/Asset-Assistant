@@ -8,7 +8,15 @@ Human V2 is a coordinated geometry, deformation, and motion quality pass. It is 
 
 The model JSON round trip and semantic Modify workflow are working. Human V2 must preserve them: the base constructor creates credible neutral anatomy; Modify creates the particular character the artist wants.
 
-## September 2026 checkpoint
+## Current integration checkpoint
+
+The active Human provider now uses the mathematical surface with a surface-aligned
+rig, shared body-control mapping, and corrected deformation review cards. See
+[Human V2 integration and visual review](visual-testing-integration.md) for current
+behavior and validation. The pelvis-first plan below records earlier construction
+experiments and quality criteria, not the active provider composition.
+
+## Earlier September 2026 checkpoint
 
 Early Human V2 passes improved torso, limbs, cranium, face support, shoulder transitions, pelvis transitions, weighting, and Human-specific cross-section resolution. Diagnostic clay, silhouette, and wireframe renders then established that generic rounding/refinement had reached its ceiling. The remaining quality problem is topology organization and anatomical construction, not polygon count.
 

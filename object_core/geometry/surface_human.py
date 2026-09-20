@@ -83,7 +83,7 @@ def _ellipse(cx,cy,z,rx,ry,n):
     return [(cx+rx*cos(2*pi*j/n),cy+ry*sin(2*pi*j/n),z) for j in range(n)]
 
 
-def generate_surface_human(spec=SurfaceHumanSpec()):
+def generate_surface_human(spec=SurfaceHumanSpec(), *, include_arm_indices=False):
     if not isinstance(spec,SurfaceHumanSpec):raise TypeError('expected SurfaceHumanSpec')
     b=_Surface();n=64
     # z, half breadth, front depth, back depth, sagittal center offset.
@@ -175,8 +175,10 @@ def generate_surface_human(spec=SurfaceHumanSpec()):
             current=b.ring(pts);b.band(previous,current);previous=current
         b.cap(previous)
     b.split(rings[0],roots[1],roots[-1],saddle=True,upper_adjacent=rings[1],lower_adjacent=(first_leg_rows[1],first_leg_rows[-1]))
+    arm_ranges = {}
     # Arms use the perimeter of a real torso opening. No independent limb shells.
     for sign in (1,-1):
+        arm_start = len(b.v)
         root=holes[sign];count=len(root)
         root=sorted(root,key=lambda i:atan2(b.v[i][2]-1.38,b.v[i][1]))
         arm=[(0,.192,1.385,.044,.048),(.07,.218,1.37,.046,.047),(.15,.234,1.33,.043,.043),(.40,.263,1.19,.032,.034),(.57,.28,1.12,.037,.034),(.83,.302,.99,.026,.025),(1,.308,.923,.018,.018)]
@@ -226,6 +228,7 @@ def generate_surface_human(spec=SurfaceHumanSpec()):
             t=k/12;cx=sign*(.287-.034*t);z=.873-.032*t;r=.007*(1-.85*t)
             cur=b.ring([(cx,r*cos(2*pi*j/len(opening)),z+r*sin(2*pi*j/len(opening))) for j in range(len(opening))]);connect(prev,cur);prev=cur
         b.cap(prev)
+        arm_ranges["left" if sign == 1 else "right"] = (arm_start, len(b.v))
     # Bounded two-step relaxation at shoulder junctions.
     # This removes sampling-density creases; it does not supply missing anatomy.
     from collections import defaultdict
@@ -260,4 +263,9 @@ def generate_surface_human(spec=SurfaceHumanSpec()):
             c,d=vertices[f[j]],vertices[f[j+1]]
             volume+=a[0]*(c[1]*d[2]-c[2]*d[1])+a[1]*(c[2]*d[0]-c[0]*d[2])+a[2]*(c[0]*d[1]-c[1]*d[0])
     if volume<0:faces=tuple(tuple(reversed(f)) for f in faces)
-    return ObjectMesh((MeshPart('human_surface',vertices,faces),))
+    mesh = ObjectMesh((MeshPart('human_surface',vertices,faces),))
+    if include_arm_indices:
+        arms = tuple((side, tuple(remap[i] for i in range(start, end) if i in remap))
+                     for side, (start, end) in arm_ranges.items())
+        return mesh, arms
+    return mesh
