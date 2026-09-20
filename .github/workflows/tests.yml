@@ -134,3 +134,16 @@ jobs:
           name: mathematical-human-review
           path: surface_review*.png
           if-no-files-found: error
+
+      - name: Render Human V2 deformation review
+        run: |
+          "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
+            --background --factory-startup --python-exit-code 1 \
+            --python scripts/inspect_human_deformation.py
+
+      - name: Upload Human V2 deformation review
+        uses: actions/upload-artifact@v4
+        with:
+          name: human-v2-deformation-review
+          path: human_v2_deformation_review.png
+          if-no-files-found: error
