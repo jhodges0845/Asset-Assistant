@@ -142,15 +142,37 @@ def generate_neutral_pelvis(shape=None):
         (-p.width * 0.008, 0.0, -p.height * 0.010),
     )
 
+    # Inflate the transition symmetrically. Averaged polygon normals are
+    # sensitive to mirrored face ordering at the sagittal seam, so applying
+    # them independently can introduce a small but real left/right drift.
+    # Compute the positive-X side, then mirror its displacement onto the
+    # coordinate-matched negative-X side.
     normals = vertex_normals(net.vertices, net.faces)
+    before_inflate = list(net.vertices)
+    positive = tuple(i for i in transition_regions if net.vertices[i][0] > 1.0e-8)
     brush(
         net.vertices,
-        transition_regions,
+        positive,
         (0.0, 0.0, -p.height * 0.04),
         p.width * 0.44,
         normal_amount=p.width * 0.0035,
         normals=normals,
     )
+    mirror_lookup = {
+        (round(-x, 6), round(y, 6), round(z, 6)): i
+        for i, (x, y, z) in enumerate(before_inflate)
+        if x < -1.0e-8
+    }
+    for i in positive:
+        x0, y0, z0 = before_inflate[i]
+        mate = mirror_lookup.get((round(x0, 6), round(y0, 6), round(z0, 6)))
+        if mate is None:
+            continue
+        dx = net.vertices[i][0] - x0
+        dy = net.vertices[i][1] - y0
+        dz = net.vertices[i][2] - z0
+        mx, my, mz = before_inflate[mate]
+        net.vertices[mate] = (mx - dx, my + dy, mz + dz)
 
     locked = set(torso) | set(left) | set(right)
 
