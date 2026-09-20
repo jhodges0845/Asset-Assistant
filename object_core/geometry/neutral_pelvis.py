@@ -60,6 +60,25 @@ def _curve_landmark_spans(net):
 def generate_neutral_pelvis(shape=None):
     p = shape or NeutralPelvisShape()
     net, torso, left, right = _build_network(p)
+
+    # Preserve the authored bilateral correspondence before any sculpt/fairing
+    # operation.  Later operations may visit mirrored vertices in a different
+    # order, so coordinate equality alone is not a reliable symmetry contract.
+    authored = tuple(net.vertices)
+    authored_lookup = {
+        (round(x, 6), round(y, 6), round(z, 6)): i
+        for i, (x, y, z) in enumerate(authored)
+    }
+    mirror_pairs = []
+    centerline = []
+    for i, (x, y, z) in enumerate(authored):
+        if abs(x) < 1.0e-6:
+            centerline.append(i)
+        elif x > 0.0:
+            mate = authored_lookup.get((round(-x, 6), round(y, 6), round(z, 6)))
+            if mate is not None:
+                mirror_pairs.append((mate, i))
+
     _curve_landmark_spans(net)
     net.faces = list(orient_faces_consistently(net.faces))
 
@@ -196,14 +215,20 @@ def generate_neutral_pelvis(shape=None):
     )
     net.faces = list(orient_faces_consistently(net.faces))
 
-    # Numerical fairing can leave vertices that are mathematically on the
-    # sagittal plane a few millionths off zero.  Snap only that floating-point
-    # noise back to the plane so the authored bilateral symmetry contract is
-    # exact without changing the visible surface.
-    net.vertices = [
-        (0.0 if abs(x) < 1.0e-5 else x, y, z)
-        for x, y, z in net.vertices
-    ]
+    # Reconcile each authored mirror pair after all sculpt/fairing passes.
+    # Averaging the pair (rather than copying one side) preserves the intended
+    # deformation while making bilateral symmetry exact and deterministic.
+    for left_i, right_i in mirror_pairs:
+        lx, ly, lz = net.vertices[left_i]
+        rx, ry, rz = net.vertices[right_i]
+        half_x = (abs(lx) + abs(rx)) * 0.5
+        y = (ly + ry) * 0.5
+        z = (lz + rz) * 0.5
+        net.vertices[left_i] = (-half_x, y, z)
+        net.vertices[right_i] = (half_x, y, z)
+    for i in centerline:
+        _, y, z = net.vertices[i]
+        net.vertices[i] = (0.0, y, z)
     return (
         tuple(net.vertices),
         tuple(net.faces),
