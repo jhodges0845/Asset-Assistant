@@ -131,7 +131,7 @@ def _draw_artist_modify(panel, context, ui, modify_ui):
 def _draw_asset_type_picker(layout, settings, ui):
     box = layout.box()
     box.label(text="BASE ASSET", icon="OBJECT_DATA")
-    rows = (("human_experimental", "quadruped"), ("avian", "box"))
+    rows = (("human_experimental", "quadruped"), ("avian", "box"), ("human_surface_study",))
     for keys in rows:
         row = box.row(align=True); row.scale_y = 1.25
         for key in keys:
@@ -199,7 +199,7 @@ def _draw_export(panel, context, ui, working_asset_ui):
     if target is None:
         layout.label(text="Create or choose an asset first.", icon="INFO"); return
     setup = layout.box(); setup.label(text="DESTINATION", icon="EXPORT"); setup.prop(settings, "output_target")
-    if settings.output_target == "CURA": setup.label(text="STL • current pose • millimetres • one solid")
+    if settings.output_target == "CURA": setup.label(text="STL â€¢ current pose â€¢ millimetres â€¢ one solid")
     else:
         setup.prop(settings, "asset_use"); setup.prop(settings, "require_textures")
     validation = layout.box(); validation.label(text="READINESS", icon="CHECKMARK")
@@ -208,7 +208,7 @@ def _draw_export(panel, context, ui, working_asset_ui):
     snapshot = settings.validation_results
     if snapshot:
         errors = sum(row.status == "ERROR" for row in snapshot); warnings = sum(row.status == "WARN" for row in snapshot); passes = sum(row.status == "PASS" for row in snapshot)
-        validation.label(text=f"{errors} errors  •  {warnings} warnings  •  {passes} passed", icon="CHECKMARK" if errors == 0 else "ERROR")
+        validation.label(text=f"{errors} errors  â€¢  {warnings} warnings  â€¢  {passes} passed", icon="CHECKMARK" if errors == 0 else "ERROR")
         ui._draw_validation_results(validation, snapshot, max(24, int(context.region.width / 7) - 6))
     else: validation.label(text="Run validation to check readiness.", icon="INFO")
     readiness_rows = snapshot if settings.output_target == "CURA" else ui._export_issues(context)

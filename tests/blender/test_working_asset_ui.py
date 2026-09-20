@@ -95,8 +95,9 @@ class EditableCheckpointTests(unittest.TestCase):
 
         filepath = save_editable_checkpoint("/tmp/hero.checkpoint", fake_save)
 
-        self.assertEqual("/tmp/hero.blend", filepath)
-        self.assertEqual([{"filepath": "/tmp/hero.blend", "copy": True}], calls)
+        expected = str(Path("/tmp/hero.blend"))
+        self.assertEqual(expected, filepath)
+        self.assertEqual([{"filepath": expected, "copy": True}], calls)
 
     def test_checkpoint_destination_rechecks_filesystem_after_file_is_deleted(self):
         with tempfile.TemporaryDirectory() as directory:
