@@ -1,29 +1,58 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Three-sphere procedural geometry comparison for visual testing.
+"""Render neutral-Human diagnostic review contact sheets from Blender.
 
-This keeps the legacy pelvis-review script path and output names so the existing
-visual-testing automation can run unchanged.
+Run from the repository root with Blender 5.2.1 (or a compatible build):
+
+    blender --background --factory-startup \
+      --python scripts/render_human_review.py -- \
+      --output human_review.png
+
+By default one invocation writes three matched four-view sheets:
+
+- ``human_review.png``: clay render for surface/anatomy reading
+- ``human_review_silhouette.png``: flat silhouette for proportion/contour reading
+- ``human_review_wireframe.png``: wireframe diagnostic for topology density/flow
+
+Rendering uses Cycles on the CPU with 32 samples and denoising. Default Human
+settings are 180 cm, 95 kg, and average body type. Each sheet contains, left to
+right: front, 3/4, side, and back views of the same freshly generated Human.
+This is intentionally a development-review tool, not add-on runtime code.
 """
+
 from __future__ import annotations
 
 import argparse
 import math
+import os
 import sys
 from pathlib import Path
 
 import bpy
 from mathutils import Vector
+from bpy_extras.object_utils import world_to_camera_view
 
-MODES = ("clay", "silhouette", "wireframe")
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from object_core.providers.human import HumanExperimentalProvider  # noqa: E402
 
 
-def args():
-    parser = argparse.ArgumentParser()
+VIEW_ROTATIONS_DEGREES = (0.0, -45.0, -90.0, 180.0)
+VIEW_NAMES = ("Front", "3/4", "Side", "Back")
+REVIEW_MODES = ("clay", "silhouette", "wireframe")
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Render Human V2 diagnostic review images")
+    parser.add_argument("--provider", choices=("human_experimental", "human_surface_study"), default="human_surface_study")
     parser.add_argument("--output", default="pelvis_review.png")
-    parser.add_argument("--modes", nargs="+", choices=MODES, default=list(MODES))
-    parser.add_argument("--radius", type=float, default=1.6)
-
-    # Legacy automation compatibility.
+    parser.add_argument("--height-cm", type=float, default=175.0)
+    parser.add_argument("--weight-kg", type=float, default=95.0)
+    parser.add_argument("--body-type", default="average")
+    # Legacy pelvis automation arguments are accepted but ignored.
+    # This path intentionally regenerates Astra's PR #287 Mathematical Human checkpoint.
     parser.add_argument("--width", type=float, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--depth", type=float, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--height", type=float, default=None, help=argparse.SUPPRESS)
@@ -31,289 +60,303 @@ def args():
     parser.add_argument("--glute-projection", type=float, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--crotch-width", type=float, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--thigh-spacing", type=float, default=None, help=argparse.SUPPRESS)
-
+    parser.add_argument("--samples", type=int, default=32)
+    parser.add_argument("--resolution-x", type=int, default=1800)
+    parser.add_argument("--resolution-y", type=int, default=900)
+    parser.add_argument(
+        "--modes",
+        nargs="+",
+        choices=REVIEW_MODES,
+        default=list(REVIEW_MODES),
+        help="Diagnostic render modes to write (default: clay silhouette wireframe)",
+    )
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(argv)
 
 
-def clear_scene():
+def _clear_scene():
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
-    for datablocks in (
-        bpy.data.meshes,
-        bpy.data.materials,
-        bpy.data.cameras,
-        bpy.data.lights,
-        bpy.data.curves,
-    ):
+    for datablocks in (bpy.data.meshes, bpy.data.curves, bpy.data.materials, bpy.data.cameras, bpy.data.lights):
         for datablock in list(datablocks):
             if datablock.users == 0:
                 datablocks.remove(datablock)
 
 
-def look_at(obj, target):
-    obj.rotation_euler = (Vector(target) - obj.location).to_track_quat("-Z", "Y").to_euler()
+def _human_part(args):
+    if getattr(args,'provider','human_experimental') == 'human_surface_study':
+        from object_core.objects import get_provider
+        from blender_adapter.surface_human_study import validate_control_surface
+        provider=get_provider(args.provider)
+        mesh=provider.mesh({'height_cm':args.height_cm})
+        validate_control_surface(mesh.parts[0])
+        return mesh.parts[0]
+    provider = HumanExperimentalProvider()
+    mesh = provider.mesh(
+        {
+            "height_cm": args.height_cm,
+            "weight_kg": args.weight_kg,
+            "body_type": args.body_type,
+        }
+    )
+    if len(mesh.parts) != 1:
+        raise RuntimeError("Human review renderer expects exactly one mesh part")
+    return mesh.parts[0]
 
 
-def make_material():
-    material = bpy.data.materials.new("Sphere Geometry Study")
+def _make_mesh_object(name, part):
+    mesh = bpy.data.meshes.new(name + "Mesh")
+    mesh.from_pydata(part.vertices, [], part.faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
+def _make_material():
+    material = bpy.data.materials.new("Human Review Material")
     material.use_nodes = True
     return material
 
 
-def configure_material(material, mode):
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
-    nodes.clear()
-    output = nodes.new("ShaderNodeOutputMaterial")
+def _configure_clay_material(material):
+    material.node_tree.nodes.clear()
+    output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+    principled = material.node_tree.nodes.new("ShaderNodeBsdfPrincipled")
+    principled.inputs["Base Color"].default_value = (0.52, 0.55, 0.58, 1.0)
+    principled.inputs["Roughness"].default_value = 0.72
+    material.node_tree.links.new(principled.outputs["BSDF"], output.inputs["Surface"])
 
+
+def _configure_silhouette_material(material):
+    material.node_tree.nodes.clear()
+    output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+    emission = material.node_tree.nodes.new("ShaderNodeEmission")
+    emission.inputs["Color"].default_value = (0.92, 0.92, 0.92, 1.0)
+    emission.inputs["Strength"].default_value = 1.0
+    material.node_tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
+
+
+def _configure_wireframe_material(material):
+    material.node_tree.nodes.clear()
+    output = material.node_tree.nodes.new("ShaderNodeOutputMaterial")
+    emission = material.node_tree.nodes.new("ShaderNodeEmission")
+    wire = material.node_tree.nodes.new("ShaderNodeWireframe")
+    wire.use_pixel_size = True
+    wire.inputs["Size"].default_value = 1.25
+    ramp = material.node_tree.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.40
+    ramp.color_ramp.elements[0].color = (0.055, 0.065, 0.08, 1.0)
+    ramp.color_ramp.elements[1].position = 0.60
+    ramp.color_ramp.elements[1].color = (0.94, 0.94, 0.94, 1.0)
+    material.node_tree.links.new(wire.outputs["Fac"], ramp.inputs["Fac"])
+    material.node_tree.links.new(ramp.outputs["Color"], emission.inputs["Color"])
+    material.node_tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
+
+
+def _configure_material(material, mode):
     if mode == "clay":
-        shader = nodes.new("ShaderNodeBsdfPrincipled")
-        shader.inputs["Base Color"].default_value = (0.62, 0.65, 0.70, 1.0)
-        shader.inputs["Roughness"].default_value = 0.72
-        shader.inputs["Metallic"].default_value = 0.0
-        links.new(shader.outputs["BSDF"], output.inputs["Surface"])
-        return
-
-    if mode == "silhouette":
-        shader = nodes.new("ShaderNodeEmission")
-        shader.inputs["Color"].default_value = (0.98, 0.98, 0.98, 1.0)
-        shader.inputs["Strength"].default_value = 1.0
-        links.new(shader.outputs["Emission"], output.inputs["Surface"])
-        return
-
-    wire = nodes.new("ShaderNodeWireframe")
-    if hasattr(wire, "use_pixel_size"):
-        wire.use_pixel_size = True
-    if wire.inputs.get("Size") is not None:
-        wire.inputs["Size"].default_value = 1.0
-
-    mix = nodes.new("ShaderNodeMixRGB")
-    mix.blend_type = "MIX"
-    mix.inputs[1].default_value = (0.055, 0.065, 0.08, 1.0)
-    mix.inputs[2].default_value = (0.95, 0.96, 0.98, 1.0)
-    links.new(wire.outputs["Fac"], mix.inputs[0])
-
-    shader = nodes.new("ShaderNodeEmission")
-    shader.inputs["Strength"].default_value = 1.0
-    links.new(mix.outputs["Color"], shader.inputs["Color"])
-    links.new(shader.outputs["Emission"], output.inputs["Surface"])
-
-
-def configure_world(mode):
-    scene = bpy.context.scene
-    world = scene.world or bpy.data.worlds.new("Sphere Study World")
-    scene.world = world
-    world.use_nodes = True
-
-    nodes = world.node_tree.nodes
-    links = world.node_tree.links
-    nodes.clear()
-
-    output = nodes.new("ShaderNodeOutputWorld")
-    background = nodes.new("ShaderNodeBackground")
-    if mode == "clay":
-        background.inputs["Color"].default_value = (0.065, 0.078, 0.10, 1.0)
-        background.inputs["Strength"].default_value = 0.30
+        _configure_clay_material(material)
+    elif mode == "silhouette":
+        _configure_silhouette_material(material)
+    elif mode == "wireframe":
+        _configure_wireframe_material(material)
     else:
-        background.inputs["Color"].default_value = (0.008, 0.010, 0.014, 1.0)
-        background.inputs["Strength"].default_value = 0.05
-    links.new(background.outputs["Background"], output.inputs["Surface"])
+        raise ValueError("unknown Human review mode: {}".format(mode))
 
 
-def add_uv_sphere(name, location, radius, segments, rings, material, smooth):
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        segments=segments,
-        ring_count=rings,
-        radius=radius,
-        location=location,
-    )
-    obj = bpy.context.object
-    obj.name = name
-    obj.data.materials.append(material)
-    for polygon in obj.data.polygons:
-        polygon.use_smooth = smooth
-    return obj
+def _bounds(vertices):
+    minimum = [min(vertex[axis] for vertex in vertices) for axis in range(3)]
+    maximum = [max(vertex[axis] for vertex in vertices) for axis in range(3)]
+    return minimum, maximum
 
 
-def add_icosphere(name, location, radius, subdivisions, material):
-    bpy.ops.mesh.primitive_ico_sphere_add(
-        subdivisions=subdivisions,
-        radius=radius,
-        location=location,
-    )
-    obj = bpy.context.object
-    obj.name = name
-    obj.data.materials.append(material)
-    for polygon in obj.data.polygons:
-        polygon.use_smooth = True
-    return obj
+def _rotated_xy_bounds(vertices, angle_degrees):
+    angle = math.radians(angle_degrees)
+    cosine = math.cos(angle)
+    sine = math.sin(angle)
+    xs = []
+    ys = []
+    for x, y, _z in vertices:
+        xs.append(x * cosine - y * sine)
+        ys.append(x * sine + y * cosine)
+    return (min(xs), max(xs)), (min(ys), max(ys))
 
 
-def add_label(text, location, size, material):
-    bpy.ops.object.text_add(
-        location=location,
-        rotation=(math.radians(90.0), 0.0, 0.0),
-    )
-    obj = bpy.context.object
-    obj.name = f"Label {text}"
-    obj.data.body = text
-    obj.data.align_x = "CENTER"
-    obj.data.align_y = "CENTER"
-    obj.data.size = size
-    obj.data.extrude = 0.012
-    obj.data.materials.append(material)
-    return obj
-
-
-def build_geometry(material, radius):
-    spacing = radius * 3.45
-
-    low = add_uv_sphere(
-        "01 Low Poly Smooth",
-        (-spacing, 0.0, radius * 0.75),
-        radius,
-        segments=8,
-        rings=4,
-        material=material,
-        smooth=True,
-    )
-    low["method"] = "UV sphere: 8 segments, 4 rings, smooth shading"
-
-    # 32 angular steps give a circular sagitta error of:
-    # 1 - cos(pi / 32) ~= 0.004815 = 0.4815% of radius.
-    # 16 latitude rings keep the meridional sampling safely below 1% as well.
-    high = add_uv_sphere(
-        "02 High Resolution Under 1 Percent Error",
-        (0.0, 0.0, radius * 0.75),
-        radius,
-        segments=32,
-        rings=16,
-        material=material,
-        smooth=True,
-    )
-    high["method"] = "UV sphere: 32 segments, 16 rings, geometric chord error < 1% radius"
-
-    ico = add_icosphere(
-        "03 Triangle Subdivision Icosphere",
-        (spacing, 0.0, radius * 0.75),
-        radius,
-        subdivisions=2,
-        material=material,
-    )
-    ico["method"] = "Icosphere: subdivided triangular topology"
-
-    label_z = -radius * 1.25
-    add_label("LOW POLY + SMOOTH", (-spacing, -0.15, label_z), radius * 0.20, material)
-    add_label("< 1% ERROR UV SPHERE", (0.0, -0.15, label_z), radius * 0.18, material)
-    add_label("SUBDIVIDED TRIANGLES", (spacing, -0.15, label_z), radius * 0.18, material)
-
-    return [low, high, ico], spacing
-
-
-def add_area_light(name, location, energy, size, target):
-    data = bpy.data.lights.new(name, type="AREA")
-    data.energy = energy
-    data.shape = "DISK"
-    data.size = size
-    obj = bpy.data.objects.new(name, data)
+def _add_label(text, location, size):
+    curve = bpy.data.curves.new(text + "Label", type="FONT")
+    curve.body = text
+    curve.align_x = "CENTER"
+    curve.align_y = "CENTER"
+    curve.size = size
+    obj = bpy.data.objects.new(text + "Label", curve)
     bpy.context.collection.objects.link(obj)
     obj.location = location
-    look_at(obj, target)
+    obj.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+    return obj
 
 
-def add_lights(radius, spacing):
-    target = (0.0, 0.0, radius * 0.7)
-    add_area_light(
-        "Key",
-        (-spacing * 0.55, -radius * 5.2, radius * 4.5),
-        1450.0,
-        radius * 3.0,
-        target,
-    )
-    add_area_light(
-        "Fill",
-        (spacing * 0.75, -radius * 4.0, radius * 2.2),
-        850.0,
-        radius * 3.5,
-        target,
-    )
-    add_area_light(
-        "Rim",
-        (0.0, radius * 4.0, radius * 4.8),
-        1200.0,
-        radius * 2.8,
-        target,
-    )
+def _look_at(obj, target):
+    direction = Vector(target) - obj.location
+    obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 
-def configure_camera(radius, spacing):
-    camera_data = bpy.data.cameras.new("Sphere Study Camera")
-    camera = bpy.data.objects.new("Sphere Study Camera", camera_data)
-    bpy.context.collection.objects.link(camera)
+def _add_lighting(center_z, scene_width, model_height):
+    size = max(model_height, scene_width * 0.35)
+    power_scale = (model_height / 1.8) ** 2
 
-    # Orthographic view keeps all three spheres the same apparent size and
-    # removes perspective as a variable in the comparison.
-    camera_data.type = "ORTHO"
-    # Blender orthographic scale controls the camera width here. The three\n    # sphere centers span 6.9 radii, and their silhouettes add another 2 radii.\n    # Use a little over 10 radii so all three fit with clear side margins.\n    camera_data.ortho_scale = radius * 10.2\n    camera.location = (0.0, -radius * 11.0, radius * 3.0)
-    look_at(camera, (0.0, 0.0, radius * 0.55))
-    bpy.context.scene.camera = camera
+    key_data = bpy.data.lights.new("Key", type="AREA")
+    key_data.energy = 100.0 * power_scale
+    key_data.shape = "RECTANGLE"
+    key_data.size = size * 0.70
+    key_data.size_y = size * 0.70
+    key = bpy.data.objects.new("Key", key_data)
+    bpy.context.collection.objects.link(key)
+    key.location = (-scene_width * 0.18, -model_height * 0.85, center_z + model_height * 0.25)
+    _look_at(key, (0.0, 0.0, center_z))
+
+    fill_data = bpy.data.lights.new("Fill", type="AREA")
+    fill_data.energy = 50.0 * power_scale
+    fill_data.size = size * 0.55
+    fill = bpy.data.objects.new("Fill", fill_data)
+    bpy.context.collection.objects.link(fill)
+    fill.location = (scene_width * 0.18, -model_height * 0.65, center_z)
+    _look_at(fill, (0.0, 0.0, center_z))
 
 
-def configure_scene(radius, spacing):
+def _validate_camera_frame(camera, review_objects, scene):
+    for obj in review_objects:
+        points = (vertex.co for vertex in obj.data.vertices) if obj.type == "MESH" else (
+            Vector(corner) for corner in obj.bound_box
+        )
+        for point in points:
+            projected = world_to_camera_view(scene, camera, obj.matrix_world @ point)
+            if not (
+                camera.data.clip_start < projected.z < camera.data.clip_end
+                and 0.01 <= projected.x <= 0.99
+                and 0.01 <= projected.y <= 0.99
+            ):
+                raise RuntimeError(
+                    "Human review object {} extends outside the camera: {}".format(
+                        obj.name, tuple(projected)
+                    )
+                )
+
+
+def _configure_scene(args, part):
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
-    scene.cycles.samples = 32
+    scene.cycles.samples = max(1,getattr(args,'samples',32))
     scene.cycles.use_denoising = True
-
-    scene.render.resolution_x = 1800
-    scene.render.resolution_y = 900
+    scene.render.resolution_x = args.resolution_x
+    scene.render.resolution_y = args.resolution_y
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     scene.render.film_transparent = False
 
-    scene.view_settings.view_transform = "AgX"
-    scene.view_settings.look = "AgX - Medium High Contrast"
-    scene.view_settings.exposure = 0.15
+    world = scene.world or bpy.data.worlds.new("Human Review World")
+    scene.world = world
+    world.use_nodes = True
+    background = world.node_tree.nodes.get("Background")
+    if background is not None:
+        background.inputs["Color"].default_value = (0.075, 0.085, 0.10, 1.0)
+        background.inputs["Strength"].default_value = 0.65
 
-    configure_camera(radius, spacing)
-    add_lights(radius, spacing)
+    minimum, maximum = _bounds(part.vertices)
+    model_height = maximum[2] - minimum[2]
+    center_z = (minimum[2] + maximum[2]) * 0.5
+
+    # The study faces +Y; the legacy Human and this camera face -Y.
+    rotations=tuple(angle+180.0 for angle in VIEW_ROTATIONS_DEGREES) if getattr(args,'provider','human_experimental')=='human_surface_study' else VIEW_ROTATIONS_DEGREES
+    rotated_bounds = [_rotated_xy_bounds(part.vertices, angle) for angle in rotations]
+    widths = [bounds[0][1] - bounds[0][0] for bounds in rotated_bounds]
+    maximum_depth = max(bounds[1][1] - bounds[1][0] for bounds in rotated_bounds)
+    gap = max(widths) * 0.28
+
+    centers = []
+    cursor = 0.0
+    for width in widths:
+        centers.append(cursor + width * 0.5)
+        cursor += width + gap
+    sheet_center = (cursor - gap) * 0.5
+    positions = tuple(center - sheet_center for center in centers)
+    total_width = cursor - gap
+
+    material = _make_material()
+    mesh_objects = []
+    for view_name, angle, x in zip(VIEW_NAMES, rotations, positions):
+        obj = _make_mesh_object("Human " + view_name, part)
+        if getattr(args,'provider','human_experimental') == 'human_surface_study':
+            for face in obj.data.polygons:face.use_smooth=True
+            modifier=obj.modifiers.new('Surface display subdivision','SUBSURF')
+            modifier.levels=2;modifier.render_levels=2
+        x_bounds = rotated_bounds[len(mesh_objects)][0]
+        obj.location.x = x - (x_bounds[0] + x_bounds[1]) * 0.5
+        obj.rotation_euler.z = math.radians(angle)
+        obj.data.materials.append(material)
+        mesh_objects.append(obj)
+        _add_label(view_name, (x, -maximum_depth * 0.60, minimum[2] - model_height * 0.075), model_height * 0.035)
+
+    aspect = args.resolution_x / float(args.resolution_y)
+    ortho_scale = max(total_width * 1.12, model_height * 1.22 * aspect)
+
+    camera_data = bpy.data.cameras.new("Review Camera")
+    camera_data.type = "ORTHO"
+    camera_data.sensor_fit = "HORIZONTAL"
+    camera_data.ortho_scale = ortho_scale
+    camera_data.clip_start = 0.1
+    camera_distance = max(model_height * 2.2, maximum_depth * 6.0, 10.0)
+    camera_data.clip_end = camera_distance + max(model_height, maximum_depth) * 4.0
+
+    camera = bpy.data.objects.new("Review Camera", camera_data)
+    bpy.context.collection.objects.link(camera)
+    target_z = center_z - model_height * 0.015
+    camera.location = (0.0, -camera_distance, target_z)
+    _look_at(camera, (0.0, 0.0, target_z))
+    scene.camera = camera
+
+    _add_lighting(center_z, total_width, model_height)
+    bpy.context.view_layer.update()
+    review_objects = mesh_objects + [obj for obj in scene.objects if obj.type == "FONT"]
+    _validate_camera_frame(camera, review_objects, scene)
+    return material
 
 
-def output_for_mode(base, mode):
-    base = Path(base)
+def _mode_output(base_output, mode):
     if mode == "clay":
-        return base
-    return base.with_name(f"{base.stem}_{mode}{base.suffix}")
+        return base_output
+    return base_output.with_name("{}_{}{}".format(base_output.stem, mode, base_output.suffix))
 
 
-def render_mode(material, mode, output):
-    configure_material(material, mode)
-    configure_world(mode)
-    bpy.context.scene.render.filepath = str(output)
-    bpy.ops.render.render(write_still=True)
-    print(f"Rendered {mode}: {output}")
+def _render_modes(args, material, output):
+    scene = bpy.context.scene
+    for mode in args.modes:
+        _configure_material(material, mode)
+        if getattr(args,'provider','human_experimental') == 'human_surface_study':
+            for obj in scene.objects:
+                if obj.type!='MESH':continue
+                for face in obj.data.polygons:face.use_smooth=(mode!='wireframe')
+                for modifier in obj.modifiers:
+                    if modifier.name=='Surface display subdivision':modifier.show_render=(mode!='wireframe')
+        bpy.context.view_layer.update()
+        mode_output = _mode_output(output, mode)
+        scene.render.filepath = os.fspath(mode_output)
+        bpy.ops.render.render(write_still=True)
+        print("Human review {} image written to: {}".format(mode, mode_output))
 
 
 def main():
-    options = args()
-    clear_scene()
+    args = _parse_args()
+    output = Path(args.output)
+    if not output.is_absolute():
+        output = REPO_ROOT / output
+    output.parent.mkdir(parents=True, exist_ok=True)
 
-    material = make_material()
-    spheres, spacing = build_geometry(material, options.radius)
-    configure_scene(options.radius, spacing)
-
-    base = Path(options.output).resolve()
-    base.parent.mkdir(parents=True, exist_ok=True)
-
-    for mode in options.modes:
-        render_mode(material, mode, output_for_mode(base, mode))
-
-    print(
-        "Sphere geometry study complete: "
-        f"{len(spheres)} spheres, modes={','.join(options.modes)}"
-    )
+    _clear_scene()
+    part = _human_part(args)
+    material = _configure_scene(args, part)
+    _render_modes(args, material, output)
 
 
 if __name__ == "__main__":
