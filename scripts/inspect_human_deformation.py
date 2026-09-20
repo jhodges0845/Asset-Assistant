@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Build representative Human 1.0 poses for repeatable visual deformation review.
+"""Build representative Human V2 poses for repeatable visual deformation review.
 
 Open this script in Blender's Scripting workspace and choose Run Script, or run:
 
@@ -45,9 +45,7 @@ def _ensure_repo_on_path():
 _ensure_repo_on_path()
 
 from blender_adapter.adapter import create_asset
-from object_core import BodyType, HumanoidSpec, generate_proportions
-from object_core.geometry import generate_deformable_mesh
-from object_core.rigging import generate_deforming_skeleton, generate_skin_weights
+from object_core.objects import get_provider
 
 
 # Use non-axial local rotations for the shoulder, wrist, and neck so these
@@ -69,10 +67,11 @@ def _clear_scene():
 
 
 def _human(name):
-    proportions = generate_proportions(HumanoidSpec(180, 95, BodyType.AVERAGE))
-    mesh = generate_deformable_mesh(proportions)
-    skeleton = generate_deforming_skeleton(proportions)
-    weights = generate_skin_weights(mesh, skeleton)
+    provider = get_provider("human_experimental")
+    values = {"height_cm": 180, "weight_kg": 95, "body_type": "average"}
+    mesh = provider.mesh(values)
+    skeleton = provider.skeleton(values)
+    weights = provider.skin_weights(mesh, values)
     root = create_asset(mesh, name=name, skeleton=skeleton, skin_weights=weights)
     obj = next(child for child in root.children if child.type == "MESH")
     armature = next(child for child in root.children if child.type == "ARMATURE")
