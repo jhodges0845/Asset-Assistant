@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, visual-testing]
   pull_request:
-    branches: [main]
+    branches: [main, visual-testing]
   workflow_dispatch:
 
 permissions:
@@ -105,6 +105,12 @@ jobs:
             --background --factory-startup --python-exit-code 1 \
             --python scripts/test_component_reopen.py
 
+      - name: Test mathematical Human plugin save/reopen
+        run: |
+          "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
+            --background --factory-startup --python-exit-code 1 \
+            --python scripts/test_surface_plugin_reopen.py
+
       - name: Build Asset Assistant release ZIP
         run: python -m scripts.build_blender_addon
 
@@ -113,3 +119,18 @@ jobs:
           "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
             --background --factory-startup --python-exit-code 1 \
             --python scripts/test_blender_package.py
+
+      - name: Render mathematical Human visual check
+        run: |
+          "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
+            --background --factory-startup --python-exit-code 1 \
+            --python scripts/render_human_review.py -- --provider human_surface_study \
+            --height-cm 175 --resolution-x 900 --resolution-y 500 --modes clay silhouette wireframe \
+            --output surface_review.png
+
+      - name: Upload visual review sheets
+        uses: actions/upload-artifact@v4
+        with:
+          name: mathematical-human-review
+          path: surface_review*.png
+          if-no-files-found: error

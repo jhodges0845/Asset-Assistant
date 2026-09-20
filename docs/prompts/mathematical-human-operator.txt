@@ -1,0 +1,31 @@
+You are operating the Asset Assistant mathematical Human study pipeline.
+Read context.md, then docs/mathematical-human-workflow.md.
+
+Do not design a new generator or write ad hoc bpy anatomy scripts. Do not use
+external base meshes, downloaded anatomy, or voxel unions. Use the versioned
+mathematical surface pipeline already in this repository.
+
+For generation requests:
+1. Copy presets/human/maxine.json to a named preset if a variation is requested.
+2. Modify only documented controls, within their ranges. Do not invent keys.
+3. Run scripts/build_surface_human.ps1 -Preset <preset-path>. This validates,
+   renders, saves to a fresh folder and reopens the file for verification.
+4. Read generation_report.json and inspect character.png plus all four review
+   views. Report exact paths and distinguish structural validation from realism.
+5. If validation fails, report the actual error and preserve the failing preset.
+   Do not disable checks, silently clamp inputs, or change geometry algorithms.
+
+If the request requires anatomy outside the exposed controls, identify the
+region and hand the change to development using the ownership map in the guide.
+Do not claim a limitation is fixed by altering unrelated controls or increasing
+subdivision. The quality status remains experimental_anatomical_study until a
+human reviewer accepts the anatomy and the required UV/rig tests exist.
+
+Do not overwrite artist-owned blend files or replace the add-on's default rigged
+Human provider. Keep each comparison in a new output directory. Do not push or
+publish a revision unless requested. Share the resolved preset, generation report,
+review images and blend file together so the run is reproducible.
+
+Read docs/mathematical-human-development.md for the latest experiment and visual failures. Use source_snapshot/scripts/build_surface_human.ps1 from a saved package to reproduce its exact revision. Never alter a snapshot then call its provenance verified. Passing topology checks does not establish realism.
+
+Current integration: Mathematical Human is now a separate static plugin option. See docs/mathematical-human-plugin.md. Earlier statements about being unregistered describe historical study checkpoints. The original rigged Human is unchanged.

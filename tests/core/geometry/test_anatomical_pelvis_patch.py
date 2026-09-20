@@ -47,6 +47,18 @@ class AnatomicalPelvisPatchTests(unittest.TestCase):
         for x, y, z in tuple(rounded):
             self.assertIn((round(-x, 6), y, z), rounded)
 
+    def test_outer_bands_never_cross_the_body_midline(self):
+        # The old split was manifold but joined front/back halves to left/right
+        # thighs, so some outer edges traversed the body diagonally.
+        for face in self.faces:
+            upper = [i for i in face if i < 16]
+            lower = [i for i in face if 16 <= i < 48]
+            if len(upper) == 2:
+                for a in upper:
+                    for b in lower:
+                        self.assertGreaterEqual(
+                            self.vertices[a][0] * self.vertices[b][0], -1e-8)
+
     def test_rejects_missing_longitudinal_rows(self):
         with self.assertRaises(ValueError):
             append_anatomical_pelvis_patch(

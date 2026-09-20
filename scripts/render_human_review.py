@@ -46,10 +46,12 @@ REVIEW_MODES = ("clay", "silhouette", "wireframe")
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="Render Human V2 diagnostic review images")
+    parser.add_argument("--provider", choices=("human_experimental", "human_surface_study"), default="human_experimental")
     parser.add_argument("--output", default="human_review.png")
     parser.add_argument("--height-cm", type=float, default=180.0)
     parser.add_argument("--weight-kg", type=float, default=95.0)
     parser.add_argument("--body-type", default="average")
+    parser.add_argument("--samples", type=int, default=32)
     parser.add_argument("--resolution-x", type=int, default=1800)
     parser.add_argument("--resolution-y", type=int, default=900)
     parser.add_argument(
@@ -73,6 +75,13 @@ def _clear_scene():
 
 
 def _human_part(args):
+    if getattr(args,'provider','human_experimental') == 'human_surface_study':
+        from object_core.objects import get_provider
+        from blender_adapter.surface_human_study import validate_control_surface
+        provider=get_provider(args.provider)
+        mesh=provider.mesh({'height_cm':args.height_cm})
+        validate_control_surface(mesh.parts[0])
+        return mesh.parts[0]
     provider = HumanExperimentalProvider()
     mesh = provider.mesh(
         {
@@ -229,7 +238,7 @@ def _configure_scene(args, part):
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
-    scene.cycles.samples = 32
+    scene.cycles.samples = max(1,getattr(args,'samples',32))
     scene.cycles.use_denoising = True
     scene.render.resolution_x = args.resolution_x
     scene.render.resolution_y = args.resolution_y
@@ -249,7 +258,9 @@ def _configure_scene(args, part):
     model_height = maximum[2] - minimum[2]
     center_z = (minimum[2] + maximum[2]) * 0.5
 
-    rotated_bounds = [_rotated_xy_bounds(part.vertices, angle) for angle in VIEW_ROTATIONS_DEGREES]
+    # The study faces +Y; the legacy Human and this camera face -Y.
+    rotations=tuple(angle+180.0 for angle in VIEW_ROTATIONS_DEGREES) if getattr(args,'provider','human_experimental')=='human_surface_study' else VIEW_ROTATIONS_DEGREES
+    rotated_bounds = [_rotated_xy_bounds(part.vertices, angle) for angle in rotations]
     widths = [bounds[0][1] - bounds[0][0] for bounds in rotated_bounds]
     maximum_depth = max(bounds[1][1] - bounds[1][0] for bounds in rotated_bounds)
     gap = max(widths) * 0.28
@@ -265,8 +276,12 @@ def _configure_scene(args, part):
 
     material = _make_material()
     mesh_objects = []
-    for view_name, angle, x in zip(VIEW_NAMES, VIEW_ROTATIONS_DEGREES, positions):
+    for view_name, angle, x in zip(VIEW_NAMES, rotations, positions):
         obj = _make_mesh_object("Human " + view_name, part)
+        if getattr(args,'provider','human_experimental') == 'human_surface_study':
+            for face in obj.data.polygons:face.use_smooth=True
+            modifier=obj.modifiers.new('Surface display subdivision','SUBSURF')
+            modifier.levels=2;modifier.render_levels=2
         x_bounds = rotated_bounds[len(mesh_objects)][0]
         obj.location.x = x - (x_bounds[0] + x_bounds[1]) * 0.5
         obj.rotation_euler.z = math.radians(angle)
@@ -309,6 +324,12 @@ def _render_modes(args, material, output):
     scene = bpy.context.scene
     for mode in args.modes:
         _configure_material(material, mode)
+        if getattr(args,'provider','human_experimental') == 'human_surface_study':
+            for obj in scene.objects:
+                if obj.type!='MESH':continue
+                for face in obj.data.polygons:face.use_smooth=(mode!='wireframe')
+                for modifier in obj.modifiers:
+                    if modifier.name=='Surface display subdivision':modifier.show_render=(mode!='wireframe')
         bpy.context.view_layer.update()
         mode_output = _mode_output(output, mode)
         scene.render.filepath = os.fspath(mode_output)
