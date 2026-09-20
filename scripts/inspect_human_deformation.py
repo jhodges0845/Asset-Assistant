@@ -153,8 +153,11 @@ def _label(name, location):
     label.name = name + "_Label"
     label.data.body = name
     label.data.align_x = "CENTER"
-    label.data.size = 0.12
+    label.data.size = 0.16
+    # The review camera looks along +Y from the negative-Y side. Text objects
+    # are created in the XY plane, so rotate them upright into the XZ plane.
     label.rotation_euler.x = math.radians(90.0)
+    label.rotation_euler.z = math.radians(180.0)
 
 
 def _apply_and_verify_pose(name, obj, armature, bone_name, axis, angle):
@@ -195,9 +198,13 @@ def main():
     # Give every pose its own silhouette. The previous 1.4 m spacing was
     # narrower than an arm span, so neighboring cases overlapped in the
     # orthographic review even though the deformation checks were valid.
-    columns = 4
-    column_spacing = 2.8
-    row_spacing = 2.8
+    # Use a two-column card layout. Four columns technically separated the
+    # roots, but bent limbs and labels still visually collided in the final
+    # orthographic projection. Two columns make every pose independently
+    # readable at artifact-preview size.
+    columns = 2
+    column_spacing = 3.4
+    row_spacing = 2.7
     x_offset = -column_spacing * (columns - 1) / 2.0
     y_offset = row_spacing / 2.0
 
@@ -211,7 +218,7 @@ def main():
         root.location.x = x
         root.location.y = y
         # Labels face the same -Y review camera as the humans.
-        _label(name, (x, y - 0.42, 2.05))
+        _label(name, (x, y - 0.10, 2.15))
 
         if bone_name is not None:
             _apply_and_verify_pose(name, obj, armature, bone_name, axis, angle)
