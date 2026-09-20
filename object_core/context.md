@@ -76,3 +76,24 @@ Fast checks:
 ### Lower-pelvis transition review
 
 The standalone prototype now distributes the lower-hip turn across cubic longitudinal rows, carries those rows into the existing crotch rails, and preserves three 16-vertex attachment boundaries. `tests/core/geometry/test_neutral_pelvis.py` guards the lateral taper, face folding, winding, and declared boundaries.
+## Mathematical Human plugin option
+
+- `human_surface_study` is registered as Mathematical Human in Create; static,
+  no rig/animation/UV support. Existing Human stays compatible.
+- `object_core/geometry/surface_human.py` and `surface_pelvis.py`: mathematical
+  geometry, rounded pelvis and bounded fairing; no imported anatomical assets.
+- `blender_adapter/surface_human_runtime.py`: normal asset creation with the same
+  collision gate as the standalone study, before replacing the current asset.
+- `scripts/render_human_review.py --provider human_surface_study --height-cm 175`
+  creates clay/silhouette/wireframe visual checks; CI uploads them on main and
+  visual-testing. Visual approval remains manual.
+- See `docs/mathematical-human-plugin.md` and the mathematical-human development
+  journal for usage, limitations, and reproducible standalone studies.
+
+### Existing visual-testing regression (before mathematical Human merge)
+
+The separate curved-landmark neutral pelvis currently fails the symmetry tests
+in `test_neutral_pelvis.py` and `test_neutral_pelvis_curved_landmarks.py`. Confirmed
+on c8541f6 before merging main. These do not exercise `human_surface_study`; its
+main CI passed. Preserve the experimental source when synchronizing branches;
+repairing its symmetry is separate anatomy work, not a test-threshold change.

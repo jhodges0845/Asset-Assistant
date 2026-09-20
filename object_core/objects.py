@@ -18,6 +18,8 @@ from .providers import (
     SemanticTarget,
 )
 
+from .providers.surface_human import SurfaceHumanProvider
+
 LEGACY_PROVIDER_KEYS = {"dog": "quadruped"}
 
 
@@ -91,7 +93,7 @@ def validate_provider(provider):
     return provider
 
 
-OBJECT_TYPES = {provider.key: validate_provider(provider) for provider in (HumanoidProvider(), HumanExperimentalProvider(), BoxProvider(), QuadrupedProvider(), AvianProvider())}
+OBJECT_TYPES = {provider.key: validate_provider(provider) for provider in (HumanoidProvider(), HumanExperimentalProvider(), BoxProvider(), QuadrupedProvider(), AvianProvider(), SurfaceHumanProvider())}
 
 
 def canonical_provider_key(key):

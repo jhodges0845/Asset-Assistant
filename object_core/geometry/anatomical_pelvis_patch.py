@@ -28,31 +28,19 @@ def _split_shared_boundary(vertices, faces, pelvis_boundary, left_points, right_
     """Create the short pair-of-pants split at the top of the anatomical patch."""
     left = _append_ring(vertices, left_points)
     right = _append_ring(vertices, right_points)
-    left_p = tuple(range(8))
-    right_p = tuple(range(8, 16))
-    left_t = tuple(range(8))
-    right_t = tuple(range(8, 16))
-    for seq_p, seq_t, ring in ((left_p, left_t, left), (right_p, right_t, right)):
-        for j in range(7):
-            faces.append(
-                (
-                    pelvis_boundary[seq_p[j]],
-                    pelvis_boundary[seq_p[j + 1]],
-                    ring[seq_t[j + 1]],
-                    ring[seq_t[j]],
-                )
-            )
-    faces.append((pelvis_boundary[15], pelvis_boundary[0], left[0], left[15]))
-    faces.append((pelvis_boundary[7], pelvis_boundary[8], right[8], right[7]))
+    # With x=cos(a), positive-X is indices 12..4, not 0..7.
+    # Match anatomical sides; manifoldness alone cannot detect a twisted patch.
+    for ring, start in ((left, 12), (right, 4)):
+        for j in range(8):
+            a, b = (start + j) % 16, (start + j + 1) % 16
+            faces.append((pelvis_boundary[a], pelvis_boundary[b], ring[b], ring[a]))
+    # Medial half-rings face each other; reverse their angular traversal.
     for j in range(8):
-        li = 7 + j
-        r0 = (7 - j) % 16
-        r1 = (6 - j) % 16
-        faces.append((left[li], left[(li + 1) % 16], right[r1], right[r0]))
-    # Two poles are topologically required for a one-boundary-to-two-boundary
-    # pair-of-pants surface. Keep them at the short split, away from the thigh rows.
-    faces.append((pelvis_boundary[7], left[7], right[7]))
-    faces.append((pelvis_boundary[15], right[15], left[15]))
+        a, b = (4 + j) % 16, (5 + j) % 16
+        c, d = (-j + 4) % 16, (-j + 3) % 16
+        faces.append((left[a], left[b], right[d], right[c]))
+    faces.append((pelvis_boundary[4], left[4], right[4]))
+    faces.append((pelvis_boundary[12], right[12], left[12]))
     return left, right
 
 

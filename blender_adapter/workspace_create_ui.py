@@ -7,6 +7,7 @@ reused so generation, Modify, Rig, animation, and export behavior remain unchang
 
 _ASSET_TILES = (
     ("human_experimental", "USER"),
+    ("human_surface_study", "OUTLINER_OB_MESH"),
     ("quadruped", "ARMATURE_DATA"),
     ("avian", "OUTLINER_OB_MESH"),
     ("box", "CUBE"),
@@ -97,6 +98,8 @@ def _draw_generate(panel, context, ui, working_asset_ui):
     layout = panel.layout
     provider = ui.get_provider(settings.object_type)
     fields = tuple(provider.parameters)
+    if settings.object_type == "human_surface_study":
+        layout.label(text="Experimental static anatomy; no rig or UVs", icon="INFO")
 
     _draw_start_options(layout, context, working_asset_ui)
     if working_asset_ui is not None or _ASSET_INSPECTION_UI is not None or _ASSET_FILE_IMPORT_UI is not None:

@@ -90,7 +90,7 @@ def _walk(node):
         yield from _walk(child)
 
 
-def test_create_generate_uses_four_unified_asset_buttons_and_primary_action():
+def test_create_generate_uses_five_unified_asset_buttons_and_primary_action():
     panel = _Panel()
     workspace_create_ui._draw_generate(panel, _Context(), _UI(), working_asset_ui=object())
 
@@ -99,6 +99,7 @@ def test_create_generate_uses_four_unified_asset_buttons_and_primary_action():
     assert len(asset_rows) == 1
     assert asset_rows[0].enums == [
         ("object_type", "human_experimental", {"text": "Human", "icon": "USER"}),
+        ("object_type", "human_surface_study", {"text": "Human", "icon": "OUTLINER_OB_MESH"}),
         ("object_type", "quadruped", {"text": "Human", "icon": "ARMATURE_DATA"}),
         ("object_type", "avian", {"text": "Human", "icon": "OUTLINER_OB_MESH"}),
         ("object_type", "box", {"text": "Human", "icon": "CUBE"}),

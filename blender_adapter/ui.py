@@ -126,7 +126,11 @@ class HUMANOID_OT_generate(bpy.types.Operator):
         try:
             provider = get_provider(settings.object_type)
             values = {field.key: getattr(settings, _field_name(provider, field)) for field in provider.parameters}
-            root = create_character(provider.mesh(values), name=provider.label, scene=context.scene)
+            if provider.key == 'human_surface_study':
+                from .surface_human_runtime import create_surface_asset
+                root = create_surface_asset(provider, values, context.scene)
+            else:
+                root = create_character(provider.mesh(values), name=provider.label, scene=context.scene)
         except (ValueError, TypeError, RuntimeError) as error:
             self.report({"ERROR"}, str(error))
             return {"CANCELLED"}
@@ -535,7 +539,7 @@ class _WorkflowPanel:
                 passes = sum(row.status == "PASS" for row in rows)
                 summary = layout.box()
                 summary.label(text="Validation Snapshot", icon="CHECKMARK" if errors == 0 else "ERROR")
-                summary.label(text=f"{errors} errors  •  {warnings} warnings  •  {passes} passed")
+                summary.label(text=f"{errors} errors  â€¢  {warnings} warnings  â€¢  {passes} passed")
                 summary.label(text="Snapshot: rerun after editing.")
                 width = max(24, int(context.region.width / 7) - 6)
                 _draw_validation_results(layout, rows, width)
