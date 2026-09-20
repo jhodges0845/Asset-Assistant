@@ -121,7 +121,11 @@ class HumanExperimentalProvider:
             "chest_fullness": 0.55,
             "muscle_definition": 0.45,
         }
-        return SurfaceHumanProvider().mesh(surface_values)
+        mesh = SurfaceHumanProvider().mesh(surface_values)
+        # Preserve the established Human V2 part identity used by materials,
+        # validation, rigging and downstream export contracts.
+        mesh.parts[0].name = "human"
+        return mesh
 
     def semantic_mesh(self, mesh, values, operations):
         return apply_human_semantic_operations(mesh, self.proportions(values), operations)
