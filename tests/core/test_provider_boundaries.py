@@ -51,6 +51,17 @@ class ProviderBoundaryTests(unittest.TestCase):
         second = human.mesh(dict(values))
         self.assertIs(first, second)
 
+    def test_human_v2_reuses_immutable_skinning_for_base_mesh(self):
+        human = get_provider("human_experimental")
+        values = {"height_cm": 180, "weight_kg": 95, "body_type": "average"}
+        mesh = human.mesh(values)
+        first_skeleton = human.skeleton(values)
+        second_skeleton = human.skeleton(dict(values))
+        first_weights = human.skin_weights(mesh, values)
+        second_weights = human.skin_weights(mesh, dict(values))
+        self.assertIs(first_skeleton, second_skeleton)
+        self.assertIs(first_weights, second_weights)
+
     def test_registry_resolves_extracted_provider_implementations(self):
         self.assertIsInstance(get_provider("avian"), AvianProvider)
         self.assertIsInstance(get_provider("box"), BoxProvider)
