@@ -173,6 +173,15 @@ def generate_neutral_pelvis(shape=None):
         iterations=2,
     )
     net.faces = list(orient_faces_consistently(net.faces))
+
+    # Numerical fairing can leave vertices that are mathematically on the
+    # sagittal plane a few millionths off zero.  Snap only that floating-point
+    # noise back to the plane so the authored bilateral symmetry contract is
+    # exact without changing the visible surface.
+    net.vertices = [
+        (0.0 if abs(x) < 1.0e-5 else x, y, z)
+        for x, y, z in net.vertices
+    ]
     return (
         tuple(net.vertices),
         tuple(net.faces),
