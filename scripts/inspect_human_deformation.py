@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 import bpy
+from mathutils import Vector
 
 
 def _script_path():
@@ -84,6 +85,62 @@ def _evaluated_local_points(obj):
     return [vertex.co.copy() for vertex in evaluated.data.vertices]
 
 
+def _bounds_world(objects):
+    points = []
+    for obj in objects:
+        for corner in obj.bound_box:
+            points.append(obj.matrix_world @ Vector(corner))
+    minimum = Vector(tuple(min(point[i] for point in points) for i in range(3)))
+    maximum = Vector(tuple(max(point[i] for point in points) for i in range(3)))
+    return minimum, maximum
+
+
+def _look_at(obj, target):
+    direction = Vector(target) - obj.location
+    obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
+
+
+def _configure_review_camera(roots):
+    scene = bpy.context.scene
+    mesh_objects = [child for root in roots for child in root.children if child.type == "MESH"]
+    minimum, maximum = _bounds_world(mesh_objects)
+    center = (minimum + maximum) * 0.5
+    width = maximum.x - minimum.x
+    depth = maximum.y - minimum.y
+    height = maximum.z - minimum.z
+
+    camera_data = bpy.data.cameras.new("HumanV2_DeformationReviewCamera")
+    camera_data.type = "ORTHO"
+    camera_data.ortho_scale = max(height * 1.12, width * 0.62)
+    camera = bpy.data.objects.new("HumanV2_DeformationReviewCamera", camera_data)
+    bpy.context.collection.objects.link(camera)
+    camera.location = (center.x, minimum.y - max(8.0, depth * 4.0), center.z)
+    _look_at(camera, center)
+    scene.camera = camera
+
+    world = scene.world
+    world.color = (0.06, 0.07, 0.08)
+    scene.render.resolution_x = 1800
+    scene.render.resolution_y = 1000
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.filepath = str(_find_repo_root(_script_path()) / "human_v2_deformation_review.png")
+
+    bpy.ops.object.light_add(type="AREA", location=(center.x - width * 0.25, minimum.y - 2.0, center.z + height * 0.3))
+    bpy.context.object.data.energy = 900
+    bpy.context.object.data.shape = "DISK"
+    bpy.context.object.data.size = max(3.0, height * 1.5)
+    _look_at(bpy.context.object, center)
+    bpy.ops.object.light_add(type="AREA", location=(center.x + width * 0.25, minimum.y - 1.0, center.z))
+    bpy.context.object.data.energy = 500
+    bpy.context.object.data.size = max(2.0, height)
+    _look_at(bpy.context.object, center)
+
+    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    bpy.ops.render.render(write_still=True)
+    print("Human V2 deformation review image written to: " + scene.render.filepath)
+
+
 def _label(name, location):
     bpy.ops.object.text_add(location=location)
     label = bpy.context.object
@@ -135,11 +192,13 @@ def main():
     x_offset = -column_spacing * (columns - 1) / 2.0
     y_offset = row_spacing / 2.0
 
+    roots = []
     for index, (name, bone_name, axis, angle) in enumerate(cases):
         row, column = divmod(index, columns)
         x = x_offset + column * column_spacing
         y = y_offset - row * row_spacing
         root, obj, armature = _human("Human_" + name)
+        roots.append(root)
         root.location.x = x
         root.location.y = y
         _label(name, (x, y - 0.42, 1.95))
@@ -148,7 +207,8 @@ def main():
             _apply_and_verify_pose(name, obj, armature, bone_name, axis, angle)
 
     bpy.context.view_layer.update()
-    print("Human deformation inspection verified: Neutral + " + ", ".join(name for name, *_ in POSES))
+    _configure_review_camera(roots)
+    print("Human V2 deformation inspection verified: Neutral + " + ", ".join(name for name, *_ in POSES))
 
 
 if __name__ == "__main__":
