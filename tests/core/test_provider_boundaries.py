@@ -44,6 +44,13 @@ class ProviderBoundaryTests(unittest.TestCase):
         self.assertEqual(human_mesh.parts[0].vertices, surface_mesh.parts[0].vertices)
         self.assertEqual(human_mesh.parts[0].faces, surface_mesh.parts[0].faces)
 
+    def test_human_v2_reuses_immutable_mesh_for_identical_height(self):
+        human = get_provider("human_experimental")
+        values = {"height_cm": 180, "weight_kg": 95, "body_type": "average"}
+        first = human.mesh(values)
+        second = human.mesh(dict(values))
+        self.assertIs(first, second)
+
     def test_registry_resolves_extracted_provider_implementations(self):
         self.assertIsInstance(get_provider("avian"), AvianProvider)
         self.assertIsInstance(get_provider("box"), BoxProvider)

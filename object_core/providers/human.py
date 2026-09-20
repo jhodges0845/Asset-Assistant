@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Human provider implementations."""
 
+from functools import lru_cache
+
 from ..animation import generate_idle, generate_run, generate_walk
 from ..geometry import generate_anatomical_human_mesh, generate_mesh
 from ..geometry.deformable import _generate_face_atlas_uvs
@@ -95,6 +97,29 @@ class HumanoidProvider:
         return generate_idle(duration, strength)
 
 
+@lru_cache(maxsize=16)
+def _human_v2_mesh(height_cm):
+    """Cache immutable Human V2 geometry for repeated in-process consumers.
+
+    Blender integration tests and UI validation frequently request the same
+    default Human several times. ObjectMesh/MeshPart are immutable, so sharing
+    the generated core mesh avoids rebuilding and re-auditing ~42k vertices
+    without sharing mutable Blender objects.
+    """
+    surface_values = {
+        "height_cm": float(height_cm),
+        "shoulder_scale": 1.0,
+        "hip_scale": 1.0,
+        "waist_scale": 1.0,
+        "chest_fullness": 0.55,
+        "muscle_definition": 0.45,
+    }
+    mesh = SurfaceHumanProvider().mesh(surface_values)
+    part = mesh.parts[0]
+    uvs = part.uvs or _generate_face_atlas_uvs(part.vertices, part.faces)
+    return ObjectMesh((MeshPart("human", part.vertices, part.faces, uvs),))
+
+
 class HumanExperimentalProvider:
     """Deformable Human provider used for new human assets."""
 
@@ -109,30 +134,8 @@ class HumanExperimentalProvider:
         return _proportions(values)
 
     def mesh(self, values):
-        """Generate Human V2 from the Mathematical Human surface.
-
-        Keep the established Human V2 provider key and downstream rig/material/
-        animation contracts while replacing the legacy anatomical blockout with
-        the checkpointed continuous mathematical surface.
-        """
-        surface_values = {
-            "height_cm": float(values["height_cm"]),
-            "shoulder_scale": 1.0,
-            "hip_scale": 1.0,
-            "waist_scale": 1.0,
-            "chest_fullness": 0.55,
-            "muscle_definition": 0.45,
-        }
-        mesh = SurfaceHumanProvider().mesh(surface_values)
-        # Mesh data is immutable. Re-wrap the mathematical surface under the
-        # established Human V2 part identity used by materials, validation,
-        # rigging and downstream export contracts.
-        part = mesh.parts[0]
-        # Mathematical Human deliberately remains UV-free as a standalone study.
-        # Human V2, however, promises portable generated materials and game-engine
-        # export, so adapt the same geometry to the established deterministic atlas.
-        uvs = part.uvs or _generate_face_atlas_uvs(part.vertices, part.faces)
-        return ObjectMesh((MeshPart("human", part.vertices, part.faces, uvs),))
+        """Generate Human V2 from the cached immutable Mathematical Human surface."""
+        return _human_v2_mesh(float(values["height_cm"]))
 
     def semantic_mesh(self, mesh, values, operations):
         return apply_human_semantic_operations(mesh, self.proportions(values), operations)
