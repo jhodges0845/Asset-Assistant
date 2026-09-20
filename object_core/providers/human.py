@@ -3,6 +3,8 @@
 
 from ..animation import generate_idle, generate_run, generate_walk
 from ..geometry import generate_anatomical_human_mesh, generate_mesh
+from ..geometry.deformable import _generate_face_atlas_uvs
+from .surface_human import SurfaceHumanProvider
 from ..geometry.anatomical_base_contour import refine_human_anatomical_base_contour
 from ..geometry.cranium_refinement import refine_human_cranium_cross_sections
 from ..geometry.facial_anatomy import refine_human_local_facial_anatomy
@@ -13,6 +15,7 @@ from ..geometry.limb_refinement import refine_human_limb_cross_sections
 from ..geometry.pelvis_refinement import refine_human_pelvis
 from ..geometry.shoulder_refinement import refine_human_shoulders
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
+from ..models.mesh import MeshPart, ObjectMesh
 from ..proportions import generate_proportions
 from ..rigging import generate_deforming_skeleton, generate_skin_weights, generate_skeleton
 from .base import Parameter
@@ -106,17 +109,30 @@ class HumanExperimentalProvider:
         return _proportions(values)
 
     def mesh(self, values):
-        proportions = self.proportions(values)
-        mesh = generate_anatomical_human_mesh(proportions)
-        mesh = refine_human_anatomical_base_contour(mesh, proportions)
-        mesh = refine_human_shoulders(mesh, proportions)
-        mesh = refine_human_pelvis(mesh, proportions)
-        mesh = refine_human_limb_cross_sections(mesh, proportions)
-        mesh = refine_human_facial_feature_loops(mesh, proportions)
-        mesh = refine_human_facial_topology(mesh, proportions)
-        mesh = refine_human_local_feature_topology(mesh, proportions)
-        mesh = refine_human_local_facial_anatomy(mesh, proportions)
-        return refine_human_cranium_cross_sections(mesh, proportions)
+        """Generate Human V2 from the Mathematical Human surface.
+
+        Keep the established Human V2 provider key and downstream rig/material/
+        animation contracts while replacing the legacy anatomical blockout with
+        the checkpointed continuous mathematical surface.
+        """
+        surface_values = {
+            "height_cm": float(values["height_cm"]),
+            "shoulder_scale": 1.0,
+            "hip_scale": 1.0,
+            "waist_scale": 1.0,
+            "chest_fullness": 0.55,
+            "muscle_definition": 0.45,
+        }
+        mesh = SurfaceHumanProvider().mesh(surface_values)
+        # Mesh data is immutable. Re-wrap the mathematical surface under the
+        # established Human V2 part identity used by materials, validation,
+        # rigging and downstream export contracts.
+        part = mesh.parts[0]
+        # Mathematical Human deliberately remains UV-free as a standalone study.
+        # Human V2, however, promises portable generated materials and game-engine
+        # export, so adapt the same geometry to the established deterministic atlas.
+        uvs = part.uvs or _generate_face_atlas_uvs(part.vertices, part.faces)
+        return ObjectMesh((MeshPart("human", part.vertices, part.faces, uvs),))
 
     def semantic_mesh(self, mesh, values, operations):
         return apply_human_semantic_operations(mesh, self.proportions(values), operations)

@@ -29,6 +29,21 @@ class ProviderBoundaryTests(unittest.TestCase):
         self.assertIs(RegistryHumanExperimentalProvider, HumanExperimentalProvider)
         self.assertIs(RegistryQuadrupedProvider, QuadrupedProvider)
 
+    def test_human_v2_uses_mathematical_surface_geometry(self):
+        human = get_provider("human_experimental")
+        surface = get_provider("human_surface_study")
+        human_mesh = human.mesh({"height_cm": 175, "weight_kg": 95, "body_type": "average"})
+        surface_mesh = surface.mesh({
+            "height_cm": 175,
+            "shoulder_scale": 1.0,
+            "hip_scale": 1.0,
+            "waist_scale": 1.0,
+            "chest_fullness": 0.55,
+            "muscle_definition": 0.45,
+        })
+        self.assertEqual(human_mesh.parts[0].vertices, surface_mesh.parts[0].vertices)
+        self.assertEqual(human_mesh.parts[0].faces, surface_mesh.parts[0].faces)
+
     def test_registry_resolves_extracted_provider_implementations(self):
         self.assertIsInstance(get_provider("avian"), AvianProvider)
         self.assertIsInstance(get_provider("box"), BoxProvider)
