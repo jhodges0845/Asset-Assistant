@@ -14,6 +14,7 @@ from ..geometry.limb_refinement import refine_human_limb_cross_sections
 from ..geometry.pelvis_refinement import refine_human_pelvis
 from ..geometry.shoulder_refinement import refine_human_shoulders
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
+from ..models.mesh import MeshPart, ObjectMesh
 from ..proportions import generate_proportions
 from ..rigging import generate_deforming_skeleton, generate_skin_weights, generate_skeleton
 from .base import Parameter
@@ -122,10 +123,11 @@ class HumanExperimentalProvider:
             "muscle_definition": 0.45,
         }
         mesh = SurfaceHumanProvider().mesh(surface_values)
-        # Preserve the established Human V2 part identity used by materials,
-        # validation, rigging and downstream export contracts.
-        mesh.parts[0].name = "human"
-        return mesh
+        # Mesh data is immutable. Re-wrap the mathematical surface under the
+        # established Human V2 part identity used by materials, validation,
+        # rigging and downstream export contracts.
+        part = mesh.parts[0]
+        return ObjectMesh((MeshPart("human", part.vertices, part.faces, part.uvs),))
 
     def semantic_mesh(self, mesh, values, operations):
         return apply_human_semantic_operations(mesh, self.proportions(values), operations)
