@@ -107,3 +107,12 @@ Follow-up validation: 353 core tests and both focused Blender review tests passe
 The updated sheet rendered successfully and was inspected after the tests:
 the wrist hip protrusion is absent and the knee bends backward. The full 231-test
 Blender result above predates this weight-isolation follow-up.
+
+## Promotion to main
+
+The promotion excludes the external `.visual-testing-trigger` marker and its
+three committed `pelvis_review*.png` outputs. `scripts/render_pelvis_review.py`
+is restored to main's manual standalone-pelvis renderer instead of the repurposed
+automation entry point that ignored pelvis controls. Human review commands,
+regression tests, the reviewed deformation sheet and GitHub CI artifacts remain.
+No external automation configuration is changed by this repository cleanup.
