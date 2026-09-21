@@ -4,6 +4,14 @@ Purpose: fast project navigation for LLM/agent work. This file is an index, not 
 
 Last structural rescan: 2026-09-15
 
+## Current Human V2 integration (2026-09-20)
+
+Create > Human now uses the mathematical surface with a surface-aligned deforming
+rig and shared mesh/rig body-control mapping. The separate Mathematical Human
+provider remains a static study. See `docs/visual-testing-integration.md` for current integration,
+review commands, CI timing and quality limits. Earlier pelvis-first notes below
+are experimental history, not the active provider composition.
+
 ## Project map
 
 - `object_core/` — host-independent asset model, providers, geometry, rigging, animation, modification contracts, validation.
@@ -30,25 +38,17 @@ Read next when architecture matters:
 
 ## Current product focus
 
-Human V2 neutral-mesh quality is the active depth milestone. The current direction is **anatomy-oriented construction**, not the older coarse mannequin plus repeated refinement strategy.
+Human V2 quality is active. `object_core/providers/human.py` composes the mathematical
+surface, surface-aligned skeleton, cached skin weights and semantic controls.
+The static `human_surface_study` provider remains available independently.
 
-The active blocker is the pelvis/hip/crotch surface. Diagnostic renders independently confirmed that mesh density is not the main problem; anatomical topology organization is.
-
-PR #283 established a standalone, sex-neutral pelvis prototype with three open interfaces (torso, left thigh, right thigh) and independent semantic shape controls. The prototype is deliberately evaluated outside active Human generation first. Once it passes clay/silhouette/wireframe review, topology should grow upward into the lower torso and downward into each thigh.
-
-Current sequence:
-
-`standalone pelvis -> lower torso/ribcage -> thighs -> shoulder girdle/neck -> anatomical limbs/joints -> feet/hands -> skull/face`
-
-Do not repeat the Maxine round trip yet. Preserve it as a later character-quality checkpoint after the neutral constructor has materially advanced.
-
-Read next for Human V2 work:
+Read next:
 - `object_core/context.md`
-- `docs/human-v2-topology-plan.md`
-- `object_core/geometry/neutral_pelvis.py`
-- `object_core/geometry/anatomical_human.py`
-- `scripts/render_pelvis_review.py`
-- `scripts/render_human_review.py`
+- `docs/visual-testing-integration.md` — current behavior, defects repaired, CI timing and limits.
+- `scripts/inspect_human_deformation.py` — projected, independently verified pose cards.
+- `docs/human-v2-topology-plan.md` — quality gates and earlier pelvis-first experiments.
+
+Do not repeat the Maxine round trip until neutral anatomy/deformation quality advances.
 
 ## Modify / artist-control invariant
 
@@ -92,7 +92,7 @@ See `AGENTS.md` for command semantics and scanner responsibilities.
 ## Mathematical Human plugin option
 
 - `human_surface_study` is registered as Mathematical Human in Create; static,
-  no rig/animation/UV support. Existing Human stays compatible.
+  no rig/animation/UV support. Human uses this surface with a separate rigged provider.
 - `object_core/geometry/surface_human.py` and `surface_pelvis.py`: mathematical
   geometry, rounded pelvis and bounded fairing; no imported anatomical assets.
 - `blender_adapter/surface_human_runtime.py`: normal asset creation with the same

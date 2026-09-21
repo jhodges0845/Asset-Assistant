@@ -1,142 +1,236 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Standalone, sex-neutral Human V2 pelvis prototype.
+"""Curved-landmark pelvis experiment built on the preserved landmark baseline.
 
-The pelvis is intentionally generated independently from the torso and thighs.  It
-exposes three named open boundaries so later constructors can extend topology up
-into the abdomen and down into each thigh.  Shape controls are semantic rather
-than sex-specific so Modify can request targeted changes without replacing the
-construction strategy.
+The topology, semantic landmarks, regional sculpt, and attachment loops are kept
+identical to the previous experiment.  The only construction change is that
+selected internal landmark-to-landmark boundaries are refit as single cubic
+Bezier arcs before sculpting.  Endpoints never move, so landmarks remain exact.
 """
-from dataclasses import dataclass
-from math import cos, pi, sin
-
-SIDES = 16
-
-
-@dataclass(frozen=True)
-class NeutralPelvisShape:
-    width: float = 34.0
-    depth: float = 24.0
-    height: float = 20.0
-    waist_width: float = 28.0
-    waist_depth: float = 20.0
-    hip_fullness: float = 1.0
-    glute_projection: float = 1.0
-    crotch_width: float = 7.0
-    crotch_depth: float = 8.0
-    crotch_drop: float = 1.0
-    thigh_opening_width: float = 12.0
-    thigh_opening_depth: float = 13.0
-    thigh_spacing: float = 4.0
+from .landmark_curves import fit_landmark_arc
+from .neutral_pelvis_landmark_baseline import (
+    NeutralPelvisShape,
+    _build_network,
+    semantic_controls,
+)
+from .patch_surface import (
+    brush,
+    fair_boundaries,
+    orient_faces_consistently,
+    relax,
+    vertex_normals,
+)
 
 
-def _clamp(value, low, high):
-    return max(low, min(high, value))
-
-
-def _validated(shape):
-    """Keep semantic edits inside a structurally useful neutral range."""
-    return NeutralPelvisShape(
-        width=max(20.0, shape.width), depth=max(12.0, shape.depth), height=max(12.0, shape.height),
-        waist_width=max(16.0, shape.waist_width), waist_depth=max(10.0, shape.waist_depth),
-        hip_fullness=_clamp(shape.hip_fullness, .55, 1.55),
-        glute_projection=_clamp(shape.glute_projection, .55, 1.65),
-        crotch_width=_clamp(shape.crotch_width, 3.0, 12.0),
-        crotch_depth=_clamp(shape.crotch_depth, 4.0, 14.0),
-        crotch_drop=_clamp(shape.crotch_drop, .55, 1.55),
-        thigh_opening_width=_clamp(shape.thigh_opening_width, 7.0, 18.0),
-        thigh_opening_depth=_clamp(shape.thigh_opening_depth, 8.0, 20.0),
-        thigh_spacing=_clamp(shape.thigh_spacing, 1.5, 10.0),
-    )
-
-
-def semantic_controls():
-    """Stable controls intended for Modify/JSON round-trip integration."""
+def _is_curved_span(name):
+    """Return whether an internal boundary should become one smooth arc."""
     return (
-        "width", "depth", "height", "waist_width", "waist_depth", "hip_fullness",
-        "glute_projection", "crotch_width", "crotch_depth", "crotch_drop",
-        "thigh_opening_width", "thigh_opening_depth", "thigh_spacing",
+        name.startswith("vertical.")
+        or name.startswith("transition.")
+        or name.startswith("descent.")
+        or name in {
+            "center.spine",
+            "root.side.left",
+            "root.side.right",
+            "root.inner.left",
+            "root.inner.right",
+            "side.1.left",
+            "side.1.right",
+            "side.2.left",
+            "side.2.right",
+        }
     )
 
 
-def _ring(z, width, depth, rear_projection=0.0, lateral_fullness=0.0):
-    points = []
-    for i in range(SIDES):
-        a = 2.0 * pi * i / SIDES
-        c, s = cos(a), sin(a)
-        x = width * .5 * c * (1.0 + lateral_fullness * abs(c))
-        y = depth * .5 * s - rear_projection * max(0.0, -s)
-        points.append((x, y, z))
-    return tuple(points)
+def _curve_landmark_spans(net):
+    """Refit interior boundary samples while keeping every landmark endpoint fixed.
 
-
-def _leg_opening(center_x, z, width, depth, side, medial_bias):
-    sign = 1.0 if side == "left" else -1.0
-    points = []
-    for i in range(SIDES):
-        a = 2.0 * pi * i / SIDES
-        c, s = cos(a), sin(a)
-        medial = max(0.0, -sign * c)
-        x = center_x + width * .5 * c - sign * medial_bias * medial
-        y = depth * .5 * s
-        # Outer hip begins higher; medial crotch descends toward the centerline.
-        zz = z + width * .10 * max(0.0, sign * c) - width * .16 * medial
-        points.append((x, y, zz))
-    return tuple(points)
+    Attachment loops are deliberately excluded.  This makes the experiment
+    comparable with the preserved baseline and prevents curvature work from
+    changing the torso/thigh interface contract.
+    """
+    for name, ids in net.boundaries.items():
+        if not _is_curved_span(name) or len(ids) < 3:
+            continue
+        authored = tuple(net.vertices[index] for index in ids)
+        curved = fit_landmark_arc(authored)
+        for index, point in zip(ids[1:-1], curved[1:-1]):
+            net.vertices[index] = point
 
 
 def generate_neutral_pelvis(shape=None):
-    """Return vertices, faces and three named open boundaries.
+    p = shape or NeutralPelvisShape()
+    net, torso, left, right = _build_network(p)
 
-    This first prototype deliberately leaves all interfaces open.  It is a visual
-    anatomy primitive, not yet the active Human constructor.
-    """
-    p = _validated(shape or NeutralPelvisShape())
-    vertices, faces = [], []
+    # Preserve the authored bilateral correspondence before any sculpt/fairing
+    # operation.  Later operations may visit mirrored vertices in a different
+    # order, so coordinate equality alone is not a reliable symmetry contract.
+    authored = tuple(net.vertices)
+    authored_lookup = {
+        (round(x, 6), round(y, 6), round(z, 6)): i
+        for i, (x, y, z) in enumerate(authored)
+    }
+    mirror_pairs = []
+    centerline = []
+    for i, (x, y, z) in enumerate(authored):
+        if abs(x) < 1.0e-6:
+            centerline.append(i)
+        elif x > 0.0:
+            mate = authored_lookup.get((round(-x, 6), round(y, 6), round(z, 6)))
+            if mate is not None:
+                mirror_pairs.append((mate, i))
 
-    upper = _ring(p.height * .5, p.waist_width, p.waist_depth)
-    iliac = _ring(p.height * .15, p.width * .94, p.depth * .94,
-                  rear_projection=p.depth * .035 * p.glute_projection,
-                  lateral_fullness=.055 * p.hip_fullness)
-    hip = _ring(-p.height * .18, p.width, p.depth,
-                rear_projection=p.depth * .10 * p.glute_projection,
-                lateral_fullness=.075 * p.hip_fullness)
+    _curve_landmark_spans(net)
+    net.faces = list(orient_faces_consistently(net.faces))
 
-    rings = []
-    for points in (upper, iliac, hip):
-        start = len(vertices); vertices.extend(points); rings.append(tuple(range(start, start + SIDES)))
-    for a, b in zip(rings, rings[1:]):
-        for i in range(SIDES):
-            j = (i + 1) % SIDES
-            faces.append((a[i], a[j], b[j], b[i]))
+    # Keep the baseline regional sculpt unchanged so the visual test isolates
+    # the effect of smooth arcs between the same landmarks.
+    upper_side_l = net.region_vertices(("side.0.left", "side.1.left", "transition.side.left"))
+    upper_side_r = net.region_vertices(("side.0.right", "side.1.right", "transition.side.right"))
+    lower_side_l = net.region_vertices(("transition.side.left", "descent.side.left"))
+    lower_side_r = net.region_vertices(("transition.side.right", "descent.side.right"))
+    rear_regions = net.region_vertices(
+        (
+            "rear.0.left", "rear.0.right", "rear.1.left", "rear.1.right",
+            "transition.rear.left", "transition.rear.right",
+            "descent.rear.left", "descent.rear.right",
+        )
+    )
+    front_lower = net.region_vertices(
+        (
+            "transition.front.left", "transition.front.right",
+            "descent.front.left", "descent.front.right",
+        )
+    )
+    inner_left = net.region_vertices(("transition.inner.left", "descent.inner.left"))
+    inner_right = net.region_vertices(("transition.inner.right", "descent.inner.right"))
+    transition_regions = net.region_vertices(
+        (
+            "transition.front.left", "transition.front.right",
+            "transition.rear.left", "transition.rear.right",
+            "transition.side.left", "transition.side.right",
+            "transition.inner.left", "transition.inner.right",
+        )
+    )
 
-    # Leg interfaces are deliberately narrower medially than the old thigh tubes.
-    center_offset = p.thigh_spacing * .5 + p.thigh_opening_width * .5
-    leg_z = -p.height * .5 * p.crotch_drop
-    left_points = _leg_opening(center_offset, leg_z, p.thigh_opening_width,
-                               p.thigh_opening_depth, "left", p.crotch_width * .18)
-    right_points = _leg_opening(-center_offset, leg_z, p.thigh_opening_width,
-                                p.thigh_opening_depth, "right", p.crotch_width * .18)
-    left_start = len(vertices); vertices.extend(left_points); left = tuple(range(left_start, left_start + SIDES))
-    right_start = len(vertices); vertices.extend(right_points); right = tuple(range(right_start, right_start + SIDES))
+    brush(
+        net.vertices, upper_side_l,
+        (-p.width * 0.43, 0.0, p.height * 0.04),
+        p.width * 0.30,
+        (-p.width * 0.014, 0.0, p.height * 0.008),
+    )
+    brush(
+        net.vertices, upper_side_r,
+        (p.width * 0.43, 0.0, p.height * 0.04),
+        p.width * 0.30,
+        (p.width * 0.014, 0.0, p.height * 0.008),
+    )
+    brush(
+        net.vertices, rear_regions,
+        (0.0, -p.depth * 0.46, -p.height * 0.04),
+        p.depth * 0.76,
+        (0.0, -p.depth * 0.055 * p.glute_projection, -p.height * 0.012),
+    )
+    brush(
+        net.vertices, front_lower,
+        (0.0, p.depth * 0.40, -p.height * 0.12),
+        p.depth * 0.58,
+        (0.0, -p.depth * 0.018, -p.height * 0.004),
+    )
+    brush(
+        net.vertices, inner_left,
+        (-p.crotch_width * 0.34, 0.0, -p.height * 0.18),
+        p.width * 0.25,
+        (-p.crotch_width * 0.030, 0.0, -p.height * 0.016),
+    )
+    brush(
+        net.vertices, inner_right,
+        (p.crotch_width * 0.34, 0.0, -p.height * 0.18),
+        p.width * 0.25,
+        (p.crotch_width * 0.030, 0.0, -p.height * 0.016),
+    )
+    brush(
+        net.vertices, lower_side_l,
+        (-p.width * 0.40, 0.0, -p.height * 0.18),
+        p.width * 0.27,
+        (p.width * 0.008, 0.0, -p.height * 0.010),
+    )
+    brush(
+        net.vertices, lower_side_r,
+        (p.width * 0.40, 0.0, -p.height * 0.18),
+        p.width * 0.27,
+        (-p.width * 0.008, 0.0, -p.height * 0.010),
+    )
 
-    # Path-based provisional bridge: outer/anterior/rear sectors descend from the
-    # hip mass.  The medial crotch remains a neutral central seam.  The standalone
-    # render will tell us where this surface needs another anatomical row.
-    for source_slice, target in ((range(0, 8), left), (range(8, 16), right)):
-        src = tuple(rings[-1][i] for i in source_slice)
-        dst_offset = 0 if target is left else 8
-        dst = tuple(target[(dst_offset + i) % SIDES] for i in range(8))
-        for i in range(7):
-            faces.append((src[i], src[i + 1], dst[i + 1], dst[i]))
-    # Close only the central surface between leg openings; keep the three named
-    # attachment loops themselves open.
-    for i in range(8):
-        li = left[7 + i]
-        ln = left[(8 + i) % SIDES]
-        ri = right[(7 - i) % SIDES]
-        rn = right[(6 - i) % SIDES]
-        faces.append((li, ln, rn, ri))
+    # Inflate the transition symmetrically. Averaged polygon normals are
+    # sensitive to mirrored face ordering at the sagittal seam, so applying
+    # them independently can introduce a small but real left/right drift.
+    # Compute the positive-X side, then mirror its displacement onto the
+    # coordinate-matched negative-X side.
+    normals = vertex_normals(net.vertices, net.faces)
+    before_inflate = list(net.vertices)
+    positive = tuple(i for i in transition_regions if net.vertices[i][0] > 1.0e-8)
+    brush(
+        net.vertices,
+        positive,
+        (0.0, 0.0, -p.height * 0.04),
+        p.width * 0.44,
+        normal_amount=p.width * 0.0035,
+        normals=normals,
+    )
+    mirror_lookup = {
+        (round(-x, 6), round(y, 6), round(z, 6)): i
+        for i, (x, y, z) in enumerate(before_inflate)
+        if x < -1.0e-8
+    }
+    for i in positive:
+        x0, y0, z0 = before_inflate[i]
+        mate = mirror_lookup.get((round(x0, 6), round(y0, 6), round(z0, 6)))
+        if mate is None:
+            continue
+        dx = net.vertices[i][0] - x0
+        dy = net.vertices[i][1] - y0
+        dz = net.vertices[i][2] - z0
+        mx, my, mz = before_inflate[mate]
+        net.vertices[mate] = (mx - dx, my + dy, mz + dz)
 
-    boundaries = {"torso": rings[0], "left_thigh": left, "right_thigh": right}
-    return tuple(vertices), tuple(faces), boundaries
+    locked = set(torso) | set(left) | set(right)
+
+    # Existing seam fairing now acts on the curved spans: it aligns the first
+    # patch rows without moving authored landmarks or attachment boundaries.
+    fair_boundaries(
+        net.vertices,
+        net.faces,
+        net.boundaries.values(),
+        locked=locked,
+        strength=0.34,
+        iterations=2,
+    )
+    relax(
+        net.vertices,
+        net.faces,
+        range(len(net.vertices)),
+        locked=locked,
+        strength=0.055,
+        iterations=2,
+    )
+    net.faces = list(orient_faces_consistently(net.faces))
+
+    # Reconcile each authored mirror pair after all sculpt/fairing passes.
+    # Averaging the pair (rather than copying one side) preserves the intended
+    # deformation while making bilateral symmetry exact and deterministic.
+    for left_i, right_i in mirror_pairs:
+        lx, ly, lz = net.vertices[left_i]
+        rx, ry, rz = net.vertices[right_i]
+        half_x = (abs(lx) + abs(rx)) * 0.5
+        y = (ly + ry) * 0.5
+        z = (lz + rz) * 0.5
+        net.vertices[left_i] = (-half_x, y, z)
+        net.vertices[right_i] = (half_x, y, z)
+    for i in centerline:
+        _, y, z = net.vertices[i]
+        net.vertices[i] = (0.0, y, z)
+    return (
+        tuple(net.vertices),
+        tuple(net.faces),
+        {"torso": torso, "left_thigh": left, "right_thigh": right},
+    )

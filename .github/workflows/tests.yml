@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   core-tests:
     name: Core tests (Python ${{ matrix.python-version }})
@@ -120,6 +124,47 @@ jobs:
             --background --factory-startup --python-exit-code 1 \
             --python scripts/test_blender_package.py
 
+  visual-review:
+    name: Human visual review (${{ matrix.version }})
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        include:
+          - version: '5.2.1'
+            release: Blender5.2
+            directory: blender-5.2.1-linux-x64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Blender runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libgl1 libxi6 libxrender1 libxxf86vm1 libxfixes3 libxkbcommon0
+
+      - name: Restore Blender runtime cache
+        id: blender-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/asset-assistant/blender/${{ matrix.directory }}
+          key: blender-runtime-${{ runner.os }}-${{ matrix.version }}-${{ matrix.directory }}
+
+      - name: Download, verify, and extract Blender
+        if: steps.blender-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ runner.temp }}
+        run: |
+          base_url=https://mirror.blender.org/release/${{ matrix.release }}
+          archive=${{ matrix.directory }}.tar.xz
+          cache_root="$HOME/.cache/asset-assistant/blender"
+          mkdir -p "$cache_root"
+          curl --fail --location --retry 3 --output "$archive" "$base_url/$archive"
+          curl --fail --location --retry 3 --output blender.sha256 "$base_url/blender-${{ matrix.version }}.sha256"
+          grep " $archive\$" blender.sha256 > selected.sha256
+          sha256sum --check selected.sha256
+          tar -xf "$archive" -C "$cache_root"
+          test -x "$cache_root/${{ matrix.directory }}/blender"
+
       - name: Render mathematical Human visual check
         run: |
           "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
@@ -133,4 +178,17 @@ jobs:
         with:
           name: mathematical-human-review
           path: surface_review*.png
+          if-no-files-found: error
+
+      - name: Render Human V2 deformation review
+        run: |
+          "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
+            --background --factory-startup --python-exit-code 1 \
+            --python scripts/inspect_human_deformation.py
+
+      - name: Upload Human V2 deformation review
+        uses: actions/upload-artifact@v4
+        with:
+          name: human-v2-deformation-review
+          path: human_v2_deformation_review.png
           if-no-files-found: error

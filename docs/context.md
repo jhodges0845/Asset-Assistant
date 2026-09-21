@@ -4,6 +4,14 @@ Use this file to find the right source-of-truth document without loading the ent
 
 Last structural rescan: 2026-09-15
 
+## Current Human V2 integration (2026-09-20)
+
+Create > Human now uses the mathematical surface with a surface-aligned deforming
+rig and shared mesh/rig body-control mapping. The separate Mathematical Human
+provider remains a static study. See `visual-testing-integration.md` for current integration,
+review commands, CI timing and quality limits. Earlier pelvis-first notes below
+are experimental history, not the active provider composition.
+
 ## Architecture and maintainability
 
 - `architecture.md` — current architecture overview.
@@ -15,11 +23,13 @@ Architecture remains frozen during Human V2 unless implementation exposes a conc
 
 ## Current Human quality milestone
 
-- `human-v2-topology-plan.md` — **active source of truth** for Human V2 anatomy direction, pelvis-first construction, semantic-control requirements, sequencing, and visual acceptance gates.
+- `human-v2-topology-plan.md` — Human V2 quality gates, semantic-control requirements and historical construction sequencing.
 - `deformation-quality.md` — deformation quality expectations; deeper rig/weight work follows topology evidence.
 - `human-1.0-closeout-audit.md` — prior Human milestone closeout; historical context, not current target state.
 
-Current Human V2 direction: anatomy-oriented neutral construction. The active experiment generates a standalone sex-neutral pelvis first, validates it in clay/silhouette/wireframe, then extends topology into torso and thighs. Older coarse-mesh-plus-refinement notes are historical when they conflict with the current plan.
+Current Human uses the mathematical surface and surface-aligned rig.
+`visual-testing-integration.md` is the current implementation checkpoint; the
+standalone pelvis and coarse-mesh refinement notes record earlier experiments.
 
 ## Model/LLM round-trip and Modify
 
