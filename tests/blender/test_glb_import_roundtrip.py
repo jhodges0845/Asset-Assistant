@@ -28,7 +28,7 @@ class GLBImportRoundTripTests(unittest.TestCase):
                        ("objects", "meshes", "armatures", "collections", "materials", "images", "actions")}
         self.scene = bpy.data.scenes.new("GLBImportRoundTrip")
         bpy.context.window.scene = self.scene
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         values = {field.key: field.default for field in provider.parameters}
         self.root = create_character(provider.mesh(values), name="GLBHuman", scene=self.scene)
         self.root["object_type"] = provider.key

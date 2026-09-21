@@ -24,7 +24,7 @@ class ComponentWorkingStateTests(unittest.TestCase):
         bpy.ops.object.delete(use_global=False)
 
     def _base(self):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         values = {field.key: field.default for field in provider.parameters}
         root = create_character(provider.mesh(values), name="Human", scene=bpy.context.scene)
         root["object_type"] = provider.key

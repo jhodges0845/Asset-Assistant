@@ -86,7 +86,7 @@ pelvis bands do not cross the sagittal midline.
 ## Ownership
 
 - `object_core/geometry/surface_human.py`: versioned mathematical construction.
-- `object_core/providers/surface_human.py`: preset parsing and portable audit.
+- `object_core/geometry/surface_human_builder.py`: preset parsing and portable audit.
 - `blender_adapter/surface_human_study.py`: Blender conversion, intersection check,
   preview scene, rendering and saving.
 - `scripts/build_surface_human.py`: background-only orchestration.

@@ -4,13 +4,14 @@ Purpose: fast project navigation for LLM/agent work. This file is an index, not 
 
 Last structural rescan: 2026-09-15
 
+Read `docs/human-workflow.md` for the user workflow and code ownership map.
+
 ## Current Human V2 integration (2026-09-20)
 
-Create > Human now uses the mathematical surface with a surface-aligned deforming
-rig and shared mesh/rig body-control mapping. The separate Mathematical Human
-provider remains a static study. See `docs/visual-testing-integration.md` for current integration,
-review commands, CI timing and quality limits. Earlier pelvis-first notes below
-are experimental history, not the active provider composition.
+Create > Human is the single Human UI path. `HumanProvider` uses key `human` and
+composes the mathematical surface builder, rig and shared body-control mapping.
+The former static study option and experimental provider identity are removed.
+See `docs/human-workflow.md` for the workflow and code ownership map.
 
 ## Project map
 
@@ -40,7 +41,7 @@ Read next when architecture matters:
 
 Human V2 quality is active. `object_core/providers/human.py` composes the mathematical
 surface, surface-aligned skeleton, cached skin weights and semantic controls.
-The static `human_surface_study` provider remains available independently.
+The mathematical surface builder is internal; Human is the only Human UI option.
 
 Read next:
 - `object_core/context.md`
@@ -89,16 +90,8 @@ Do not recursively read every linked file unless the task requires it.
 
 See `AGENTS.md` for command semantics and scanner responsibilities.
 
-## Mathematical Human plugin option
+## Human geometry
 
-- `human_surface_study` is registered as Mathematical Human in Create; static,
-  no rig/animation/UV support. Human uses this surface with a separate rigged provider.
-- `object_core/geometry/surface_human.py` and `surface_pelvis.py`: mathematical
-  geometry, rounded pelvis and bounded fairing; no imported anatomical assets.
-- `blender_adapter/surface_human_runtime.py`: normal asset creation with the same
-  collision gate as the standalone study, before replacing the current asset.
-- `scripts/render_human_review.py --provider human_surface_study --height-cm 175`
-  creates clay/silhouette/wireframe visual checks; CI uploads them on main and
-  visual-testing. Visual approval remains manual.
-- See `docs/mathematical-human-plugin.md` and the mathematical-human development
-  journal for usage, limitations, and reproducible standalone studies.
+`object_core/geometry/surface_human_builder.py` builds and audits geometry for
+`HumanProvider`. Standalone study scripts are development tools, not a second
+plugin workflow. See `docs/human-workflow.md` for the current code map.

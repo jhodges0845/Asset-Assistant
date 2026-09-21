@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory() as directory:
 
         character = rig.parent
         meshes = [obj for obj in character.children if obj.type == "MESH"]
-        assert character["object_type"] == "human_experimental"
+        assert character["object_type"] == "human"
         assert len(meshes) == 1
         assert meshes[0]["body_part"] == "human"
         assert len(meshes[0].data.vertices) > 0
@@ -64,14 +64,6 @@ with tempfile.TemporaryDirectory() as directory:
         assert bpy.ops.humanoid.prepare_materials() == {"FINISHED"}
         assert bpy.ops.humanoid.validate_character() == {"FINISHED"}
         assert not any(row.status == "ERROR" for row in scene.humanoid_settings.validation_results)
-
-        scene.humanoid_settings.object_type = "human_surface_study"
-        assert bpy.ops.humanoid.generate_blockout() == {"FINISHED"}
-        surface = scene.humanoid_settings.target
-        assert surface["quality_status"] == "experimental_anatomical_study"
-        assert scene.humanoid_settings.asset_use == "STATIC"
-        assert len(next(o for o in surface.children if o.type == "MESH").data.vertices) == 42186
-        assert not bpy.ops.humanoid.add_basic_rig.poll()
 
         scene.humanoid_settings.object_type = "box"
         assert bpy.ops.humanoid.generate_blockout() == {"FINISHED"}

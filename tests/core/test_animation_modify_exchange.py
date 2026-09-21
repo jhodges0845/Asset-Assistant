@@ -9,7 +9,7 @@ from object_core.objects import get_provider
 
 class AnimationModifyExchangeTests(unittest.TestCase):
     def test_inspection_exposes_first_class_animation_metadata(self):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         clip = AnimationSnapshot(
             clip_id="animation-123",
             export_name="Walk",
@@ -49,7 +49,7 @@ class AnimationModifyExchangeTests(unittest.TestCase):
         self.assertEqual("walk.fbx", animation["source_reference"])
 
     def test_legacy_animation_snapshot_keeps_compact_shape(self):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         snapshot = AssetSnapshot(
             asset_id="asset-1",
             provider_key=provider.key,

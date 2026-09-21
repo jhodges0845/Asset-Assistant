@@ -14,7 +14,7 @@ def install(ui):
     )
     ui.HUMANOID_PG_settings.__annotations__['object_type'] = ui.EnumProperty(
         name='Object Type',
-        default='human_experimental',
+        default='human',
         items=[
             (provider.key, provider.label, 'Generate ' + provider.label)
             for provider in visible_providers

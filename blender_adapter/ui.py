@@ -98,7 +98,7 @@ class HUMANOID_PG_settings(bpy.types.PropertyGroup):
 
 
 def _field_name(provider, field):
-    # Preserve saved humanoid settings from earlier add-on versions.
+    # The blockout fixture uses unprefixed controls; product providers are namespaced.
     return field.key if provider.key == 'humanoid' else provider.key + '_' + field.key
 
 
@@ -126,11 +126,7 @@ class HUMANOID_OT_generate(bpy.types.Operator):
         try:
             provider = get_provider(settings.object_type)
             values = {field.key: getattr(settings, _field_name(provider, field)) for field in provider.parameters}
-            if provider.key == 'human_surface_study':
-                from .surface_human_runtime import create_surface_asset
-                root = create_surface_asset(provider, values, context.scene)
-            else:
-                root = create_character(provider.mesh(values), name=provider.label, scene=context.scene)
+            root = create_character(provider.mesh(values), name=provider.label, scene=context.scene)
         except (ValueError, TypeError, RuntimeError) as error:
             self.report({"ERROR"}, str(error))
             return {"CANCELLED"}
@@ -143,7 +139,7 @@ class HUMANOID_OT_generate(bpy.types.Operator):
         _select(context, root)
         for obj in root.children:
             obj.select_set(True)
-        self.report({"INFO"}, "Model created. " + ('Open Rigging to add its skeleton.' if provider.supports_rig else 'Open Validation to check this static asset.'))
+        self.report({"INFO"}, "Model created. " + ('Open Animate > Rig & Pose to add its skeleton.' if provider.supports_rig else 'Open Validation to check this static asset.'))
         return {"FINISHED"}
 
 

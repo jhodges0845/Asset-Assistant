@@ -3,13 +3,13 @@
 import unittest
 
 from object_core.component_primitives import hair_shell_mesh
-from object_core.providers.human import HumanExperimentalProvider
+from object_core.providers.human import HumanProvider
 from object_core.providers.human_hair import fit_parent_skinned_hair
 
 
 class HumanHairTests(unittest.TestCase):
     def _skeleton(self):
-        provider = HumanExperimentalProvider()
+        provider = HumanProvider()
         values = {field.key: field.default for field in provider.parameters}
         return provider.skeleton(values)
 

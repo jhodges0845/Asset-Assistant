@@ -4,12 +4,12 @@ import tempfile
 import unittest
 from pathlib import Path
 from object_core.geometry.surface_human import SurfaceHumanSpec,generate_surface_human
-from object_core.providers.surface_human import SurfaceHumanProvider,audit_surface,load_surface_preset
+from object_core.geometry.surface_human_builder import HumanSurfaceBuilder,audit_surface,load_surface_preset
 
 class SurfaceHumanTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mesh,cls.report=SurfaceHumanProvider().build(SurfaceHumanSpec())
+        cls.mesh,cls.report=HumanSurfaceBuilder().build(SurfaceHumanSpec())
 
     def test_closed_connected_orientable_nonzero_surface(self):
         self.assertTrue(self.report['passed'])
@@ -68,6 +68,5 @@ class SurfaceHumanTests(unittest.TestCase):
     def test_report_does_not_claim_visual_or_animation_acceptance(self):
         self.assertEqual(self.report['quality_status'],'experimental_anatomical_study')
         self.assertIn('reference_likeness',self.report['not_checked'])
-        self.assertFalse(SurfaceHumanProvider.supports_rig)
 
 if __name__=='__main__':unittest.main()

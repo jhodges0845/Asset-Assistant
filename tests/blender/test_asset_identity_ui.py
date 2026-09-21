@@ -34,7 +34,7 @@ class _Node:
 def test_generated_assets_keep_display_name_separate_from_type_and_source(monkeypatch):
     target = _Target(
         generator="object_generator",
-        object_type="human_experimental",
+        object_type="human",
         asset_assistant_source="GENERATED",
     )
 

@@ -40,7 +40,7 @@ class _AnimationData:
 
 
 def test_generated_asset_is_reported_ready_without_using_display_name_as_identity():
-    root = _Object("Maxine", generator="object_generator", object_type="human_experimental")
+    root = _Object("Maxine", generator="object_generator", object_type="human")
     _Object("Body", type="MESH", parent=root)
 
     report = asset_inspection_ui.inspect_selected_asset(root.children[0])

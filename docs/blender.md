@@ -2,39 +2,26 @@
 
 ## Install and use
 
-Blender 5.2.1 LTS is the primary test target. Blender 2.92.0 and its embedded
-Python 3.7.7 remain covered as a legacy runtime. Headless integration tests pass
-on both; other Blender versions and interactive UI review remain unverified.
-No separate Python installation is needed to use the add-on.
+Blender 5.2.1 is the supported runtime. Build `dist/asset_assistant.zip` with
+`python -m scripts.build_blender_addon`; Blender supplies its own Python runtime.
 
-1. Open Edit > Preferences > Add-ons. In modern Blender use the menu
-   **Install from Disk**; in Blender 2.92 use **Install**.
-2. Select `dist/asset_assistant.zip` from the project folder; do not unzip it.
-3. Enable **Asset Assistant**.
-4. In the 3D Viewport, switch to Object Mode, press N, and open the **Generator** sidebar tab.
-5. In **Generator**, choose **Object Type: Humanoid**, set Height (cm), Weight (kg),
-   and Body Type, then click **Generate Model**.
-6. Use View > Frame Selected (numpad decimal) to see the generated character.
-7. Open **Rigging** and click **Add Basic Rig**, then **Enter Pose Mode**.
-8. Open **Validation** in Object Mode to inspect the character and texture requirements.
+1. In Edit > Preferences > Add-ons, choose Install from Disk and select the ZIP.
+2. Enable Asset Assistant. In the 3D Viewport, press N and open Asset Assistant.
+3. In Object Mode, open Create and choose Human, Quadruped, Avian or Box.
+4. Generate an asset. If a current asset is selected, the Replace button identifies
+   that action explicitly; preserve artist work before replacing it.
+5. For Human, open Animate > Rig & Pose > Add Basic Rig, then generate a clip.
+6. Use Components for attachments and Export for preparation, validation and export.
 
-Generation places a new character at the 3D cursor. It selects the new character
-and its parts. Rigging is a separate action on that same character. The Humanoid
-collection contains an Empty parent, 15 editable mesh objects, and an optional
-16-bone armature. Move the Empty to move the whole character; select an individual
-part to edit its geometry. Repeated generation creates another collection and
-preserves existing characters and scene objects. Inputs affect the next generation;
-they do not update existing models.
-
-Undo is enabled on the generation operator. Disabling Asset Assistant removes its
-UI, not generated objects. The rig uses rigid weights and separate parts; see
-[posing and rig limitations](rigging.md).
+Human is one connected mesh with a deforming rig. The provider supplies geometry,
+rigging and animation through the shared adapter. There is no separate static
+Human model option. Inputs affect explicit generation/Modify actions, not live
+procedural changes to artist geometry. See [Human workflow](human-workflow.md).
 
 ## Uninstall or temporarily disable
 
 1. Open **Edit > Preferences > Add-ons**.
-2. Search for **Asset Assistant**. Older releases may appear as **Object Generator**
-   or **Humanoid Blockout**.
+2. Search for **Asset Assistant**.
 3. Uncheck the add-on to disable it immediately.
 4. To uninstall its files, expand its entry with the arrow, click **Remove**, and confirm.
 5. If Auto-Save Preferences is off, choose **Save Preferences**. Restart Blender to

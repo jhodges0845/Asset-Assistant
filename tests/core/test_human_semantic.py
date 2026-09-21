@@ -9,7 +9,7 @@ from object_core.objects import get_provider
 class HumanSemanticTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.provider = get_provider("human_experimental")
+        cls.provider = get_provider("human")
         cls.values = {"height_cm": 180.0, "weight_kg": 70.0, "body_type": "average"}
         # ObjectMesh and its nested contracts are immutable. Reusing the neutral
         # Human here avoids regenerating the full refined topology for every
@@ -86,7 +86,7 @@ class HumanSemanticTests(unittest.TestCase):
     def test_planner_accepts_human_geometry_semantics_but_blocks_components(self):
         snapshot = AssetSnapshot(
             asset_id="human-1",
-            provider_key="human_experimental",
+            provider_key="human",
             provider_label="Human",
             parameters=tuple(self.values.items()),
             owns_geometry=True,

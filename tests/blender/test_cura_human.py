@@ -24,7 +24,7 @@ class HumanCuraTests(unittest.TestCase):
                        ('objects', 'meshes', 'armatures', 'collections', 'materials', 'images', 'actions')}
         self.scene = bpy.data.scenes.new('HumanCuraTest')
         bpy.context.window.scene = self.scene
-        provider = get_provider('human_experimental')
+        provider = get_provider('human')
         values = {field.key: field.default for field in provider.parameters}
         self.root = create_asset(provider.mesh(values), name='PrintableHuman', scene=self.scene)
         self.root['object_type'] = provider.key

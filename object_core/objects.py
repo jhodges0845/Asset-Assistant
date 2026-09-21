@@ -11,14 +11,13 @@ from .providers import (
     QUADRUPED_PARAMETERS,
     AvianProvider,
     BoxProvider,
-    HumanExperimentalProvider,
+    HumanProvider,
     HumanoidProvider,
     Parameter,
     QuadrupedProvider,
     SemanticTarget,
 )
 
-from .providers.surface_human import SurfaceHumanProvider
 
 LEGACY_PROVIDER_KEYS = {"dog": "quadruped"}
 
@@ -93,7 +92,7 @@ def validate_provider(provider):
     return provider
 
 
-OBJECT_TYPES = {provider.key: validate_provider(provider) for provider in (HumanoidProvider(), HumanExperimentalProvider(), BoxProvider(), QuadrupedProvider(), AvianProvider(), SurfaceHumanProvider())}
+OBJECT_TYPES = {provider.key: validate_provider(provider) for provider in (HumanoidProvider(), HumanProvider(), BoxProvider(), QuadrupedProvider(), AvianProvider())}
 
 
 def canonical_provider_key(key):
@@ -112,4 +111,4 @@ def get_provider(key):
     return provider
 
 
-__all__ = ["Parameter", "AVIAN_PARAMETERS", "AvianProvider", "QUADRUPED_PARAMETERS", "QuadrupedProvider", "HUMAN_PARAMETERS", "HumanoidProvider", "HumanExperimentalProvider", "BoxProvider", "validate_provider", "OBJECT_TYPES", "LEGACY_PROVIDER_KEYS", "canonical_provider_key", "get_provider"]
+__all__ = ["Parameter", "AVIAN_PARAMETERS", "AvianProvider", "QUADRUPED_PARAMETERS", "QuadrupedProvider", "HUMAN_PARAMETERS", "HumanoidProvider", "HumanProvider", "BoxProvider", "validate_provider", "OBJECT_TYPES", "LEGACY_PROVIDER_KEYS", "canonical_provider_key", "get_provider"]

@@ -22,7 +22,7 @@ def _target(context):
 
 
 def _supports_shirt(root):
-    if root is None or root.get("object_type") != "human_experimental":
+    if root is None or root.get("object_type") != "human":
         return False
     try:
         armature = _armature(root)

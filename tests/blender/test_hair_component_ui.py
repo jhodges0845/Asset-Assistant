@@ -25,7 +25,7 @@ class HairComponentUiTests(unittest.TestCase):
         bpy.ops.object.delete(use_global=False)
 
     def _human(self, rigged):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         values = {field.key: field.default for field in provider.parameters}
         mesh = provider.mesh(values)
         kwargs = {}

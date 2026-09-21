@@ -4,7 +4,7 @@ Asset Assistant keeps animation intent host-independent. Providers return immuta
 
 ## Clip selection
 
-The Blender Animations panel exposes a clip selector. Supported providers can generate separate editable Blender actions according to their declared capabilities. Human and Quadruped currently expose Idle/Walk/Run; Avian exposes Idle/Flight. A generated clip is created once; selecting it again activates the existing action instead of rebuilding or overwriting its keys. This lets an artist keep edits to one generated clip while switching to another.
+The Animate workspace exposes a clip selector. Supported providers can generate separate editable Blender actions according to their declared capabilities. Human and Quadruped currently expose Idle/Walk/Run; Avian exposes Idle/Flight. A generated clip is created once; selecting it again activates the existing action instead of rebuilding or overwriting its keys. This lets an artist keep edits to one generated clip while switching to another.
 
 Only one action is active on the rig at a time for editing and preview. Inactive generated actions remain saved with the Blender file through fake users. Export is different: engine adapters can package the generated clip library without permanently changing the `.blend` file. Temporary export state is always restored after writing.
 
@@ -12,7 +12,7 @@ Artist-authored actions are never replaced by generated clips. Existing NLA trac
 
 ## Idle
 
-The idle generator produces a closed provider-defined resting cycle while leaving locomotion roots stable. In Blender, generate a model, add its basic rig, choose Idle in the Animations panel, set cycle duration and motion strength, and generate the clip. Preview Motion Pose shows the middle of the active clip without playback.
+The idle generator produces a closed provider-defined resting cycle while leaving locomotion roots stable. In Blender, generate a model, add its basic rig, choose Idle in the Animate workspace, set cycle duration and motion strength, and generate the clip. Preview Motion Pose shows the middle of the active clip without playback.
 
 ## Human locomotion
 

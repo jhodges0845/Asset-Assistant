@@ -69,7 +69,7 @@ def _clear_scene():
 
 
 def _human(name):
-    provider = get_provider("human_experimental")
+    provider = get_provider("human")
     values = {"height_cm": 180, "weight_kg": 95, "body_type": "average"}
     mesh = provider.mesh(values)
     skeleton = provider.skeleton(values)

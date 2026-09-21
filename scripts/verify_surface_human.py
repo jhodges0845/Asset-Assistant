@@ -7,10 +7,10 @@ ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from surface_source_snapshot import verify_source
 if (ROOT/'source_manifest.json').exists():verify_source(ROOT)
-from object_core.providers.surface_human import SurfaceHumanProvider
+from object_core.geometry.surface_human_builder import HumanSurfaceBuilder
 from object_core.geometry.surface_human import SurfaceHumanSpec
 report=json.loads(bpy.data.texts['GENERATION_REPORT.json'].as_string())
-expected,fresh=SurfaceHumanProvider().build(SurfaceHumanSpec(**report['parameters']))
+expected,fresh=HumanSurfaceBuilder().build(SurfaceHumanSpec(**report['parameters']))
 body=bpy.data.objects['Human surface - generated study'];part=expected.parts[0]
 assert len(body.data.vertices)==len(part.vertices)
 assert tuple(tuple(p.vertices) for p in body.data.polygons)==part.faces

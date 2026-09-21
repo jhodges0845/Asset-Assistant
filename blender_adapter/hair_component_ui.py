@@ -44,7 +44,7 @@ def _attachment_items(self, context):
 
 
 def _supports_parent_skinned(root):
-    if root is None or root.get("object_type") != "human_experimental":
+    if root is None or root.get("object_type") != "human":
         return False
     try:
         armature = _armature(root)

@@ -1,26 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Human provider implementations."""
+"""Human provider: surface generation, rigging, skinning, Modify and animation.
+
+Human: validated neutral surface -> body controls -> matching skeleton -> weights.
+The Blender adapter consumes these portable results; it owns scene objects and
+explicit rig/animation operators. See docs/human-workflow.md for the full flow.
+"""
 
 from functools import lru_cache
 
 from ..animation import generate_idle, generate_run, generate_walk
-from ..geometry import generate_anatomical_human_mesh, generate_mesh
+from ..geometry import generate_mesh
+from ..geometry.surface_human import SurfaceHumanSpec
 from ..geometry.deformable import _generate_face_atlas_uvs
-from .surface_human import SurfaceHumanProvider
-from ..geometry.anatomical_base_contour import refine_human_anatomical_base_contour
-from ..geometry.cranium_refinement import refine_human_cranium_cross_sections
-from ..geometry.facial_anatomy import refine_human_local_facial_anatomy
-from ..geometry.facial_feature_topology import refine_human_facial_feature_loops
-from ..geometry.facial_local_topology import refine_human_local_feature_topology
-from ..geometry.facial_refinement import refine_human_facial_topology
-from ..geometry.limb_refinement import refine_human_limb_cross_sections
-from ..geometry.pelvis_refinement import refine_human_pelvis
-from ..geometry.shoulder_refinement import refine_human_shoulders
+from ..geometry.surface_human_builder import HumanSurfaceBuilder
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
 from ..models.mesh import MeshPart, ObjectMesh
 from ..rigging.surface_human import surface_skeleton, shape_surface_point
 from ..proportions import generate_proportions
-from ..rigging import generate_deforming_skeleton, generate_skin_weights, generate_skeleton
+from ..rigging import generate_skin_weights, generate_skeleton
 from .base import Parameter
 from .semantic import SemanticTarget
 from .human_semantic import apply_human_semantic_operations
@@ -51,14 +48,38 @@ HUMAN_SEMANTIC_TARGETS = (
     SemanticTarget("arm.right", "Right Arm", "region", ("shape", "scale")),
     SemanticTarget("leg.left", "Left Leg", "region", ("shape", "scale")),
     SemanticTarget("leg.right", "Right Leg", "region", ("shape", "scale")),
-    SemanticTarget("hair", "Hair", "component", ("add_component", "remove_component", "shape", "surface")),
-    SemanticTarget("clothing", "Clothing", "component", ("add_component", "remove_component", "shape", "surface")),
-    SemanticTarget("accessories", "Accessories", "component", ("add_component", "remove_component", "shape", "surface")),
+    SemanticTarget(
+        "hair",
+        "Hair",
+        "component",
+        ("add_component", "remove_component", "shape", "surface"),
+    ),
+    SemanticTarget(
+        "clothing",
+        "Clothing",
+        "component",
+        ("add_component", "remove_component", "shape", "surface"),
+    ),
+    SemanticTarget(
+        "accessories",
+        "Accessories",
+        "component",
+        ("add_component", "remove_component", "shape", "surface"),
+    ),
 )
 
 _HUMAN_GEOMETRY_TARGETS = (
-    "body", "torso", "shoulders", "head", "face", "jaw", "cheeks",
-    "arm.left", "arm.right", "leg.left", "leg.right",
+    "body",
+    "torso",
+    "shoulders",
+    "head",
+    "face",
+    "jaw",
+    "cheeks",
+    "arm.left",
+    "arm.right",
+    "leg.left",
+    "leg.right",
 )
 HUMAN_SEMANTIC_APPLY_CAPABILITIES = tuple(
     (target, operation)
@@ -77,35 +98,26 @@ def _proportions(values):
     )
 
 
-class HumanoidProvider:
-    key, label = "humanoid", "Humanoid"
-    supports_rig = supports_idle = True
-    supports_locomotion = supports_run = False
-    uses_skin_weights = supports_materials = False
-    parameters = HUMAN_PARAMETERS
-    semantic_targets = ()
-
-    def proportions(self, values):
-        return _proportions(values)
-
-    def mesh(self, values):
-        return generate_mesh(self.proportions(values))
-
-    def skeleton(self, values):
-        return generate_skeleton(self.proportions(values))
-
-    def idle(self, duration, strength):
-        return generate_idle(duration, strength)
-
-
 @lru_cache(maxsize=1)
 def _neutral_surface_data():
-    from ..geometry.surface_human import SurfaceHumanSpec
-    mesh, _report, arms = SurfaceHumanProvider().build(
-        SurfaceHumanSpec(), include_arm_indices=True)
+    """Build and audit one neutral surface, retaining authored arm ownership."""
+    mesh, _report, arms = HumanSurfaceBuilder().build(
+        SurfaceHumanSpec(), include_arm_indices=True
+    )
     part = mesh.parts[0]
-    return ObjectMesh((MeshPart("human", part.vertices, part.faces,
-                               _generate_face_atlas_uvs(part.vertices, part.faces)),)), arms
+    return (
+        ObjectMesh(
+            (
+                MeshPart(
+                    "human",
+                    part.vertices,
+                    part.faces,
+                    _generate_face_atlas_uvs(part.vertices, part.faces),
+                ),
+            )
+        ),
+        arms,
+    )
 
 
 def _neutral_surface_mesh():
@@ -113,28 +125,44 @@ def _neutral_surface_mesh():
 
 
 def _surface_skin_weights(mesh, skeleton):
+    """Reuse shared weighting with topology-based arm candidate restrictions."""
     neutral, arm_indices = _neutral_surface_data()
     # Semantic edits preserve topology: ownership follows authored indices even
     # when an artist moves a hand beside the pelvis. Never infer arm ownership
     # from proximity to bones in this arms-down rest pose.
-    if len(mesh.parts) != 1 or mesh.parts[0].faces != neutral.parts[0].faces or len(mesh.parts[0].vertices) != len(neutral.parts[0].vertices):
-        raise ValueError("Human surface skinning requires the authored surface topology")
+    if (
+        len(mesh.parts) != 1
+        or mesh.parts[0].faces != neutral.parts[0].faces
+        or len(mesh.parts[0].vertices) != len(neutral.parts[0].vertices)
+    ):
+        raise ValueError(
+            "Human surface skinning requires the authored surface topology"
+        )
     owners = {index: side for side, indices in arm_indices for index in indices}
     groups = {}
+
     def bone_filter(part_name, index, vertex, bones):
         side = owners.get(index)
         if side not in groups:
             if side is not None:
-                names = {"torso", "upper_arm." + side, "forearm." + side, "hand." + side}
+                names = {
+                    "torso",
+                    "upper_arm." + side,
+                    "forearm." + side,
+                    "hand." + side,
+                }
                 groups[side] = tuple(b for b in bones if b.name in names)
             else:
-                groups[side] = tuple(b for b in bones if not b.name.startswith(("forearm.", "hand.")))
+                groups[side] = tuple(
+                    b for b in bones if not b.name.startswith(("forearm.", "hand."))
+                )
         return groups[side]
+
     return generate_skin_weights(mesh, skeleton, bone_filter=bone_filter)
 
 
 @lru_cache(maxsize=16)
-def _human_v2_mesh(height_cm, weight_kg=95.0, body_type="average"):
+def _human_mesh(height_cm, weight_kg=95.0, body_type="average"):
     """Cache immutable Human V2 geometry for repeated in-process consumers.
 
     Blender integration tests and UI validation frequently request the same
@@ -144,16 +172,22 @@ def _human_v2_mesh(height_cm, weight_kg=95.0, body_type="average"):
     """
     mesh = _neutral_surface_mesh()
     part = mesh.parts[0]
-    proportions = generate_proportions(HumanoidSpec(height_cm, weight_kg, BodyType(body_type)))
+    proportions = generate_proportions(
+        HumanoidSpec(height_cm, weight_kg, BodyType(body_type))
+    )
     reference = generate_proportions(HumanoidSpec(height_cm, 95.0, BodyType.AVERAGE))
     height_scale = height_cm / 175.0
-    vertices = tuple(shape_surface_point(tuple(v * height_scale for v in point),
-                                        proportions, reference) for point in part.vertices)
+    vertices = tuple(
+        shape_surface_point(
+            tuple(v * height_scale for v in point), proportions, reference
+        )
+        for point in part.vertices
+    )
     return ObjectMesh((MeshPart("human", vertices, part.faces, part.uvs),))
 
 
 @lru_cache(maxsize=32)
-def _human_v2_skeleton(height_cm, weight_kg, body_type):
+def _human_skeleton(height_cm, weight_kg, body_type):
     proportions = generate_proportions(
         HumanoidSpec(float(height_cm), float(weight_kg), BodyType(body_type))
     )
@@ -161,18 +195,23 @@ def _human_v2_skeleton(height_cm, weight_kg, body_type):
 
 
 @lru_cache(maxsize=32)
-def _human_v2_skin_weights(height_cm, weight_kg, body_type):
+def _human_skin_weights(height_cm, weight_kg, body_type):
     """Cache deterministic immutable skin weights for repeated Human V2 requests."""
-    mesh = _human_v2_mesh(float(height_cm), float(weight_kg), body_type)
-    skeleton = _human_v2_skeleton(float(height_cm), float(weight_kg), body_type)
+    mesh = _human_mesh(float(height_cm), float(weight_kg), body_type)
+    skeleton = _human_skeleton(float(height_cm), float(weight_kg), body_type)
     return _surface_skin_weights(mesh, skeleton)
 
 
-class HumanExperimentalProvider:
-    """Deformable Human provider used for new human assets."""
+class HumanProvider:
+    """User-facing Human: shape, rig, animate and Modify through one provider.
 
-    key, label = "human_experimental", "Human"
-    supports_rig = supports_materials = supports_idle = supports_locomotion = supports_run = True
+    Registered as human; this is the plugin's single Human model path.
+    """
+
+    key, label = "human", "Human"
+    supports_rig = supports_materials = supports_idle = supports_locomotion = (
+        supports_run
+    ) = True
     uses_skin_weights = True
     parameters = HUMAN_PARAMETERS
     semantic_targets = HUMAN_SEMANTIC_TARGETS
@@ -183,23 +222,28 @@ class HumanExperimentalProvider:
 
     def mesh(self, values):
         """Generate Human V2 from the cached immutable Mathematical Human surface."""
-        return _human_v2_mesh(float(values["height_cm"]), float(values["weight_kg"]), values["body_type"])
+        return _human_mesh(
+            float(values["height_cm"]), float(values["weight_kg"]), values["body_type"]
+        )
 
     def semantic_mesh(self, mesh, values, operations):
-        return apply_human_semantic_operations(mesh, self.proportions(values), operations,
-                                               skeleton=self.skeleton(values))
+        return apply_human_semantic_operations(
+            mesh, self.proportions(values), operations, skeleton=self.skeleton(values)
+        )
 
     def skeleton(self, values):
-        return _human_v2_skeleton(
+        return _human_skeleton(
             float(values["height_cm"]),
             float(values["weight_kg"]),
             values["body_type"],
         )
 
     def skin_weights(self, mesh, values):
-        cached_mesh = _human_v2_mesh(float(values["height_cm"]), float(values["weight_kg"]), values["body_type"])
+        cached_mesh = _human_mesh(
+            float(values["height_cm"]), float(values["weight_kg"]), values["body_type"]
+        )
         if mesh is cached_mesh:
-            return _human_v2_skin_weights(
+            return _human_skin_weights(
                 float(values["height_cm"]),
                 float(values["weight_kg"]),
                 values["body_type"],
@@ -225,10 +269,22 @@ class HumanExperimentalProvider:
             2,
             2,
             (
-                0.50, 0.31, 0.24, 1.0,
-                0.58, 0.38, 0.29, 1.0,
-                0.60, 0.40, 0.31, 1.0,
-                0.53, 0.34, 0.26, 1.0,
+                0.50,
+                0.31,
+                0.24,
+                1.0,
+                0.58,
+                0.38,
+                0.29,
+                1.0,
+                0.60,
+                0.40,
+                0.31,
+                1.0,
+                0.53,
+                0.34,
+                0.26,
+                1.0,
             ),
         )
         return (
@@ -241,3 +297,26 @@ class HumanExperimentalProvider:
                 base_color_texture=texture,
             ),
         )
+
+
+class HumanoidProvider:
+    """Legacy rigid-part blockout; distinct from the surface-based Human."""
+
+    key, label = "humanoid", "Humanoid"
+    supports_rig = supports_idle = True
+    supports_locomotion = supports_run = False
+    uses_skin_weights = supports_materials = False
+    parameters = HUMAN_PARAMETERS
+    semantic_targets = ()
+
+    def proportions(self, values):
+        return _proportions(values)
+
+    def mesh(self, values):
+        return generate_mesh(self.proportions(values))
+
+    def skeleton(self, values):
+        return generate_skeleton(self.proportions(values))
+
+    def idle(self, duration, strength):
+        return generate_idle(duration, strength)

@@ -21,7 +21,7 @@ class ExternalAdoptionInspectionTests(unittest.TestCase):
         bpy.ops.object.delete(use_global=False)
 
     def _human(self, *, rigged=False):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         values = {field.key: field.default for field in provider.parameters}
         mesh = provider.mesh(values)
         kwargs = {}

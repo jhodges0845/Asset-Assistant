@@ -38,7 +38,7 @@ class BlenderAnimationTuningTests(unittest.TestCase):
                 data.remove(item, do_unlink=True)
 
     def _human(self):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         values = {field.key: field.default for field in provider.parameters}
         mesh = provider.mesh(values)
         root = create_character(
@@ -57,7 +57,7 @@ class BlenderAnimationTuningTests(unittest.TestCase):
         document = {
             "schema": REQUEST_SCHEMA,
             "asset_id": str(root["asset_assistant_asset_id"]),
-            "provider_key": "human_experimental",
+            "provider_key": "human",
             "operations": [{"animation_id": animation_id}],
         }
         document["operations"][0].update(changes)

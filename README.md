@@ -12,27 +12,32 @@ Licensed under **GPL-3.0-or-later**. Redistribution and modification are permitt
 
 ## Blender workflow
 
+Choose **Human**, generate it, then use **Animate > Rig & Pose** and animation.
+See the [Human workflow and code map](docs/human-workflow.md).
+
 Blender 5.2.1 is the supported Blender runtime and the required integration-test target. Blender 2.92.0 is no longer a supported runtime; current development is allowed to use modern Blender behavior without carrying legacy 2.92 compatibility constraints. Standalone CI continues to cover Python 3.9-3.12.
 
-The 3D Viewport sidebar has five workflow tabs:
+The Asset Assistant sidebar has four workspaces:
 
-| Generator | Rigging | Animations | Validation | Export |
-| --- | --- | --- | --- | --- |
-| Choose a provider and generate an editable asset | Add the provider-supported rig and enter Pose Mode | Generate/select supported motion such as Idle, Walk, Run, or Flight | Inspect geometry, weights, clips, materials, UVs, and texture references | Choose a target, prepare as needed, and export when ready |
-
-Not every provider needs every stage. Shared workflow behavior follows explicit provider capabilities.
-
-The artist-facing Generator currently exposes **Human**, **Quadruped**, **Avian**, and **Box**. The legacy Humanoid generator is retained only where required for saved-file compatibility and is no longer offered for new assets.
+| Workspace | Purpose |
+| --- | --- |
+| Create | Generate Human, Quadruped, Avian or Box; inspect or Modify the current asset. |
+| Animate | Add the supported rig, pose it, and generate/select animation clips. |
+| Components | Add or manage attached asset components. |
+| Export | Choose a target, prepare materials, validate and export. |
 
 ## Human status
 
-The public **Human** provider generates one connected skinned Human surface. The original 15-part rigid Humanoid path is retained internally for compatibility and focused pipeline coverage, not as a new-generation choice.
+Human uses one connected mathematical surface, a matching deforming skeleton,
+normalized weights, provisional UVs/materials and editable Idle/Walk/Run actions.
+It is registered as `HumanProvider` with key `human`. There is no separate static
+Human option. The low-level rigid blockout is only an internal pipeline fixture.
 
-Human includes the connected torso/limb surface and integrated feet, dedicated deforming skeleton, generated normalized skin weights, editable UVs, a portable Principled base material with generated image texture, improved blockout hands/feet, and separate editable Idle/Walk/Run actions. Generated textures are packed for self-contained export. Godot and Unity can export the generated clip library together. Unreal writes one model/skeleton/material FBX plus one Interchange-recognizable FBX per generated clip; those sidecars retain the skinned hierarchy Unreal 5.8 needs to classify them and are imported as animation-only against the model skeleton.
-
-The Blender 5.2.1 visual/deformation milestone has passed at foundation quality. Human has direct destination evidence in Godot, Unity, and Unreal. The current Run is intentionally a first-pass game-animation foundation and remains open for motion-quality polish.
-
-It remains a generated blockout foundation rather than finished anatomy. Individual fingers/toes, facial detail and higher-fidelity joint deformation are future refinement; current low-poly shoulder/armpit and other joint transitions are intentionally angular. See [Human geometry](docs/geometry.md), [rigging](docs/rigging.md), [animation](docs/animation.md), [deformation quality](docs/deformation-quality.md), and [target verification](docs/target-verification.md).
+This is pre-alpha: anatomy, joint deformation, hand detail, UVs and motion quality
+still need visual refinement. Automated workflow checks do not establish final
+character quality. See the [Human workflow](docs/human-workflow.md),
+[rigging](docs/rigging.md), [animation](docs/animation.md), and
+[target verification](docs/target-verification.md).
 
 ## Quadruped status
 

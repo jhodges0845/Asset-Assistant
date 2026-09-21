@@ -7,7 +7,7 @@ from object_core.providers.human_clothing import basic_shirt_mesh, basic_shirt_w
 
 class HumanClothingTests(unittest.TestCase):
     def setUp(self):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         self.values = {field.key: field.default for field in provider.parameters}
         self.skeleton = provider.skeleton(self.values)
 

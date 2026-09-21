@@ -4,7 +4,7 @@
 from .avian import AVIAN_PARAMETERS, AVIAN_SEMANTIC_TARGETS, AvianProvider
 from .base import Parameter
 from .box import BoxProvider
-from .human import HUMAN_PARAMETERS, HUMAN_SEMANTIC_TARGETS, HumanExperimentalProvider, HumanoidProvider
+from .human import HUMAN_PARAMETERS, HUMAN_SEMANTIC_TARGETS, HumanProvider, HumanoidProvider
 from .quadruped import QUADRUPED_PARAMETERS, QUADRUPED_SEMANTIC_TARGETS, QuadrupedProvider
 from .semantic import SemanticTarget
 
@@ -21,5 +21,5 @@ __all__ = [
     "HUMAN_PARAMETERS",
     "HUMAN_SEMANTIC_TARGETS",
     "HumanoidProvider",
-    "HumanExperimentalProvider",
+    "HumanProvider",
 ]

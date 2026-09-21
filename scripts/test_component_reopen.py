@@ -24,7 +24,7 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
-provider = get_provider("human_experimental")
+provider = get_provider("human")
 values = {field.key: field.default for field in provider.parameters}
 mesh = provider.mesh(values)
 root = create_character(

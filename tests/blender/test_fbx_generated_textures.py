@@ -23,7 +23,7 @@ class FBXGeneratedTextureTests(unittest.TestCase):
                        ('objects', 'meshes', 'armatures', 'collections', 'materials', 'images', 'actions')}
         self.scene = bpy.data.scenes.new('FBXGeneratedTextureTest')
         bpy.context.window.scene = self.scene
-        provider = get_provider('human_experimental')
+        provider = get_provider('human')
         values = {field.key: field.default for field in provider.parameters}
         self.root = create_asset(provider.mesh(values), name='FBXHuman', scene=self.scene)
         self.root['object_type'] = provider.key

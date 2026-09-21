@@ -67,7 +67,7 @@ class RunAnimationTests(unittest.TestCase):
             self.assertAlmostEqual(track.keys[0][1], track.keys[-1][1])
 
     def test_run_tracks_exist_on_provider_skeletons(self):
-        for provider_key, duration in (('human_experimental', 0.72), ('quadruped', 0.64)):
+        for provider_key, duration in (('human', 0.72), ('quadruped', 0.64)):
             provider = get_provider(provider_key)
             values = {field.key: field.default for field in provider.parameters}
             skeleton_names = {bone.name for bone in provider.skeleton(values).bones}
@@ -77,7 +77,7 @@ class RunAnimationTests(unittest.TestCase):
                             ', '.join(sorted(run_names - skeleton_names)))
 
     def test_human_and_quadruped_providers_advertise_run(self):
-        human = get_provider('human_experimental')
+        human = get_provider('human')
         quadruped = get_provider('quadruped')
         self.assertTrue(human.supports_run)
         self.assertTrue(quadruped.supports_run)

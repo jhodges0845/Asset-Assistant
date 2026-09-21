@@ -31,7 +31,7 @@ class BlenderComponentPersistenceTests(unittest.TestCase):
                 bpy.data.collections.remove(collection)
 
     def _generated_human(self, *, rigged=False):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         values = {field.key: field.default for field in provider.parameters}
         mesh = provider.mesh(values)
         if rigged:

@@ -9,7 +9,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 from surface_source_snapshot import capture_source
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from object_core.providers.surface_human import SurfaceHumanProvider,load_surface_preset
+from object_core.geometry.surface_human_builder import HumanSurfaceBuilder,load_surface_preset
 
 
 def main():
@@ -19,7 +19,7 @@ def main():
     out=Path(args.output).resolve()
     if out.exists() and any(out.iterdir()) and not args.overwrite:raise FileExistsError('Output is not empty; choose a new output folder or explicitly pass --overwrite')
     capture_source(ROOT,out,args.preset)
-    mesh,report=SurfaceHumanProvider().build(load_surface_preset(args.preset))
+    mesh,report=HumanSurfaceBuilder().build(load_surface_preset(args.preset))
     # Load only the host presentation module; importing the add-on package itself
     # would register unrelated UI modules during headless study generation.
     spec=importlib.util.spec_from_file_location('surface_human_study',ROOT/'blender_adapter/surface_human_study.py');adapter=importlib.util.module_from_spec(spec);spec.loader.exec_module(adapter)
