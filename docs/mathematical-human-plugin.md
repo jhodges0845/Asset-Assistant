@@ -5,7 +5,7 @@ Install the ZIP built by `python -m scripts.build_blender_addon` using Blender
 height, shoulder/hip widths; Advanced Options contains waist, chest, and muscle
 controls. Generate uses the existing create/replace workflow. Invalid geometry
 fails before replacing the current asset. This is a static experimental asset:
-no generated rig, animation, or UV layout. The existing Human remains available.
+no generated rig, animation, or UV layout. Create > Human now uses the same surface with a rig and the existing plugin workflows; see [integration status](visual-testing-integration.md).
 
 The plugin, standalone builder, and visual-review scripts use the same core
 surface generator. Plugin creation uses the same control-triangle intersection
@@ -18,7 +18,7 @@ and detailed Blender reports remain available through build_surface_human.ps1.
 Run Blender in background with `--python-exit-code 1 --python
 scripts/render_human_review.py -- --provider human_surface_study --height-cm 175
 --output surface_review.png`. This produces clay, silhouette, and wireframe
-four-view sheets. Weight/body-type arguments belong only to the older Human;
+four-view sheets. Weight/body-type arguments belong only to the rigged Human;
 use the strict Maxine preset/standalone runner for all six study controls.
 GitHub Tests runs on main and visual-testing and uploads review sheets as the
 mathematical-human-review artifact. A rendered image is not automatic likeness
@@ -28,7 +28,7 @@ approval. Inspect seams, silhouette, face, and hands against the reference.
 
 Tests cover generated geometry, bounded pelvis fairing, plugin/provider agreement,
 scene units, disabled rigging, preservation after failed generation, and isolated
-release ZIP generation. No topology mapping to the older rig is provided.
+release ZIP generation. The static study does not create a rig; the Human provider uses surface-specific rest landmarks.
 Subdivision intersections, production UVs, deformation, and reference likeness
 remain unverified. See mathematical-human-development.md for the geometry record.
 

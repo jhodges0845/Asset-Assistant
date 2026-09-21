@@ -25,8 +25,15 @@ def _scale_value(arguments, axis):
     return value
 
 
-def _bounds(proportions):
+def _bounds(proportions, skeleton=None):
     points = generate_landmarks(proportions)
+    if skeleton is not None:
+        bones = {bone.name: bone for bone in skeleton.bones}
+        points = dict(points, chin=bones["head"].head, crown=bones["head"].tail,
+                      hip_center=bones["torso"].head,
+                      shoulder_center=bones["upper_arm.left"].head)
+        points["shoulder.right"] = bones["upper_arm.right"].head
+        points["hip.right"] = bones["upper_leg.right"].head
     chin_z = points["chin"][2]
     crown_z = points["crown"][2]
     head_span = max(crown_z - chin_z, 1e-9)
@@ -91,7 +98,7 @@ def _transform(vertices, indices, arguments):
     return result
 
 
-def _profile(vertices, indices, target, arguments, proportions):
+def _profile(vertices, indices, target, arguments, proportions, bounds):
     profile = arguments.get("profile")
     if not profile:
         return vertices
@@ -113,7 +120,7 @@ def _profile(vertices, indices, target, arguments, proportions):
         return _transform(vertices, indices, {"x": 1.0 - amount * 0.12, "y": 1.0, "z": 1.0})
     if target == "face" and profile == "defined":
         result = list(vertices)
-        chin_z = _bounds(proportions)["chin_z"]
+        chin_z = bounds["chin_z"]
         head_span = max(proportions.head_height_cm, 1e-9)
         for index in indices:
             x, y, z = result[index]
@@ -153,13 +160,13 @@ def _profile(vertices, indices, target, arguments, proportions):
     raise ValueError("Unsupported Human semantic profile " + str(profile) + " for " + target)
 
 
-def apply_human_semantic_operations(mesh, proportions, operations):
+def apply_human_semantic_operations(mesh, proportions, operations, *, skeleton=None):
     """Apply topology-preserving Human semantic geometry operations."""
     if not isinstance(mesh, ObjectMesh) or len(mesh.parts) != 1:
         raise TypeError("Human semantic apply expects one generated ObjectMesh part")
     part = mesh.parts[0]
     vertices = list(part.vertices)
-    bounds = _bounds(proportions)
+    bounds = _bounds(proportions, skeleton)
 
     for operation in operations:
         if operation.operation not in ("shape", "scale"):
@@ -171,6 +178,6 @@ def apply_human_semantic_operations(mesh, proportions, operations):
         arguments = operation.argument_values()
         vertices = _transform(vertices, indices, arguments)
         if operation.operation == "shape":
-            vertices = _profile(vertices, indices, operation.target, arguments, proportions)
+            vertices = _profile(vertices, indices, operation.target, arguments, proportions, bounds)
 
     return ObjectMesh((MeshPart(part.name, tuple(vertices), part.faces, part.uvs),))

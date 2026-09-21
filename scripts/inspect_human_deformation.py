@@ -16,6 +16,7 @@ from pathlib import Path
 
 import bpy
 from mathutils import Vector
+from bpy_extras.object_utils import world_to_camera_view
 
 
 def _script_path():
@@ -56,7 +57,7 @@ POSES = (
     ("Elbow", "forearm.left", "Z", 1.20),
     ("Wrist", "hand.left", "Z", 1.05),
     ("Hip", "upper_leg.left", "X", 0.95),
-    ("Knee", "lower_leg.left", "X", 1.20),
+    ("Knee", "lower_leg.left", "X", -1.20),
     ("Ankle", "foot.left", "X", 1.05),
     ("Neck", "neck", "X", 0.85),
 )
@@ -88,8 +89,9 @@ def _evaluated_local_points(obj):
 def _bounds_world(objects):
     points = []
     for obj in objects:
-        for corner in obj.bound_box:
-            points.append(obj.matrix_world @ Vector(corner))
+        evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        for corner in evaluated.bound_box:
+            points.append(evaluated.matrix_world @ Vector(corner))
     minimum = Vector(tuple(min(point[i] for point in points) for i in range(3)))
     maximum = Vector(tuple(max(point[i] for point in points) for i in range(3)))
     return minimum, maximum
@@ -100,10 +102,10 @@ def _look_at(obj, target):
     obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 
-def _configure_review_camera(roots):
+def _configure_review_camera(roots, labels):
     scene = bpy.context.scene
     mesh_objects = [child for root in roots for child in root.children if child.type == "MESH"]
-    minimum, maximum = _bounds_world(mesh_objects)
+    minimum, maximum = _bounds_world(mesh_objects + labels)
     center = (minimum + maximum) * 0.5
     width = maximum.x - minimum.x
     depth = maximum.y - minimum.y
@@ -111,7 +113,9 @@ def _configure_review_camera(roots):
 
     camera_data = bpy.data.cameras.new("HumanV2_DeformationReviewCamera")
     camera_data.type = "ORTHO"
-    camera_data.ortho_scale = max(height * 1.12, width * 0.62)
+    # Blender ortho_scale spans the larger image dimension.
+    aspect = 1200 / 1800
+    camera_data.ortho_scale = max(height, width / aspect) * 1.12
     camera = bpy.data.objects.new("HumanV2_DeformationReviewCamera", camera_data)
     bpy.context.collection.objects.link(camera)
     camera.location = (center.x, minimum.y - max(8.0, depth * 4.0), center.z)
@@ -120,8 +124,8 @@ def _configure_review_camera(roots):
 
     world = scene.world
     world.color = (0.06, 0.07, 0.08)
-    scene.render.resolution_x = 1800
-    scene.render.resolution_y = 1000
+    scene.render.resolution_x = 1200
+    scene.render.resolution_y = 1800
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     scene.render.filepath = str(_find_repo_root(_script_path()) / "human_v2_deformation_review.png")
@@ -143,8 +147,30 @@ def _configure_review_camera(roots):
     bpy.context.object.data.energy = 500
     bpy.context.object.data.size = max(2.0, height)
     _look_at(bpy.context.object, center)
-    bpy.ops.render.render(write_still=True)
-    print("Human V2 deformation review image written to: " + scene.render.filepath)
+    bpy.context.view_layer.update()
+    _verify_projection(mesh_objects, labels)
+
+
+def _verify_projection(mesh_objects, labels):
+    """Reject clipped or overlapping review cards in actual camera space."""
+    scene = bpy.context.scene
+    graph = bpy.context.evaluated_depsgraph_get()
+    cards = []
+    for mesh, label in zip(mesh_objects, labels):
+        points = []
+        for obj in (mesh, label):
+            evaluated = obj.evaluated_get(graph)
+            points.extend(world_to_camera_view(
+                scene, scene.camera, evaluated.matrix_world @ Vector(corner)
+            ) for corner in evaluated.bound_box)
+        if any(p.z <= 0 or not (0.01 < p.x < 0.99 and 0.01 < p.y < 0.99) for p in points):
+            raise RuntimeError(label.data.body + " review card is clipped")
+        box = (min(p.x for p in points), min(p.y for p in points),
+               max(p.x for p in points), max(p.y for p in points))
+        for other in cards:
+            if box[0] < other[2] and other[0] < box[2] and box[1] < other[3] and other[1] < box[3]:
+                raise RuntimeError(label.data.body + " review card overlaps another pose")
+        cards.append(box)
 
 
 def _label(name, location):
@@ -157,7 +183,7 @@ def _label(name, location):
     # The review camera looks along +Y from the negative-Y side. Text objects
     # are created in the XY plane, so rotate them upright into the XZ plane.
     label.rotation_euler.x = math.radians(90.0)
-    label.rotation_euler.z = math.radians(180.0)
+    return label
 
 
 def _apply_and_verify_pose(name, obj, armature, bone_name, axis, angle):
@@ -191,40 +217,39 @@ def _apply_and_verify_pose(name, obj, armature, bone_name, axis, angle):
     )
 
 
-def main():
+def main(*, render=True):
     _clear_scene()
     cases = (("Neutral", None, None, 0.0),) + POSES
 
-    # Give every pose its own silhouette. The previous 1.4 m spacing was
-    # narrower than an arm span, so neighboring cases overlapped in the
-    # orthographic review even though the deformation checks were valid.
-    # Use a two-column card layout. Four columns technically separated the
-    # roots, but bent limbs and labels still visually collided in the final
-    # orthographic projection. Two columns make every pose independently
-    # readable at artifact-preview size.
+    # The camera looks along +Y: screen rows must vary in Z, not depth.
     columns = 2
-    column_spacing = 3.4
-    row_spacing = 2.7
+    column_spacing = 2.0
+    row_spacing = 2.45
     x_offset = -column_spacing * (columns - 1) / 2.0
-    y_offset = row_spacing / 2.0
 
     roots = []
+    labels = []
     for index, (name, bone_name, axis, angle) in enumerate(cases):
         row, column = divmod(index, columns)
         x = x_offset + column * column_spacing
-        y = y_offset - row * row_spacing
+        z = -row * row_spacing
         root, obj, armature = _human("Human_" + name)
         roots.append(root)
         root.location.x = x
-        root.location.y = y
+        root.location.z = z
+        # Surface faces +Y; use front for arms and side for sagittal bends.
+        root.rotation_euler.z = math.pi / 2 if name in ("Hip", "Knee", "Ankle", "Neck") else math.pi
         # Labels face the same -Y review camera as the humans.
-        _label(name, (x, y - 0.10, 2.15))
+        labels.append(_label(name, (x, -0.5, z + 2.15)))
 
         if bone_name is not None:
             _apply_and_verify_pose(name, obj, armature, bone_name, axis, angle)
 
     bpy.context.view_layer.update()
-    _configure_review_camera(roots)
+    _configure_review_camera(roots, labels)
+    if render:
+        bpy.ops.render.render(write_still=True)
+        print("Human V2 deformation review image written to: " + bpy.context.scene.render.filepath)
     print("Human V2 deformation inspection verified: Neutral + " + ", ".join(name for name, *_ in POSES))
 
 
