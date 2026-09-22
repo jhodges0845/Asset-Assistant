@@ -1,5 +1,8 @@
 # Pre-release scope checkpoint
 
+> Scope update (2026-09-21): [Shared anatomy and animation](shared-anatomy-alpha-plan.md) is the active pre-alpha plan. Complete the Human/Quadruped/Avian recipe and animation quality milestones before final release hardening. The older checklist below contains historical claims and must be reconciled against source before treating an item as outstanding.
+
+
 This checkpoint began after the Avian leg/Walk correction and now tracks the path to the first public alpha.
 
 ## Current status

@@ -6,6 +6,10 @@ Last structural rescan: 2026-09-15
 
 Read `human-workflow.md` for the user workflow and code ownership map.
 
+## Active pre-alpha direction (2026-09-21)
+
+Plan: [shared-anatomy-alpha-plan.md](shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. This is planned work; current providers still use separate anatomy implementations. The plan supersedes older Human-only milestone sequencing.
+
 ## Current Human V2 integration (2026-09-20)
 
 Create > Human is the single Human UI path. `HumanProvider` uses key `human` and

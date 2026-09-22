@@ -2,6 +2,22 @@
 
 This is the working source of truth for current development priorities. Before continuing development, verify live GitHub main, open PRs, and CI state rather than assuming the state recorded here is still current.
 
+## Active pre-alpha milestone: shared anatomy and motion
+
+The next alpha requires a shared anatomy construction system with Human, Quadruped and Avian recipes, followed by a new cross-provider animation quality pass. The goal is visibly appealing models and motion through one coherent workflow. Packaging readiness alone no longer closes the alpha gate.
+
+Implementation plan and acceptance criteria: [Shared anatomy and animation alpha plan](shared-anatomy-alpha-plan.md).
+
+1. [ ] Capture current visual/performance baselines; prove the shared recipe contract with Human and a Quadruped slice.
+2. [ ] Migrate Human without losing current geometry, rigging, semantic Modify or component behavior.
+3. [ ] Build and visually accept a Quadruped anatomy recipe with executable semantic shaping.
+4. [ ] Build and visually accept an Avian anatomy recipe with articulated wing and leg structure.
+5. [ ] Close cross-provider deformation, semantic variation and artist-preservation proofs.
+6. [ ] Complete Human Idle/Walk/Run, Quadruped Idle/Walk/Run and Avian Idle/Walk/Flight quality passes.
+7. [ ] Verify the packaged candidate, destination output, documentation and release metadata; publish alpha only after approval.
+
+This sequence supersedes the older Human-only near-term milestone and release-hardening-only scope below. Earlier checkpoints describe evidence and history, not additional prerequisites for this alpha. No shared recipe system is implemented yet.
+
 ## Product vision
 
 Asset Assistant is an open-source, artist-first 3D workflow assistant. Generation is optional: artists can generate, reopen, or import existing work and adopt it into the same preservation-aware workflow.
@@ -46,7 +62,7 @@ Main is protected and changes go through branches/PRs. Required CI covers Python
 - [x] Model context publishes executable semantic argument contracts and compact current semantic state so LLM edits can be authored against supported controls and current proportions.
 - [x] End-to-end generated-Human semantic JSON proof produced a visibly changed silhouette, validating the round-trip architecture and exposing Human geometry fidelity as the next quality ceiling.
 
-## Current checkpoint — get above water before the next Human quality pass
+## Earlier checkpoint — Human quality foundation
 
 The model JSON transport/validation/preview architecture is now sufficiently proven to stop redesigning the exchange format. The current Human test showed that semantic intent can reach the provider and visibly alter the generated character. The limiting factor is now the coarse Human base geometry/topology: additional semantic labels alone cannot produce a convincing high-fidelity character if the provider does not contain enough anatomical structure to express them.
 
@@ -165,6 +181,6 @@ The animation LLM JSON workflow is established separately. Continue improving se
 
 Human visual refinement is now a primary provider-quality track rather than a generic polish note. Human V1 can remain lightweight while Human V2 develops higher-fidelity anatomy and semantic expressiveness. Quadruped rich semantic Modify remains future work. Avian foundation and rich semantics are complete; further polish is evidence-driven.
 
-## Near-term milestone
+## Earlier Human milestone
 
 > Preserve the proven Generate/Import/Modify/Animate/Validate/Export architecture while raising the Human provider's geometry and semantic expressiveness enough that an LLM-authored Model JSON request can produce a recognizable, useful character base rather than only a proportionally modified mannequin.
