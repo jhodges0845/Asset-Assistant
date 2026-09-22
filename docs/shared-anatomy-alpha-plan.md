@@ -26,7 +26,7 @@ A recipe describes proportions, anatomical regions and connections, local coordi
 
 Shared machinery owns parameter validation, deterministic construction orchestration, coordinate transforms, region/landmark reporting, topology audits and reusable skinning constraints. Anatomy-specific surface constructors remain explicit: a wing is not a stretched Human arm and a quadruped hind limb is not a Human leg with renamed bones. Connected-body joins and separate appendage surfaces must declare their topology expectations.
 
-Start with typed Python contracts in a focused host-independent anatomy package; do not invent an external recipe language or plugin registry before two working recipes justify it. Providers remain the public capability and composition layer. Blender continues to consume existing mesh/skeleton/animation contracts. Box and imported assets do not need anatomy recipes.
+Start with typed Python contracts in a focused host-independent anatomy package; do not invent an external recipe language or plugin registry before two cross-body-plan proofs justify the anatomy seam. This anatomy work sits beneath the broader Asset Recipe direction: the eventual scalable catalog can discover recipes such as Rock, Human or Canine, while each recipe composes only the construction capabilities it needs. Static/rigid recipes do not need anatomy. Providers remain the current tested compatibility/workflow boundary during this milestone rather than becoming a one-class-per-recipe content catalog. Blender continues to consume existing mesh/skeleton/animation contracts.
 
 ## Milestones and acceptance gates
 
@@ -34,8 +34,9 @@ Start with typed Python contracts in a focused host-independent anatomy package;
 
 - Capture reproducible neutral clay, silhouette and wireframe views, bend poses, clips, mesh counts and generation timings for all three current providers.
 - Establish a small named parameter sample set: default, contrasting proportions and supported boundary cases. Record commit and parameters with each review.
-- Extract the minimum recipe/result contracts from Human and prove them with one Quadruped torso/limb construction slice before generalizing further.
-- Route Human through that contract without a visible quality regression. Preserve current Human controls, semantic edits, component attachment and plugin behavior.
+- Extract the minimum anatomy result contracts and prove them first with a tiny Human shoulder/arm chain and one Quadruped torso/front-limb construction slice before generalizing further.
+- Review the shared types after those two proofs; reject provider-specific conditionals or a second registry/provider system in the anatomy layer.
+- Only after that review, route full Human anatomy through the contract without a visible quality regression. Preserve current Human controls, semantic edits, component attachment and plugin behavior.
 - Gate: deterministic results; existing workflow tests pass; geometry and rig derive from the same resolved anatomy; visual baseline accepted. No new public Human option.
 
 ### 2. Quadruped anatomy recipe
