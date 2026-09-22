@@ -9,7 +9,7 @@ class ModifyEnumChoiceTests(unittest.TestCase):
     def _snapshot(self):
         return AssetSnapshot(
             asset_id="asset-123",
-            provider_key="human_experimental",
+            provider_key="human",
             provider_label="Human",
             parameters=(
                 ("height_cm", 180),

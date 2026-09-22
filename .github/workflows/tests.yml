@@ -109,11 +109,11 @@ jobs:
             --background --factory-startup --python-exit-code 1 \
             --python scripts/test_component_reopen.py
 
-      - name: Test mathematical Human plugin save/reopen
+      - name: Test Human plugin save/reopen
         run: |
           "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
             --background --factory-startup --python-exit-code 1 \
-            --python scripts/test_surface_plugin_reopen.py
+            --python scripts/test_human_reopen.py
 
       - name: Build Asset Assistant release ZIP
         run: python -m scripts.build_blender_addon
@@ -165,19 +165,19 @@ jobs:
           tar -xf "$archive" -C "$cache_root"
           test -x "$cache_root/${{ matrix.directory }}/blender"
 
-      - name: Render mathematical Human visual check
+      - name: Render Human visual check
         run: |
           "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
             --background --factory-startup --python-exit-code 1 \
-            --python scripts/render_human_review.py -- --provider human_surface_study \
+            --python scripts/render_human_review.py -- \
             --height-cm 175 --resolution-x 900 --resolution-y 500 --modes clay silhouette wireframe \
-            --output surface_review.png
+            --output human_review.png
 
       - name: Upload visual review sheets
         uses: actions/upload-artifact@v4
         with:
-          name: mathematical-human-review
-          path: surface_review*.png
+          name: human-review
+          path: human_review*.png
           if-no-files-found: error
 
       - name: Render Human V2 deformation review

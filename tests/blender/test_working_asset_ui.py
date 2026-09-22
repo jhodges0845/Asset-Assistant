@@ -57,7 +57,7 @@ class EditableCheckpointTests(unittest.TestCase):
         working_asset_ui._OPEN_EXPECTS_CHECKPOINT = False
 
     def _human(self):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         values = {field.key: field.default for field in provider.parameters}
         root = create_character(provider.mesh(values), name=provider.label, scene=bpy.context.scene)
         root["object_type"] = provider.key

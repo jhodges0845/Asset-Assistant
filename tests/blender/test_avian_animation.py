@@ -81,7 +81,7 @@ class AvianAnimationBlenderTests(unittest.TestCase):
         try:
             bpy.context.window.scene = human_scene
             settings = human_scene.humanoid_settings
-            settings.object_type = "human_experimental"
+            settings.object_type = "human"
             self.assertEqual(bpy.ops.humanoid.generate_blockout(), {"FINISHED"})
             self.assertEqual(bpy.ops.humanoid.add_basic_rig(), {"FINISHED"})
             settings.animation_clip = "FLIGHT"

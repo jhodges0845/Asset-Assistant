@@ -131,7 +131,7 @@ def _draw_artist_modify(panel, context, ui, modify_ui):
 def _draw_asset_type_picker(layout, settings, ui):
     box = layout.box()
     box.label(text="BASE ASSET", icon="OBJECT_DATA")
-    rows = (("human_experimental", "quadruped"), ("avian", "box"), ("human_surface_study",))
+    rows = (("human", "quadruped"), ("avian", "box"))
     for keys in rows:
         row = box.row(align=True); row.scale_y = 1.25
         for key in keys:

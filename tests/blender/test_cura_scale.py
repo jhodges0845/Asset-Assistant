@@ -47,7 +47,7 @@ class CuraScaleTests(unittest.TestCase):
 
     def test_one_to_ten_exports_180_cm_human_at_about_180_mm(self):
         settings = self.scene.humanoid_settings
-        settings.object_type = 'human_experimental'
+        settings.object_type = 'human'
         self.assertEqual(bpy.ops.humanoid.generate_blockout(), {'FINISHED'})
         root = settings.target
 

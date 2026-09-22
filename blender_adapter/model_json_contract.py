@@ -60,7 +60,7 @@ def _number_argument(minimum=None, maximum=None, default=None, description=""):
 
 def _operation_contract(provider, target_key, operation):
     """Describe only argument forms the current provider implementation accepts."""
-    if getattr(provider, "key", "") != "human_experimental":
+    if getattr(provider, "key", "") != "human":
         return {"operation": operation, "arguments": {}, "note": "Provider has not published a detailed argument schema yet."}
 
     scale_arguments = {
@@ -182,7 +182,7 @@ def _human_semantic_state(provider, parameters, operations):
 
 
 def _model_state(provider, asset):
-    if getattr(provider, "key", "") == "human_experimental":
+    if getattr(provider, "key", "") == "human":
         return _human_semantic_state(
             provider,
             asset.get("parameters") or {},

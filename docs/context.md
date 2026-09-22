@@ -4,13 +4,14 @@ Use this file to find the right source-of-truth document without loading the ent
 
 Last structural rescan: 2026-09-15
 
+Read `human-workflow.md` for the user workflow and code ownership map.
+
 ## Current Human V2 integration (2026-09-20)
 
-Create > Human now uses the mathematical surface with a surface-aligned deforming
-rig and shared mesh/rig body-control mapping. The separate Mathematical Human
-provider remains a static study. See `visual-testing-integration.md` for current integration,
-review commands, CI timing and quality limits. Earlier pelvis-first notes below
-are experimental history, not the active provider composition.
+Create > Human is the single Human UI path. `HumanProvider` uses key `human` and
+composes the mathematical surface builder, rig and shared body-control mapping.
+The former static study option and experimental provider identity are removed.
+See `human-workflow.md` for the workflow and code ownership map.
 
 ## Architecture and maintainability
 

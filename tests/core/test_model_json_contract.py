@@ -11,7 +11,7 @@ class ModelJsonContractTests(unittest.TestCase):
     def _snapshot(self, semantic_operations=()):
         return AssetSnapshot(
             asset_id="asset-123",
-            provider_key="human_experimental",
+            provider_key="human",
             provider_label="Human",
             parameters=(("height_cm", 180), ("weight_kg", 95), ("body_type", "average")),
             semantic_operations=semantic_operations,
@@ -30,7 +30,7 @@ class ModelJsonContractTests(unittest.TestCase):
         self.assertEqual("Asset Assistant", payload["asset_assistant"]["product"])
         self.assertEqual("asset-assistant.modify-request/v3", payload["asset_assistant"]["return_schema"])
         self.assertEqual("asset-123", payload["return_schema_example"]["asset_id"])
-        self.assertEqual("human_experimental", payload["return_schema_example"]["provider_key"])
+        self.assertEqual("human", payload["return_schema_example"]["provider_key"])
 
         parameters = {row["key"]: row for row in payload["parameter_contract"]}
         self.assertEqual(180, parameters["height_cm"]["current"])

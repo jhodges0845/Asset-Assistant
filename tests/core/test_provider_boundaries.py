@@ -5,7 +5,7 @@ from unittest.mock import patch
 from object_core.objects import (
     AvianProvider as RegistryAvianProvider,
     BoxProvider as RegistryBoxProvider,
-    HumanExperimentalProvider as RegistryHumanExperimentalProvider,
+    HumanProvider as RegistryHumanProvider,
     HumanoidProvider as RegistryHumanoidProvider,
     Parameter as RegistryParameter,
     QuadrupedProvider as RegistryQuadrupedProvider,
@@ -14,7 +14,7 @@ from object_core.objects import (
 from object_core.providers import (
     AvianProvider,
     BoxProvider,
-    HumanExperimentalProvider,
+    HumanProvider,
     HumanoidProvider,
     Parameter,
     QuadrupedProvider,
@@ -27,12 +27,13 @@ class ProviderBoundaryTests(unittest.TestCase):
         self.assertIs(RegistryAvianProvider, AvianProvider)
         self.assertIs(RegistryBoxProvider, BoxProvider)
         self.assertIs(RegistryHumanoidProvider, HumanoidProvider)
-        self.assertIs(RegistryHumanExperimentalProvider, HumanExperimentalProvider)
+        self.assertIs(RegistryHumanProvider, HumanProvider)
         self.assertIs(RegistryQuadrupedProvider, QuadrupedProvider)
 
     def test_human_v2_uses_mathematical_surface_geometry(self):
-        human = get_provider("human_experimental")
-        surface = get_provider("human_surface_study")
+        human = get_provider("human")
+        from object_core.geometry.surface_human_builder import HumanSurfaceBuilder
+        surface = HumanSurfaceBuilder()
         human_mesh = human.mesh({"height_cm": 175, "weight_kg": 95, "body_type": "average"})
         surface_mesh = surface.mesh({
             "height_cm": 175,
@@ -46,14 +47,14 @@ class ProviderBoundaryTests(unittest.TestCase):
         self.assertEqual(human_mesh.parts[0].faces, surface_mesh.parts[0].faces)
 
     def test_human_v2_reuses_immutable_mesh_for_identical_height(self):
-        human = get_provider("human_experimental")
+        human = get_provider("human")
         values = {"height_cm": 180, "weight_kg": 95, "body_type": "average"}
         first = human.mesh(values)
         second = human.mesh(dict(values))
         self.assertIs(first, second)
 
     def test_human_v2_reuses_immutable_skinning_for_base_mesh(self):
-        human = get_provider("human_experimental")
+        human = get_provider("human")
         values = {"height_cm": 180, "weight_kg": 95, "body_type": "average"}
         mesh = human.mesh(values)
         first_skeleton = human.skeleton(values)
@@ -64,7 +65,7 @@ class ProviderBoundaryTests(unittest.TestCase):
         self.assertIs(first_weights, second_weights)
 
     def test_human_v2_honors_full_height_range_and_shape_controls(self):
-        human = get_provider("human_experimental")
+        human = get_provider("human")
         values = {"height_cm": 175, "weight_kg": 95, "body_type": "average"}
         neutral = human.mesh(values)
         for height in (120, 240):
@@ -77,7 +78,7 @@ class ProviderBoundaryTests(unittest.TestCase):
             self.assertNotEqual(human.skeleton(values), human.skeleton(changed))
 
     def test_human_v2_rig_follows_surface_arm_and_leg_centerlines(self):
-        human = get_provider("human_experimental")
+        human = get_provider("human")
         bones = {b.name: b for b in human.skeleton(
             {"height_cm": 175, "weight_kg": 95, "body_type": "average"}).bones}
         self.assertAlmostEqual(bones["forearm.left"].tail[0], 30.8)
@@ -91,7 +92,7 @@ class ProviderBoundaryTests(unittest.TestCase):
 
     def test_edited_surface_recomputes_skin_weights(self):
         from object_core.models.mesh import MeshPart, ObjectMesh
-        human = get_provider("human_experimental")
+        human = get_provider("human")
         values = {"height_cm": 175, "weight_kg": 95, "body_type": "average"}
         part = human.mesh(values).parts[0]
         moved = ((part.vertices[0][0] + 1, *part.vertices[0][1:]),) + part.vertices[1:]
@@ -104,7 +105,7 @@ class ProviderBoundaryTests(unittest.TestCase):
 
     def test_surface_wrist_weights_cannot_pull_hip_or_torso(self):
         from object_core.providers.human import _neutral_surface_data
-        human = get_provider("human_experimental")
+        human = get_provider("human")
         values = {"height_cm": 180, "weight_kg": 95, "body_type": "average"}
         mesh = human.mesh(values)
         weights = human.skin_weights(mesh, values)[0].vertices
@@ -125,7 +126,7 @@ class ProviderBoundaryTests(unittest.TestCase):
         self.assertIsInstance(get_provider("avian"), AvianProvider)
         self.assertIsInstance(get_provider("box"), BoxProvider)
         self.assertIsInstance(get_provider("humanoid"), HumanoidProvider)
-        self.assertIsInstance(get_provider("human_experimental"), HumanExperimentalProvider)
+        self.assertIsInstance(get_provider("human"), HumanProvider)
         self.assertIsInstance(get_provider("quadruped"), QuadrupedProvider)
 
 

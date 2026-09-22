@@ -1,14 +1,16 @@
 # Workflow and asset readiness
 
-Asset Assistant exposes five vertical sidebar tabs: Generator, Rigging, Animations, Validation and Export. Generation, rigging, animation, and validation are separate actions on one chosen asset.
+The Asset Assistant sidebar has four workspaces. Generation, rigging, animation
+and validation are explicit actions on the current asset.
 
-| Tab | Current behavior |
+| Workspace | Current behavior |
 | --- | --- |
-| Generator | Choose Human, Quadruped, or Box and generate an editable starting asset. |
-| Rigging | Add the selected provider's supported rig without replacing an existing rig. |
-| Animations | Generate/select supported clips such as Idle, Walk, and Run. See [animation](animation.md). |
-| Validation | Run target-specific checks for the selected intended use and texture requirements. |
-| Export | Choose the destination, prepare missing materials where appropriate, resolve the checklist and export through the file browser. |
+| Create | Generate Human, Quadruped, Avian or Box; inspect or Modify an asset. |
+| Animate | Add a rig through Rig & Pose, then generate/select supported clips. |
+| Components | Add, adopt and manage attached components. |
+| Export | Prepare, validate for the selected destination, then export. |
+
+For a Human, follow [Human workflow and code map](human-workflow.md).
 
 The Object field identifies which generated asset Rigging, Animations and Validation operate on. It is set automatically after generation. Choose another generated root in that field to work on an older asset. When the field is empty, a selected part or rig can identify its generated parent. New Generator measurements affect only the next generated asset; later workflow stages use the asset's saved generation parameters.
 
@@ -34,12 +36,12 @@ Choose Static Asset, Rigged Asset, or Animated Asset. Enable Image Textures Expe
 - UVs checks active finite UV data when textures require it; it does not judge overlap, seams, or texel density.
 - Transforms flags target-relevant transform conditions for review.
 
-Validation-tab results are explicit snapshots. Redrawing the UI consumes the latest snapshot rather than repeatedly running expensive inspection. Export execution always performs a fresh safety preflight, so a stale green snapshot cannot authorize an invalid current scene.
+Validation results in Export are explicit snapshots. Redrawing the UI consumes the latest snapshot rather than repeatedly running expensive inspection. Export execution always performs a fresh safety preflight, so a stale green snapshot cannot authorize an invalid current scene.
 
 ## Provider behavior
 
-Shared workflow code is capability-driven rather than anatomy-driven. Human and Quadruped both exercise connected deforming paths through the same Blender workflow, while Box demonstrates a static provider that skips rigging and animation. The next provider milestone is Avian and should use the same generic workflow wherever its actual capabilities fit.
+Shared workflow code is capability-driven rather than anatomy-driven. Human and Quadruped both exercise connected deforming paths through the same Blender workflow, while Box demonstrates a static provider that skips rigging and animation. Avian uses the same workflow with its own rig and Idle/Flight clips.
 
-Older saved generated assets may be migrated from historical provider identifiers when they are resolved. New assets always store their canonical provider identity.
+Human now uses the provider key `human`. Pre-alpha files using the retired Human identifiers must be regenerated; no Human identity migration is supplied.
 
 [Export workflow](targets.md) explains formats and destination preparation. [Roadmap](roadmap.md) is the source of truth for active milestone work.

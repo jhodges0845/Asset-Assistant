@@ -33,6 +33,7 @@ def _release_entries(root):
         (root / "docs" / "blender.md", Path("humanoid_blender/README.md")),
         (root / "docs" / "rigging.md", Path("humanoid_blender/rigging.md")),
         (root / "docs" / "workflow.md", Path("humanoid_blender/workflow.md")),
+        (root / "docs" / "human-workflow.md", Path("humanoid_blender/human-workflow.md")),
         (root / "docs" / "animation.md", Path("humanoid_blender/animation.md")),
         (root / "LICENSE", Path("humanoid_blender/LICENSE")),
         (root / "NOTICE", Path("humanoid_blender/NOTICE")),

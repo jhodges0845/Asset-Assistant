@@ -183,7 +183,7 @@ class ExportWorkflowTests(unittest.TestCase):
 
     def test_fbx_contains_skin_animation_and_only_scoped_objects(self):
         from io_scene_fbx import parse_fbx
-        root = self.generate('human_experimental')
+        root = self.generate('human')
         bpy.ops.humanoid.add_basic_rig()
         bpy.ops.humanoid.generate_idle()
         bpy.ops.humanoid.prepare_materials()
@@ -256,7 +256,7 @@ class ExportWorkflowTests(unittest.TestCase):
             self.assertTrue(any(e.id == b'Content' and e.props and e.props[0] for e in elements))
 
     def test_fbx_rejects_action_outside_export_range(self):
-        root = self.generate('human_experimental')
+        root = self.generate('human')
         bpy.ops.humanoid.add_basic_rig()
         bpy.ops.humanoid.generate_idle()
         bpy.ops.humanoid.prepare_materials()

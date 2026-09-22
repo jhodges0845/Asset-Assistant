@@ -86,7 +86,7 @@ The provider model is healthy, but capability booleans are increasing. Do not re
 
 ### Human naming/history
 
-`HumanExperimentalProvider` is now the provider used for new Human assets. Internal naming can eventually become clearer while preserving serialized/legacy provider keys through compatibility aliases. Do not mix this rename into Human V2 topology/rig quality work unless it becomes necessary for that implementation.
+`HumanProvider` is now the provider used for new Human assets. Internal naming can eventually become clearer while preserving serialized/legacy provider keys through compatibility aliases. Do not mix this rename into Human V2 topology/rig quality work unless it becomes necessary for that implementation.
 
 ### Source-of-truth drift
 

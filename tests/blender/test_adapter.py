@@ -87,15 +87,14 @@ class BlenderAdapterTests(unittest.TestCase):
         bpy.context.window.scene = self.scene
         humanoid_blender.register()
         try:
-            self.assertEqual(self.scene.humanoid_settings.object_type, "human_experimental")
+            self.assertEqual(self.scene.humanoid_settings.object_type, "human")
             options = self.scene.humanoid_settings.bl_rna.properties["object_type"].enum_items
             self.assertEqual(
                 [(item.identifier, item.name) for item in options],
-                [("human_experimental", "Human"),
+                [("human", "Human"),
                  ("box", "Box"),
                  ("quadruped", "Quadruped"),
-                 ("avian", "Avian"),
-                 ("human_surface_study", "Mathematical Human")],
+                 ("avian", "Avian")],
             )
             self.assertEqual(bpy.types.HUMANOID_PT_panel.bl_label, "Asset Assistant")
             self.assertEqual(bpy.types.HUMANOID_PT_panel.bl_category, "Asset Assistant")
@@ -117,7 +116,7 @@ class BlenderAdapterTests(unittest.TestCase):
             self.assertEqual([tab.identifier for tab in workspace_tabs], ["CREATE", "ANIMATE", "COMPONENTS", "EXPORT"])
             self.scene.cursor.location = (2, 3, 4)
             for preset in BodyType:
-                self.scene.humanoid_settings.human_experimental_body_type = preset.value
+                self.scene.humanoid_settings.human_body_type = preset.value
                 self.assertEqual(bpy.ops.humanoid.generate_blockout(), {"FINISHED"})
                 model = bpy.context.view_layer.objects.active
                 self.assertEqual(model.type, "EMPTY")
@@ -131,7 +130,7 @@ class BlenderAdapterTests(unittest.TestCase):
                 root = armature.parent
                 self.assertEqual(root, model)
                 self.assertEqual({obj.data for obj in root.children if obj.type == "MESH"}, meshes_before_rig)
-                self.assertEqual(root["object_type"], "human_experimental")
+                self.assertEqual(root["object_type"], "human")
                 self.assertEqual(root["body_type"], preset.value)
                 self.assertEqual(tuple(root.location), (2, 3, 4))
                 self.assertEqual(len([obj for obj in root.children if obj.type == "MESH"]), 1)

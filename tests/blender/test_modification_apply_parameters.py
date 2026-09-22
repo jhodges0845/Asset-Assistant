@@ -73,7 +73,7 @@ class BlenderModificationParameterApplyTests(unittest.TestCase):
 
     def test_supported_parameter_regeneration_works_for_each_deforming_provider(self):
         cases = (
-            ("human_experimental", "height_cm", 190.0),
+            ("human", "height_cm", 190.0),
             ("quadruped", "body_length_cm", 82.0),
             ("avian", "wingspan_cm", 120.0),
         )

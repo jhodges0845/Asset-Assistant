@@ -26,8 +26,8 @@ class AnimationRecordTests(unittest.TestCase):
             looping=True,
             root_motion=RootMotionIntent.IN_PLACE,
             owns_curves=True,
-            source_reference="human_experimental:idle",
-            provider_key="human_experimental",
+            source_reference="human:idle",
+            provider_key="human",
             capability="idle",
         )
         values.update(changes)

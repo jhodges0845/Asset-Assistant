@@ -33,7 +33,7 @@ class UIFastPathTests(unittest.TestCase):
         enum_items = type(self.settings).bl_rna.properties['object_type'].enum_items
         identifiers = {item.identifier for item in enum_items}
         self.assertNotIn('humanoid', identifiers)
-        self.assertIn('human_experimental', identifiers)
+        self.assertIn('human', identifiers)
         self.assertIn('quadruped', identifiers)
         self.assertIn('avian', identifiers)
         self.assertIn('box', identifiers)

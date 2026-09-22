@@ -22,7 +22,7 @@ class _UI:
 
 
 class _Settings:
-    object_type = "human_experimental"
+    object_type = "human"
     asset_assistant_create_advanced = False
     asset_assistant_workspace = "CREATE"
     asset_assistant_create_view = "GENERATE"
@@ -90,7 +90,7 @@ def _walk(node):
         yield from _walk(child)
 
 
-def test_create_generate_uses_five_unified_asset_buttons_and_primary_action():
+def test_create_generate_uses_four_unified_asset_buttons_and_primary_action():
     panel = _Panel()
     workspace_create_ui._draw_generate(panel, _Context(), _UI(), working_asset_ui=object())
 
@@ -98,8 +98,7 @@ def test_create_generate_uses_five_unified_asset_buttons_and_primary_action():
     asset_rows = [node for node in nodes if node.scale_y == 2.25 and node.enums]
     assert len(asset_rows) == 1
     assert asset_rows[0].enums == [
-        ("object_type", "human_experimental", {"text": "Human", "icon": "USER"}),
-        ("object_type", "human_surface_study", {"text": "Human", "icon": "OUTLINER_OB_MESH"}),
+        ("object_type", "human", {"text": "Human", "icon": "USER"}),
         ("object_type", "quadruped", {"text": "Human", "icon": "ARMATURE_DATA"}),
         ("object_type", "avian", {"text": "Human", "icon": "OUTLINER_OB_MESH"}),
         ("object_type", "box", {"text": "Human", "icon": "CUBE"}),
@@ -161,17 +160,13 @@ def test_create_generate_keeps_first_three_parameters_visible_and_collapses_rest
     assert "asset_assistant_create_advanced" in props
 
 
-def test_empty_generate_screen_hides_empty_current_asset_card():
-    called = []
-    original = workspace_create_ui._ORIGINAL_ASSET_SUMMARY
-    try:
-        workspace_create_ui._ORIGINAL_ASSET_SUMMARY = lambda layout, context: called.append((layout, context))
-        workspace_create_ui._draw_contextual_asset_summary(_Node(), _Context())
-        assert called == []
-
-        _Context.scene.humanoid_settings.asset_assistant_create_view = "MODIFY"
-        workspace_create_ui._draw_contextual_asset_summary(_Node(), _Context())
-        assert len(called) == 1
-    finally:
-        _Context.scene.humanoid_settings.asset_assistant_create_view = "GENERATE"
-        workspace_create_ui._ORIGINAL_ASSET_SUMMARY = original
+def test_create_routes_generate_without_a_current_asset(monkeypatch):
+    calls = []
+    monkeypatch.setattr(workspace_create_ui, "_draw_generate", lambda *args: calls.append(args))
+    context = _Context()
+    panel = _Panel()
+    assert context.scene.humanoid_settings.target is None
+    workspace_create_ui._draw_create(panel, context, _UI(), None, None)
+    assert len(calls) == 1
+    assert calls[0][0] is panel
+    assert calls[0][1] is context

@@ -40,7 +40,7 @@ class AnimationNamesUiTests(unittest.TestCase):
                 data.remove(item, do_unlink=True)
 
     def _rigged_human(self):
-        provider = get_provider("human_experimental")
+        provider = get_provider("human")
         values = {field.key: field.default for field in provider.parameters}
         mesh = provider.mesh(values)
         root = create_character(

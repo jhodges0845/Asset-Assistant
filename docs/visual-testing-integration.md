@@ -1,8 +1,12 @@
 # Human V2 integration and visual review
 
+This records the September 20 integration checkpoint. For current names and flow,
+read [Human workflow](human-workflow.md). The subsequent pre-alpha cleanup removes
+the static study registration and uses `HumanProvider` / `human` without aliases.
+
 ## Current branch behavior (2026-09-20)
 
-Create > Human (`human_experimental`) uses the mathematical surface through the
+Create > Human (`human`) uses the mathematical surface through the
 normal plugin asset workflow, with a deforming rig, materials, provisional face
 atlas UVs, animation, semantic Modify and model JSON support. Mathematical Human
 (`human_surface_study`) remains a separate static study with six strict controls.

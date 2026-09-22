@@ -27,8 +27,8 @@ class ObjectProviderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unsupported'):
             get_provider('unknown')
 
-    def test_experimental_human_is_opt_in_deforming_provider(self):
-        provider = get_provider('human_experimental')
+    def test_human_is_the_deforming_character_provider(self):
+        provider = get_provider('human')
         values = {field.key: field.default for field in provider.parameters}
         mesh = provider.mesh(values)
         skeleton = provider.skeleton(values)
@@ -47,6 +47,12 @@ class ObjectProviderTests(unittest.TestCase):
         self.assertTrue(all(bone.part_name is None for bone in skeleton.bones))
         self.assertEqual(tuple(weight.part_name for weight in weights), ('human',))
         self.assertEqual(len(weights[0].vertices), len(mesh.parts[0].vertices))
+
+    def test_retired_human_provider_identities_are_not_registered(self):
+        self.assertIn("human", OBJECT_TYPES)
+        for key in ("human_experimental", "human_surface_study"):
+            with self.assertRaisesRegex(ValueError, "Unsupported object type"):
+                get_provider(key)
 
     def test_box_rejects_invalid_dimensions(self):
         for value in (0, float('nan'), True, '100'):

@@ -33,7 +33,7 @@ class LocomotionTests(unittest.TestCase):
                 generate_walk(strength=value)
 
     def test_human_provider_exposes_idle_and_locomotion(self):
-        provider = get_provider('human_experimental')
+        provider = get_provider('human')
         self.assertTrue(provider.supports_idle)
         self.assertTrue(provider.supports_locomotion)
         self.assertEqual(provider.idle(4, 1), provider.idle(4, 1))

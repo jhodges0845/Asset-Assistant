@@ -42,7 +42,7 @@ class RunAnimationBlenderTests(unittest.TestCase):
         return root
 
     def test_human_run_creates_named_generated_action(self):
-        root = self._make('human_experimental', 'RunHuman')
+        root = self._make('human', 'RunHuman')
         action, end = add_run(root, self.scene)
         self.assertEqual(action.get('asset_assistant_clip'), 'Run')
         self.assertEqual(action.get('asset_assistant_export_name'), 'Run')
