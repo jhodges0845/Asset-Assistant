@@ -6,13 +6,29 @@ This document defines the smallest host-independent seam to prove before migrati
 
 ## Decision
 
-Treat Human V2 as the first complete **anatomy recipe** rather than as a second public Human generator.
+Place shared anatomy beneath the broader **Asset Recipe** direction rather than making anatomy the universal recipe system.
 
-The provider remains the public workflow/capability boundary:
+The long-term V2 discovery flow is:
 
-`provider controls -> anatomy recipe -> resolved anatomy -> mesh / skeleton / regions -> weights / semantic Modify -> existing Blender workflow`
+`user intent / search term -> asset recipe catalog -> matching AssetRecipe -> composed construction capabilities -> existing Asset Assistant workflow`
 
-The shared layer owns resolution and anatomical metadata. Providers continue to own anatomy-specific surface construction and motion. Blender receives the existing portable mesh, skeleton, weights and animation contracts.
+An Asset Recipe answers: **does Asset Assistant know how to make this kind of thing, and what controls does it expose?** Recipes may describe rigid/static assets, procedural organic assets, articulated biological assets, or future construction families. A rock does not need anatomy simply because Human does.
+
+For anatomical assets, the recipe composes the shared anatomy capability:
+
+`HumanRecipe / CanineRecipe / AvianRecipe -> anatomy resolution -> resolved anatomy -> mesh / skeleton / regions -> weights / semantic Modify`
+
+For a rigid asset the path can remain much smaller:
+
+`RockRecipe -> rigid/procedural geometry construction -> geometry semantics -> materials / Modify`
+
+Both paths rejoin the existing Asset Assistant workflow for validation, components where supported, artist editing, save/reopen and export.
+
+**Providers remain the current tested compatibility/workflow boundary while this recipe architecture is proven.** Do not remove or duplicate the provider system during milestone 1. The long-term recipe catalog is the scalable content/discovery layer; providers should not become a one-class-per-asset content catalog.
+
+Treat the current Human mathematical system as the first complete anatomical recipe implementation beneath that larger Asset Recipe concept, not as a second public Human generator.
+
+The anatomy layer owns resolution and anatomical metadata. Anatomy-specific constructors continue to own body-plan-specific surface construction and motion. Blender receives the existing portable mesh, skeleton, weights and animation contracts.
 
 ## Why this seam
 
@@ -24,7 +40,33 @@ Current code already exposes the right evidence:
 
 The first extraction should therefore unify the **source of anatomical truth**, not force all three providers through one mesh algorithm.
 
-## Minimal typed concepts
+## Asset Recipe versus anatomy capability
+
+The general recipe layer and the anatomy layer solve different problems.
+
+### AssetRecipe
+
+An Asset Recipe is the eventual catalog/discovery unit. It has a stable identity, searchable names/aliases, published parameters and semantic controls, and declares/composes the construction capabilities needed to produce the asset.
+
+Examples:
+
+- `RockRecipe`: rigid/procedural geometry + stone-oriented geometry semantics; no skeleton or anatomy.
+- `SwordRecipe`: rigid construction + dimensional/detail semantics; no anatomy.
+- `HumanRecipe`: anatomical construction + rigging/skinning + Human semantics + supported motion.
+- `CanineRecipe`: quadruped anatomy + canine-like controls/motion.
+- `AvianRecipe`: avian anatomy + wing/leg/tail controls and flight motion.
+
+A recipe name is not necessarily a single preset. One recipe may expose useful variants such as jagged/river/boulder rock profiles or different proportion presets while retaining one known-good construction implementation.
+
+The eventual catalog should support the V2 interaction: type a concept such as `rock`, determine whether a recipe/alias exists, then route artistic intent into that recipe's published controls. The LLM/search layer selects known-good recipes and semantic parameters; it does not author arbitrary vertices by default.
+
+**Milestone 1 does not implement the general recipe catalog.** It only positions anatomy so the catalog can be added above it without another architectural inversion.
+
+### Anatomy capability
+
+Anatomy is an optional construction capability used by recipes that need a shared anatomical source of truth across geometry, rigging, skinning, semantics and motion. Static/rigid recipes do not implement placeholder anatomy concepts.
+
+## Minimal anatomy typed concepts
 
 Implement these as ordinary immutable Python data in a focused host-independent package such as `object_core/anatomy/`. Names may change during implementation; responsibilities should not.
 
@@ -36,7 +78,9 @@ It may call provider-specific construction helpers. It must not import Blender.
 
 ### ResolvedAnatomy
 
-Immutable result for one complete parameter set. It is the common anatomical truth consumed by geometry, rigging, skinning and semantic operations.
+Immutable result for one complete anatomical parameter set. It is the common anatomical truth consumed by geometry, rigging, skinning and semantic operations.
+
+Keep this object compact and anatomical. It must not become a container for materials, Blender state, animation clips, arbitrary mesh-builder configuration or general Asset Recipe metadata.
 
 Minimum contents:
 
@@ -124,6 +168,9 @@ This slice is useful because it immediately tests whether the contract handles a
 6. No external recipe language, dynamic plugin registry or generic node graph is introduced.
 7. Existing mesh/skeleton/weight output contracts remain valid.
 8. The seam can represent Human bilateral arms and a Quadruped front limb without provider-specific conditionals in shared anatomy types.
+9. Resolved anatomy remains compact; do not allocate a rich anatomy object per mesh vertex.
+10. The anatomy package does not introduce a global recipe/provider registry or become a second provider system.
+11. Static/rigid assets such as Box or a future Rock recipe require no anatomy implementation.
 
 ## Baseline before migration
 
@@ -139,13 +186,17 @@ These are regression evidence, not a claim that current visual quality is accept
 
 ## Proposed PR sequence
 
-1. **Contract + baseline harness:** add immutable anatomy types and reproducible baseline reporting without changing provider output.
-2. **Human seam:** resolve Human landmarks/regions through the contract while preserving byte-/value-equivalent practical outputs where feasible.
-3. **Quadruped proof slice:** torso + front-limb chain derives geometry/rig metadata from one resolved anatomy.
-4. Review the abstraction. Only then migrate the rest of Human and proceed to the full Quadruped recipe.
+1. **Contract + baseline harness:** add compact immutable anatomy types and reproducible baseline reporting without changing provider output.
+2. **Tiny Human proof:** resolve only a Human shoulder -> elbow -> wrist chain plus authored arm region ownership through the contract.
+3. **Tiny Quadruped proof:** resolve torso/shoulder + one front-limb chain through the same shared types, deriving geometry/rig metadata from one resolved anatomy.
+4. **Architecture review:** verify that the shared types represent both proofs without Human/Quadruped conditionals, per-vertex rich-object overhead, or a second provider/registry system.
+5. **Human migration:** only after that review, route the full Human anatomical source of truth through the seam while preserving current public controls and practical outputs.
+6. Proceed to the full Quadruped anatomy recipe and later Avian migration.
+
+The review after the two small proofs is intentional. We do not need a full Human migration to learn whether the abstraction is body-plan independent.
 
 The review after step 3 is intentional. If the shared types need Human-specific exceptions to represent the Quadruped slice, revise the contract before expanding it.
 
 ## Non-goals
 
-This checkpoint does not redesign Blender UI, create a second Human option, solve final pelvis anatomy, add species presets, implement physics, change export formats, or tune final animation. It creates the seam that lets those quality improvements share trustworthy anatomical information without coupling their surface algorithms.
+This checkpoint does not implement the general Asset Recipe catalog/search UI, redesign Blender UI, create a second Human option, solve final pelvis anatomy, add species presets, implement physics, change export formats, or tune final animation. It creates the seam that lets those quality improvements share trustworthy anatomical information without coupling their surface algorithms.
