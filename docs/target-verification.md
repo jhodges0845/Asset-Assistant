@@ -6,7 +6,7 @@ These are destination observations reported by the user and complemented by auto
 
 | Target | Application/version evidence | Asset and result | Broader follow-up |
 | --- | --- | --- | --- |
-| Blender | 5.2.1 LTS | Human and Quadruped deforming-provider milestones generated successfully. Quadruped interactive review confirmed the connected four-legged asset, armature and generated animations work in Blender. | Continue representative visual checks as providers mature; automated CI also covers Blender 2.92.0 and 5.2.1. |
+| Blender | 5.2.1 LTS | Human and Quadruped deforming-provider milestones generated successfully. Quadruped interactive review confirmed the connected four-legged asset, armature and generated animations work in Blender. | Continue representative visual checks as providers mature; automated CI covers Blender 5.2.1 as the supported integration-test runtime. |
 | Godot | Current Human verification screenshots show Godot 4.0.3 stable in the editor; earlier portable 4.0.3 installation was also verified | Completed Human GLB imported with connected hierarchy, Skeleton3D, mesh, generated Human Base Texture and AnimationPlayer. Idle and Walk were validated through the generated animation library workflow, with working motion observed in destination. Upright orientation and gross skinning integrity were confirmed visually. | Exact destination scale and broader save/edit/reimport behavior remain useful certification work, not Human blockers. |
 | Unity | 2020.3.31f1 installed on the test machine; import-session version not independently captured | Completed Human FBX import was exercised after the multi-clip export fix. The model/rig imported and Unity exposed both generated Idle and Walk clips from the exported animation library. | Humanoid avatar mapping/retargeting, exact measured scale and broader save/edit/reimport behavior remain useful certification follow-ups. |
 | Unreal Engine | 5.8.2 verified from installed build and editor initialization log | Completed Human Unreal workflow passed after the Interchange and clip-isolation fixes. The base skeletal model imported correctly; Idle and Walk sidecars imported against its skeleton and both animations played without the earlier cross-clip pose contamination. | Broader retargeting, measured scale and edit/reimport behavior remain certification follow-ups rather than Human blockers. |
@@ -14,7 +14,7 @@ These are destination observations reported by the user and complemented by auto
 
 ## Modern Blender verification
 
-Blender 5.2.1 LTS is the primary modern runtime target. Automated integration coverage and an isolated ZIP smoke workflow exercise generation, rigging, animation, validation and the four export paths. CI also exercises Blender 2.92.0 and standalone Python 3.9-3.12.
+Blender 5.2.1 LTS is the primary modern runtime target. Automated integration coverage and an isolated ZIP smoke workflow exercise generation, rigging, animation, validation and the four export paths. CI exercises Blender 5.2.1 and standalone Python 3.9-3.12. Blender 2.92.0 is historical evidence only and is no longer a supported runtime.
 
 Interactive Blender 5.2.1 testing confirmed the user-facing Human workflow through generation, deforming rig setup, generated UV/material/texture preparation, Idle/Walk creation and selection, validation and engine export. Destination testing exposed workflow gaps that were fixed before Human closeout: generated Human textures are packed automatically, generated clips can be created from evaluated generated poses without tripping artist-pose protection, Godot/Unity can carry the generated clip library together, Unreal uses a destination-specific one-model-plus-animation-sidecars strategy, and generated clip actions are self-contained to prevent cross-clip pose contamination.
 
@@ -64,7 +64,7 @@ Detailed representative Human slicing, orientation/warning review and any physic
 
 ## Provider milestone review
 
-Human is closed with Blender visual/deformation evidence plus direct Godot, Unity and Unreal destination evidence. Quadruped is closed as the first non-Human deforming architecture proof with comprehensive core/Blender automation and interactive Blender 5.2.1 animation confirmation. Avian is the next provider milestone.
+Human is closed as the initial deforming-provider foundation with Blender visual/deformation evidence plus direct Godot, Unity and Unreal destination evidence. Quadruped is closed as the first non-Human deforming architecture proof with comprehensive core/Blender automation and interactive Blender 5.2.1 animation confirmation. Avian is also complete as the current flying-creature provider foundation, with automated Godot GLB and Unity FBX packaging evidence; its remaining visual animation-quality review belongs to the active shared-anatomy and motion milestone. Provider expansion is complete for the first alpha scope.
 
 A successful Blender file write still does not imply broad production certification. Measured scale, retargeting, destination editing/reimport, physical printing and provider-by-provider destination coverage remain separate release-hardening dimensions.
 
