@@ -1,5 +1,8 @@
 # Publish readiness audit
 
+> Scope update (2026-09-21): [Shared anatomy and animation](shared-anatomy-alpha-plan.md) is the active pre-alpha plan. Complete the Human/Quadruped/Avian recipe and animation quality milestones before final release hardening. The older checklist below contains historical claims and must be reconciled against source before treating an item as outstanding.
+
+
 Status: **release hardening active**
 
 Asset Assistant has completed the Human, Quadruped, and Avian provider foundations. This audit tracks the remaining work before the first public release candidate.

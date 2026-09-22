@@ -131,4 +131,4 @@ Initial smoke verification exists for Godot, Unity, Unreal, and Cura. Human has 
 
 ## Release readiness
 
-Provider expansion is complete for the first release scope. Current work is release hardening: synchronizing version/public docs, verifying the packaged add-on artifact, automating tagged releases, and performing one final packaged-install smoke pass in Blender 5.2.1. See [publish readiness audit](docs/publish-readiness-audit.md).
+Provider expansion is complete for the first release scope. Before alpha, current priorities are a shared anatomy system with Human, Quadruped and Avian recipes and a new animation quality pass, followed by release hardening. See the [active alpha plan](docs/shared-anatomy-alpha-plan.md).
