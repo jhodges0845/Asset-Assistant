@@ -12,7 +12,7 @@ This milestone precedes release hardening. Existing production-readiness checkli
 
 Human composes a mathematical surface builder and surface-aligned rig. Quadruped and Avian currently have separate geometry, rigging and animation modules behind the same provider interface. Human and Avian have executable semantic geometry operations; Quadruped semantic declarations do not yet provide equivalent execution. Existing animation identity, preview/apply, ownership and export contracts remain the integration boundary.
 
-Read `human-workflow.md`, `object_core/providers/quadruped.py`, `object_core/providers/avian.py` and `animation-architecture.md` before implementation.
+Read `human-workflow.md`, `object_core/providers/quadruped.py`, `object_core/providers/avian.py` and `animation-architecture.md` before implementation. The milestone-1 extraction seam is defined in [Shared anatomy recipe contract](anatomy-recipe-contract.md).
 
 ## Shared construction with anatomy recipes
 
