@@ -80,6 +80,55 @@ class CanineRecipeTests(unittest.TestCase):
             self.assertFalse(any(w.bone_name.endswith('.right') for w in weights.vertices[i]))
         self.assertTrue(all(sum(w.weight for w in v) > .99999 for v in weights.vertices))
 
+    def test_limb_weights_stay_in_authored_chain_after_large_edits(self):
+        # Reproduce a front leg moved onto the hind leg, then challenge both
+        # sides/families near unrelated head, tail and opposite-side bones.
+        for region in (r for r in self.anatomy.regions if r.name.startswith('leg.')):
+            chain = next(c for c in self.anatomy.chains if c.name == region.name)
+            connection = next(c for c in self.anatomy.connections if c.regions[1] == region.name)
+            boundary = set(connection.boundaries[1])
+            for offset in ((0, -44.8, 0), (80, 44.8, 35), (0, -80, 45)):
+                with self.subTest(region=region.name, offset=offset):
+                    moved = self.provider.semantic_mesh(self.mesh, self.values, (
+                        self.operation(region.name, **dict(zip(('offset_x', 'offset_y', 'offset_z'), offset))),))
+                    weights = self.provider.skin_weights(moved, self.values)[0]
+                    for i in region.vertex_indices:
+                        allowed = set(chain.bones)
+                        if i in boundary:
+                            allowed.add(chain.parent_bone)
+                        self.assertTrue({w.bone_name for w in weights.vertices[i]} <= allowed)
+                        self.assertAlmostEqual(1, sum(w.weight for w in weights.vertices[i]))
+
+    def test_attachment_can_blend_to_parent_and_distal_limb_cannot(self):
+        weights = self.provider.skin_weights(self.mesh, self.values)[0]
+        for connection in self.anatomy.connections:
+            region = connection.regions[1]
+            chain = next(c for c in self.anatomy.chains if c.name == region)
+            boundary = set(connection.boundaries[1])
+            self.assertTrue(any(w.bone_name == chain.parent_bone
+                                for i in boundary for w in weights.vertices[i]))
+            for i in self.regions[region] - boundary:
+                self.assertTrue({w.bone_name for w in weights.vertices[i]} <= set(chain.bones))
+
+    def test_chain_local_weights_are_deterministic_at_parameter_limits(self):
+        from object_core.providers.quadruped_rigging import generate_quadruped_skin_weights
+        for endpoint in ('minimum', 'maximum'):
+            values = {p.key: getattr(p, endpoint) for p in self.provider.parameters}
+            mesh, anatomy = _construction(self.provider.dimensions(values))
+            skeleton = self.provider.skeleton(values)
+            for limit in (1, 2, 4):
+                weights = generate_quadruped_skin_weights(mesh, skeleton, anatomy=anatomy, max_influences=limit)
+                self.assertEqual(weights, generate_quadruped_skin_weights(
+                    mesh, skeleton, anatomy=anatomy, max_influences=limit))
+                for vertex in weights[0].vertices:
+                    self.assertTrue(1 <= len(vertex) <= limit)
+                    self.assertAlmostEqual(1, sum(w.weight for w in vertex))
+                    self.assertTrue(all(w.weight > 0 for w in vertex))
+        for invalid in (0, -1, True, 1.5):
+            with self.assertRaises(ValueError):
+                generate_quadruped_skin_weights(self.mesh, self.provider.skeleton(self.values),
+                                                anatomy=self.anatomy, max_influences=invalid)
+
     def test_named_profiles_are_useful_and_unknown_profiles_fail(self):
         for target, profile in (('chest', 'broad'), ('waist', 'tucked'), ('head', 'broad'),
                                 ('muzzle', 'long'), ('tail', 'long'), ('leg.hind.left', 'sturdy')):

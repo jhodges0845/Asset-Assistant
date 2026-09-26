@@ -10,7 +10,7 @@ from ..anatomy import AnatomyConnection, AnatomyRegion, JointChain, Landmark, Re
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '1'
+    recipe_version = '2'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']

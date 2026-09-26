@@ -1,7 +1,7 @@
 # Shared anatomy implementation checkpoint
 
 Branch: `codex/shared-generation-system`. Foundation: `381637d`; initial two-body
-proof: `bfecc5e`; Human migration: `36cd967`. The current canine increment migrates
+proof: `bfecc5e`; Human migration: `36cd967`. Canine migration: `be3d778`. That increment migrates
 the entire existing Quadruped construction and enables semantic Modify. Canine
 anatomical quality refinement and Avian recipe migration remain ahead.
 
@@ -27,8 +27,9 @@ There is no new registry, discovery UI or alternative generation pipeline.
   then binds region indices and four/eight-vertex attachment loops from the
   rings it actually constructs. `quadruped_rigging.py` consumes resolved chains.
 - `providers/quadruped.py` caches mesh plus bound anatomy by recipe ID/version
-  and every validated dimension. Skinning uses authored limb side ownership,
-  so moving a limb across the centerline does not change its side restrictions.
+  and every validated dimension. Skinning uses authored limb chain ownership,
+  so moving a limb across the centerline or over another limb cannot transfer its
+  weights. Only the declared limb attachment loop may blend to the chain parent.
 - `providers/semantic_geometry.py` provides the existing numeric validation and
   indexed transforms shared by Human, Quadruped and Avian semantic executors.
   Body-specific profiles remain in their respective providers.
@@ -64,9 +65,11 @@ The canine migration preserves the existing 280-vertex/274-face neutral mesh,
 lower-leg bones end at ground level while surface ankle/paw landmarks are above
 it. The coarse current form is not a completed canine anatomy quality milestone.
 
-Canine weight selection now preserves authored limb side but retains the existing
-nearest-bone/local-hierarchy calculation within that side. Stronger front/hind
-and body-part constraints belong with the upcoming rest-anatomy changes.
+Canine recipe version 2 restricts each limb to its resolved chain, plus the parent
+at the authored attachment loop. The existing distance/local-hierarchy weighting
+operates within those candidates. Torso/head/tail weighting remains spatial and
+needs refinement alongside the upcoming rest-anatomy work. This intentionally
+changes canine weights; neutral geometry, rig and clip data remain unchanged.
 
 Human attachment declarations do not yet contain local boundary loops; the
 whole-surface connectivity/winding audit remains the topology gate. Quadruped
@@ -86,7 +89,7 @@ contrasting parameter samples for Human, Quadruped and Avian. Each sample uses a
 fresh process; timings are observations, not acceptance thresholds. Compare
 fingerprints on the same Python/runtime.
 
-Current canine checkpoint evidence, Python 3.9.13 / Blender 5.2.1:
+Canine extraction checkpoint (`be3d778`) evidence, Python 3.9.13 / Blender 5.2.1:
 
 - All 378 core tests pass; all 233 Blender integration tests pass.
 - All six mesh/skeleton/weights/animation fingerprint sets match the baseline.
@@ -103,6 +106,25 @@ seven pose checks; its rendered diagnostic was inspected. Evidence is under the
 same artifact directory with the `human-` prefix. Neutral baseline parity does
 not establish final anatomical quality. New canine profile quality still needs
 clay, silhouette, wireframe and deformation review alongside the body refinement.
+
+## Localized canine limb weights (recipe version 2)
+
+A front leg moved over a hind leg previously acquired hind weights on all 48
+vertices. Core regressions now cover every limb moved across front/hind, side,
+head and tail positions, attachment-parent blending, influence limits and
+parameter endpoints. A Blender regression applies the move through Modify,
+evaluates the armature, and proves the moved front limb ignores a hind rotation
+while still deforming under its own joint. Artist-edit protection remains tested.
+
+The six-sample comparison confirms that only Quadruped weights changed; Human,
+Avian, all neutral meshes, skeletons and clips are identical to the baseline.
+All 381 core tests, 234 Blender integration tests and the isolated packaged
+add-on check pass. Compilation and whitespace checks pass. Reports use the
+`artifacts/shared-anatomy/canine-local-weights-` prefix.
+
+This is a deformation isolation checkpoint, not final canine visual acceptance.
+No saved scene is automatically regenerated; new weights are used when the
+existing workflow explicitly creates, rigs or applies a generated modification.
 
 ## Next work
 

@@ -35,9 +35,9 @@ def _distance_to_segment(point, start, end):
     return sqrt(sum((point[i] - closest[i]) ** 2 for i in range(3)))
 
 
-def _candidate_bones(vertex, bones, authored_side=None):
+def _candidate_bones(vertex, bones):
     """Prevent a vertex from being influenced by the opposite-side limb."""
-    side = authored_side or ("left" if vertex[0] <= 0 else "right")
+    side = "left" if vertex[0] <= 0 else "right"
     return tuple(
         bone for bone in bones
         if not (bone.name.endswith(".left") or bone.name.endswith(".right"))
@@ -45,8 +45,7 @@ def _candidate_bones(vertex, bones, authored_side=None):
     )
 
 
-def _weights_for_vertex(vertex, bones, max_influences=4, authored_side=None):
-    candidates = _candidate_bones(vertex, bones, authored_side)
+def _weights_for_vertex(vertex, candidates, max_influences=4):
     ranked = sorted(
         ((_distance_to_segment(vertex, bone.head, bone.tail), bone) for bone in candidates),
         key=lambda item: (item[0], item[1].name),
@@ -65,22 +64,57 @@ def _weights_for_vertex(vertex, bones, max_influences=4, authored_side=None):
     return tuple(BoneWeight(name, value) for name, value in normalized if value > 0)
 
 
+def _limb_bone_candidates(anatomy, bones):
+    """Bind limb candidates to authored chains, allowing parent blend at joins.
+
+    Positions can move through Modify, so neither side nor front/hind ownership
+    is inferred from coordinates. Only the declared limb attachment boundary
+    may blend to the chain parent; distal vertices stay within their own chain.
+    """
+    chains = {chain.name: chain for chain in anatomy.chains}
+    boundaries = {}
+    for connection in anatomy.connections:
+        if connection.continuity == "connected":
+            for region, boundary in zip(connection.regions, connection.boundaries):
+                boundaries.setdefault(region, set()).update(boundary)
+    candidates = {}
+    for region in anatomy.regions:
+        if not region.name.startswith("leg."):
+            continue
+        chain = chains[region.name]
+        local = tuple(bone for bone in bones if bone.name in chain.bones)
+        if len(local) != len(chain.bones):
+            raise ValueError("Quadruped skeleton is missing an authored limb bone")
+        attachment = tuple(bone for bone in bones
+                           if bone.name in chain.bones or bone.name == chain.parent_bone)
+        for index in region.vertex_indices:
+            key = (region.mesh_part, index)
+            if key in candidates:
+                raise ValueError("Quadruped limb ownership must be disjoint")
+            candidates[key] = attachment if index in boundaries.get(region.name, ()) else local
+    return candidates
+
+
 def generate_quadruped_skin_weights(mesh, skeleton, *, max_influences=4, anatomy=None):
     """Return normalized local weights for a connected quadruped surface."""
-    owners = {}
-    if anatomy is not None:
-        anatomy.validate_mesh(mesh)
-        owners = {(region.mesh_part, index): region.name.rsplit(".", 1)[1]
-                  for region in anatomy.regions if region.name.startswith("leg.")
-                  for index in region.vertex_indices}
+    if type(max_influences) is not int or max_influences < 1:
+        raise ValueError("max_influences must be a positive integer")
     deform_bones = tuple(bone for bone in skeleton.bones if bone.name != "root")
     if not deform_bones:
         raise ValueError("Quadruped skeleton must contain deform bones")
+    candidates = {}
+    if anatomy is not None:
+        anatomy.validate_mesh(mesh)
+        candidates = _limb_bone_candidates(anatomy, deform_bones)
+
+    def weights(part, index, vertex):
+        local = candidates.get((part.name, index))
+        if local is None:
+            local = _candidate_bones(vertex, deform_bones)
+        return _weights_for_vertex(vertex, local, max_influences)
+
     return tuple(
-        SkinWeights(
-            part.name,
-            tuple(_weights_for_vertex(vertex, deform_bones, max_influences, owners.get((part.name, index)))
-                  for index, vertex in enumerate(part.vertices)),
-        )
+        SkinWeights(part.name, tuple(weights(part, index, vertex)
+                                    for index, vertex in enumerate(part.vertices)))
         for part in mesh.parts
     )

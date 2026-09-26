@@ -8,7 +8,7 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 ## Active pre-alpha direction (2026-09-21)
 
-Plan: [../docs/shared-anatomy-alpha-plan.md](../docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. This is planned work; current providers still use separate anatomy implementations. The plan supersedes older Human-only milestone sequencing.
+Plan: [../docs/shared-anatomy-alpha-plan.md](../docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human and Quadruped now resolve shared anatomy contracts; canine quality refinement and Avian migration remain in progress. The plan supersedes older Human-only milestone sequencing.
 
 ## Current Human V2 integration (2026-09-20)
 
@@ -19,7 +19,7 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
 
 ## Shared anatomy seam
 
-`anatomy/contracts.py` owns immutable metadata. `providers/human_anatomy.py` resolves Human; `providers/quadruped_anatomy.py` resolves the whole existing Quadruped as `CanineRecipe`. Geometry owns topology/membership; rig builders consume resolved chains. `providers/quadruped_semantic.py` executes authored-region edits using `providers/semantic_geometry.py`, shared with Human/Avian. Canine quality refinement and Avian recipe migration remain ahead.
+`anatomy/contracts.py` owns immutable metadata. `providers/human_anatomy.py` resolves Human; `providers/quadruped_anatomy.py` resolves the whole existing Quadruped as `CanineRecipe`. Geometry owns topology/membership; rig builders consume resolved chains. Canine limb weights use their authored chains, with torso blending restricted to attachment loops. `providers/quadruped_semantic.py` executes authored-region edits using `providers/semantic_geometry.py`, shared with Human/Avian. Canine quality refinement and Avian recipe migration remain ahead.
 Tests: `test_anatomy_contracts.py`, `test_anatomy_proofs.py`, `test_human_recipe.py`, `test_canine_recipe.py` under `tests/core`; `tests/blender/test_quadruped_semantic.py`. Baseline: `scripts/anatomy_baseline.py`. Status: `docs/shared-anatomy-implementation.md`.
 
 ## Ownership by area
