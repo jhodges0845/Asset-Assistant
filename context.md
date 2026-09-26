@@ -12,7 +12,7 @@ Plan: [docs/shared-anatomy-alpha-plan.md](docs/shared-anatomy-alpha-plan.md). Sh
 
 ## Shared anatomy implementation checkpoint
 
-Human mesh, rig, skinning and Modify now consume one resolved recipe, with authored arm/leg ownership. Quadruped retains the torso/front-left proof; full canine and Avian migration remain ahead. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for code ownership and the two-body-plan review.
+Human and the existing Quadruped construction now use resolved recipes. Quadruped has executable authored-region Modify controls; its neutral coarse form and motion are preserved. Canine anatomical quality refinement and Avian recipe migration remain ahead. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for ownership, tests and remaining work.
 
 ## Current Human V2 integration (2026-09-20)
 

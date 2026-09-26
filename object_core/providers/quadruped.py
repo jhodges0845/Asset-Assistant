@@ -1,14 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Host-independent quadruped provider."""
 
+from functools import lru_cache
 from math import isfinite
 
 from ..models import ImageTextureSpec, MaterialSpec
 from .base import Parameter
 from .semantic import SemanticTarget
+from .quadruped_semantic import apply_quadruped_semantic_operations
 from .quadruped_animation import generate_quadruped_idle, generate_quadruped_run, generate_quadruped_walk
-from .quadruped_geometry import generate_quadruped_deformable_mesh
-from .quadruped_rigging import generate_quadruped_skeleton, generate_quadruped_skin_weights
+from .quadruped_anatomy import CanineRecipe
+from .quadruped_geometry import _build_quadruped_mesh
+from .quadruped_rigging import _build_quadruped_skeleton, generate_quadruped_skin_weights
 
 
 QUADRUPED_PARAMETERS = (
@@ -21,6 +24,8 @@ QUADRUPED_PARAMETERS = (
 
 QUADRUPED_SEMANTIC_TARGETS = (
     SemanticTarget("body", "Body", "region", ("shape", "scale", "surface")),
+    SemanticTarget("torso", "Torso", "region", ("shape", "scale")),
+    SemanticTarget("waist", "Waist", "region", ("shape", "scale")),
     SemanticTarget("chest", "Chest", "region", ("shape", "scale")),
     SemanticTarget("head", "Head", "region", ("shape", "scale", "surface")),
     SemanticTarget("muzzle", "Muzzle", "region", ("shape", "scale", "surface")),
@@ -36,6 +41,14 @@ QUADRUPED_SEMANTIC_TARGETS = (
 )
 
 
+QUADRUPED_SEMANTIC_APPLY_CAPABILITIES = tuple(
+    (target, operation)
+    for target in ("body", "torso", "chest", "waist", "head", "muzzle", "tail",
+                   "leg.front.left", "leg.front.right", "leg.hind.left", "leg.hind.right")
+    for operation in ("shape", "scale")
+)
+
+
 def _dimensions(parameters, values):
     dimensions = {}
     for field in parameters:
@@ -48,6 +61,26 @@ def _dimensions(parameters, values):
     return dimensions
 
 
+@lru_cache(maxsize=32)
+def _quadruped_construction(recipe_id, recipe_version, parameters):
+    return _build_quadruped_mesh(CanineRecipe().resolve(dict(parameters)))
+
+
+def _construction(dimensions):
+    return _quadruped_construction(CanineRecipe.recipe_id, CanineRecipe.recipe_version,
+                                   tuple(sorted(dimensions.items())))
+
+
+def _validate_topology(mesh, base):
+    from ..models import ObjectMesh
+    if not isinstance(mesh, ObjectMesh):
+        raise TypeError("Quadruped ownership requires an ObjectMesh")
+    if (len(mesh.parts) != 1 or mesh.parts[0].name != base.parts[0].name
+            or mesh.parts[0].faces != base.parts[0].faces
+            or len(mesh.parts[0].vertices) != len(base.parts[0].vertices)):
+        raise ValueError("Quadruped ownership requires the authored surface topology")
+
+
 class QuadrupedProvider:
     """Connected deformable quadruped provider."""
 
@@ -56,19 +89,26 @@ class QuadrupedProvider:
     uses_skin_weights = True
     parameters = QUADRUPED_PARAMETERS
     semantic_targets = QUADRUPED_SEMANTIC_TARGETS
+    semantic_apply_capabilities = QUADRUPED_SEMANTIC_APPLY_CAPABILITIES
 
     def dimensions(self, values):
         return _dimensions(self.parameters, values)
 
     def mesh(self, values):
-        return generate_quadruped_deformable_mesh(self.dimensions(values))
+        return _construction(self.dimensions(values))[0]
 
     def skeleton(self, values):
-        return generate_quadruped_skeleton(self.dimensions(values))
+        return _build_quadruped_skeleton(_construction(self.dimensions(values))[1])
+
+    def semantic_mesh(self, mesh, values, operations):
+        base, anatomy = _construction(self.dimensions(values))
+        _validate_topology(mesh, base)
+        return apply_quadruped_semantic_operations(mesh, anatomy, operations)
 
     def skin_weights(self, mesh, values):
-        skeleton = self.skeleton(values)
-        return generate_quadruped_skin_weights(mesh, skeleton)
+        base, anatomy = _construction(self.dimensions(values))
+        _validate_topology(mesh, base)
+        return generate_quadruped_skin_weights(mesh, _build_quadruped_skeleton(anatomy), anatomy=anatomy)
 
     def idle(self, duration, strength):
         return generate_quadruped_idle(duration, strength)

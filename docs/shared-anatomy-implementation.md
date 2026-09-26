@@ -1,104 +1,113 @@
 # Shared anatomy implementation checkpoint
 
-Branch: `codex/shared-generation-system`. Foundation: `381637d`. Human/Quadruped
-proof checkpoint: `bfecc5e`. Human now resolves its construction data before mesh,
-rig, skinning and semantic Modify. Quadruped still has its torso/front-left proof;
-full canine and Avian migrations remain ahead.
+Branch: `codex/shared-generation-system`. Foundation: `381637d`; initial two-body
+proof: `bfecc5e`; Human migration: `36cd967`. The current canine increment migrates
+the entire existing Quadruped construction and enables semantic Modify. Canine
+anatomical quality refinement and Avian recipe migration remain ahead.
 
-## Code ownership
+## Current construction layers
 
-- `object_core/anatomy/contracts.py`: body-plan-independent immutable identity,
-  landmarks, regions, chains, symmetry and connection declarations. No provider
-  imports, registry or rich per-vertex objects.
-- `object_core/providers/human_anatomy.py`: `HumanRecipe` resolves validated
-  controls, all Human rest landmarks and joint chains, bilateral limb regions
-  and body attachment expectations. `ResolvedHumanAnatomy` adds only the immutable
-  Human proportions/reference payload needed by its constructor.
-- `object_core/providers/human.py`: caches the resolved recipe and composes mesh,
-  rig, weights and Modify. Cache keys normalize positional/named calls and include
-  recipe ID/version plus every public control. Edited meshes recompute weights.
-- `object_core/geometry/surface_human.py`: the one authored Human surface
-  implementation; owns remapped arm and leg membership. The optional metadata
-  return does not alter vertex order, topology or coordinates.
-- `object_core/geometry/surface_human_builder.py`: audits the neutral surface and
-  exposes its authored membership. `geometry/human_shaping.py` owns the existing
-  body-control transform used by both recipe resolution and surface shaping.
-- `object_core/rigging/surface_human.py`: constructs bones directly from resolved
-  chains/landmarks; it no longer calculates a second set of Human landmarks.
-- `object_core/providers/human_semantic.py`: uses resolved landmark bounds and
-  authored body/limb membership. Face, jaw, cheek, torso and shoulder profiles keep
-  their existing spatial shaping rules; this migration does not redesign them.
-- `object_core/providers/quadruped_anatomy.py`: resolves the existing
-  torso/front-left proof. The existing mesh/rig builders consume those landmarks;
-  geometry binds actual region and shoulder-boundary indices after construction.
+`provider validation -> recipe resolution -> surface + bound regions -> rest rig -> weights / Modify -> existing Blender workflow`
 
-Human retains its public `human` identity, controls, materials, motion and Blender
-workflow. No replacement UI or parallel generation implementation was added.
+Providers remain the public compatibility boundary. The `human` and `quadruped`
+identities, generation controls, animations and export contracts are preserved.
+There is no new registry, discovery UI or alternative generation pipeline.
 
-## Behavior changes and limits
+- `object_core/anatomy/contracts.py` owns immutable, body-plan-independent recipe
+  identity, landmarks, regions, chains, symmetry and attachment declarations.
+- `providers/human_anatomy.py` resolves Human controls and all rest landmarks.
+  Its compact immutable payload contains proportions and the shape reference.
+- `geometry/surface_human.py` owns authored topology and limb membership;
+  `surface_human_builder.py` audits it; `human_shaping.py` applies recipe controls.
+  `rigging/surface_human.py` converts resolved chains directly to bones.
+- `providers/quadruped_anatomy.py` owns `CanineRecipe`: complete torso/head/tail
+  and four-limb centerlines, all 15 current bones, bilateral roles and four
+  torso/limb attachment declarations. It replaces the front-limb proof class.
+- `providers/quadruped_geometry.py` consumes resolved landmarks and dimensions,
+  then binds region indices and four/eight-vertex attachment loops from the
+  rings it actually constructs. `quadruped_rigging.py` consumes resolved chains.
+- `providers/quadruped.py` caches mesh plus bound anatomy by recipe ID/version
+  and every validated dimension. Skinning uses authored limb side ownership,
+  so moving a limb across the centerline does not change its side restrictions.
+- `providers/semantic_geometry.py` provides the existing numeric validation and
+  indexed transforms shared by Human, Quadruped and Avian semantic executors.
+  Body-specific profiles remain in their respective providers.
 
-Human arm and leg semantic operations now follow authored limb ownership and the
-rig's side labels (+X is left for this Human). Previously spatial selection used
-the opposite sign and could include nearby unrelated regions. Membership remains
-stable after large vertex moves. Topology-changing input is rejected before
-applying indexed ownership; ordinary vertex edits, UVs and face order are retained.
-Saved artist work is not regenerated automatically.
+Human mesh, rig and weight caches normalize call style and include recipe
+identity/version and all controls. Edited meshes recompute weights. Topology
+changes are rejected before applying indexed ownership.
 
-Resolving the whole Human also exposed a rig boundary issue: summing proportions
-can round a few ulps outside the allowed height range. The reference height is
-bounded after validating the actual input. Tests cover both supported height and
-weight endpoints across all five body types; out-of-range input still fails.
+## Executable Quadruped Modify
 
-Human body/limb connections declare connected-surface expectations. Their local
-boundary loops are not populated yet; the existing whole-surface audit remains
-the connectivity/winding gate. Region memberships are explicit, compact integer
-indices, with the body intentionally containing its limb subsets. No local-frame
-abstraction was needed for this migration.
+Shape/scale operations now execute for body, torso, chest, waist, head, muzzle,
+tail and all four limbs. They use authored membership, including after vertices
+move, and preserve topology/UVs. Profiles include broad chest/head, tucked waist,
+long muzzle/tail and sturdy limbs. Independent x/y/z scaling and offsets use the
+same validated transformation contract as Human and Avian.
 
-Quadruped retains its existing distinct surface/rig centerlines and ground-level
-lower-bone endpoint. Its surface ankle/paw are separate landmarks. Reconciling
-those relationships belongs to the canine quality work. Its four/eight-vertex
-shoulder boundaries are bound from actual geometry and tested for bridge faces.
+Ear, coat and accessory operations are not advertised as executable geometry
+capabilities. The current surface does not yet have constructed ears. The generic
+planner blocks those unsupported operations. The Blender integration tests prove
+that planning does not mutate the mesh, explicit apply retains a deforming rig,
+and manual artist edits block procedural replacement.
 
-## Reproduce validation
+## Intentional behavior and quality limits
+
+Human limb operations use authored membership and the rig's labels (+X is left
+for this Human), correcting the previous spatial selection's reversed sign and
+nearby-region leakage. The Human reference-height rounding correction preserves
+valid input at the range endpoints. All five body types and both height/weight
+limits are tested. Saved artist work is never silently regenerated.
+
+The canine migration preserves the existing 280-vertex/274-face neutral mesh,
+15-bone rig and motion. Its current surface/rig centerlines remain distinct, and
+lower-leg bones end at ground level while surface ankle/paw landmarks are above
+it. The coarse current form is not a completed canine anatomy quality milestone.
+
+Canine weight selection now preserves authored limb side but retains the existing
+nearest-bone/local-hierarchy calculation within that side. Stronger front/hind
+and body-part constraints belong with the upcoming rest-anatomy changes.
+
+Human attachment declarations do not yet contain local boundary loops; the
+whole-surface connectivity/winding audit remains the topology gate. Quadruped
+loops are bound and tested against actual bridge faces. Region membership uses
+integer indices, not rich per-vertex objects; body deliberately contains its
+subregions. No generic local-frame machinery was needed for this extraction.
+
+## Validation and reproducibility
 
 ```powershell
 python -m unittest discover -s tests/core -v
 python scripts/anatomy_baseline.py --output anatomy-baseline.json
 ```
 
-The pre-migration `anatomy-baseline-2026-09-26.json` contains default and contrasting
-Human, Quadruped and Avian parameters, counts, environment, fingerprints and
-observed timings. Each sample runs in a fresh process. Compare fingerprints on
-the same runtime; timings are observations, not acceptance thresholds.
+The recorded `anatomy-baseline-2026-09-26.json` contains pre-migration defaults and
+contrasting parameter samples for Human, Quadruped and Avian. Each sample uses a
+fresh process; timings are observations, not acceptance thresholds. Compare
+fingerprints on the same Python/runtime.
 
-Current local evidence is under `artifacts/shared-anatomy/`:
+Current canine checkpoint evidence, Python 3.9.13 / Blender 5.2.1:
 
-- `human-baseline.json`: final six-sample comparison output.
-- `human-core-tests.log`: complete portable suite.
-- `human-blender-tests.log`: Blender 5.2.1 integration suite.
-- `human-package-tests.log`: isolated ZIP workflow verification.
-- `human-visual-tests.log`, `human-migration-deformation.png`: projected pose review.
-
-Human migration validation on Python 3.9.13 / Blender 5.2.1:
-
-- All 370 core tests pass; all 231 Blender integration tests pass.
-- All six baseline fingerprint sets match exactly (mesh, rig, weights, clips).
-- Isolated ZIP generation/rig/animation/validation/export checks pass.
-- Real Human and attached-component save/reopen checks pass.
-- All seven diagnostic pose checks pass. The rendered eight-card sheet was
-  inspected: labels and silhouettes are readable and expected bends are visible.
+- All 378 core tests pass; all 233 Blender integration tests pass.
+- All six mesh/skeleton/weights/animation fingerprint sets match the baseline.
+- Packaged add-on verification passes in Blender 5.2.1.
 - Python compilation and whitespace checks pass.
 
-Save/reopen logs are `human-reopen-tests.log` and `component-reopen-tests.log`
-in the same artifact directory. The refreshed installable add-on is
-`dist/asset_assistant.zip`. Coverage tooling is not installed in local Python;
-CI coverage remains pending. This preserves current anatomy; it does not claim
-final anatomical quality acceptance.
+Logs/report: `artifacts/shared-anatomy/canine-core-tests.log`,
+`canine-blender-tests.log`, `canine-package-tests.log`, `canine-baseline.json`.
+The installable build is `dist/asset_assistant.zip`. CI coverage remains pending
+because coverage tooling is not installed in local Python.
 
-## Next slice
+The prior Human checkpoint also passed real Human/component save-reopen and all
+seven pose checks; its rendered diagnostic was inspected. Evidence is under the
+same artifact directory with the `human-` prefix. Neutral baseline parity does
+not establish final anatomical quality. New canine profile quality still needs
+clay, silhouette, wireframe and deformation review alongside the body refinement.
 
-Expand the canine recipe beyond its proof limb, deriving the full rest anatomy,
-geometry, local weights and executable semantic controls from the shared seam.
-Then migrate Avian using bird-specific surface and joint rules. Continue visual
-silhouette, wireframe and deformation gates as anatomy quality changes.
+## Next work
+
+Refine the canine recipe into a convincing reference body: chest/scapula/pelvis,
+neck/muzzle/ears, digitigrade hind-limb chain and paws, then localized weights and
+pose review. Make geometry/rig changes deliberately with baseline comparisons;
+do not represent that quality milestone as completed by the preserved coarse
+mesh. After that, migrate Avian through the same layer using bird-specific rules.

@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+import unittest
+from dataclasses import replace
+
+from object_core.models import MeshPart, ObjectMesh
+from object_core.modification import AssetSnapshot, ModificationRequest, SemanticOperation, plan_modification
+from object_core.objects import get_provider
+from object_core.providers.quadruped import _construction
+from object_core.providers.quadruped_geometry import _build_quadruped_mesh
+from object_core.providers.quadruped_rigging import _build_quadruped_skeleton
+from object_core.providers.quadruped_anatomy import CanineRecipe
+
+
+class CanineRecipeTests(unittest.TestCase):
+    def setUp(self):
+        self.provider = get_provider('quadruped')
+        self.values = {p.key: p.default for p in self.provider.parameters}
+        self.mesh, self.anatomy = _construction(self.provider.dimensions(self.values))
+        self.regions = {r.name: set(r.vertex_indices) for r in self.anatomy.regions}
+
+    def operation(self, target, operation='scale', **args):
+        return SemanticOperation(operation, target, tuple(args.items()))
+
+    def test_complete_recipe_caches_and_binds_all_chains_and_limbs(self):
+        cached = _construction(dict(reversed(tuple(self.provider.dimensions(self.values).items()))))
+        self.assertIs(cached[1], self.anatomy)
+        self.assertEqual('canine', self.anatomy.recipe_id)
+        self.assertEqual(15, sum(len(c.bones) for c in self.anatomy.chains))
+        bones = {b.name: b for b in self.provider.skeleton(self.values).bones}
+        points = {p.name: p.position for p in self.anatomy.landmarks}
+        for chain in self.anatomy.chains:
+            for i, name in enumerate(chain.bones):
+                self.assertEqual(bones[name].head, points[chain.landmarks[i]])
+                self.assertEqual(bones[name].tail, points[chain.landmarks[i + 1]])
+        owned = set()
+        for connection in self.anatomy.connections:
+            region = self.regions[connection.regions[1]]
+            self.assertFalse(owned.intersection(region))
+            owned.update(region)
+            self.assertEqual(48, len(region))
+            root, ring = connection.boundaries
+            self.assertEqual((4, 8), (len(root), len(ring)))
+            self.assertTrue(set(root) <= self.regions['torso'])
+            self.assertTrue(set(ring) <= region)
+        self.assertEqual(4, len(self.anatomy.connections))
+        self.assertTrue(all(self.regions.values()))
+
+    def test_hind_landmark_drives_mesh_and_rig(self):
+        changed = replace(self.anatomy, landmarks=tuple(
+            replace(p, position=(p.position[0], p.position[1] + 2, p.position[2]))
+            if p.name == 'knee.hind.right' else p for p in self.anatomy.landmarks))
+        mesh, anatomy = _build_quadruped_mesh(changed)
+        bones = {b.name: b for b in _build_quadruped_skeleton(changed).bones}
+        target = next(p.position for p in changed.landmarks if p.name == 'knee.hind.right')
+        indices = next(r.vertex_indices for r in anatomy.regions if r.name == 'leg.hind.right')[16:24]
+        center = tuple(sum(mesh.parts[0].vertices[i][axis] for i in indices) / len(indices) for axis in range(3))
+        for a, b in zip(center, target):
+            self.assertAlmostEqual(a, b)
+        self.assertEqual(target, bones['hind_upper.right'].tail)
+        self.assertEqual(target, bones['hind_lower.right'].head)
+
+    def test_each_published_operation_changes_only_its_authored_region(self):
+        for target, kind in self.provider.semantic_apply_capabilities:
+            changed = self.provider.semantic_mesh(self.mesh, self.values, (self.operation(target, kind, offset_y=2),))
+            self.assertEqual(self.mesh.parts[0].faces, changed.parts[0].faces)
+            self.assertEqual(self.mesh.parts[0].uvs, changed.parts[0].uvs)
+            for i, (a, b) in enumerate(zip(self.mesh.parts[0].vertices, changed.parts[0].vertices)):
+                if i in self.regions[target]:
+                    self.assertAlmostEqual(a[1] + 2, b[1])
+                else:
+                    self.assertEqual(a, b)
+
+    def test_moved_limb_retains_semantic_and_skinning_side_ownership(self):
+        target = 'leg.front.left'
+        moved = self.provider.semantic_mesh(self.mesh, self.values, (self.operation(target, offset_x=80),))
+        changed = self.provider.semantic_mesh(moved, self.values, (self.operation(target, offset_z=2),))
+        weights = self.provider.skin_weights(changed, self.values)[0]
+        for i in self.regions[target]:
+            self.assertAlmostEqual(moved.parts[0].vertices[i][2] + 2, changed.parts[0].vertices[i][2])
+            self.assertFalse(any(w.bone_name.endswith('.right') for w in weights.vertices[i]))
+        self.assertTrue(all(sum(w.weight for w in v) > .99999 for v in weights.vertices))
+
+    def test_named_profiles_are_useful_and_unknown_profiles_fail(self):
+        for target, profile in (('chest', 'broad'), ('waist', 'tucked'), ('head', 'broad'),
+                                ('muzzle', 'long'), ('tail', 'long'), ('leg.hind.left', 'sturdy')):
+            changed = self.provider.semantic_mesh(self.mesh, self.values, (
+                self.operation(target, 'shape', profile=profile),))
+            self.assertNotEqual(self.mesh.parts[0].vertices, changed.parts[0].vertices)
+        with self.assertRaises(ValueError):
+            self.provider.semantic_mesh(self.mesh, self.values, (self.operation('head', 'shape', profile='unknown'),))
+
+    def test_invalid_numbers_and_unimplemented_targets_are_rejected(self):
+        for arguments in ({'factor': 10}, {'offset_x': float('nan')}, {'x': True}):
+            with self.assertRaises((ValueError, TypeError)):
+                self.provider.semantic_mesh(self.mesh, self.values, (self.operation('head', **arguments),))
+        for target in ('ear.left', 'coat', 'missing'):
+            self.assertNotIn((target, 'shape'), self.provider.semantic_apply_capabilities)
+            with self.assertRaises(ValueError):
+                self.provider.semantic_mesh(self.mesh, self.values, (self.operation(target),))
+
+    def test_topology_changes_are_rejected_for_semantics_and_weights(self):
+        part = self.mesh.parts[0]
+        bad = ObjectMesh((MeshPart(part.name, part.vertices, tuple(reversed(part.faces))),))
+        with self.assertRaisesRegex(ValueError, 'authored surface topology'):
+            self.provider.semantic_mesh(bad, self.values, (self.operation('head'),))
+        with self.assertRaisesRegex(ValueError, 'authored surface topology'):
+            self.provider.skin_weights(bad, self.values)
+
+    def test_planner_allows_real_regions_and_blocks_unimplemented_ears(self):
+        snapshot = AssetSnapshot(asset_id='canine', provider_key='quadruped', provider_label='Quadruped',
+                                 parameters=tuple(self.values.items()), owns_geometry=True)
+        for target, accepted in (('chest', True), ('waist', True), ('leg.front.left', True), ('ear.left', False)):
+            plan = plan_modification(snapshot, ModificationRequest(semantic_operations=(self.operation(target),)))
+            self.assertEqual(accepted, plan.safe_to_apply)
+
+
+if __name__ == '__main__':
+    unittest.main()

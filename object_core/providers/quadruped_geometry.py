@@ -6,7 +6,7 @@ from math import cos, pi, sin, sqrt
 
 from ..models import MeshPart, ObjectMesh
 from ..anatomy import AnatomyRegion
-from .quadruped_anatomy import QuadrupedFrontRecipe
+from .quadruped_anatomy import CanineRecipe
 
 
 _RING_SIDES = 8
@@ -124,40 +124,19 @@ def _project_uvs(vertices, faces):
 
 def generate_quadruped_deformable_mesh(dimensions):
     """Return one connected quadruped mesh shaped by validated dimensions."""
-    anatomy = QuadrupedFrontRecipe().resolve(dimensions)
-    return _build_quadruped_mesh(dimensions, anatomy)[0]
+    anatomy = CanineRecipe().resolve(dimensions)
+    return _build_quadruped_mesh(anatomy)[0]
 
 
-def _build_quadruped_mesh(dimensions, anatomy):
-    """One construction path, returning the mesh and its authored proof regions."""
+def _build_quadruped_mesh(anatomy):
+    """Construct once from resolved anatomy, binding authored region indices."""
     landmarks = {landmark.name: landmark.position for landmark in anatomy.landmarks}
-    length = dimensions["body_length_cm"]
-    shoulder = dimensions["shoulder_height_cm"]
+    dimensions = dict(anatomy.parameters)
     width = dimensions["body_width_cm"]
-    head_length = dimensions["head_length_cm"]
-    tail_length = dimensions["tail_length_cm"]
-
-    torso_height = shoulder * 0.42
-    back_z = shoulder - torso_height * 0.30
-    fore_y = length * 0.32
-    hind_y = -length * 0.32
-    leg_height = shoulder - torso_height * 0.45
-    side_x = width * 0.34
-    knee_z = leg_height * 0.48
-
-    tail_tip = (0.0, -length * 0.5 - tail_length, back_z + torso_height * 0.36)
-    tail_mid = (0.0, -length * 0.5 - tail_length * 0.48, back_z + torso_height * 0.22)
-    tail_base = (0.0, -length * 0.5, back_z)
-    rear = landmarks["torso.rear"]
-    hind = landmarks["torso.hind"]
-    mid = landmarks["torso.center"]
-    fore = landmarks["torso.fore"]
-    chest = landmarks["chest.center"]
-    neck = (0.0, length * 0.52, shoulder + torso_height * 0.05)
-    head = (0.0, length * 0.5 + head_length * 0.34, shoulder + torso_height * 0.13)
-    muzzle = (0.0, length * 0.5 + head_length * 0.82, shoulder + torso_height * 0.06)
-
-    centers = (tail_tip, tail_mid, tail_base, rear, hind, mid, fore, chest, neck, head, muzzle)
+    torso_height = dimensions["shoulder_height_cm"] * 0.42
+    centers = tuple(landmarks[name] for name in (
+        "tail.tip", "tail.mid", "tail.base", "torso.rear", "torso.hind",
+        "torso.center", "torso.fore", "chest.center", "neck.center", "head.center", "muzzle.tip"))
     widths = (
         width * 0.08, width * 0.12, width * 0.18,
         width * 0.82, width * 0.96, width, width,
@@ -171,7 +150,7 @@ def _build_quadruped_mesh(dimensions, anatomy):
 
     vertices, faces = [], []
     body_rings = _append_tube(vertices, faces, centers, widths, depths)
-    front_rings = ()
+    limb_rings = {}
 
     openings = {}
     level_by_pair = {"hind": 3, "fore": 5}
@@ -182,20 +161,15 @@ def _build_quadruped_mesh(dimensions, anatomy):
     removed = {face for face in openings.values()}
     faces = [face for face in faces if face not in removed]
 
-    for side, x in (("left", -side_x), ("right", side_x)):
-        for region, y, top_z in (
-            ("fore", fore_y, shoulder),
-            ("hind", hind_y, shoulder * 0.86),
+    for side in ("left", "right"):
+        for region, family, upper_name, joint_name in (
+            ("fore", "front", "shoulder", "elbow"), ("hind", "hind", "hip", "knee"),
         ):
-            upper = (x, y, top_z)
-            knee = (x, y, knee_z)
-            ankle = (x, y, max(width * 0.12, 1.5))
-            paw = (x, y + width * 0.10, max(width * 0.07, 1.0))
-            if (region, side) == ("fore", "left"):
-                upper = landmarks["shoulder.front.left"]
-                knee = landmarks["elbow.front.left"]
-                ankle = landmarks["ankle.front.left"]
-                paw = landmarks["paw.front.left"]
+            suffix = family + "." + side
+            upper = landmarks[upper_name + "." + suffix]
+            knee = landmarks[joint_name + "." + suffix]
+            ankle = landmarks["ankle." + suffix]
+            paw = landmarks["paw." + suffix]
             centers_leg = (
                 upper,
                 _lerp(upper, knee, 0.18),
@@ -208,17 +182,28 @@ def _build_quadruped_mesh(dimensions, anatomy):
             widths_leg = (base * 1.12, base, base * 0.88, base * 0.78, base * 0.70, base * 0.94)
             depths_leg = (base * 1.12, base, base * 0.88, base * 0.78, base * 0.70, base * 0.58)
             rings = _append_branch(vertices, faces, openings[(region, side)], centers_leg, widths_leg, depths_leg)
-            if (region, side) == ("fore", "left"):
-                front_rings = rings
+            limb_rings["leg." + suffix] = rings
 
     vertices, faces = tuple(vertices), tuple(faces)
     mesh = ObjectMesh((MeshPart("quadruped", vertices, faces, _project_uvs(vertices, faces)),))
-    resolved = replace(
-        anatomy,
-        regions=(AnatomyRegion("torso", "quadruped", tuple(i for ring in body_rings[3:8] for i in ring)),
-                 AnatomyRegion("leg.front.left", "quadruped", tuple(i for ring in front_rings for i in ring))),
-        connections=(replace(anatomy.connections[0],
-                             boundaries=(openings[("fore", "left")], front_rings[0])),),
-    )
+    def indices(rings):
+        return tuple(i for ring in rings for i in ring)
+
+    memberships = {
+        "body": tuple(range(len(vertices))), "torso": indices(body_rings[3:8]),
+        "chest": indices(body_rings[6:8]), "waist": indices(body_rings[4:6]),
+        "head": indices(body_rings[8:]), "muzzle": indices(body_rings[10:]),
+        "tail": indices(body_rings[:3]),
+    }
+    memberships.update({name: indices(rings) for name, rings in limb_rings.items()})
+    connections = []
+    for connection in anatomy.connections:
+        name = connection.regions[1]
+        _, family, side = name.split(".")
+        region = "fore" if family == "front" else "hind"
+        connections.append(replace(connection, boundaries=(openings[(region, side)], limb_rings[name][0])))
+    resolved = replace(anatomy,
+                       regions=tuple(AnatomyRegion(r.name, r.mesh_part, memberships[r.name]) for r in anatomy.regions),
+                       connections=tuple(connections))
     resolved.validate_mesh(mesh)
     return mesh, resolved

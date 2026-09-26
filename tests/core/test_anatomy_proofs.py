@@ -7,7 +7,7 @@ from object_core.anatomy import ResolvedAnatomy
 from object_core.models.mesh import MeshPart, ObjectMesh
 from object_core.objects import get_provider
 from object_core.providers.human import _human_anatomy, _neutral_surface_data
-from object_core.providers.quadruped_anatomy import QuadrupedFrontRecipe
+from object_core.providers.quadruped_anatomy import CanineRecipe
 from object_core.providers.quadruped_geometry import _build_quadruped_mesh
 from object_core.providers.quadruped_rigging import _build_quadruped_skeleton
 
@@ -56,11 +56,11 @@ class AnatomyProofTests(unittest.TestCase):
         for values in samples:
             with self.subTest(values=values):
                 dimensions = provider.dimensions(values)
-                recipe = QuadrupedFrontRecipe()
+                recipe = CanineRecipe()
                 anatomy = recipe.resolve(dimensions)
                 self.assertEqual(anatomy, recipe.resolve(dict(reversed(tuple(dimensions.items())))))
-                mesh, resolved = _build_quadruped_mesh(dimensions, anatomy)
-                skeleton = _build_quadruped_skeleton(dimensions, resolved)
+                mesh, resolved = _build_quadruped_mesh(anatomy)
+                skeleton = _build_quadruped_skeleton(resolved)
                 self.assertEqual(mesh, provider.mesh(values))
                 self.assertEqual(skeleton, provider.skeleton(values))
                 resolved.validate_mesh(mesh)
@@ -72,12 +72,12 @@ class AnatomyProofTests(unittest.TestCase):
                         self.assertEqual(bones[name].tail, points[chain.landmarks[index + 1]])
                 self.assertNotEqual(points['ankle.front.left'], points['ground.front.left'])
                 self.assertNotEqual(points['paw.front.left'], points['ground.front.left'])
-                self.assertEqual(48, len(resolved.regions[1].vertex_indices))
+                self.assertEqual(48, len(next(r.vertex_indices for r in resolved.regions if r.name == 'leg.front.left')))
                 self.assertEqual('connected', resolved.connections[0].continuity)
                 root, first_ring = resolved.connections[0].boundaries
                 self.assertEqual((4, 8), (len(root), len(first_ring)))
-                self.assertTrue(set(root) <= set(resolved.regions[0].vertex_indices))
-                self.assertTrue(set(first_ring) <= set(resolved.regions[1].vertex_indices))
+                self.assertTrue(set(root) <= set(next(r.vertex_indices for r in resolved.regions if r.name == 'torso')))
+                self.assertTrue(set(first_ring) <= set(next(r.vertex_indices for r in resolved.regions if r.name == 'leg.front.left')))
                 # The declared attachment really has faces crossing its two boundaries.
                 bridge = [f for f in mesh.parts[0].faces if set(f).intersection(root)
                           and set(f).intersection(first_ring)]
@@ -86,18 +86,18 @@ class AnatomyProofTests(unittest.TestCase):
     def test_resolved_elbow_drives_both_geometry_and_rig(self):
         provider = get_provider('quadruped')
         dimensions = provider.dimensions(_defaults(provider))
-        anatomy = QuadrupedFrontRecipe().resolve(dimensions)
-        original, original_regions = _build_quadruped_mesh(dimensions, anatomy)
+        anatomy = CanineRecipe().resolve(dimensions)
+        original, original_regions = _build_quadruped_mesh(anatomy)
         changed = replace(anatomy, landmarks=tuple(
             replace(p, position=(p.position[0], p.position[1] + 3, p.position[2] + 2))
             if p.name == 'elbow.front.left' else p for p in anatomy.landmarks))
-        mesh, regions = _build_quadruped_mesh(dimensions, changed)
-        bones = {b.name: b for b in _build_quadruped_skeleton(dimensions, changed).bones}
+        mesh, regions = _build_quadruped_mesh(changed)
+        bones = {b.name: b for b in _build_quadruped_skeleton(changed).bones}
         target = next(p.position for p in changed.landmarks if p.name == 'elbow.front.left')
         self.assertEqual(target, bones['fore_upper.left'].tail)
         self.assertEqual(target, bones['fore_lower.left'].head)
         # Third ring is the authored elbow, even when its tangent changes.
-        indices = regions.regions[1].vertex_indices
+        indices = next(r.vertex_indices for r in regions.regions if r.name == 'leg.front.left')
         self.assertPointAlmostEqual(target, _centroid([mesh.parts[0].vertices[i] for i in indices[16:24]]))
         self.assertEqual(original_regions.regions, regions.regions)
         self.assertEqual(original.parts[0].faces, mesh.parts[0].faces)
@@ -109,14 +109,14 @@ class AnatomyProofTests(unittest.TestCase):
     def test_region_ownership_survives_large_vertex_edits(self):
         provider = get_provider('quadruped')
         dimensions = provider.dimensions(_defaults(provider))
-        mesh, anatomy = _build_quadruped_mesh(dimensions, QuadrupedFrontRecipe().resolve(dimensions))
+        mesh, anatomy = _build_quadruped_mesh(CanineRecipe().resolve(dimensions))
         part = mesh.parts[0]
-        owned = set(anatomy.regions[1].vertex_indices)
+        owned = set(next(r.vertex_indices for r in anatomy.regions if r.name == 'leg.front.left'))
         edited = ObjectMesh((MeshPart(part.name, tuple(
             (x + 100, y - 100, z) if i in owned else (x, y, z)
             for i, (x, y, z) in enumerate(part.vertices)), part.faces, part.uvs),))
         anatomy.validate_mesh(edited)
-        self.assertEqual(owned, set(anatomy.regions[1].vertex_indices))
+        self.assertEqual(owned, set(next(r.vertex_indices for r in anatomy.regions if r.name == 'leg.front.left')))
 
 
 if __name__ == '__main__':

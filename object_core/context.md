@@ -19,7 +19,8 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
 
 ## Shared anatomy seam
 
-`anatomy/contracts.py` owns immutable recipe results, landmarks, topology-based regions, joint chains and connections. `providers/human_anatomy.py` resolves all Human rest landmarks/chains and construction controls; authored arms/legs feed skinning and Modify; `providers/quadruped_anatomy.py` supplies torso/front-left landmarks to the existing mesh/rig builders. Geometry binds authored region indices after construction. Full canine/Avian migration remains ahead. Tests: `tests/core/test_anatomy_contracts.py`, `tests/core/test_anatomy_proofs.py`, `tests/core/test_human_recipe.py`. Baseline: `scripts/anatomy_baseline.py`. Implementation status: `docs/shared-anatomy-implementation.md`.
+`anatomy/contracts.py` owns immutable metadata. `providers/human_anatomy.py` resolves Human; `providers/quadruped_anatomy.py` resolves the whole existing Quadruped as `CanineRecipe`. Geometry owns topology/membership; rig builders consume resolved chains. `providers/quadruped_semantic.py` executes authored-region edits using `providers/semantic_geometry.py`, shared with Human/Avian. Canine quality refinement and Avian recipe migration remain ahead.
+Tests: `test_anatomy_contracts.py`, `test_anatomy_proofs.py`, `test_human_recipe.py`, `test_canine_recipe.py` under `tests/core`; `tests/blender/test_quadruped_semantic.py`. Baseline: `scripts/anatomy_baseline.py`. Status: `docs/shared-anatomy-implementation.md`.
 
 ## Ownership by area
 
@@ -36,7 +37,7 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
 - `providers/human.py` — Human plugin provider; validates legacy controls, caches a
   neutral surface plus provisional UVs, and keys shaped meshes/weights by all controls.
 - `geometry/surface_human.py` + `surface_pelvis.py` — mathematical surface geometry.
-- `rigging/surface_human.py` — authored-surface rest rig and shared body-control mapping.
+- `geometry/human_shaping.py` � body-control mapping; `rigging/surface_human.py` converts resolved Human chains into bones.
 - `providers/human_semantic.py` — topology-preserving Modify using resolved landmarks and authored limb ownership.
 - `geometry/neutral_pelvis.py` — earlier standalone pelvis experiment, separate from Human.
 
