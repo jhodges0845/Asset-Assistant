@@ -21,6 +21,7 @@ from ..rigging import generate_skin_weights, generate_skeleton
 from .base import Parameter
 from .semantic import SemanticTarget
 from .human_semantic import apply_human_semantic_operations
+from .human_anatomy import HumanArmRecipe, authored_arm_regions
 
 
 HUMAN_PARAMETERS = (
@@ -124,9 +125,22 @@ def _neutral_surface_mesh():
     return _neutral_surface_data()[0]
 
 
+@lru_cache(maxsize=1)
+def _human_arm_regions():
+    return authored_arm_regions(_neutral_surface_data()[1])
+
+
+@lru_cache(maxsize=32)
+def _human_arm_anatomy(height_cm, weight_kg, body_type):
+    """Internal proof metadata, not an additional provider/UI capability."""
+    return HumanArmRecipe(_human_arm_regions()).resolve({
+        "height_cm": height_cm, "weight_kg": weight_kg, "body_type": body_type,
+    })
+
+
 def _surface_skin_weights(mesh, skeleton):
     """Reuse shared weighting with topology-based arm candidate restrictions."""
-    neutral, arm_indices = _neutral_surface_data()
+    neutral = _neutral_surface_mesh()
     # Semantic edits preserve topology: ownership follows authored indices even
     # when an artist moves a hand beside the pelvis. Never infer arm ownership
     # from proximity to bones in this arms-down rest pose.
@@ -138,7 +152,8 @@ def _surface_skin_weights(mesh, skeleton):
         raise ValueError(
             "Human surface skinning requires the authored surface topology"
         )
-    owners = {index: side for side, indices in arm_indices for index in indices}
+    owners = {index: region.name.split(".")[-1]
+              for region in _human_arm_regions() for index in region.vertex_indices}
     groups = {}
 
     def bone_filter(part_name, index, vertex, bones):

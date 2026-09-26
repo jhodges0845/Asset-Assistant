@@ -4,10 +4,17 @@
 from math import sqrt
 
 from ..models import Bone, BoneWeight, Skeleton, SkinWeights
+from .quadruped_anatomy import QuadrupedFrontRecipe
 
 
 def generate_quadruped_skeleton(dimensions):
     """Build a deterministic quadruped skeleton from validated dimensions."""
+    return _build_quadruped_skeleton(dimensions, QuadrupedFrontRecipe().resolve(dimensions))
+
+
+def _build_quadruped_skeleton(dimensions, anatomy):
+    """Consume the same proof landmarks as surface construction."""
+    landmarks = {landmark.name: landmark.position for landmark in anatomy.landmarks}
     length = dimensions["body_length_cm"]
     shoulder = dimensions["shoulder_height_cm"]
     width = dimensions["body_width_cm"]
@@ -28,17 +35,22 @@ def generate_quadruped_skeleton(dimensions):
     tail_base_y = -length * 0.5
 
     bones = [
-        Bone("root", (0, 0, shoulder * 0.45), (0, 0, back_z)),
-        Bone("spine", (0, hind_y, back_z), (0, fore_y, back_z), "root"),
+        Bone("root", landmarks["root.base"], landmarks["root.tip"]),
+        Bone("spine", landmarks["spine.hind"], landmarks["spine.fore"], "root"),
         Bone("neck", (0, fore_y, back_z), (0, neck_y, shoulder), "spine"),
         Bone("head", (0, neck_y, shoulder),
              (0, head_y + head_length * 0.35, shoulder + torso_height * 0.08), "neck"),
     ]
 
     for side, x in (("left", -side_x), ("right", side_x)):
+        upper, elbow, ground = (x, fore_y, shoulder), (x, fore_y, knee_z), (x, fore_y, 0)
+        if side == "left":
+            upper = landmarks["shoulder.front.left"]
+            elbow = landmarks["elbow.front.left"]
+            ground = landmarks["ground.front.left"]
         bones.extend((
-            Bone("fore_upper." + side, (x, fore_y, shoulder), (x, fore_y, knee_z), "spine"),
-            Bone("fore_lower." + side, (x, fore_y, knee_z), (x, fore_y, 0), "fore_upper." + side),
+            Bone("fore_upper." + side, upper, elbow, "spine"),
+            Bone("fore_lower." + side, elbow, ground, "fore_upper." + side),
             Bone("hind_upper." + side, (x, hind_y, shoulder * 0.86), (x, hind_y, knee_z), "spine"),
             Bone("hind_lower." + side, (x, hind_y, knee_z), (x, hind_y, 0), "hind_upper." + side),
         ))

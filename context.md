@@ -12,7 +12,7 @@ Plan: [docs/shared-anatomy-alpha-plan.md](docs/shared-anatomy-alpha-plan.md). Sh
 
 ## Shared anatomy implementation checkpoint
 
-Immutable contracts and a portable numeric baseline harness are implemented; providers are not yet migrated. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for current scope and the next Human/Quadruped proof slices.
+Shared contracts, Human arm metadata and the Quadruped torso/front-left proof are implemented. Six baseline samples retain identical output fingerprints; full provider migration remains ahead. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for code ownership and the two-body-plan review.
 
 ## Current Human V2 integration (2026-09-20)
 

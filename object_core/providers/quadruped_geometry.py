@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Connected quadruped surface generation."""
 
+from dataclasses import replace
 from math import cos, pi, sin, sqrt
 
 from ..models import MeshPart, ObjectMesh
+from ..anatomy import AnatomyRegion
+from .quadruped_anatomy import QuadrupedFrontRecipe
 
 
 _RING_SIDES = 8
@@ -89,6 +92,7 @@ def _append_branch(vertices, faces, root, centers, widths, depths):
         ring_end = first[(2 * index + 2) % _RING_SIDES]
         faces.append((root_start, root_end, ring_end))
         faces.append((root_start, ring_end, ring_mid, ring_start))
+    return rings
 
 
 def _project_uvs(vertices, faces):
@@ -120,6 +124,13 @@ def _project_uvs(vertices, faces):
 
 def generate_quadruped_deformable_mesh(dimensions):
     """Return one connected quadruped mesh shaped by validated dimensions."""
+    anatomy = QuadrupedFrontRecipe().resolve(dimensions)
+    return _build_quadruped_mesh(dimensions, anatomy)[0]
+
+
+def _build_quadruped_mesh(dimensions, anatomy):
+    """One construction path, returning the mesh and its authored proof regions."""
+    landmarks = {landmark.name: landmark.position for landmark in anatomy.landmarks}
     length = dimensions["body_length_cm"]
     shoulder = dimensions["shoulder_height_cm"]
     width = dimensions["body_width_cm"]
@@ -128,8 +139,6 @@ def generate_quadruped_deformable_mesh(dimensions):
 
     torso_height = shoulder * 0.42
     back_z = shoulder - torso_height * 0.30
-    belly_z = shoulder - torso_height * 0.72
-    body_z = (back_z + belly_z) * 0.5
     fore_y = length * 0.32
     hind_y = -length * 0.32
     leg_height = shoulder - torso_height * 0.45
@@ -139,11 +148,11 @@ def generate_quadruped_deformable_mesh(dimensions):
     tail_tip = (0.0, -length * 0.5 - tail_length, back_z + torso_height * 0.36)
     tail_mid = (0.0, -length * 0.5 - tail_length * 0.48, back_z + torso_height * 0.22)
     tail_base = (0.0, -length * 0.5, back_z)
-    rear = (0.0, -length * 0.42, body_z)
-    hind = (0.0, hind_y, body_z)
-    mid = (0.0, 0.0, body_z)
-    fore = (0.0, fore_y, body_z + torso_height * 0.06)
-    chest = (0.0, length * 0.43, body_z + torso_height * 0.16)
+    rear = landmarks["torso.rear"]
+    hind = landmarks["torso.hind"]
+    mid = landmarks["torso.center"]
+    fore = landmarks["torso.fore"]
+    chest = landmarks["chest.center"]
     neck = (0.0, length * 0.52, shoulder + torso_height * 0.05)
     head = (0.0, length * 0.5 + head_length * 0.34, shoulder + torso_height * 0.13)
     muzzle = (0.0, length * 0.5 + head_length * 0.82, shoulder + torso_height * 0.06)
@@ -161,7 +170,8 @@ def generate_quadruped_deformable_mesh(dimensions):
     )
 
     vertices, faces = [], []
-    _append_tube(vertices, faces, centers, widths, depths)
+    body_rings = _append_tube(vertices, faces, centers, widths, depths)
+    front_rings = ()
 
     openings = {}
     level_by_pair = {"hind": 3, "fore": 5}
@@ -181,6 +191,11 @@ def generate_quadruped_deformable_mesh(dimensions):
             knee = (x, y, knee_z)
             ankle = (x, y, max(width * 0.12, 1.5))
             paw = (x, y + width * 0.10, max(width * 0.07, 1.0))
+            if (region, side) == ("fore", "left"):
+                upper = landmarks["shoulder.front.left"]
+                knee = landmarks["elbow.front.left"]
+                ankle = landmarks["ankle.front.left"]
+                paw = landmarks["paw.front.left"]
             centers_leg = (
                 upper,
                 _lerp(upper, knee, 0.18),
@@ -192,7 +207,18 @@ def generate_quadruped_deformable_mesh(dimensions):
             base = max(width * 0.18, 2.0)
             widths_leg = (base * 1.12, base, base * 0.88, base * 0.78, base * 0.70, base * 0.94)
             depths_leg = (base * 1.12, base, base * 0.88, base * 0.78, base * 0.70, base * 0.58)
-            _append_branch(vertices, faces, openings[(region, side)], centers_leg, widths_leg, depths_leg)
+            rings = _append_branch(vertices, faces, openings[(region, side)], centers_leg, widths_leg, depths_leg)
+            if (region, side) == ("fore", "left"):
+                front_rings = rings
 
     vertices, faces = tuple(vertices), tuple(faces)
-    return ObjectMesh((MeshPart("quadruped", vertices, faces, _project_uvs(vertices, faces)),))
+    mesh = ObjectMesh((MeshPart("quadruped", vertices, faces, _project_uvs(vertices, faces)),))
+    resolved = replace(
+        anatomy,
+        regions=(AnatomyRegion("torso", "quadruped", tuple(i for ring in body_rings[3:8] for i in ring)),
+                 AnatomyRegion("leg.front.left", "quadruped", tuple(i for ring in front_rings for i in ring))),
+        connections=(replace(anatomy.connections[0],
+                             boundaries=(openings[("fore", "left")], front_rings[0])),),
+    )
+    resolved.validate_mesh(mesh)
+    return mesh, resolved

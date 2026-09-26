@@ -19,7 +19,7 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
 
 ## Shared anatomy seam
 
-`anatomy/contracts.py` owns immutable recipe results, landmarks, topology-based regions, joint chains and connections. Provider migration has not begun. Tests: `tests/core/test_anatomy_contracts.py`. Baseline: `scripts/anatomy_baseline.py`. Implementation status: `docs/shared-anatomy-implementation.md`.
+`anatomy/contracts.py` owns immutable recipe results, landmarks, topology-based regions, joint chains and connections. `providers/human_anatomy.py` records bilateral arms used by skinning; `providers/quadruped_anatomy.py` supplies torso/front-left landmarks to the existing mesh/rig builders. Geometry binds authored region indices after construction. Full migration remains ahead. Tests: `tests/core/test_anatomy_contracts.py`, `tests/core/test_anatomy_proofs.py`. Baseline: `scripts/anatomy_baseline.py`. Implementation status: `docs/shared-anatomy-implementation.md`.
 
 ## Ownership by area
 
