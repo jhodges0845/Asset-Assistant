@@ -10,6 +10,10 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 Plan: [docs/shared-anatomy-alpha-plan.md](docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. This is planned work; current providers still use separate anatomy implementations. The plan supersedes older Human-only milestone sequencing.
 
+## Shared anatomy implementation checkpoint
+
+Immutable contracts and a portable numeric baseline harness are implemented; providers are not yet migrated. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for current scope and the next Human/Quadruped proof slices.
+
 ## Current Human V2 integration (2026-09-20)
 
 Create > Human is the single Human UI path. `HumanProvider` uses key `human` and

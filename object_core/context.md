@@ -17,6 +17,10 @@ composes the mathematical surface builder, rig and shared body-control mapping.
 The former static study option and experimental provider identity are removed.
 See `docs/human-workflow.md` for the workflow and code ownership map.
 
+## Shared anatomy seam
+
+`anatomy/contracts.py` owns immutable recipe results, landmarks, topology-based regions, joint chains and connections. Provider migration has not begun. Tests: `tests/core/test_anatomy_contracts.py`. Baseline: `scripts/anatomy_baseline.py`. Implementation status: `docs/shared-anatomy-implementation.md`.
+
 ## Ownership by area
 
 - `providers/` — provider capabilities and composition; Human enters through `providers/human.py`.
