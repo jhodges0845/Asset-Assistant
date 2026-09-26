@@ -19,7 +19,7 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
 
 ## Shared anatomy seam
 
-`anatomy/contracts.py` owns immutable recipe results, landmarks, topology-based regions, joint chains and connections. `providers/human_anatomy.py` records bilateral arms used by skinning; `providers/quadruped_anatomy.py` supplies torso/front-left landmarks to the existing mesh/rig builders. Geometry binds authored region indices after construction. Full migration remains ahead. Tests: `tests/core/test_anatomy_contracts.py`, `tests/core/test_anatomy_proofs.py`. Baseline: `scripts/anatomy_baseline.py`. Implementation status: `docs/shared-anatomy-implementation.md`.
+`anatomy/contracts.py` owns immutable recipe results, landmarks, topology-based regions, joint chains and connections. `providers/human_anatomy.py` resolves all Human rest landmarks/chains and construction controls; authored arms/legs feed skinning and Modify; `providers/quadruped_anatomy.py` supplies torso/front-left landmarks to the existing mesh/rig builders. Geometry binds authored region indices after construction. Full canine/Avian migration remains ahead. Tests: `tests/core/test_anatomy_contracts.py`, `tests/core/test_anatomy_proofs.py`, `tests/core/test_human_recipe.py`. Baseline: `scripts/anatomy_baseline.py`. Implementation status: `docs/shared-anatomy-implementation.md`.
 
 ## Ownership by area
 
@@ -37,14 +37,14 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
   neutral surface plus provisional UVs, and keys shaped meshes/weights by all controls.
 - `geometry/surface_human.py` + `surface_pelvis.py` — mathematical surface geometry.
 - `rigging/surface_human.py` — authored-surface rest rig and shared body-control mapping.
-- `providers/human_semantic.py` — topology-preserving Modify using provider rig bounds.
+- `providers/human_semantic.py` — topology-preserving Modify using resolved landmarks and authored limb ownership.
 - `geometry/neutral_pelvis.py` — earlier standalone pelvis experiment, separate from Human.
 
 Keep surface rest landmarks synchronized with authored geometry centerlines. Preserve
 bone names/parents used by existing animations and recompute weights for edited meshes.
 Tests: `tests/core/test_provider_boundaries.py`, `tests/core/test_human_semantic.py`,
 `tests/blender/test_deformation_review.py`; the full Blender suite protects plugin workflows.
-The surface generator optionally returns authored arm indices; Human skinning
+The surface generator optionally returns authored arm and leg indices; Human skinning
 uses them to keep wrist/forearm weights off the body, including after semantic
 edits. Shared weighting remains in `rigging/deforming.py` through its optional
 bone filter. Pose displacement and manifold tests do not establish anatomical
@@ -61,7 +61,7 @@ Human V2 must preserve the current Modify and model JSON round-trip workflow. An
 ## Rig/deformation
 
 - `rigging/deforming.py` owns shared skin weights and the legacy skeleton;
-  `rigging/surface_human.py` owns the active Human rest skeleton.
+  `providers/human_anatomy.py` resolves Human rest anatomy and `rigging/surface_human.py` constructs its skeleton.
 - Current quality work has softened major-joint blending without introducing a separate animator control rig.
 - Keep export/deformation concerns distinct from future animator-control abstractions.
 - Deeper rig/weight changes follow topology evidence rather than speculative skeleton expansion.

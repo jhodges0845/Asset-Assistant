@@ -55,18 +55,24 @@ class HumanSemanticTests(unittest.TestCase):
         self.assertEqual(len(mesh.parts[0].vertices), len(changed.parts[0].vertices))
         self.assertNotEqual(mesh.parts[0].vertices, changed.parts[0].vertices)
 
-    def test_left_arm_scale_does_not_move_rightmost_arm_vertex(self):
-        mesh = self.mesh
-        changed = self.provider.semantic_mesh(
-            mesh,
-            self.values,
-            (self._operation("scale", "arm.left", factor=1.15),),
-        )
-        original = mesh.parts[0].vertices
-        result = changed.parts[0].vertices
-        rightmost = max(range(len(original)), key=lambda index: original[index][0])
-        self.assertEqual(original[rightmost], result[rightmost])
-        self.assertNotEqual(original, result)
+    def test_limb_edits_follow_authored_side_after_large_movements(self):
+        from object_core.providers.human import _human_anatomy
+        regions = {r.name: set(r.vertex_indices) for r in _human_anatomy(**self.values).regions}
+        for target in ("arm.left", "arm.right", "leg.left", "leg.right"):
+            owned = regions[target]
+            moved = self.provider.semantic_mesh(self.mesh, self.values, (
+                self._operation("scale", target, offset_x=-200, offset_z=-200),))
+            result = self.provider.semantic_mesh(moved, self.values, (
+                self._operation("scale", target, offset_y=3),))
+            for index, (original, changed, final) in enumerate(zip(
+                    self.mesh.parts[0].vertices, moved.parts[0].vertices, result.parts[0].vertices)):
+                if index in owned:
+                    self.assertAlmostEqual(changed[0], original[0] - 200)
+                    self.assertAlmostEqual(final[1], changed[1] + 3)
+                else:
+                    self.assertEqual(original, changed)
+                    self.assertEqual(original, final)
+
 
     def test_profiles_can_compose_into_character_shape_recipe(self):
         mesh = self.mesh

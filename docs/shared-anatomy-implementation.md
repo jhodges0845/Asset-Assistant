@@ -1,93 +1,104 @@
 # Shared anatomy implementation checkpoint
 
-The foundation is committed as `381637d` on `codex/shared-generation-system`.
-The next increment proves the same portable anatomy contract against Human arms
-and a Quadruped torso/front-left limb. Full provider migration is still ahead.
+Branch: `codex/shared-generation-system`. Foundation: `381637d`. Human/Quadruped
+proof checkpoint: `bfecc5e`. Human now resolves its construction data before mesh,
+rig, skinning and semantic Modify. Quadruped still has its torso/front-left proof;
+full canine and Avian migrations remain ahead.
 
 ## Code ownership
 
-- `object_core/anatomy/contracts.py`: immutable recipe identity, landmarks,
-  mesh-part-scoped regions, joint chains, bend directions, symmetry and declared
-  connection boundaries. Validation checks references, bone-parent cycles and
-  mesh index bounds; it does not establish anatomical or visual quality.
-- `object_core/providers/human_anatomy.py`: `HumanArmRecipe` describes current
-  shoulder/elbow/wrist/hand endpoints and both authored arm regions. Human
-  skinning now reads those shared region records. Rest-rig and surface
-  construction remain in their existing modules; this is not full Human
-  source-of-truth migration.
-- `object_core/providers/quadruped_anatomy.py`: `QuadrupedFrontRecipe` resolves
-  torso/chest, shoulder, elbow, ankle, paw and existing rig-ground landmarks from
-  provider-validated dimensions. The existing mesh and rig builders consume
-  those resolved landmarks. Geometry binds region membership and shoulder
-  boundaries from the actual rings it constructs, then validates bounds.
-- `tests/core/test_anatomy_proofs.py`: actual provider proofs, boundary cases,
-  authored bridge connectivity and a perturbed elbow that must drive both
-  surface and bone endpoints. Other limbs remain outside this small proof.
+- `object_core/anatomy/contracts.py`: body-plan-independent immutable identity,
+  landmarks, regions, chains, symmetry and connection declarations. No provider
+  imports, registry or rich per-vertex objects.
+- `object_core/providers/human_anatomy.py`: `HumanRecipe` resolves validated
+  controls, all Human rest landmarks and joint chains, bilateral limb regions
+  and body attachment expectations. `ResolvedHumanAnatomy` adds only the immutable
+  Human proportions/reference payload needed by its constructor.
+- `object_core/providers/human.py`: caches the resolved recipe and composes mesh,
+  rig, weights and Modify. Cache keys normalize positional/named calls and include
+  recipe ID/version plus every public control. Edited meshes recompute weights.
+- `object_core/geometry/surface_human.py`: the one authored Human surface
+  implementation; owns remapped arm and leg membership. The optional metadata
+  return does not alter vertex order, topology or coordinates.
+- `object_core/geometry/surface_human_builder.py`: audits the neutral surface and
+  exposes its authored membership. `geometry/human_shaping.py` owns the existing
+  body-control transform used by both recipe resolution and surface shaping.
+- `object_core/rigging/surface_human.py`: constructs bones directly from resolved
+  chains/landmarks; it no longer calculates a second set of Human landmarks.
+- `object_core/providers/human_semantic.py`: uses resolved landmark bounds and
+  authored body/limb membership. Face, jaw, cheek, torso and shoulder profiles keep
+  their existing spatial shaping rules; this migration does not redesign them.
+- `object_core/providers/quadruped_anatomy.py`: resolves the existing
+  torso/front-left proof. The existing mesh/rig builders consume those landmarks;
+  geometry binds actual region and shoulder-boundary indices after construction.
 
-Both providers retain their existing public interfaces and identities. Blender
-still receives the same mesh, skeleton, weights and animation contracts.
+Human retains its public `human` identity, controls, materials, motion and Blender
+workflow. No replacement UI or parallel generation implementation was added.
 
-## Two-body-plan architecture review
+## Behavior changes and limits
 
-The shared anatomy types represent both proofs without species conditionals,
-provider imports, a registry, or one rich object per vertex. Region ownership is
-stored as integer indices and remains valid when vertices move. The Quadruped
-shoulder declares a four-vertex torso opening and an eight-vertex limb boundary;
-its authored bridge faces connect them. Human bilateral ownership comes directly
-from the surface builder rather than a spatial classification.
+Human arm and leg semantic operations now follow authored limb ownership and the
+rig's side labels (+X is left for this Human). Previously spatial selection used
+the opposite sign and could include nearby unrelated regions. Membership remains
+stable after large vertex moves. Topology-changing input is rejected before
+applying indexed ownership; ordinary vertex edits, UVs and face order are retained.
+Saved artist work is not regenerated automatically.
 
-The proof also exposes two existing Quadruped distinctions: surface and rig
-centerlines are not identical, and the lower-leg bone ends at ground level while
-the surface ankle/paw sit above it. The recipe names these separately to preserve
-current behavior. Reconciling them and adding an articulated paw belong to the
-canine quality migration, not this output-preserving extraction.
+Resolving the whole Human also exposed a rig boundary issue: summing proportions
+can round a few ulps outside the allowed height range. The reference height is
+bounded after validating the actual input. Tests cover both supported height and
+weight endpoints across all five body types; out-of-range input still fails.
 
-Quadruped membership is bound after construction because the constructor owns
-vertex ordering. Empty regions/boundaries in the initial recipe resolution mean
-pending authorship, not accepted topology. Full recipe orchestration should
-return the bound result to skinning and semantics. Human's proof still derives
-landmarks from its current rig; reversing that dependency is the next migration.
-No local-frame or generic construction-payload abstraction was needed yet.
+Human body/limb connections declare connected-surface expectations. Their local
+boundary loops are not populated yet; the existing whole-surface audit remains
+the connectivity/winding gate. Region memberships are explicit, compact integer
+indices, with the body intentionally containing its limb subsets. No local-frame
+abstraction was needed for this migration.
 
-## Reproduce the portable baseline
+Quadruped retains its existing distinct surface/rig centerlines and ground-level
+lower-bone endpoint. Its surface ankle/paw are separate landmarks. Reconciling
+those relationships belongs to the canine quality work. Its four/eight-vertex
+shoulder boundaries are bound from actual geometry and tested for bridge faces.
+
+## Reproduce validation
 
 ```powershell
+python -m unittest discover -s tests/core -v
 python scripts/anatomy_baseline.py --output anatomy-baseline.json
-python -m unittest discover -s tests/core -p test_anatomy_proofs.py -v
 ```
 
-`anatomy-baseline-2026-09-26.json` records pre-extraction commit, environment,
-parameters, mesh/bone counts, output SHA-256 fingerprints and generation timings
-for default and contrasting Human, Quadruped and Avian samples. Every sample uses
-a fresh process. Timings are observations, not thresholds; each public provider
-call includes its dependencies, so do not sum them as independent costs.
-Compare fingerprints using the same Python/runtime.
+The pre-migration `anatomy-baseline-2026-09-26.json` contains default and contrasting
+Human, Quadruped and Avian parameters, counts, environment, fingerprints and
+observed timings. Each sample runs in a fresh process. Compare fingerprints on
+the same runtime; timings are observations, not acceptance thresholds.
 
-The proof run is saved locally as `artifacts/shared-anatomy/proof-baseline.json`.
-All six samples retain exactly matching mesh, skeleton, weights and animation
-fingerprints. Four proof tests also exercise minimum/maximum Quadruped dimensions
-and verify that an intentionally moved elbow updates both mesh and rig.
+Current local evidence is under `artifacts/shared-anatomy/`:
 
-This is portable numeric evidence, not complete visual acceptance. Clay,
-silhouette, wireframe, bend-pose review and playback timing remain required before
-accepting anatomical quality changes. Current outputs are preserved exactly for
-the recorded samples; no visual quality improvement is claimed.
+- `human-baseline.json`: final six-sample comparison output.
+- `human-core-tests.log`: complete portable suite.
+- `human-blender-tests.log`: Blender 5.2.1 integration suite.
+- `human-package-tests.log`: isolated ZIP workflow verification.
+- `human-visual-tests.log`, `human-migration-deformation.png`: projected pose review.
 
-## Validation
+Human migration validation on Python 3.9.13 / Blender 5.2.1:
 
-- Python 3.9.13: all 364 core tests pass.
-- Focused Quadruped provider tests: all 10 pass.
-- All six baseline output fingerprint sets match the recorded baseline.
-- Blender 5.2.1: all 231 integration tests pass.
-- Isolated installable ZIP check passes: generation, rigging, animation, validation
-  and export. Built add-on: `dist/asset_assistant.zip`.
-- Detailed logs: `artifacts/shared-anatomy/proof-core-tests.log`,
-  `proof-blender-tests.log` and `proof-package-tests.log`.
-- Coverage tooling is not installed in local Python; CI coverage remains pending.
+- All 370 core tests pass; all 231 Blender integration tests pass.
+- All six baseline fingerprint sets match exactly (mesh, rig, weights, clips).
+- Isolated ZIP generation/rig/animation/validation/export checks pass.
+- Real Human and attached-component save/reopen checks pass.
+- All seven diagnostic pose checks pass. The rendered eight-card sheet was
+  inspected: labels and silhouettes are readable and expected bends are visible.
+- Python compilation and whitespace checks pass.
 
-## Next implementation slice
+Save/reopen logs are `human-reopen-tests.log` and `component-reopen-tests.log`
+in the same artifact directory. The refreshed installable add-on is
+`dist/asset_assistant.zip`. Coverage tooling is not installed in local Python;
+CI coverage remains pending. This preserves current anatomy; it does not claim
+final anatomical quality acceptance.
 
-Move Human construction onto the reviewed seam while retaining controls,
-semantic edits, authored region constraints and existing Blender behavior.
-Then expand canine anatomy and later Avian through the same provider boundary.
-Avoid treating a wing as a renamed arm or a canine hind limb as a Human leg.
+## Next slice
+
+Expand the canine recipe beyond its proof limb, deriving the full rest anatomy,
+geometry, local weights and executable semantic controls from the shared seam.
+Then migrate Avian using bird-specific surface and joint rules. Continue visual
+silhouette, wireframe and deformation gates as anatomy quality changes.

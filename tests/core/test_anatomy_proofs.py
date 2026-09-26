@@ -6,7 +6,7 @@ import unittest
 from object_core.anatomy import ResolvedAnatomy
 from object_core.models.mesh import MeshPart, ObjectMesh
 from object_core.objects import get_provider
-from object_core.providers.human import _human_arm_anatomy, _neutral_surface_data
+from object_core.providers.human import _human_anatomy, _neutral_surface_data
 from object_core.providers.quadruped_anatomy import QuadrupedFrontRecipe
 from object_core.providers.quadruped_geometry import _build_quadruped_mesh
 from object_core.providers.quadruped_rigging import _build_quadruped_skeleton
@@ -29,9 +29,9 @@ class AnatomyProofTests(unittest.TestCase):
         provider = get_provider('human')
         neutral, authored = _neutral_surface_data()
         for values in (_defaults(provider), dict(height_cm=155, weight_kg=65, body_type='average')):
-            anatomy = _human_arm_anatomy(**values)
+            anatomy = _human_anatomy(**values)
             self.assertIsInstance(anatomy, ResolvedAnatomy)
-            self.assertEqual(anatomy, _human_arm_anatomy(**values))
+            self.assertEqual(anatomy, _human_anatomy(**values))
             mesh = provider.mesh(values)
             anatomy.validate_mesh(mesh)
             regions = {r.name: r for r in anatomy.regions}
@@ -43,8 +43,8 @@ class AnatomyProofTests(unittest.TestCase):
                 for index, name in enumerate(chain.bones):
                     self.assertEqual(bones[name].head, points[chain.landmarks[index]])
                     self.assertEqual(bones[name].tail, points[chain.landmarks[index + 1]])
-        self.assertNotEqual(_human_arm_anatomy(180, 95, 'average').landmarks,
-                            _human_arm_anatomy(155, 65, 'average').landmarks)
+        self.assertNotEqual(_human_anatomy(180, 95, 'average').landmarks,
+                            _human_anatomy(155, 65, 'average').landmarks)
 
     def test_quadruped_proof_default_contrasting_and_boundaries(self):
         provider = get_provider('quadruped')

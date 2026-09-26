@@ -15,13 +15,15 @@ from ..geometry.deformable import _generate_face_atlas_uvs
 from ..geometry.surface_human_builder import HumanSurfaceBuilder
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
 from ..models.mesh import MeshPart, ObjectMesh
-from ..rigging.surface_human import surface_skeleton, shape_surface_point
+from ..rigging.surface_human import surface_skeleton
+from ..geometry.human_shaping import shape_human_surface
 from ..proportions import generate_proportions
 from ..rigging import generate_skin_weights, generate_skeleton
 from .base import Parameter
 from .semantic import SemanticTarget
 from .human_semantic import apply_human_semantic_operations
-from .human_anatomy import HumanArmRecipe, authored_arm_regions
+from .human_anatomy import HumanRecipe
+from ..anatomy import AnatomyRegion
 
 
 HUMAN_PARAMETERS = (
@@ -100,10 +102,10 @@ def _proportions(values):
 
 
 @lru_cache(maxsize=1)
-def _neutral_surface_data():
-    """Build and audit one neutral surface, retaining authored arm ownership."""
-    mesh, _report, arms = HumanSurfaceBuilder().build(
-        SurfaceHumanSpec(), include_arm_indices=True
+def _neutral_surface_anatomy_data():
+    """Build and audit one neutral surface, retaining authored limb ownership."""
+    mesh, _report, limbs = HumanSurfaceBuilder().build(
+        SurfaceHumanSpec(), include_limb_indices=True
     )
     part = mesh.parts[0]
     return (
@@ -117,29 +119,46 @@ def _neutral_surface_data():
                 ),
             )
         ),
-        arms,
+        limbs,
     )
 
 
+def _neutral_surface_data():
+    """Existing diagnostic seam for the neutral mesh and authored arm indices."""
+    mesh, regions = _neutral_surface_anatomy_data()
+    return mesh, tuple((name.split(".")[-1], indices) for name, indices in regions
+                       if name.startswith("arm."))
+
+
 def _neutral_surface_mesh():
-    return _neutral_surface_data()[0]
+    return _neutral_surface_anatomy_data()[0]
 
 
 @lru_cache(maxsize=1)
-def _human_arm_regions():
-    return authored_arm_regions(_neutral_surface_data()[1])
+def _human_regions():
+    mesh, limbs = _neutral_surface_anatomy_data()
+    return (AnatomyRegion("body", "human", tuple(range(len(mesh.parts[0].vertices)))),) + tuple(
+        AnatomyRegion(name, "human", indices) for name, indices in limbs)
+
+
+def _human_anatomy(height_cm, weight_kg, body_type):
+    """Normalize call style and bind every resolution to recipe identity."""
+    return _resolved_human_anatomy(HumanRecipe.recipe_id, HumanRecipe.recipe_version,
+                                  float(height_cm), float(weight_kg), BodyType(body_type).value)
 
 
 @lru_cache(maxsize=32)
-def _human_arm_anatomy(height_cm, weight_kg, body_type):
-    """Internal proof metadata, not an additional provider/UI capability."""
-    return HumanArmRecipe(_human_arm_regions()).resolve({
+def _resolved_human_anatomy(recipe_id, recipe_version, height_cm, weight_kg, body_type):
+    """Single cached Human resolution used by mesh, rig, weights and Modify."""
+    return HumanRecipe(_human_regions()).resolve({
         "height_cm": height_cm, "weight_kg": weight_kg, "body_type": body_type,
     })
 
 
-def _surface_skin_weights(mesh, skeleton):
-    """Reuse shared weighting with topology-based arm candidate restrictions."""
+def _validate_surface_topology(mesh):
+    """Authored ownership is valid only for the unchanged Human topology."""
+    if not isinstance(mesh, ObjectMesh):
+        raise TypeError("Human ownership expects an ObjectMesh")
     neutral = _neutral_surface_mesh()
     # Semantic edits preserve topology: ownership follows authored indices even
     # when an artist moves a hand beside the pelvis. Never infer arm ownership
@@ -152,8 +171,15 @@ def _surface_skin_weights(mesh, skeleton):
         raise ValueError(
             "Human surface skinning requires the authored surface topology"
         )
+
+
+def _surface_skin_weights(mesh, skeleton, anatomy):
+    """Reuse shared weighting with resolved topology-based arm ownership."""
+    _validate_surface_topology(mesh)
+    anatomy.validate_mesh(mesh)
     owners = {index: region.name.split(".")[-1]
-              for region in _human_arm_regions() for index in region.vertex_indices}
+              for region in anatomy.regions if region.name.startswith("arm.")
+              for index in region.vertex_indices}
     groups = {}
 
     def bone_filter(part_name, index, vertex, bones):
@@ -176,8 +202,13 @@ def _surface_skin_weights(mesh, skeleton):
     return generate_skin_weights(mesh, skeleton, bone_filter=bone_filter)
 
 
-@lru_cache(maxsize=16)
 def _human_mesh(height_cm, weight_kg=95.0, body_type="average"):
+    return _cached_human_mesh(HumanRecipe.recipe_id, HumanRecipe.recipe_version,
+                    float(height_cm), float(weight_kg), BodyType(body_type).value)
+
+
+@lru_cache(maxsize=16)
+def _cached_human_mesh(recipe_id, recipe_version, height_cm, weight_kg, body_type):
     """Cache immutable Human V2 geometry for repeated in-process consumers.
 
     Blender integration tests and UI validation frequently request the same
@@ -185,36 +216,33 @@ def _human_mesh(height_cm, weight_kg=95.0, body_type="average"):
     the generated core mesh avoids rebuilding and re-auditing ~42k vertices
     without sharing mutable Blender objects.
     """
-    mesh = _neutral_surface_mesh()
-    part = mesh.parts[0]
-    proportions = generate_proportions(
-        HumanoidSpec(height_cm, weight_kg, BodyType(body_type))
-    )
-    reference = generate_proportions(HumanoidSpec(height_cm, 95.0, BodyType.AVERAGE))
-    height_scale = height_cm / 175.0
-    vertices = tuple(
-        shape_surface_point(
-            tuple(v * height_scale for v in point), proportions, reference
-        )
-        for point in part.vertices
-    )
-    return ObjectMesh((MeshPart("human", vertices, part.faces, part.uvs),))
+    anatomy = _human_anatomy(height_cm, weight_kg, body_type)
+    mesh = shape_human_surface(_neutral_surface_mesh(), anatomy)
+    anatomy.validate_mesh(mesh)
+    return mesh
 
 
-@lru_cache(maxsize=32)
 def _human_skeleton(height_cm, weight_kg, body_type):
-    proportions = generate_proportions(
-        HumanoidSpec(float(height_cm), float(weight_kg), BodyType(body_type))
-    )
-    return surface_skeleton(proportions)
+    return _cached_human_skeleton(HumanRecipe.recipe_id, HumanRecipe.recipe_version,
+                    float(height_cm), float(weight_kg), BodyType(body_type).value)
 
 
 @lru_cache(maxsize=32)
+def _cached_human_skeleton(recipe_id, recipe_version, height_cm, weight_kg, body_type):
+    return surface_skeleton(_human_anatomy(height_cm, weight_kg, body_type))
+
+
 def _human_skin_weights(height_cm, weight_kg, body_type):
+    return _cached_human_skin_weights(HumanRecipe.recipe_id, HumanRecipe.recipe_version,
+                    float(height_cm), float(weight_kg), BodyType(body_type).value)
+
+
+@lru_cache(maxsize=32)
+def _cached_human_skin_weights(recipe_id, recipe_version, height_cm, weight_kg, body_type):
     """Cache deterministic immutable skin weights for repeated Human V2 requests."""
     mesh = _human_mesh(float(height_cm), float(weight_kg), body_type)
     skeleton = _human_skeleton(float(height_cm), float(weight_kg), body_type)
-    return _surface_skin_weights(mesh, skeleton)
+    return _surface_skin_weights(mesh, skeleton, _human_anatomy(height_cm, weight_kg, body_type))
 
 
 class HumanProvider:
@@ -233,7 +261,8 @@ class HumanProvider:
     semantic_apply_capabilities = HUMAN_SEMANTIC_APPLY_CAPABILITIES
 
     def proportions(self, values):
-        return _proportions(values)
+        return _human_anatomy(float(values["height_cm"]), float(values["weight_kg"]),
+                              values["body_type"]).proportions
 
     def mesh(self, values):
         """Generate Human V2 from the cached immutable Mathematical Human surface."""
@@ -242,8 +271,10 @@ class HumanProvider:
         )
 
     def semantic_mesh(self, mesh, values, operations):
+        _validate_surface_topology(mesh)
+        anatomy = _human_anatomy(float(values["height_cm"]), float(values["weight_kg"]), values["body_type"])
         return apply_human_semantic_operations(
-            mesh, self.proportions(values), operations, skeleton=self.skeleton(values)
+            mesh, anatomy.proportions, operations, anatomy=anatomy
         )
 
     def skeleton(self, values):
@@ -265,7 +296,9 @@ class HumanProvider:
             )
         # Semantic edits can change vertex positions while retaining the same
         # Human controls, so only reuse weights for the unmodified base mesh.
-        return _surface_skin_weights(mesh, self.skeleton(values))
+        return _surface_skin_weights(mesh, self.skeleton(values),
+                                     _human_anatomy(float(values["height_cm"]),
+                                                    float(values["weight_kg"]), values["body_type"]))
 
     def idle(self, duration, strength):
         return generate_idle(duration, strength)

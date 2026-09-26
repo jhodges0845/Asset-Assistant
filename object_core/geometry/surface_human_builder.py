@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Validated Human geometry construction, independent of Blender and rigging.
 
-HumanProvider uses this builder for its neutral surface and authored arm indices.
+HumanProvider uses this builder for its neutral surface and authored limb indices.
 Standalone development scripts also use its strict presets and geometry reports.
 """
 import hashlib
@@ -105,12 +105,12 @@ class HumanSurfaceBuilder:
     def mesh(self, values):
         return self.build(SurfaceHumanSpec(**values))[0]
 
-    def build(self, spec, *, include_arm_indices=False):
-        """Generate and audit once; optionally return arm ownership for skinning."""
+    def build(self, spec, *, include_arm_indices=False, include_limb_indices=False):
+        """Generate and audit once; optionally return authored limb ownership."""
         generated = generate_surface_human(
-            spec, include_arm_indices=include_arm_indices
+            spec, include_arm_indices=include_arm_indices, include_limb_indices=include_limb_indices
         )
-        mesh, arms = generated if include_arm_indices else (generated, ())
+        mesh, arms = generated if (include_arm_indices or include_limb_indices) else (generated, ())
         report = audit_surface(mesh)
         if not report["passed"]:
             raise ValueError("surface validation failed: " + json.dumps(report))
@@ -125,4 +125,4 @@ class HumanSurfaceBuilder:
             ).hexdigest(),
             quality_status="experimental_anatomical_study",
         )
-        return (mesh, report, arms) if include_arm_indices else (mesh, report)
+        return (mesh, report, arms) if (include_arm_indices or include_limb_indices) else (mesh, report)

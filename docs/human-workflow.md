@@ -24,17 +24,19 @@ asset, not from changing the Create dropdown.
 | Choose model | `blender_adapter/workspace_create_ui.py` | Shows provider labels, controls and workflow guidance. |
 | Generate | `blender_adapter/ui.py` | Resolves the provider and creates the scene asset through the adapter. |
 | Build Human | `object_core/providers/human.py` | Composes validated surface, body controls, rig, skinning and animation capabilities. |
-| Build neutral surface | `object_core/geometry/surface_human_builder.py` | Calls the geometry generator, audits topology and retains authored arm indices. |
-| Construct geometry | `object_core/geometry/surface_human.py` | Builds the mathematical surface; owns vertex ordering and arm membership. |
-| Shape mesh and rig | `object_core/rigging/surface_human.py` | Applies the shared body-control mapping and supplies matching rest landmarks. |
+| Build neutral surface | `object_core/geometry/surface_human_builder.py` | Calls the geometry generator, audits topology and retains authored limb indices. |
+| Construct geometry | `object_core/geometry/surface_human.py` | Builds the mathematical surface; owns vertex ordering and arm/leg membership. |
+| Resolve anatomy | `object_core/providers/human_anatomy.py` | Resolves validated Human controls, landmarks, chains and authored limb ownership. |
+| Shape surface | `object_core/geometry/human_shaping.py` | Applies the recipe body-control mapping to the audited neutral mesh. |
+| Construct rig | `object_core/rigging/surface_human.py` | Converts resolved chains and landmarks into portable bones. |
 | Attach rig | `blender_adapter/workflow.py` | Reads saved asset parameters and attaches the provider skeleton/weights. |
 | Calculate weights | `object_core/rigging/deforming.py` | Uses shared weighting with Human's arm candidate restrictions. |
 | Animate | `blender_adapter/animation.py` and animation modules | Turns provider motion into editable Blender actions. |
-| Modify | `object_core/providers/human_semantic.py` | Changes geometry with explicit preview/apply through the adapter. |
+| Modify | `object_core/providers/human_semantic.py` | Uses resolved landmarks and authored limb ownership; preview/apply stays explicit in the adapter. |
 
-Within `providers/human.py`, read `_neutral_surface_data`, `_human_mesh`,
+Within `providers/human.py`, read `_neutral_surface_anatomy_data`, `_human_anatomy`, `_human_mesh`,
 `_human_skeleton`, `_surface_skin_weights`, then `HumanProvider`.
-The caches share immutable core data. Edited meshes recompute weights; arm
+The caches share immutable core data keyed by recipe/version and normalized controls. Edited meshes recompute weights; arm
 ownership follows topology so wrist movement cannot pull nearby hip vertices.
 
 The geometry builder (`HumanSurfaceBuilder`) is an implementation detail, not a

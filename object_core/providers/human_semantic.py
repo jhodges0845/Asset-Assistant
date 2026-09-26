@@ -25,9 +25,14 @@ def _scale_value(arguments, axis):
     return value
 
 
-def _bounds(proportions, skeleton=None):
-    points = generate_landmarks(proportions)
-    if skeleton is not None:
+def _bounds(proportions, skeleton=None, anatomy=None):
+    points = {} if anatomy is not None else generate_landmarks(proportions)
+    if anatomy is not None:
+        resolved = {landmark.name: landmark.position for landmark in anatomy.landmarks}
+        points = dict(points, chin=resolved["chin"], crown=resolved["crown"],
+                      hip_center=resolved["pelvis"], shoulder_center=resolved["shoulder.left"],
+                      **{"shoulder.right": resolved["shoulder.right"], "hip.right": resolved["hip.right"]})
+    elif skeleton is not None:
         bones = {bone.name: bone for bone in skeleton.bones}
         points = dict(points, chin=bones["head"].head, crown=bones["head"].tail,
                       hip_center=bones["torso"].head,
@@ -160,21 +165,24 @@ def _profile(vertices, indices, target, arguments, proportions, bounds):
     raise ValueError("Unsupported Human semantic profile " + str(profile) + " for " + target)
 
 
-def apply_human_semantic_operations(mesh, proportions, operations, *, skeleton=None):
+def apply_human_semantic_operations(mesh, proportions, operations, *, skeleton=None, anatomy=None):
     """Apply topology-preserving Human semantic geometry operations."""
     if not isinstance(mesh, ObjectMesh) or len(mesh.parts) != 1:
         raise TypeError("Human semantic apply expects one generated ObjectMesh part")
     part = mesh.parts[0]
     vertices = list(part.vertices)
-    bounds = _bounds(proportions, skeleton)
+    bounds = _bounds(proportions, skeleton, anatomy)
+    regions = {} if anatomy is None else {region.name: region.vertex_indices for region in anatomy.regions}
+    if anatomy is not None:
+        anatomy.validate_mesh(mesh)
 
     for operation in operations:
         if operation.operation not in ("shape", "scale"):
             raise ValueError("Human semantic geometry cannot apply " + operation.operation)
-        indices = [
-            index for index, vertex in enumerate(vertices)
-            if _selected(operation.target, vertex, proportions, bounds)
-        ]
+        indices = regions.get(operation.target)
+        if indices is None:
+            indices = [index for index, vertex in enumerate(vertices)
+                       if _selected(operation.target, vertex, proportions, bounds)]
         arguments = operation.argument_values()
         vertices = _transform(vertices, indices, arguments)
         if operation.operation == "shape":
