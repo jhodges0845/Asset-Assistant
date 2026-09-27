@@ -1,6 +1,6 @@
 # Shared anatomy recipe contract
 
-Status: design checkpoint for milestone 1 of the shared-anatomy alpha plan.
+Status: original milestone-1 design contract. The shared types, Human migration and CanineRecipe are now implemented; the catalog and AvianRecipe remain future work. For current behavior, see the [implementation checkpoint](shared-anatomy-implementation.md).
 
 This document defines the smallest host-independent seam to prove before migrating provider geometry. It is intentionally a design contract, not a promise to replace provider-specific anatomy with generic primitives.
 
@@ -35,7 +35,7 @@ The anatomy layer owns resolution and anatomical metadata. Anatomy-specific cons
 Current code already exposes the right evidence:
 
 - Human builds a neutral authored mathematical surface, shapes it from proportions, derives a surface-aligned skeleton, preserves authored arm ownership, and executes semantic geometry edits.
-- Quadruped has a connected deformable mesh, skeleton and weights, but these are separate provider-specific generators and its advertised semantic regions are not yet executable.
+- At design time, Quadruped used separate generators and declared semantic regions without execution. It now consumes CanineRecipe and executes authored-region Modify; see the implementation checkpoint for current scope.
 - Avian has separate geometry/rigging plus executable semantic edits.
 
 The first extraction should therefore unify the **source of anatomical truth**, not force all three providers through one mesh algorithm.

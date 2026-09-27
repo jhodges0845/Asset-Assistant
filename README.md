@@ -41,11 +41,22 @@ character quality. See the [Human workflow](docs/human-workflow.md),
 
 ## Quadruped status
 
-**Quadruped is complete as the current editable four-legged provider foundation.** It generates one connected deformable surface from host-independent dimensions, supplies a quadruped skeleton and localized skin weights, face-corner UVs, a portable textured PBR base coat, and separate generated Idle/Walk/Run clips.
+Quadruped uses the shared anatomy contracts through **CanineRecipe version 6**.
+It generates one connected refined surface (6,274 vertices, 6,272 quads), a
+17-bone rig with separate hind knee/hock/paw chains, connected ears and a distinct
+muzzle. Shape/scale Modify supports the body, chest, waist, head, muzzle, ears,
+tail and limbs. Authored ownership and localized attachment weights keep leg
+motion from pulling the chest and neck into broad folds.
 
-Quadruped deliberately reuses the same provider-driven Blender generation, rigging, animation, material and export infrastructure as Human. Quadruped-specific anatomy remains in `object_core/providers`; no parallel provider-specific Blender workflow is required. Automated Blender tests cover generation, armature binding, deformation at major quadruped junctions, animation creation/playback behavior, UV/material translation and preservation of artist-authored material data. Interactive Blender 5.2.1 review confirmed the generated rig and animations play on the connected mesh.
+The existing Blender Generate -> Modify -> Rig -> Animate -> Export workflow,
+UVs, base coat and Idle/Walk/Run remain in use. Create a **new Quadruped** after
+updating the add-on to use the new geometry; saved older surfaces and artist
+edits are preserved.
 
-The current implementation is a low-poly editable starting point rather than an exhaustive all-species generator, finished anatomy, or fur system. Broader destination-specific certification can continue as release hardening.
+This remains pre-alpha. Eyes, nose/mouth detail, paws, coat, remaining attachment
+creases and gait/contact quality need further work. See the
+[shared anatomy checkpoint](docs/shared-anatomy-implementation.md) for source
+ownership, validation, review commands and next steps.
 
 ## Avian status
 

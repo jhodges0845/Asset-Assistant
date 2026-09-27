@@ -1,6 +1,6 @@
 # Shared anatomy and animation: alpha plan
 
-Status: planned; approved product direction, September 21, 2026. This changes the alpha scope, not the implemented feature set.
+Status: in progress, September 27, 2026. Human and Quadruped use shared anatomy contracts; canine recipe version 6 is implemented. Canine visual acceptance, Avian migration and the final animation quality pass remain open. See the [implementation checkpoint](shared-anatomy-implementation.md) for branch-specific evidence.
 
 ## Alpha promise
 
@@ -8,7 +8,7 @@ Human, Quadruped and Avian should feel like one coherent character system. Each 
 
 This milestone precedes release hardening. Existing production-readiness checklists remain evidence inventories; they do not require every future production feature for alpha.
 
-## Starting point
+## Starting point (historical, September 21, 2026)
 
 Human composes a mathematical surface builder and surface-aligned rig. Quadruped and Avian currently have separate geometry, rigging and animation modules behind the same provider interface. Human and Avian have executable semantic geometry operations; Quadruped semantic declarations do not yet provide equivalent execution. Existing animation identity, preview/apply, ownership and export contracts remain the integration boundary.
 
@@ -16,7 +16,7 @@ Read `human-workflow.md`, `object_core/providers/quadruped.py`, `object_core/pro
 
 ## Shared construction with anatomy recipes
 
-Proposed flow:
+Target flow (implemented for Human and Quadruped through anatomy, surface, rig and Modify; shared motion work remains ahead):
 
 `provider controls -> validated anatomy recipe -> resolved anatomy -> surface + rig + region metadata -> weights / semantic Modify -> provider motion recipe -> existing Blender workflow`
 
