@@ -249,6 +249,8 @@ def _ground_paw_surfaces(vertices, anatomy):
 
     Subdivision lifts the capped paw ends. A monotone height map below the
     ankle/hock restores contact, with unit slope at that fixed transition.
+    A cubic sole profile broadens the near-ground underside without flattening
+    faces: its derivative is positive above the sole and one at the transition.
     Only authored limb vertices participate; this runs during construction,
     never on an artist-edited surface or during semantic Modify.
     """
@@ -275,6 +277,8 @@ def _ground_paw_surfaces(vertices, anatomy):
             # Positive denominator and derivative preserve vertical ordering.
             # Unlike clamping, this does not collapse sole faces to a plane.
             height = ground + (upper - ground) * t / (ratio + (1 - ratio) * t)
+            sole = (height - ground) / (upper - ground)
+            height = ground + (upper - ground) * sole * sole * (2 - sole)
             result[index] = (x, y, height)
     return tuple(result)
 

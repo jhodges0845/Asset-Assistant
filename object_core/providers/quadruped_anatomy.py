@@ -52,7 +52,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '7'
+    recipe_version = '8'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']

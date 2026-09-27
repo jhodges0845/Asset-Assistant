@@ -1,6 +1,6 @@
 # Shared anatomy and animation: alpha plan
 
-Status: in progress, September 27, 2026. Human and Quadruped use shared anatomy contracts; canine recipe version 7 adds neutral sole contact, and commit `f5c6626` records neutral/posed near-ground paw footprint baselines. Paw support-area and front-joint refinement remain next. Canine visual acceptance, Avian migration and the final animation quality pass remain open. See the [implementation checkpoint](shared-anatomy-implementation.md) for branch-specific evidence.
+Status: in progress, September 27, 2026. Human and Quadruped use shared anatomy contracts; canine recipe version 8 broadens the grounded paw undersides, building on the version 7 neutral/posed footprint baseline. Anatomical paw shape and front-joint refinement remain next. Canine visual acceptance, Avian migration and the final animation quality pass remain open. See the [implementation checkpoint](shared-anatomy-implementation.md) for branch-specific evidence.
 
 ## Alpha promise
 

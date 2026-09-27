@@ -144,3 +144,23 @@ class CanineRefinementTests(unittest.TestCase):
         moved = self.provider.semantic_mesh(self.mesh, self.values, (
             SemanticOperation('scale', region.name, (('offset_z', 5),)),))
         self.assertAlmostEqual(min(moved.parts[0].vertices[i][2] for i in region.vertex_indices), 5)
+
+
+    def test_sole_profile_broadens_near_ground_support_without_flat_faces(self):
+        from scripts.canine_review_metrics import limb_support_footprint
+        samples = ((self.values, (.4724, 1.2588)),
+                   (dict(self.values, body_length_cm=95, shoulder_height_cm=40,
+                         body_width_cm=28, head_length_cm=30, tail_length_cm=50), (.5870, .8536)))
+        for values, previous_areas in samples:
+            mesh, anatomy = _construction(self.provider.dimensions(values))
+            part = mesh.parts[0]
+            report = limb_support_footprint(part.vertices, part.faces, anatomy.regions)
+            for family, previous in zip(('front', 'hind'), previous_areas):
+                for side in ('left', 'right'):
+                    name = 'leg.' + family + '.' + side
+                    with self.subTest(values=values, limb=name):
+                        self.assertGreater(report[name]['near_ground_hull_area_cm2'], 2 * previous)
+                        owned = set(next(r.vertex_indices for r in anatomy.regions if r.name == name))
+                        for face in part.faces:
+                            if set(face) <= owned:
+                                self.assertGreater(max(part.vertices[i][2] for i in face), 0)

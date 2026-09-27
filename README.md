@@ -41,12 +41,15 @@ character quality. See the [Human workflow](docs/human-workflow.md),
 
 ## Quadruped status
 
-Quadruped uses the shared anatomy contracts through **CanineRecipe version 6**.
+Quadruped uses the shared anatomy contracts through **CanineRecipe version 8**.
 It generates one connected refined surface (6,274 vertices, 6,272 quads), a
 17-bone rig with separate hind knee/hock/paw chains, connected ears and a distinct
 muzzle. Shape/scale Modify supports the body, chest, waist, head, muzzle, ears,
 tail and limbs. Authored ownership and localized attachment weights keep leg
-motion from pulling the chest and neck into broad folds.
+motion from pulling the chest and neck into broad folds. Neutral soles reach
+the recipe ground plane, with broader undersides below the ankle/hock.
+Near-ground footprint measurements support review; they do not establish planted
+contact through a gait cycle.
 
 The existing Blender Generate -> Modify -> Rig -> Animate -> Export workflow,
 UVs, base coat and Idle/Walk/Run remain in use. Create a **new Quadruped** after

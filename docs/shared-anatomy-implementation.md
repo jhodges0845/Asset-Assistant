@@ -1,8 +1,8 @@
 # Shared anatomy implementation checkpoint
 
-Current implementation: September 27, 2026, recipe version 7 at support-diagnostic commit `f5c6626` on
+Current implementation: September 27, 2026, recipe version 8 on
 `codex/shared-generation-system`. Human and Quadruped use shared resolved-anatomy
-contracts. Canine recipe version 7 is implemented with measured near-ground paw footprints;
+contracts. Canine recipe version 8 broadens the grounded paw undersides;
 visual refinement continues.
 Avian still uses its existing provider construction and awaits recipe migration.
 This is a development-branch checkpoint, not a release or final anatomy acceptance.
@@ -24,9 +24,11 @@ Limb weights follow authored chains. A topology-distance blend spans each limb's
 attachment bridge: the body loop follows its parent and the limb loop retains
 25% parent influence with the default influence limit. The remaining body uses
 axial bones; ears follow the head. Shoulder poses no longer pull the chest and
-neck into large folds. A small attachment crease remains. Version 7 brings all four neutral soles to their
-recipe ground plane through a localized post-refinement height map below the
-ankle/hock. It preserves vertices at/above those heights, surface topology and rest-rig landmarks.
+neck into large folds. A small attachment crease remains. Version 7 brings all
+four neutral soles to their recipe ground plane through a localized
+post-refinement height map below the ankle/hock. Version 8 adds a smooth cubic
+underside profile. Both steps preserve vertices at/above those heights, surface
+topology and rest-rig landmarks.
 
 ## Construction and ownership
 
@@ -62,7 +64,7 @@ Build with `python -m scripts.build_blender_addon`, then install/update
 Animate > Rig & Pose workflows; Idle/Walk/Run remain available.
 
 Saved surfaces from older recipe versions are preserved. Create a new Quadruped
-to adopt version 7; there is no automatic topology, weight or Action migration.
+to adopt version 8; there is no automatic topology, weight or Action migration.
 Manual artist edits continue to block procedural replacement. Installing the
 updated add-on alone does not upgrade existing geometry or artist-owned weights.
 
@@ -397,10 +399,44 @@ Python compilation and whitespace checks. The full Blender suite and packaged
 add-on checks were not repeated for this diagnostic-only change; remote CI
 status is not established by these local results.
 
+## Broader sole profile (recipe version 8)
+
+The construction-only ground map now follows its contact correction with the
+normalized cubic `s*s*(2-s)`. It lowers the underside smoothly, with a positive
+height derivative above the sole and unit derivative at the ankle/hock boundary.
+It preserves XY coordinates and height ordering without flattening faces onto
+the ground. The same early exit keeps repeated grounding exact. Semantic Modify
+does not run this map; lifting a paw remains possible.
+
+Near-ground hull areas at the existing 0..0.1 cm band are:
+
+| Sample | Front paw (cm²) | Hind paw (cm²) |
+| --- | ---: | ---: |
+| Default | 2.4285 | 9.2510 |
+| Contrasting | 3.1248 | 6.3584 |
+
+Both sides agree. These are diagnostic hulls, not physical contact areas.
+Topology, ownership, rest landmarks and clip code are unchanged; generated
+geometry and resulting weights change. Existing saved surfaces require explicit
+replacement to adopt version 8.
+
+All 403 core and 239 Blender integration tests pass, including the 32 parameter
+corners, localization, monotonicity, idempotence, lifted-foot Modify and broader
+support regressions. Actual canine save/reopen and rebuilt isolated package
+checks pass, as do Python compilation and whitespace checks. Default neutral
+and contrasting elbow clay and wireframe sheets were inspected. The elbow
+diagnostic reports zero other-limb and torso/head/tail displacement. Evidence
+uses `artifacts/shared-anatomy/sole-*`.
+
+This is a limited underside refinement: paws remain coarse, attachment creases
+remain visible, and detailed paw anatomy, front stance and gait acceptance remain
+open. The full pose-render matrix and six-sample fingerprint comparison have not
+been repeated for this change. Remote CI status is unverified.
+
 ## Next work
 
-Next, refine paw shape/support area and front-joint stance using the grounded
-version 7 surface as the baseline. Review shoulder/hip attachment creases and
+Next, refine anatomical paw shape and front-joint stance using the broader
+version 8 soles as the baseline. Review shoulder/hip attachment creases and
 repeat default/contrasting neutral and elbow/hip/knee/hock diagnostics with the
 portable Blender 5.2.1 runtime above. Neutral sole contact is complete; planted
 support through a gait cycle and contact drift remain open.
