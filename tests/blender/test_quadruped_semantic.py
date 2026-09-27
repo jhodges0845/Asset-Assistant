@@ -112,9 +112,36 @@ class QuadrupedSemanticTests(unittest.TestCase):
         self.assertLess((rig.pose.bones['hind_lower.left'].head - knee).length, 1e-6)
         self.assertGreater((hock.tail - old_tail).length, .01)
         regions = {r.name: r.vertex_indices for r in anatomy.regions}
-        self.assertGreater(max((after[i] - before[i]).length for i in regions['leg.hind.left'][-8:]), .01)
+        paw = next(p.position for p in anatomy.landmarks if p.name == 'paw.hind.left')
+        # Refined indices are not ring order: select the vertices nearest the paw.
+        distal = sorted(regions['leg.hind.left'], key=lambda i: sum(
+            (before[i][k] * 100 - paw[k])**2 for k in range(3)))[:8]
+        self.assertGreater(max((after[i] - before[i]).length for i in distal), .01)
         for name in ('leg.hind.right', 'leg.front.left', 'leg.front.right'):
             self.assertLess(max((after[i] - before[i]).length for i in regions[name]), 1e-6)
+
+    def test_refined_ears_apply_and_follow_head_pose(self):
+        from object_core.providers.quadruped import _construction
+        from scripts.render_canine_review import evaluated_points
+        provider = get_provider('quadruped')
+        values = {p.key: p.default for p in provider.parameters}
+        _, anatomy = _construction(provider.dimensions(values))
+        operation = SemanticOperation('scale', 'ear.left', (('factor', 1.2),))
+        plan = plan_modification(inspect_generated_asset(self.root),
+                                 ModificationRequest(semantic_operations=(operation,)))
+        self.assertTrue(plan.safe_to_apply)
+        apply_semantic_modification(self.root, plan)
+        body = next(o for o in self.root.children if o.type == 'MESH')
+        rig = next(o for o in self.root.children if o.type == 'ARMATURE')
+        before = evaluated_points(body)
+        rig.pose.bones['head'].rotation_mode = 'XYZ'
+        rig.pose.bones['head'].rotation_euler.x = .3
+        after = evaluated_points(body)
+        for region in anatomy.regions:
+            if region.name.startswith('ear.'):
+                self.assertGreater(min((after[i] - before[i]).length for i in region.vertex_indices), .001)
+            if region.name.startswith('leg.'):
+                self.assertLess(max((after[i] - before[i]).length for i in region.vertex_indices), 1e-6)
 
     def test_previous_recipe_surface_is_preserved_and_modify_is_blocked(self):
         import json

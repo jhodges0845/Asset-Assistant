@@ -64,8 +64,8 @@ def _weights_for_vertex(vertex, candidates, max_influences=4):
     return tuple(BoneWeight(name, value) for name, value in normalized if value > 0)
 
 
-def _limb_bone_candidates(anatomy, bones):
-    """Bind limb candidates to authored chains, allowing parent blend at joins.
+def _anatomy_bone_candidates(anatomy, bones):
+    """Bind limbs to their chains and ears to the head, including after edits.
 
     Positions can move through Modify, so neither side nor front/hind ownership
     is inferred from coordinates. Only the declared limb attachment boundary
@@ -79,6 +79,13 @@ def _limb_bone_candidates(anatomy, bones):
                 boundaries.setdefault(region, set()).update(boundary)
     candidates = {}
     for region in anatomy.regions:
+        if region.name.startswith("ear."):
+            head = tuple(bone for bone in bones if bone.name == "head")
+            if not head:
+                raise ValueError("Quadruped skeleton is missing its head bone")
+            for index in region.vertex_indices:
+                candidates[(region.mesh_part, index)] = head
+            continue
         if not region.name.startswith("leg."):
             continue
         chain = chains[region.name]
@@ -105,7 +112,7 @@ def generate_quadruped_skin_weights(mesh, skeleton, *, max_influences=4, anatomy
     candidates = {}
     if anatomy is not None:
         anatomy.validate_mesh(mesh)
-        candidates = _limb_bone_candidates(anatomy, deform_bones)
+        candidates = _anatomy_bone_candidates(anatomy, deform_bones)
 
     def weights(part, index, vertex):
         local = candidates.get((part.name, index))

@@ -12,7 +12,7 @@ Plan: [docs/shared-anatomy-alpha-plan.md](docs/shared-anatomy-alpha-plan.md). Sh
 
 ## Shared anatomy implementation checkpoint
 
-Human and the existing Quadruped construction now use resolved recipes. Quadruped has executable authored-region Modify controls and a distinct knee/hock/paw hind chain. Recipe versions 3–4 refine its topology, rig and torso contours; older surfaces remain untouched and need explicit replacement to use the new construction. Canine anatomical quality refinement and Avian recipe migration remain ahead. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for ownership, tests and remaining work.
+Human and the existing Quadruped construction now use resolved recipes. Quadruped has executable authored-region Modify controls and a distinct knee/hock/paw hind chain. Recipe version 5 adds a refined connected surface, ears and fuller limb/head proportions; older surfaces remain untouched and need explicit replacement to use the new construction. Canine anatomical quality refinement and Avian recipe migration remain ahead. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for ownership, tests and remaining work.
 
 ## Current Human V2 integration (2026-09-20)
 

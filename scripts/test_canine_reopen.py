@@ -42,7 +42,7 @@ try:
         values = {field.key: root[field.key] for field in provider.parameters}
         mesh = provider.mesh(values)
         assert tuple(tuple(face.vertices) for face in body.data.polygons) == mesh.parts[0].faces
-        assert len(body.data.vertices) == 312
+        assert len(body.data.vertices) == mesh.vertex_count
         for side in ("left", "right"):
             group = body.vertex_groups["hind_pastern." + side]
             assert any(item.group == group.index and item.weight > 0

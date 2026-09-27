@@ -88,10 +88,15 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
 
 
 def _append_branch(vertices, faces, root, centers, widths, depths, *, sagittal=False):
-    """Replace one torso quad with an eight-sided deformable limb chain."""
+    """Bridge one body quad to an eight-sided branch with symmetric triangles."""
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
     rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True, sagittal=sagittal)
+    # Match the cyclic boundary phase without changing winding or ownership.
+    offset = min(range(_RING_SIDES), key=lambda shift: sum(
+        sum((vertices[root[j]][k] - vertices[rings[0][(2*j+shift) % _RING_SIDES]][k])**2
+            for k in range(3)) for j in range(4)))
+    rings = tuple(tuple(ring[(i+offset) % _RING_SIDES] for i in range(_RING_SIDES)) for ring in rings)
     first = rings[0]
     for index in range(4):
         root_start = root[index]
@@ -99,8 +104,9 @@ def _append_branch(vertices, faces, root, centers, widths, depths, *, sagittal=F
         ring_start = first[(2 * index) % _RING_SIDES]
         ring_mid = first[(2 * index + 1) % _RING_SIDES]
         ring_end = first[(2 * index + 2) % _RING_SIDES]
-        faces.append((root_start, root_end, ring_end))
-        faces.append((root_start, ring_end, ring_mid, ring_start))
+        faces.append((root_start, root_end, ring_mid))
+        faces.append((root_end, ring_end, ring_mid))
+        faces.append((root_start, ring_mid, ring_start))
     return rings
 
 
@@ -137,7 +143,7 @@ def generate_quadruped_deformable_mesh(dimensions):
     return _build_quadruped_mesh(anatomy)[0]
 
 
-def _build_quadruped_mesh(anatomy):
+def _build_quadruped_cage(anatomy):
     """Construct once from resolved anatomy, binding authored region indices."""
     landmarks = {landmark.name: landmark.position for landmark in anatomy.landmarks}
     dimensions = dict(anatomy.parameters)
@@ -151,12 +157,14 @@ def _build_quadruped_mesh(anatomy):
     limb_rings = {}
 
     openings = {}
-    level_by_pair = {"hind": 3, "fore": 5}
+    level_by_pair = {"hind": 3, "fore": 6}
     for region, level in level_by_pair.items():
-        for side, segment in (("left", 3), ("right", 7)):
+        for side, segment in (("left", 7), ("right", 4)):
             index = 1 + level * _RING_SIDES + segment
             openings[(region, side)] = faces[index]
-    removed = {face for face in openings.values()}
+    ear_openings = {side: faces[1 + 8 * _RING_SIDES + segment]
+                    for side, segment in (("left", 0), ("right", 3))}
+    removed = set(openings.values()) | set(ear_openings.values())
     faces = [face for face in faces if face not in removed]
 
     for side in ("left", "right"):
@@ -165,26 +173,41 @@ def _build_quadruped_mesh(anatomy):
         ):
             suffix = family + "." + side
             upper = landmarks[upper_name + "." + suffix]
+            # The surface starts at the body opening; the rig shoulder/hip
+            # remains its anatomical pivot above that opening.
+            root = openings[(region, side)]
+            upper = (upper[0], upper[1], sum(vertices[i][2] for i in root) / len(root))
             knee = landmarks[joint_name + "." + suffix]
             paw = landmarks["paw." + suffix]
-            base = max(width * 0.18, 2.0)
+            base = max(width * 0.24, 2.0)
             if family == "hind":
                 hock = landmarks["hock." + suffix]
                 base = min(base, dimensions["shoulder_height_cm"] * .13)
                 centers_leg = (upper, _lerp(upper, knee, .35), knee,
                                _lerp(knee, hock, .25), hock,
                                _lerp(hock, paw, .25), _lerp(hock, paw, .80), paw)
-                widths_leg = tuple(base * v for v in (1.6, 1.45, .95, .85, .60, .55, .72, .95))
-                depths_leg = tuple(base * v for v in (1.4, 1.25, .90, .78, .60, .55, .60, .58))
+                widths_leg = tuple(base * v for v in (1.6, 1.45, .95, .85, .60, .55, .85, 1.35))
+                depths_leg = tuple(base * v for v in (1.4, 1.25, .90, .78, .60, .55, .65, .80))
             else:
                 ankle = landmarks["ankle." + suffix]
                 centers_leg = (upper, _lerp(upper, knee, .18), knee,
                                _lerp(knee, ankle, .18), ankle, paw)
-                widths_leg = tuple(base * v for v in (1.50, 1.20, .88, .78, .70, .94))
-                depths_leg = tuple(base * v for v in (1.40, 1.15, .88, .78, .70, .58))
+                widths_leg = tuple(base * v for v in (1.50, 1.20, .88, .78, .85, 1.35))
+                depths_leg = tuple(base * v for v in (1.40, 1.15, .88, .78, .65, .80))
             rings = _append_branch(vertices, faces, openings[(region, side)], centers_leg,
                                    widths_leg, depths_leg, sagittal=family == "hind")
             limb_rings["leg." + suffix] = rings
+
+    ear_rings = {}
+    for side in ("left", "right"):
+        base = landmarks["ear.base." + side]
+        tip = landmarks["ear.tip." + side]
+        size = dimensions["head_length_cm"]
+        ear_rings["ear." + side] = _append_branch(
+            vertices, faces, ear_openings[side],
+            (base, _lerp(base, tip, .55), _lerp(base, tip, .90), tip),
+            (size*.25, size*.20, size*.07, size*.02),
+            (size*.12, size*.07, size*.035, size*.015))
 
     vertices, faces = tuple(vertices), tuple(faces)
     mesh = ObjectMesh((MeshPart("quadruped", vertices, faces, _project_uvs(vertices, faces)),))
@@ -198,9 +221,15 @@ def _build_quadruped_mesh(anatomy):
         "tail": indices(body_rings[:3]),
     }
     memberships.update({name: indices(rings) for name, rings in limb_rings.items()})
+    memberships.update({name: indices(rings) for name, rings in ear_rings.items()})
+    memberships["head"] += tuple(i for rings in ear_rings.values() for ring in rings for i in ring)
     connections = []
     for connection in anatomy.connections:
         name = connection.regions[1]
+        if name.startswith("ear."):
+            side = name.split(".")[1]
+            connections.append(replace(connection, boundaries=(ear_openings[side], ear_rings[name][0])))
+            continue
         _, family, side = name.split(".")
         region = "fore" if family == "front" else "hind"
         connections.append(replace(connection, boundaries=(openings[(region, side)], limb_rings[name][0])))
@@ -209,3 +238,13 @@ def _build_quadruped_mesh(anatomy):
                        connections=tuple(connections))
     resolved.validate_mesh(mesh)
     return mesh, resolved
+
+
+def _build_quadruped_mesh(anatomy):
+    """Build and refine the one canonical canine surface, retaining ownership."""
+    from .quadruped_refinement import refine_canine_surface
+    cage, resolved = _build_quadruped_cage(anatomy)
+    mesh, resolved = refine_canine_surface(cage, resolved)
+    part = mesh.parts[0]
+    return ObjectMesh((MeshPart(part.name, part.vertices, part.faces,
+                               _project_uvs(part.vertices, part.faces)),)), resolved

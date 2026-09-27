@@ -51,7 +51,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '4'
+    recipe_version = '5'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -91,7 +91,7 @@ class CanineRecipe:
                   JointChain('neck', ('spine.fore', 'neck.top'), ('neck',), 'spine'),
                   JointChain('head', ('neck.top', 'head.tip'), ('head',), 'neck')]
         regions = [AnatomyRegion(name, 'quadruped', ()) for name in
-                   ('body', 'torso', 'chest', 'waist', 'head', 'muzzle', 'tail')]
+                   ('body', 'torso', 'chest', 'waist', 'head', 'muzzle', 'tail', 'ear.left', 'ear.right')]
         connections = []
         for side, x in (('left', -width * 0.34), ('right', width * 0.34)):
             for family, bone_prefix, y, top_z, upper, joint in (
@@ -128,6 +128,13 @@ class CanineRecipe:
                     'spine', (0, -1 if family == 'front' else 1, 0), family + '_support'))
                 regions.append(AnatomyRegion(region, 'quadruped', ()))
                 connections.append(AnatomyConnection(upper + '.' + suffix, ('torso', region), 'connected'))
+        for side, sign in (('left', -1), ('right', 1)):
+            base = (sign * width * .22, length * .49 + head_length * .20,
+                    shoulder + torso_height * .32)
+            tip = (sign * width * .32, base[1] - head_length * .08,
+                   base[2] + head_length * .42)
+            points.extend((('ear.base.' + side, base), ('ear.tip.' + side, tip)))
+            connections.append(AnatomyConnection('ear.' + side, ('head', 'ear.' + side), 'connected'))
         start_y, start_z = -length * 0.5, rig_back_z
         points.append(('tail.rig.0', (0, start_y, start_z)))
         for index in range(3):
@@ -149,13 +156,13 @@ class CanineRecipe:
             ('torso.fore', width * 1.08, torso_height * 1.10),
             ('chest.center', width * .90, torso_height * 1.05),
             ('neck.center', width * .58, torso_height * .62),
-            ('head.center', width * .72, torso_height * .72),
-            ('muzzle.tip', width * .48, torso_height * .42)))
+            ('head.center', width * .82, torso_height * .78),
+            ('muzzle.tip', width * .30, torso_height * .34)))
         return ResolvedCanineAnatomy(
             self.recipe_id, self.recipe_version,
             tuple((key, float(value)) for key, value in dimensions.items()),
             landmarks=tuple(Landmark(name, position) for name, position in points),
             regions=regions, chains=chains, connections=connections,
             body_sections=sections,
-            symmetry=(('leg.front.left', 'leg.front.right'), ('leg.hind.left', 'leg.hind.right')),
+            symmetry=(('leg.front.left', 'leg.front.right'), ('leg.hind.left', 'leg.hind.right'), ('ear.left', 'ear.right')),
         )

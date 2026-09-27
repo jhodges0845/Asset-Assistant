@@ -8,7 +8,7 @@ from object_core.models.mesh import MeshPart, ObjectMesh
 from object_core.objects import get_provider
 from object_core.providers.human import _human_anatomy, _neutral_surface_data
 from object_core.providers.quadruped_anatomy import CanineRecipe
-from object_core.providers.quadruped_geometry import _build_quadruped_mesh
+from object_core.providers.quadruped_geometry import _build_quadruped_mesh, _build_quadruped_cage
 from object_core.providers.quadruped_rigging import _build_quadruped_skeleton
 
 
@@ -72,6 +72,7 @@ class AnatomyProofTests(unittest.TestCase):
                         self.assertEqual(bones[name].tail, points[chain.landmarks[index + 1]])
                 self.assertNotEqual(points['ankle.front.left'], points['ground.front.left'])
                 self.assertNotEqual(points['paw.front.left'], points['ground.front.left'])
+                mesh, resolved = _build_quadruped_cage(anatomy)
                 self.assertEqual(48, len(next(r.vertex_indices for r in resolved.regions if r.name == 'leg.front.left')))
                 self.assertEqual('connected', resolved.connections[0].continuity)
                 root, first_ring = resolved.connections[0].boundaries
@@ -81,17 +82,17 @@ class AnatomyProofTests(unittest.TestCase):
                 # The declared attachment really has faces crossing its two boundaries.
                 bridge = [f for f in mesh.parts[0].faces if set(f).intersection(root)
                           and set(f).intersection(first_ring)]
-                self.assertEqual(8, len(bridge))
+                self.assertEqual(12, len(bridge))
 
     def test_resolved_elbow_drives_both_geometry_and_rig(self):
         provider = get_provider('quadruped')
         dimensions = provider.dimensions(_defaults(provider))
         anatomy = CanineRecipe().resolve(dimensions)
-        original, original_regions = _build_quadruped_mesh(anatomy)
+        original, original_regions = _build_quadruped_cage(anatomy)
         changed = replace(anatomy, landmarks=tuple(
             replace(p, position=(p.position[0], p.position[1] + 3, p.position[2] + 2))
             if p.name == 'elbow.front.left' else p for p in anatomy.landmarks))
-        mesh, regions = _build_quadruped_mesh(changed)
+        mesh, regions = _build_quadruped_cage(changed)
         bones = {b.name: b for b in _build_quadruped_skeleton(changed).bones}
         target = next(p.position for p in changed.landmarks if p.name == 'elbow.front.left')
         self.assertEqual(target, bones['fore_upper.left'].tail)

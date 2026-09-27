@@ -44,7 +44,7 @@ QUADRUPED_SEMANTIC_TARGETS = (
 QUADRUPED_SEMANTIC_APPLY_CAPABILITIES = tuple(
     (target, operation)
     for target in ("body", "torso", "chest", "waist", "head", "muzzle", "tail",
-                   "leg.front.left", "leg.front.right", "leg.hind.left", "leg.hind.right")
+                   "leg.front.left", "leg.front.right", "leg.hind.left", "leg.hind.right", "ear.left", "ear.right")
     for operation in ("shape", "scale")
 )
 

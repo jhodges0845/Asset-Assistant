@@ -6,9 +6,8 @@ from object_core.models import MeshPart, ObjectMesh
 from object_core.modification import AssetSnapshot, ModificationRequest, SemanticOperation, plan_modification
 from object_core.objects import get_provider
 from object_core.providers.quadruped import _construction
-from object_core.providers.quadruped_geometry import _build_quadruped_mesh
+from object_core.providers.quadruped_geometry import _build_quadruped_cage
 from object_core.providers.quadruped_rigging import _build_quadruped_skeleton
-from object_core.providers.quadruped_anatomy import CanineRecipe
 
 
 class CanineRecipeTests(unittest.TestCase):
@@ -37,12 +36,12 @@ class CanineRecipeTests(unittest.TestCase):
             region = self.regions[connection.regions[1]]
             self.assertFalse(owned.intersection(region))
             owned.update(region)
-            self.assertEqual(64 if '.hind.' in connection.regions[1] else 48, len(region))
+            self.assertGreater(len(region), 100)
             root, ring = connection.boundaries
-            self.assertEqual((4, 8), (len(root), len(ring)))
-            self.assertTrue(set(root) <= self.regions['torso'])
+            self.assertEqual((16, 32), (len(root), len(ring)))
+            self.assertTrue(set(root) <= self.regions[connection.regions[0]])
             self.assertTrue(set(ring) <= region)
-        self.assertEqual(4, len(self.anatomy.connections))
+        self.assertEqual(6, len(self.anatomy.connections))
         self.assertTrue(all(self.regions.values()))
 
     def test_recipe_body_section_drives_only_its_surface_ring(self):
@@ -51,12 +50,13 @@ class CanineRecipeTests(unittest.TestCase):
         changed = replace(self.anatomy, body_sections=tuple(
             replace(section, width_cm=section.width_cm * 1.2) if i == index else section
             for i, section in enumerate(sections)))
-        mesh, _ = _build_quadruped_mesh(changed)
+        mesh, _ = _build_quadruped_cage(changed)
+        original, _ = _build_quadruped_cage(self.anatomy)
         owned = set(range(index * 8, (index + 1) * 8))
-        self.assertEqual(self.mesh.parts[0].faces, mesh.parts[0].faces)
-        self.assertNotEqual(self.mesh.parts[0].vertices[index * 8], mesh.parts[0].vertices[index * 8])
+        self.assertEqual(original.parts[0].faces, mesh.parts[0].faces)
+        self.assertNotEqual(original.parts[0].vertices[index * 8], mesh.parts[0].vertices[index * 8])
         self.assertTrue(all(a == b for i, (a, b) in enumerate(zip(
-            self.mesh.parts[0].vertices, mesh.parts[0].vertices)) if i not in owned))
+            original.parts[0].vertices, mesh.parts[0].vertices)) if i not in owned))
         self.assertEqual(_build_quadruped_skeleton(self.anatomy), _build_quadruped_skeleton(changed))
 
     def test_canine_sections_are_validated_immutable_and_anatomically_ordered(self):
@@ -79,7 +79,7 @@ class CanineRecipeTests(unittest.TestCase):
         changed = replace(self.anatomy, landmarks=tuple(
             replace(p, position=(p.position[0], p.position[1] + 2, p.position[2]))
             if p.name == 'knee.hind.right' else p for p in self.anatomy.landmarks))
-        mesh, anatomy = _build_quadruped_mesh(changed)
+        mesh, anatomy = _build_quadruped_cage(changed)
         bones = {b.name: b for b in _build_quadruped_skeleton(changed).bones}
         target = next(p.position for p in changed.landmarks if p.name == 'knee.hind.right')
         indices = next(r.vertex_indices for r in anatomy.regions if r.name == 'leg.hind.right')[16:24]
@@ -93,7 +93,7 @@ class CanineRecipeTests(unittest.TestCase):
         changed = replace(self.anatomy, landmarks=tuple(
             replace(p, position=(p.position[0], p.position[1] - 2, p.position[2] + 1))
             if p.name == 'hock.hind.left' else p for p in self.anatomy.landmarks))
-        mesh, anatomy = _build_quadruped_mesh(changed)
+        mesh, anatomy = _build_quadruped_cage(changed)
         bones = {b.name: b for b in _build_quadruped_skeleton(changed).bones}
         target = next(p.position for p in changed.landmarks if p.name == 'hock.hind.left')
         indices = next(r.vertex_indices for r in anatomy.regions if r.name == 'leg.hind.left')[32:40]
@@ -138,6 +138,9 @@ class CanineRecipeTests(unittest.TestCase):
                         for i in regions['leg.hind.left']}
                 right = {tuple(round(c, 7) for c in part.vertices[i]) for i in regions['leg.hind.right']}
                 self.assertEqual(left, right)
+                cage, cage_anatomy = _build_quadruped_cage(anatomy)
+                part = cage.parts[0]
+                regions = {r.name: r.vertex_indices for r in cage_anatomy.regions}
                 # Edge winding alone cannot catch a 180-degree ring-frame flip.
                 # Tube face normals must point away from their local centerline.
                 for side in ('left', 'right'):
@@ -201,6 +204,8 @@ class CanineRecipeTests(unittest.TestCase):
         weights = self.provider.skin_weights(self.mesh, self.values)[0]
         for connection in self.anatomy.connections:
             region = connection.regions[1]
+            if not region.startswith('leg.'):
+                continue
             chain = next(c for c in self.anatomy.chains if c.name == region)
             boundary = set(connection.boundaries[1])
             self.assertTrue(any(w.bone_name == chain.parent_bone
@@ -240,7 +245,7 @@ class CanineRecipeTests(unittest.TestCase):
         for arguments in ({'factor': 10}, {'offset_x': float('nan')}, {'x': True}):
             with self.assertRaises((ValueError, TypeError)):
                 self.provider.semantic_mesh(self.mesh, self.values, (self.operation('head', **arguments),))
-        for target in ('ear.left', 'coat', 'missing'):
+        for target in ('accessories', 'coat', 'missing'):
             self.assertNotIn((target, 'shape'), self.provider.semantic_apply_capabilities)
             with self.assertRaises(ValueError):
                 self.provider.semantic_mesh(self.mesh, self.values, (self.operation(target),))
@@ -253,10 +258,10 @@ class CanineRecipeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'authored surface topology'):
             self.provider.skin_weights(bad, self.values)
 
-    def test_planner_allows_real_regions_and_blocks_unimplemented_ears(self):
+    def test_planner_allows_real_regions(self):
         snapshot = AssetSnapshot(asset_id='canine', provider_key='quadruped', provider_label='Quadruped',
                                  parameters=tuple(self.values.items()), owns_geometry=True)
-        for target, accepted in (('chest', True), ('waist', True), ('leg.front.left', True), ('ear.left', False)):
+        for target, accepted in (('chest', True), ('waist', True), ('leg.front.left', True), ('ear.left', True)):
             plan = plan_modification(snapshot, ModificationRequest(semantic_operations=(self.operation(target),)))
             self.assertEqual(accepted, plan.safe_to_apply)
 

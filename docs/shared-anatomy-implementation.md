@@ -218,10 +218,45 @@ Evidence uses the
 This remains a coarse canine reference. Detailed scapular anatomy, front-joint
 stance, paws/contact, head/ears and final animation quality remain unfinished.
 
+## Refined canine surface (version 5)
+
+The single construction pipeline now builds an internal control cage and applies
+two portable Catmull-Clark passes (`quadruped_refinement.py`). The generated
+surface has 6,146 vertices and 6,144 quads. UVs are projected after refinement;
+authored region indices and ordered connection loops propagate at each pass.
+Open, non-manifold or inconsistently wound cages are rejected. The cage is an
+intermediate construction step, not another provider or a Blender modifier.
+
+Connected ears support shape/scale Modify and retain head-bone ownership after
+edits. Head edits include the ears. The skull is fuller, the muzzle narrower,
+and limb/paw sections fuller. Body openings now match the correct lateral side;
+fore openings sit beside the shoulders. Branch surfaces start at their openings
+rather than folding up to the rig pivot and back down. Symmetric bridges avoid
+introducing lateral differences during refinement.
+
+The 17-bone rest rig and animation data are unchanged. Older saved geometry is
+preserved and requires explicit replacement to adopt this surface. Ring-center
+landmark tests cover the cage; final-surface tests cover topology, mirrored limbs,
+region ownership, real boundary edges, UVs and skinning. All 32 parameter corners
+are included. Blender checks ear Modify/head posing and distal hock movement.
+
+Default and contrasting neutral clay/wireframe views were inspected. Neutral
+body joins are smoother; the evaluated shoulder pose still shows chest pinching
+from broad body weights. Functional pose isolation is not final deformation
+acceptance. Evidence uses `artifacts/shared-anatomy/canine-realism-*`.
+
+Validation: 389 core tests, the full 236-test Blender suite, and all six focused
+canine Blender tests (including the new ear test) pass. Real canine save/reopen,
+the rebuilt isolated package, compilation and whitespace checks pass. The six
+baseline samples change only Quadruped geometry and weights; all rest skeletons,
+clips, Human and Avian output are unchanged. CI coverage remains unverified locally.
+
+This is a smoother anatomical starting point. Eyes, nose/mouth detail, toes,
+coat detail and final gait/contact quality remain unfinished.
+
 ## Next work
 
-Continue refining the canine reference body: scapula/pelvis detail,
-neck/muzzle/ears, front-limb transitions and paws, then further localized weights
-and pose review. The initial digitigrade hind chain is now in place. Make geometry/rig changes deliberately with baseline comparisons;
-do not represent that quality milestone as completed by the preserved coarse
-mesh. After that, migrate Avian through the same layer using bird-specific rules.
+Continue refining the canine reference body: scapula/pelvis detail, neck/muzzle,
+front-joint stance and paws, then localized weights and pose review. Make geometry
+and rig changes deliberately with baseline comparisons. After the canine quality
+pass, migrate Avian through the same layer using bird-specific rules.
