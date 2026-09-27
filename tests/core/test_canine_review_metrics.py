@@ -2,7 +2,7 @@
 import unittest
 from types import SimpleNamespace
 
-from scripts.canine_review_metrics import limb_ground_clearance
+from scripts.canine_review_metrics import limb_ground_clearance, limb_support_footprint
 
 
 class CanineReviewMetricsTests(unittest.TestCase):
@@ -30,3 +30,60 @@ class CanineReviewMetricsTests(unittest.TestCase):
         for height in (float('nan'), float('inf'), -float('inf')):
             with self.subTest(height=height), self.assertRaises(ValueError):
                 limb_ground_clearance(((0, 0, height),), [region])
+
+
+class CanineSupportFootprintTests(unittest.TestCase):
+    def test_clips_edges_and_excludes_other_regions(self):
+        # Sloped rectangle: its 0..0.1 cm band is 2 cm wide and 0.1 cm long.
+        vertices = ((0, 0, -1), (2, 0, -1), (2, 2, 1), (0, 2, 1), (100, 100, 0))
+        region = SimpleNamespace(name='leg.front.left', vertex_indices=(0, 1, 2, 3))
+        result = limb_support_footprint(vertices, ((0, 1, 2, 3),), [region])[region.name]
+        self.assertAlmostEqual(result['near_ground_hull_area_cm2'], .2)
+        self.assertAlmostEqual(result['width_cm'], 2)
+        self.assertAlmostEqual(result['length_cm'], .1)
+        self.assertEqual(result['tolerance_cm'], .1)
+
+    def test_distinguishes_point_flat_support_and_lift(self):
+        region = SimpleNamespace(name='leg.front.left', vertex_indices=(0, 1, 2, 3))
+        faces = ((0, 1, 2, 3),)
+        for height, expected in ((0, 6), (.05, 6), (1, 0), (-1, 0)):
+            vertices = tuple((x, y, height) for x, y in ((0, 0), (2, 0), (2, 3), (0, 3)))
+            result = limb_support_footprint(vertices, faces, [region])[region.name]
+            self.assertEqual(result['near_ground_hull_area_cm2'], expected)
+        region.vertex_indices = (0,)
+        result = limb_support_footprint(((1, 2, 0),), (), [region])[region.name]
+        self.assertEqual(result['near_ground_hull_area_cm2'], 0)
+        self.assertEqual(result['width_cm'], 0)
+
+    def test_rejects_invalid_tolerance_and_coordinates(self):
+        region = SimpleNamespace(name='leg.front.left', vertex_indices=(0,))
+        for tolerance in (0, -1, float('nan'), float('inf')):
+            with self.assertRaises(ValueError):
+                limb_support_footprint(((0, 0, 0),), (), [region], tolerance)
+        for coordinate in (float('nan'), float('inf')):
+            with self.assertRaises(ValueError):
+                limb_support_footprint(((coordinate, 0, 0),), (), [region])
+
+
+    def test_generated_footprints_are_symmetric_and_lift_with_modify(self):
+        from object_core.objects import get_provider
+        from object_core.providers.quadruped import _construction
+        from object_core.modification import SemanticOperation
+        provider = get_provider('quadruped')
+        defaults = {p.key: p.default for p in provider.parameters}
+        for values in (defaults, dict(defaults, body_length_cm=95, shoulder_height_cm=40,
+                                     body_width_cm=28, head_length_cm=30, tail_length_cm=50)):
+            mesh, anatomy = _construction(provider.dimensions(values))
+            part = mesh.parts[0]
+            report = limb_support_footprint(part.vertices, part.faces, anatomy.regions)
+            for family in ('front', 'hind'):
+                left, right = (report['leg.' + family + '.' + side] for side in ('left', 'right'))
+                self.assertGreater(left['near_ground_hull_area_cm2'], 0)
+                for key in left:
+                    self.assertAlmostEqual(left[key], right[key])
+            moved = provider.semantic_mesh(mesh, values, (
+                SemanticOperation('scale', 'leg.front.left', (('offset_z', 5),)),))
+            lifted = limb_support_footprint(moved.parts[0].vertices, part.faces, anatomy.regions)
+            self.assertEqual(lifted['leg.front.left']['near_ground_hull_area_cm2'], 0)
+            for name in report.keys() - {'leg.front.left'}:
+                self.assertEqual(report[name], lifted[name])

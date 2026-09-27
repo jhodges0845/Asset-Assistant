@@ -27,7 +27,7 @@ from object_core.providers.quadruped import _construction
 from blender_adapter.adapter import create_character
 # These existing mesh/material/camera helpers are independent of Human anatomy.
 from scripts import render_human_review as sheets
-from scripts.canine_review_metrics import limb_ground_clearance
+from scripts.canine_review_metrics import limb_ground_clearance, limb_support_footprint
 
 
 def evaluated_points(body):
@@ -51,7 +51,9 @@ def review_part(values, pose):
                 'landmarks': [asdict(p) for p in anatomy.landmarks],
                 'ground_plane_z_cm': 0.0,
                 'neutral_ground_clearance': limb_ground_clearance(
-                    mesh.parts[0].vertices, anatomy.regions)}
+                    mesh.parts[0].vertices, anatomy.regions),
+                'neutral_support_footprint': limb_support_footprint(
+                    mesh.parts[0].vertices, mesh.parts[0].faces, anatomy.regions)}
     if pose == 'neutral':
         return mesh.parts[0], evidence
     root = create_character(mesh, name='CaninePoseReview', scene=bpy.context.scene,
@@ -89,6 +91,7 @@ def review_part(values, pose):
                     tuple(tuple(float(c) * 100 for c in point) for point in after),
                     mesh.parts[0].faces)
     evidence['posed_ground_clearance'] = limb_ground_clearance(part.vertices, anatomy.regions)
+    evidence['posed_support_footprint'] = limb_support_footprint(part.vertices, part.faces, anatomy.regions)
     return part, evidence
 
 

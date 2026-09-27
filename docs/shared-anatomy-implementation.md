@@ -361,6 +361,35 @@ Use that executable in the validation commands above; the globally installed
 Blender 2.92 cannot import the current project. The runtime and review artifacts
 are ignored local files, not committed dependencies.
 
+## Paw support diagnostic baseline (September 27, 2026)
+
+The canonical review script now records `neutral_support_footprint` and, for
+joint diagnostics, `posed_support_footprint`. Each limb reports the XY convex
+hull area, width and length of its authored surface within Z=0..0.1 cm. Edge
+intersections include sloped faces even when no mesh vertex lies in that band.
+The band is measured from the fixed ground plane, so lifting a foot removes its
+footprint. Read these values alongside signed clearance: the hull spans gaps
+and concavities, excludes penetration below the plane, and is not physical
+contact area or a gait-support acceptance test.
+
+| Version 7 sample | Front paw hull (cm²) | Hind paw hull (cm²) |
+| --- | ---: | ---: |
+| Default | 0.4724 | 1.2588 |
+| Contrasting | 0.5870 | 0.8536 |
+
+Left/right values agree. The baseline covers neutral and isolated elbow, hip,
+knee and hock poses for both samples in Blender 5.2.1; local evidence is
+`artifacts/shared-anatomy/support-baseline.json`. The normal review commands
+above reproduce these measurements in their adjacent JSON. This diagnostic
+slice does not alter recipe version 7 geometry, rig, weights or clips.
+
+Portable tests cover analytic clipped footprints, flat versus point contact,
+raised/penetrating surfaces, invalid input, generated symmetry and lifted-foot
+Modify. Blender regression coverage checks that elbow/hip poses change the
+selected footprint while preserving the other three. Paw shape/support-area
+refinement and front-joint stance remain the next construction work. All 402
+core tests and the three focused Blender deformation tests pass.
+
 ## Next work
 
 Next, refine paw shape/support area and front-joint stance using the grounded

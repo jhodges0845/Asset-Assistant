@@ -14,6 +14,8 @@ Plan: [docs/shared-anatomy-alpha-plan.md](docs/shared-anatomy-alpha-plan.md). Sh
 
 Human and the existing Quadruped construction now use resolved recipes. Quadruped has executable authored-region Modify controls and a distinct knee/hock/paw hind chain. Recipe version 7 grounds the refined paws at recipe-defined contact planes, retaining the distinct muzzle and ears; older surfaces remain untouched and need explicit replacement to use the new construction. Canine anatomical quality refinement and Avian recipe migration remain ahead. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for ownership, tests and remaining work.
 
+Paw-review baseline: `scripts/canine_review_metrics.py` measures per-limb ground clearance and near-ground footprint hulls; `scripts/render_canine_review.py` records neutral and evaluated pose results. See the implementation checkpoint for values and interpretation limits.
+
 ## Current Human V2 integration (2026-09-20)
 
 Create > Human is the single Human UI path. `HumanProvider` uses key `human` and

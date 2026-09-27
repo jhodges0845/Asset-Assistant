@@ -110,6 +110,16 @@ class QuadrupedDeformationTests(unittest.TestCase):
                     self.assertLessEqual(evidence['other_limb_displacement_cm'], .0001)
                     self.assertLessEqual(evidence['body_displacement_cm'], .0001)
                     mesh, anatomy = _construction(provider.dimensions(values))
+                    neutral = evidence['neutral_support_footprint']
+                    posed = evidence['posed_support_footprint']
+                    self.assertEqual(len(neutral), 4)
+                    self.assertEqual(set(neutral), set(posed))
+                    target = 'leg.front.left' if pose == 'elbow' else 'leg.hind.left'
+                    self.assertNotAlmostEqual(neutral[target]['near_ground_hull_area_cm2'],
+                                              posed[target]['near_ground_hull_area_cm2'], places=4)
+                    for name in neutral.keys() - {target}:
+                        for key in neutral[name]:
+                            self.assertAlmostEqual(neutral[name][key], posed[name][key], places=4)
                     for label, vertices in (('neutral', mesh.parts[0].vertices),
                                             ('posed', part.vertices)):
                         report = evidence[label + '_ground_clearance']
