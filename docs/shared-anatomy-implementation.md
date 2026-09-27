@@ -1,8 +1,9 @@
 # Shared anatomy implementation checkpoint
 
-Current implementation: September 27, 2026, recipe version 7 following diagnostic commit `7b9768e` on
+Current implementation: September 27, 2026, recipe version 7 at support-diagnostic commit `f5c6626` on
 `codex/shared-generation-system`. Human and Quadruped use shared resolved-anatomy
-contracts. Canine recipe version 7 is implemented; visual refinement continues.
+contracts. Canine recipe version 7 is implemented with measured near-ground paw footprints;
+visual refinement continues.
 Avian still uses its existing provider construction and awaits recipe migration.
 This is a development-branch checkpoint, not a release or final anatomy acceptance.
 
@@ -115,6 +116,9 @@ that later work may supersede. Use the current behavior above for today's state.
 | `f99db79` | Refined surface, connected ears and symmetric joins. |
 | `8d88708` | Localized attachment blending and body isolation. |
 | `79c855b` | Distinct muzzle and stable facial cross sections. |
+| `7b9768e` | Elbow/hip pose and signed ground-clearance diagnostics. |
+| `afe5a10` | Recipe version 7 neutral sole contact. |
+| `f5c6626` | Neutral/posed paw footprint diagnostics and support baseline. |
 
 ## Localized canine limb weights (recipe version 2)
 
@@ -388,7 +392,10 @@ raised/penetrating surfaces, invalid input, generated symmetry and lifted-foot
 Modify. Blender regression coverage checks that elbow/hip poses change the
 selected footprint while preserving the other three. Paw shape/support-area
 refinement and front-joint stance remain the next construction work. All 402
-core tests and the three focused Blender deformation tests pass.
+core tests and the three focused Blender deformation tests pass, along with
+Python compilation and whitespace checks. The full Blender suite and packaged
+add-on checks were not repeated for this diagnostic-only change; remote CI
+status is not established by these local results.
 
 ## Next work
 
