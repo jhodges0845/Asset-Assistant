@@ -271,9 +271,32 @@ Blender tests pass, together with the actual canine save/reopen and isolated
 package checks. All 32 parameter corners have bounded normalized attachment
 blends. The six-sample baseline confirms only Quadruped weight changes.
 
+## Muzzle profile (version 6)
+
+The recipe adds a muzzle-base section between the skull and nose tip. A lower,
+narrower muzzle and raised forehead give the smoothed surface a distinct snout.
+Facial depth is bounded by head length; vertical facial cross sections prevent
+neck curvature from rolling the underside through itself at parameter limits.
+The generated surface now has 6,274 vertices and 6,272 quads. Rest bones and clip
+data are unchanged. Older generated surfaces require explicit replacement.
+
+Muzzle Modify includes the new base and tip; head Modify includes both and the
+ears. Tests check independent recipe control and outward-facing facial cage
+sections across all 32 parameter corners. The review renderer supports
+`--region head` for a diagnostic crop of the real generated surface, with the
+cut neck boundary visible. This is a shape pass; eyes, nose and mouth detail,
+toes and coat remain ahead.
+
+Default and contrasting clay/silhouette or wireframe views and the head close-up
+were inspected. Evidence uses `canine-muzzle-*` and `muzzle-*` under
+`artifacts/shared-anatomy/`. The six-sample baseline changes only Quadruped
+geometry and weights; all rest rigs, clips, Human and Avian output are unchanged.
+All 394 core tests and 238 Blender tests pass, together with actual canine
+save/reopen, the rebuilt isolated package, compilation and whitespace checks.
+
 ## Next work
 
-Continue refining the canine reference body: scapula/pelvis detail, neck/muzzle,
-front-joint stance and paws, then localized weights and pose review. Make geometry
+Continue with eyes, nose/mouth detail, scapula/pelvis shape, front-joint stance
+and paws, alongside attachment crease and gait/contact review. Make geometry
 and rig changes deliberately with baseline comparisons. After the canine quality
 pass, migrate Avian through the same layer using bird-specific rules.

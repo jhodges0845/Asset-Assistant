@@ -89,6 +89,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
+    parser.add_argument('--region', choices=('body', 'head'), default='body')
     parser.add_argument('--pose', choices=('neutral', 'knee', 'hock', 'shoulder'), default='neutral')
     parser.add_argument('--samples', type=int, default=4)
     parser.add_argument('--resolution-x', type=int, default=1200)
@@ -105,6 +106,16 @@ def main():
                       head_length_cm=30, tail_length_cm=50)
     sheets._clear_scene()
     part, evidence = review_part(values, args.pose)
+    evidence['review_region'] = args.region
+    if args.region == 'head':
+        _, anatomy = _construction(provider.dimensions(values))
+        owned = set(next(r.vertex_indices for r in anatomy.regions if r.name == 'head'))
+        faces = tuple(face for face in part.faces if set(face) <= owned)
+        indices = sorted({i for face in faces for i in face})
+        remap = {old: new for new, old in enumerate(indices)}
+        part = MeshPart(part.name, tuple(part.vertices[i] for i in indices),
+                        tuple(tuple(remap[i] for i in face) for face in faces))
+    evidence.update(review_vertices=len(part.vertices), review_faces=len(part.faces))
     sheets._clear_scene()
     material = sheets._configure_scene(args, part)
     label_material = bpy.data.materials.new('Canine review labels')

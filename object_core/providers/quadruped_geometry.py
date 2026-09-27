@@ -55,10 +55,14 @@ def _ring(center, width, depth, tangent, *, sagittal=False):
     )
 
 
-def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True, sagittal=False):
+def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True, sagittal=False, upright_from=None):
     rings = []
     for index, center in enumerate(centers):
-        if index == 0:
+        if upright_from is not None and index >= upright_from:
+            # Facial profiles are vertical cross sections. Following the steep
+            # neck bend can roll a short head's underside back through itself.
+            tangent = (0.0, 1.0, 0.0)
+        elif index == 0:
             tangent = _subtract(centers[1], center)
         elif index == len(centers) - 1:
             tangent = _subtract(center, centers[index - 1])
@@ -153,7 +157,7 @@ def _build_quadruped_cage(anatomy):
     depths = tuple(section.depth_cm for section in anatomy.body_sections)
 
     vertices, faces = [], []
-    body_rings = _append_tube(vertices, faces, centers, widths, depths, sagittal=True)
+    body_rings = _append_tube(vertices, faces, centers, widths, depths, sagittal=True, upright_from=8)
     limb_rings = {}
 
     openings = {}

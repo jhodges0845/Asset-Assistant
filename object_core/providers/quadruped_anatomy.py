@@ -2,8 +2,8 @@
 """Canine recipe resolving the current Quadruped surface and complete rest rig.
 
 Hind limbs resolve separate hip, knee, hock and paw landmarks. The remaining
-body sections resolve a tucked waist and fuller chest. Front-joint and head
-anatomy still await refinement.
+body sections resolve a tucked waist, fuller chest and a separate muzzle base.
+Front-joint stance and detailed facial features still await refinement.
 Provider-validated dimensions enter resolution; the constructor binds topology.
 """
 from dataclasses import dataclass
@@ -39,7 +39,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
         sections = tuple(self.body_sections)
         expected = ('tail.tip', 'tail.mid', 'tail.base', 'torso.rear', 'torso.hind',
                     'torso.center', 'torso.fore', 'chest.center', 'neck.center',
-                    'head.center', 'muzzle.tip')
+                    'head.center', 'muzzle.base', 'muzzle.tip')
         if any(not isinstance(section, CanineBodySection) for section in sections):
             raise TypeError('Canine resolution requires validated body sections')
         if tuple(section.landmark for section in sections) != expected:
@@ -51,7 +51,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '5'
+    recipe_version = '6'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -60,6 +60,8 @@ class CanineRecipe:
         head_length = dimensions['head_length_cm']
         tail_length = dimensions['tail_length_cm']
         torso_height = shoulder * 0.42
+        face_height = min(torso_height, head_length)
+        muzzle_z = shoulder + (torso_height - face_height) * .05
         surface_back_z = shoulder - torso_height * 0.30
         belly_z = shoulder - torso_height * 0.72
         body_z = (surface_back_z + belly_z) * 0.5
@@ -76,8 +78,9 @@ class CanineRecipe:
             ('torso.fore', (0, fore_y, body_z - torso_height * .02)),
             ('chest.center', (0, length * .43, body_z + torso_height * .08)),
             ('neck.center', (0, length * .47 + head_length * .12, shoulder + torso_height * .05)),
-            ('head.center', (0, length * 0.5 + head_length * 0.34, shoulder + torso_height * 0.13)),
-            ('muzzle.tip', (0, length * 0.5 + head_length * 0.82, shoulder + torso_height * 0.06)),
+            ('head.center', (0, length * 0.5 + head_length * 0.34, shoulder + torso_height * .05 + face_height * .13)),
+            ('muzzle.base', (0, length * 0.5 + head_length * 0.54, muzzle_z)),
+            ('muzzle.tip', (0, length * 0.5 + head_length * 0.90, muzzle_z)),
             ('root.base', (0, 0, shoulder * 0.45)),
             ('root.tip', (0, 0, rig_back_z)),
             ('spine.hind', (0, hind_y, rig_back_z)),
@@ -130,7 +133,7 @@ class CanineRecipe:
                 connections.append(AnatomyConnection(upper + '.' + suffix, ('torso', region), 'connected'))
         for side, sign in (('left', -1), ('right', 1)):
             base = (sign * width * .22, length * .49 + head_length * .20,
-                    shoulder + torso_height * .32)
+                    shoulder + torso_height * .05 + face_height * .27)
             tip = (sign * width * .32, base[1] - head_length * .08,
                    base[2] + head_length * .42)
             points.extend((('ear.base.' + side, base), ('ear.tip.' + side, tip)))
@@ -156,8 +159,9 @@ class CanineRecipe:
             ('torso.fore', width * 1.08, torso_height * 1.10),
             ('chest.center', width * .90, torso_height * 1.05),
             ('neck.center', width * .58, torso_height * .62),
-            ('head.center', width * .82, torso_height * .78),
-            ('muzzle.tip', width * .30, torso_height * .34)))
+            ('head.center', width * .82, face_height * .78),
+            ('muzzle.base', width * .42, face_height * .36),
+            ('muzzle.tip', width * .28, face_height * .28)))
         return ResolvedCanineAnatomy(
             self.recipe_id, self.recipe_version,
             tuple((key, float(value)) for key, value in dimensions.items()),

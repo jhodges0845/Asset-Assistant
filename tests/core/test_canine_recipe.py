@@ -75,6 +75,57 @@ class CanineRecipeTests(unittest.TestCase):
         points = {p.name: p.position for p in self.anatomy.landmarks}
         self.assertLess(points['neck.center'][1], points['head.center'][1])
 
+    def test_muzzle_has_independent_lower_profile_and_authored_base(self):
+        points = {p.name: p.position for p in self.anatomy.landmarks}
+        sections = {s.landmark: s for s in self.anatomy.body_sections}
+        self.assertLess(points['head.center'][1], points['muzzle.base'][1])
+        self.assertLess(points['muzzle.base'][1], points['muzzle.tip'][1])
+        self.assertLess(points['muzzle.base'][2], points['head.center'][2])
+        self.assertLess(sections['muzzle.base'].width_cm, sections['head.center'].width_cm)
+        self.assertLess(sections['muzzle.base'].depth_cm, sections['head.center'].depth_cm)
+        cage, anatomy = _build_quadruped_cage(self.anatomy)
+        index = next(i for i,s in enumerate(anatomy.body_sections) if s.landmark == 'muzzle.base')
+        ring = tuple(range(index * 8, (index + 1) * 8))
+        owned = next(r.vertex_indices for r in anatomy.regions if r.name == 'muzzle')
+        self.assertTrue(set(ring) <= set(owned))
+        for axis in range(3):
+            self.assertAlmostEqual(points['muzzle.base'][axis],
+                                   sum(cage.parts[0].vertices[i][axis] for i in ring) / 8)
+        # Recipe dimensions change the muzzle independently of the rig and ears.
+        changed = replace(self.anatomy, body_sections=tuple(
+            replace(s, width_cm=s.width_cm * .8) if s.landmark == 'muzzle.base' else s
+            for s in self.anatomy.body_sections))
+        updated, _ = _build_quadruped_cage(changed)
+        self.assertEqual(_build_quadruped_skeleton(self.anatomy), _build_quadruped_skeleton(changed))
+        self.assertTrue(all(a == b for i,(a,b) in enumerate(zip(cage.parts[0].vertices,
+                                                              updated.parts[0].vertices)) if i not in ring))
+        self.assertNotEqual(cage.parts[0].vertices[index * 8], updated.parts[0].vertices[index * 8])
+
+    def test_facial_sections_do_not_fold_at_parameter_corners(self):
+        from itertools import product
+        for endpoints in product(('minimum', 'maximum'), repeat=len(self.provider.parameters)):
+            values = {p.key: getattr(p, endpoint) for p, endpoint in zip(self.provider.parameters, endpoints)}
+            with self.subTest(values=values):
+                _, resolved = _construction(self.provider.dimensions(values))
+                mesh, anatomy = _build_quadruped_cage(resolved)
+                vertices = mesh.parts[0].vertices
+                faces = set(mesh.parts[0].faces)
+                points = {p.name: p.position for p in anatomy.landmarks}
+                for level in (8, 9, 10):
+                    centers = [points[s.landmark] for s in anatomy.body_sections[level:level + 2]]
+                    for segment in range(8):
+                        nxt = (segment + 1) % 8
+                        face = (level*8+segment, level*8+nxt, (level+1)*8+nxt, (level+1)*8+segment)
+                        if face not in faces:  # Ear openings have their own connected bridges.
+                            continue
+                        a, b, c, d = (vertices[i] for i in face)
+                        u, v = (tuple(point[k] - a[k] for k in range(3)) for point in (b, d))
+                        normal = (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0])
+                        radial = tuple((a[k]+b[k]+c[k]+d[k])/4 - sum(p[k] for p in centers)/2
+                                       for k in range(3))
+                        self.assertGreater(sum(normal[k]*radial[k] for k in range(3)), 0,
+                                           (level, segment))
+
     def test_hind_landmark_drives_mesh_and_rig(self):
         changed = replace(self.anatomy, landmarks=tuple(
             replace(p, position=(p.position[0], p.position[1] + 2, p.position[2]))
