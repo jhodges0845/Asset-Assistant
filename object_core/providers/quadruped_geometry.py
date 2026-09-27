@@ -244,11 +244,49 @@ def _build_quadruped_cage(anatomy):
     return mesh, resolved
 
 
+def _ground_paw_surfaces(vertices, anatomy):
+    """Resolve refined soles to recipe ground below fixed ankle/hock heights.
+
+    Subdivision lifts the capped paw ends. A monotone height map below the
+    ankle/hock restores contact, with unit slope at that fixed transition.
+    Only authored limb vertices participate; this runs during construction,
+    never on an artist-edited surface or during semantic Modify.
+    """
+    result = list(vertices)
+    points = {point.name: point.position for point in anatomy.landmarks}
+    for region in anatomy.regions:
+        if not region.name.startswith('leg.'):
+            continue
+        suffix = region.name[4:]
+        ground = points['ground.' + suffix][2]
+        upper = points[('ankle.' if suffix.startswith('front.') else 'hock.') + suffix][2]
+        lowest = min(vertices[i][2] for i in region.vertex_indices)
+        if not lowest < upper or not ground < upper:
+            raise ValueError('Paw contact requires a sole below the ankle/hock')
+        if lowest == ground:
+            continue
+        span = upper - lowest
+        ratio = span / (upper - ground)
+        for index in region.vertex_indices:
+            x, y, z = vertices[index]
+            if z >= upper:
+                continue
+            t = (z - lowest) / span
+            # Positive denominator and derivative preserve vertical ordering.
+            # Unlike clamping, this does not collapse sole faces to a plane.
+            height = ground + (upper - ground) * t / (ratio + (1 - ratio) * t)
+            result[index] = (x, y, height)
+    return tuple(result)
+
+
 def _build_quadruped_mesh(anatomy):
     """Build and refine the one canonical canine surface, retaining ownership."""
     from .quadruped_refinement import refine_canine_surface
     cage, resolved = _build_quadruped_cage(anatomy)
     mesh, resolved = refine_canine_surface(cage, resolved)
     part = mesh.parts[0]
-    return ObjectMesh((MeshPart(part.name, part.vertices, part.faces,
-                               _project_uvs(part.vertices, part.faces)),)), resolved
+    vertices = _ground_paw_surfaces(part.vertices, resolved)
+    result = ObjectMesh((MeshPart(part.name, vertices, part.faces,
+                                  _project_uvs(vertices, part.faces)),))
+    resolved.validate_mesh(result)
+    return result, resolved

@@ -3,6 +3,7 @@
 
 Hind limbs resolve separate hip, knee, hock and paw landmarks. The remaining
 body sections resolve a tucked waist, fuller chest and a separate muzzle base.
+Each limb declares a ground landmark for neutral sole contact.
 Front-joint stance and detailed facial features still await refinement.
 Provider-validated dimensions enter resolution; the constructor binds topology.
 """
@@ -51,7 +52,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '6'
+    recipe_version = '7'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -113,7 +114,8 @@ class CanineRecipe:
                     paw = (x, hock[1] + min(length * .06, shoulder * .10), shoulder * .045)
                     points.extend(((upper + '.' + suffix, (x, y, top_z)),
                                    ('knee.' + suffix, knee), ('hock.' + suffix, hock),
-                                   ('paw.' + suffix, paw)))
+                                   ('paw.' + suffix, paw),
+                                   ('ground.' + suffix, (x, paw[1], 0))))
                     path = (upper + '.' + suffix, 'knee.' + suffix,
                             'hock.' + suffix, 'paw.' + suffix)
                     bones = ('hind_upper.' + side, 'hind_lower.' + side, 'hind_pastern.' + side)

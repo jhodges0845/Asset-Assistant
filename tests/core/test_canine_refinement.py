@@ -101,3 +101,46 @@ class CanineRefinementTests(unittest.TestCase):
         anatomy = replace(self.anatomy, connections=(connection,) + self.anatomy.connections[1:])
         with self.assertRaisesRegex(ValueError, 'boundary loops'):
             _attachment_weights(self.mesh, anatomy, 4)
+
+    def test_paw_contact_is_local_monotone_and_grounded_at_parameter_corners(self):
+        from itertools import product
+        from object_core.providers.quadruped_anatomy import CanineRecipe
+        from object_core.providers.quadruped_geometry import _ground_paw_surfaces
+        samples = [self.values, dict(self.values, body_length_cm=95, shoulder_height_cm=40,
+                                    body_width_cm=28, head_length_cm=30, tail_length_cm=50)]
+        samples += [{p.key: getattr(p, endpoint) for p, endpoint in zip(self.provider.parameters, ends)}
+                    for ends in product(('minimum', 'maximum'), repeat=len(self.provider.parameters))]
+        for values in samples:
+            with self.subTest(values=values):
+                cage, anatomy = _build_quadruped_cage(CanineRecipe().resolve(self.provider.dimensions(values)))
+                raw, anatomy = refine_canine_surface(cage, anatomy)
+                mesh, resolved = _construction(self.provider.dimensions(values))
+                before, after = raw.parts[0].vertices, mesh.parts[0].vertices
+                points = {p.name: p.position for p in anatomy.landmarks}
+                self.assertEqual(raw.parts[0].faces, mesh.parts[0].faces)
+                self.assertEqual(anatomy.regions, resolved.regions)
+                self.assertEqual(anatomy.connections, resolved.connections)
+                changed_allowed = set()
+                for region in anatomy.regions:
+                    if not region.name.startswith('leg.'):
+                        continue
+                    suffix = region.name[4:]
+                    upper = points[('ankle.' if suffix.startswith('front.') else 'hock.') + suffix][2]
+                    ground = points['ground.' + suffix][2]
+                    self.assertAlmostEqual(min(after[i][2] for i in region.vertex_indices), ground)
+                    ordered = sorted(region.vertex_indices, key=lambda i: before[i][2])
+                    # Adjacent source heights can differ by a single floating-point ULP.
+                    self.assertTrue(all(after[a][2] <= after[b][2] + 1e-12
+                                        for a, b in zip(ordered, ordered[1:])))
+                    changed_allowed.update(i for i in region.vertex_indices if before[i][2] < upper)
+                for i, (a, b) in enumerate(zip(before, after)):
+                    self.assertEqual(a[:2], b[:2])
+                    if i not in changed_allowed:
+                        self.assertEqual(a, b)
+                self.assertEqual(after, _ground_paw_surfaces(after, resolved))
+
+    def test_modify_can_lift_grounded_paw_without_regrounding(self):
+        region = next(r for r in self.anatomy.regions if r.name == 'leg.front.left')
+        moved = self.provider.semantic_mesh(self.mesh, self.values, (
+            SemanticOperation('scale', region.name, (('offset_z', 5),)),))
+        self.assertAlmostEqual(min(moved.parts[0].vertices[i][2] for i in region.vertex_indices), 5)

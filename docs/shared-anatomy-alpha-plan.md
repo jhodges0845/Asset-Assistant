@@ -1,6 +1,6 @@
 # Shared anatomy and animation: alpha plan
 
-Status: in progress, September 27, 2026. Human and Quadruped use shared anatomy contracts; canine recipe version 6 is implemented. Canine visual acceptance, Avian migration and the final animation quality pass remain open. See the [implementation checkpoint](shared-anatomy-implementation.md) for branch-specific evidence.
+Status: in progress, September 27, 2026. Human and Quadruped use shared anatomy contracts; canine recipe version 7 adds neutral sole contact. Canine visual acceptance, Avian migration and the final animation quality pass remain open. See the [implementation checkpoint](shared-anatomy-implementation.md) for branch-specific evidence.
 
 ## Alpha promise
 

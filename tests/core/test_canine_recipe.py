@@ -171,7 +171,7 @@ class CanineRecipeTests(unittest.TestCase):
                     self.assertLess(hock[1], hip[1])
                     self.assertGreater(paw[1], hock[1])
                     self.assertTrue(hip[2] > knee[2] > hock[2] > paw[2] > 0)
-                    self.assertGreater(min(mesh.parts[0].vertices[i][2] for i in regions['leg.hind.' + side]), 0)
+                    self.assertAlmostEqual(min(mesh.parts[0].vertices[i][2] for i in regions['leg.hind.' + side]), 0)
                 part = mesh.parts[0]
                 directed = Counter((a, b) for face in part.faces for a, b in zip(face, face[1:] + face[:1]))
                 self.assertTrue(all(n == 1 and directed[(b, a)] == 1 for (a, b), n in directed.items()))

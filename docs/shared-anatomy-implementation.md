@@ -1,8 +1,8 @@
 # Shared anatomy implementation checkpoint
 
-Current implementation: September 27, 2026, commit `79c855b` on
+Current implementation: September 27, 2026, recipe version 7 following diagnostic commit `7b9768e` on
 `codex/shared-generation-system`. Human and Quadruped use shared resolved-anatomy
-contracts. Canine recipe version 6 is implemented; visual refinement continues.
+contracts. Canine recipe version 7 is implemented; visual refinement continues.
 Avian still uses its existing provider construction and awaits recipe migration.
 This is a development-branch checkpoint, not a release or final anatomy acceptance.
 
@@ -23,7 +23,9 @@ Limb weights follow authored chains. A topology-distance blend spans each limb's
 attachment bridge: the body loop follows its parent and the limb loop retains
 25% parent influence with the default influence limit. The remaining body uses
 axial bones; ears follow the head. Shoulder poses no longer pull the chest and
-neck into large folds. A small attachment crease remains.
+neck into large folds. A small attachment crease remains. Version 7 brings all four neutral soles to their
+recipe ground plane through a localized post-refinement height map below the
+ankle/hock. It preserves vertices at/above those heights, surface topology and rest-rig landmarks.
 
 ## Construction and ownership
 
@@ -59,13 +61,13 @@ Build with `python -m scripts.build_blender_addon`, then install/update
 Animate > Rig & Pose workflows; Idle/Walk/Run remain available.
 
 Saved surfaces from older recipe versions are preserved. Create a new Quadruped
-to adopt version 6; there is no automatic topology, weight or Action migration.
+to adopt version 7; there is no automatic topology, weight or Action migration.
 Manual artist edits continue to block procedural replacement. Installing the
 updated add-on alone does not upgrade existing geometry or artist-owned weights.
 
 ## Validation and reproducibility
 
-Latest local results for `79c855b`: 394 core tests and 238 Blender tests passed,
+Historical version 6 local results for `79c855b`: 394 core tests and 238 Blender tests passed,
 as did actual canine save/reopen, isolated package verification, compilation and
 whitespace checks. The version 6 six-sample comparison changed only Quadruped
 mesh/weights from the prior checkpoint; all rest rigs, clips, Human and Avian
@@ -316,12 +318,59 @@ All 396 core tests, Python compilation and whitespace checks pass. A Blender reg
 both new poses and both samples, including isolation and independently calculated
 minimum heights. Local Blender 2.92 could not import the suite because its bundled
 Python lacks `typing.Protocol`; the new pose regression and rendered reviews
-remain unverified until run in a compatible runtime. No surface, rig, weights,
+were unverified at that checkpoint. The version 7 continuation below uses a verified
+portable Blender 5.2.1 runtime to exercise them. No surface, rig, weights,
 clip data or recipe version changes are included in this diagnostic slice.
+
+## Neutral sole contact (recipe version 7)
+
+The refined cap previously left unequal gaps under front and hind paws. The
+canonical surface constructor now resolves each authored limb's sole to its
+recipe ground plane after subdivision, before final UV projection. A monotone
+height map below the front ankle or hind hock preserves vertical ordering and
+has unit slope at the fixed upper transition. It does not flatten faces or move
+other regions. Hind ground landmarks are now explicit; rest bones are unchanged.
+
+Version 7 preserves the 6,274 vertices, 6,272 quads, connection loops and region
+indices. Saved surfaces remain untouched; explicitly create/replace a generated
+asset to adopt the new construction. Modify still permits lifting/moving a foot;
+this construction step never re-grounds edited meshes. This establishes neutral
+sole contact only, not a support patch, detailed paw anatomy or gait acceptance.
+
+Regression coverage checks default/contrasting proportions and all 32 parameter
+corners, signed ground height, monotone ordering, unchanged non-distal vertices,
+unchanged ownership/topology, exact repeated application and lifted-foot Modify.
+Default and contrasting neutral clay/silhouette/wireframe sheets and isolated
+elbow/hip clay/wireframe sheets were inspected in Blender 5.2.1. All four neutral
+limbs report 0 cm minimum Z in both samples; both diagnostic poses report zero
+other-limb and torso/head/tail displacement. The surfaces remain coarse paws,
+with the existing shoulder/hip creases still visible. Neutral contact does not
+establish anatomical or animation acceptance.
+
+All 398 core tests, compilation and whitespace checks pass.
+All 239 Blender integration tests pass, including the prior elbow/hip diagnostic
+regression. Actual canine save/reopen and the rebuilt isolated ZIP check pass.
+The six-sample baseline comparison changes only Quadruped mesh/weight fingerprints;
+all rest rigs, clips, Human and Avian outputs are unchanged. Evidence and logs use
+`artifacts/shared-anatomy/contact-*`; baseline records are `contact-before.json`
+and `contact-after.json`. Remote CI status is not established by these local runs.
+
+A SHA-256-verified portable Blender 5.2.1 runtime is available locally at
+`artifacts/installers/blender/runtime/blender-5.2.1-windows-x64/blender.exe`.
+Use that executable in the validation commands above; the globally installed
+Blender 2.92 cannot import the current project. The runtime and review artifacts
+are ignored local files, not committed dependencies.
 
 ## Next work
 
-Continue with eyes, nose/mouth detail, scapula/pelvis shape, front-joint stance
-and paws, alongside attachment crease and gait/contact review. Make geometry
-and rig changes deliberately with baseline comparisons. After the canine quality
-pass, migrate Avian through the same layer using bird-specific rules.
+Next, refine paw shape/support area and front-joint stance using the grounded
+version 7 surface as the baseline. Review shoulder/hip attachment creases and
+repeat default/contrasting neutral and elbow/hip/knee/hock diagnostics with the
+portable Blender 5.2.1 runtime above. Neutral sole contact is complete; planted
+support through a gait cycle and contact drift remain open.
+
+Eyes, nose/mouth detail and scapula/pelvis shaping also remain in the canine
+quality pass. Compare geometry, rig, weights and clips deliberately against the
+baseline and preserve artist-owned edits. After canine visual acceptance, migrate
+Avian through the same layer using bird-specific rules, then continue the shared
+anatomy/Modify acceptance and cross-provider animation milestones in the alpha plan.
