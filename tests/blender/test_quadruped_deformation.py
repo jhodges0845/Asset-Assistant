@@ -93,6 +93,32 @@ class QuadrupedDeformationTests(unittest.TestCase):
             with self.subTest(bone=bone_name):
                 self._assert_bone_bends_surface(bone_name, axis)
 
+    def test_review_elbow_and_hip_poses_report_evaluated_ground_clearance(self):
+        from scripts.render_canine_review import review_part
+        from object_core.providers.quadruped import _construction
+
+        provider = get_provider('quadruped')
+        defaults = {field.key: field.default for field in provider.parameters}
+        contrasting = dict(defaults, body_length_cm=95, shoulder_height_cm=40,
+                           body_width_cm=28, head_length_cm=30, tail_length_cm=50)
+        for values in (defaults, contrasting):
+            for pose, bone in (('elbow', 'fore_lower.left'), ('hip', 'hind_upper.left')):
+                with self.subTest(values=values, pose=pose):
+                    part, evidence = review_part(values, pose)
+                    self.assertEqual(evidence['bone'], bone)
+                    self.assertGreater(evidence['limb_displacement_cm'], .1)
+                    self.assertLessEqual(evidence['other_limb_displacement_cm'], .0001)
+                    self.assertLessEqual(evidence['body_displacement_cm'], .0001)
+                    mesh, anatomy = _construction(provider.dimensions(values))
+                    for label, vertices in (('neutral', mesh.parts[0].vertices),
+                                            ('posed', part.vertices)):
+                        report = evidence[label + '_ground_clearance']
+                        self.assertEqual(len(report), 4)
+                        for region in anatomy.regions:
+                            if region.name.startswith('leg.'):
+                                expected = min(vertices[i][2] for i in region.vertex_indices)
+                                self.assertAlmostEqual(report[region.name]['minimum_z_cm'], expected)
+
     def test_bends_remain_local_to_the_target_region(self):
         before = self._evaluated_points()
         target = self._indices_weighted_to("fore_upper.left")

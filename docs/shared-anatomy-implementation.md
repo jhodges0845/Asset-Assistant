@@ -84,7 +84,7 @@ python scripts/anatomy_baseline.py --output artifacts/shared-anatomy/current-bas
 blender --background --factory-startup --python-exit-code 1 --python scripts/render_canine_review.py -- --output artifacts/shared-anatomy/current-canine.png
 ```
 
-Add `--sample contrasting`, `--region head`, or `--pose shoulder` / `knee` /
+Add `--sample contrasting`, `--region head`, or `--pose shoulder` / `elbow` / `hip` / `knee` /
 `hock` after the script separator for additional reviews. Head crops show a cut
 neck boundary; the generated whole model remains connected. Adjacent JSON records
 parameters, recipe/version, source state, counts and pose-isolation measurements.
@@ -295,6 +295,29 @@ were inspected. Evidence uses `canine-muzzle-*` and `muzzle-*` under
 geometry and weights; all rest rigs, clips, Human and Avian output are unchanged.
 All 394 core tests and 238 Blender tests pass, together with actual canine
 save/reopen, the rebuilt isolated package, compilation and whitespace checks.
+
+## Ground-contact diagnostics (September 27, 2026, local continuation)
+
+The review script now supports isolated elbow (`fore_lower.left`) and hip
+(`hind_upper.left`) poses in addition to shoulder, knee and hock. Its JSON reports
+neutral and evaluated posed ground clearance for each authored limb against the
+recipe's Z=0 plane, in centimeters. Positive minimum Z is a gap; negative minimum
+Z is penetration. Measurements use the full generated surface before any head
+crop. They do not establish gait contact, contact drift or visual acceptance.
+
+The version 6 neutral default surface has front gaps of 0.824 cm and hind gaps
+of 2.243 cm. The documented contrasting sample has front gaps of 0.925 cm and
+hind gaps of 1.405 cm. Both sides agree. This confirms paw/contact refinement
+remains necessary; changing an object-level ground offset alone cannot equalize
+front and hind contact. Local evidence is
+`artifacts/shared-anatomy/canine-ground-clearance.json`.
+
+All 396 core tests, Python compilation and whitespace checks pass. A Blender regression covers
+both new poses and both samples, including isolation and independently calculated
+minimum heights. Local Blender 2.92 could not import the suite because its bundled
+Python lacks `typing.Protocol`; the new pose regression and rendered reviews
+remain unverified until run in a compatible runtime. No surface, rig, weights,
+clip data or recipe version changes are included in this diagnostic slice.
 
 ## Next work
 

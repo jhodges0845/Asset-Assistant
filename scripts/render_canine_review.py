@@ -3,7 +3,7 @@
 
 blender --background --factory-startup --python scripts/render_canine_review.py -- \
     --output artifacts/shared-anatomy/canine-neutral.png --sample default
-Use --pose knee, hock or shoulder for independently evaluated joint diagnostics.
+Use --pose shoulder, elbow, hip, knee or hock for independently evaluated joint diagnostics.
 The adjacent JSON records parameters, counts, recipe version and pose movement.
 """
 from __future__ import annotations
@@ -27,6 +27,7 @@ from object_core.providers.quadruped import _construction
 from blender_adapter.adapter import create_character
 # These existing mesh/material/camera helpers are independent of Human anatomy.
 from scripts import render_human_review as sheets
+from scripts.canine_review_metrics import limb_ground_clearance
 
 
 def evaluated_points(body):
@@ -47,7 +48,10 @@ def review_part(values, pose):
                 'recipe_version': anatomy.recipe_version, 'pose': pose,
                 'vertices': mesh.vertex_count, 'faces': mesh.face_count,
                 'bones': len(skeleton.bones),
-                'landmarks': [asdict(p) for p in anatomy.landmarks]}
+                'landmarks': [asdict(p) for p in anatomy.landmarks],
+                'ground_plane_z_cm': 0.0,
+                'neutral_ground_clearance': limb_ground_clearance(
+                    mesh.parts[0].vertices, anatomy.regions)}
     if pose == 'neutral':
         return mesh.parts[0], evidence
     root = create_character(mesh, name='CaninePoseReview', scene=bpy.context.scene,
@@ -59,6 +63,8 @@ def review_part(values, pose):
         'knee': ('leg.hind.left', 'hind_lower.left', -.45),
         'hock': ('leg.hind.left', 'hind_pastern.left', .45),
         'shoulder': ('leg.front.left', 'fore_upper.left', .35),
+        'elbow': ('leg.front.left', 'fore_lower.left', -.45),
+        'hip': ('leg.hind.left', 'hind_upper.left', .35),
     }[pose]
     bone = rig.pose.bones[bone_name]
     bone.rotation_mode = 'XYZ'
@@ -82,6 +88,7 @@ def review_part(values, pose):
     part = MeshPart(mesh.parts[0].name,
                     tuple(tuple(float(c) * 100 for c in point) for point in after),
                     mesh.parts[0].faces)
+    evidence['posed_ground_clearance'] = limb_ground_clearance(part.vertices, anatomy.regions)
     return part, evidence
 
 
@@ -90,7 +97,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
     parser.add_argument('--region', choices=('body', 'head'), default='body')
-    parser.add_argument('--pose', choices=('neutral', 'knee', 'hock', 'shoulder'), default='neutral')
+    parser.add_argument('--pose', choices=('neutral', 'knee', 'hock', 'shoulder', 'elbow', 'hip'), default='neutral')
     parser.add_argument('--samples', type=int, default=4)
     parser.add_argument('--resolution-x', type=int, default=1200)
     parser.add_argument('--resolution-y', type=int, default=500)
