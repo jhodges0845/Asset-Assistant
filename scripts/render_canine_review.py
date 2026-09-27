@@ -70,11 +70,15 @@ def review_part(values, pose):
     other = {i for r in anatomy.regions if r.name.startswith('leg.')
              and r.name != region_name for i in r.vertex_indices}
     leakage = max((after[i] - before[i]).length for i in other)
-    if displacement < .001 or leakage > 1e-6:
+    stationary = {i for r in anatomy.regions if r.name in ('torso', 'head', 'tail')
+                  for i in r.vertex_indices}
+    body_leakage = max((after[i] - before[i]).length for i in stationary)
+    if displacement < .001 or leakage > 1e-6 or body_leakage > 1e-6:
         raise RuntimeError('Canine diagnostic pose failed movement/isolation checks')
     evidence.update(bone=bone_name, angle_radians=angle,
                     limb_displacement_cm=displacement * 100,
-                    other_limb_displacement_cm=leakage * 100)
+                    other_limb_displacement_cm=leakage * 100,
+                    body_displacement_cm=body_leakage * 100)
     part = MeshPart(mesh.parts[0].name,
                     tuple(tuple(float(c) * 100 for c in point) for point in after),
                     mesh.parts[0].faces)

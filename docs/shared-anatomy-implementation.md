@@ -254,6 +254,23 @@ clips, Human and Avian output are unchanged. CI coverage remains unverified loca
 This is a smoother anatomical starting point. Eyes, nose/mouth detail, toes,
 coat detail and final gait/contact quality remain unfinished.
 
+## Localized attachment weights (2026-09-27)
+
+Limb weights now occupy their authored region and the connected bridge between
+its declared loops. Body vertices use axial bones. A topology-distance blend
+holds the body loop on the parent and transitions to the upper limb; the limb
+loop retains 25% parent weight. This remains stable after large Modify edits.
+The helper rejects empty, overlapping or escaping boundaries. No geometry, rest
+rig or clip data changes, and artist-owned saved weights are not overwritten.
+
+Shoulder diagnostics now measure torso/head/tail displacement as well as other
+limbs. The inspected shoulder pose loses the large chest/neck folds; a small
+local crease remains at the attachment. Evidence uses `canine-shoulder-local*`
+and `shoulder-*` under `artifacts/shared-anatomy/`. All 392 core tests and 238
+Blender tests pass, together with the actual canine save/reopen and isolated
+package checks. All 32 parameter corners have bounded normalized attachment
+blends. The six-sample baseline confirms only Quadruped weight changes.
+
 ## Next work
 
 Continue refining the canine reference body: scapula/pelvis detail, neck/muzzle,

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Quadruped rig and skin-weight generation."""
 
+from collections import deque
 from math import sqrt
 
 from ..models import Bone, BoneWeight, Skeleton, SkinWeights
@@ -102,6 +103,74 @@ def _anatomy_bone_candidates(anatomy, bones):
     return candidates
 
 
+def _attachment_weights(mesh, anatomy, max_influences):
+    """Blend across the declared bridge, never through unrelated body surfaces.
+
+    Graph distance uses topology rather than edited positions. The body loop
+    stays on the parent; the limb loop retains a quarter parent influence.
+    """
+    regions = {region.name: region for region in anatomy.regions}
+    chains = {chain.name: chain for chain in anatomy.chains}
+    graphs = {}
+    for part in mesh.parts:
+        graph = [set() for _ in part.vertices]
+        for face in part.faces:
+            for a, b in zip(face, face[1:] + face[:1]):
+                graph[a].add(b)
+                graph[b].add(a)
+        graphs[part.name] = graph
+    result = {}
+    for connection in anatomy.connections:
+        name = connection.regions[1]
+        if not name.startswith('leg.') or connection.continuity != 'connected':
+            continue
+        region, chain = regions[name], chains[name]
+        graph = graphs[region.mesh_part]
+        root, limb = map(set, connection.boundaries)
+        if not root or not limb or root & limb:
+            raise ValueError('Canine attachment requires two disjoint boundary loops')
+        owned = set(region.vertex_indices)
+        body = set(regions[connection.regions[0]].vertex_indices)
+        bridge, pending = set(limb), deque(sorted(limb))
+        while pending:
+            vertex = pending.popleft()
+            for neighbor in sorted(graph[vertex]):
+                if neighbor in bridge or neighbor in owned:
+                    continue
+                if neighbor in body and neighbor not in root:
+                    raise ValueError('Canine attachment escapes its body boundary')
+                bridge.add(neighbor)
+                if neighbor not in root:
+                    pending.append(neighbor)
+        if not root <= bridge:
+            raise ValueError('Canine attachment does not reach its body boundary')
+
+        def distances(seeds):
+            distance = {i: 0 for i in seeds}
+            queue = deque(sorted(seeds))
+            while queue:
+                vertex = queue.popleft()
+                for neighbor in sorted(graph[vertex] & bridge):
+                    if neighbor not in distance:
+                        distance[neighbor] = distance[vertex] + 1
+                        queue.append(neighbor)
+            return distance
+
+        body_distance, limb_distance = distances(root), distances(limb)
+        for i in sorted(bridge):
+            t = body_distance[i] / (body_distance[i] + limb_distance[i])
+            amount = .75 * t*t*(3 - 2*t)
+            raw = [(chain.parent_bone, 1 - amount), (chain.bones[0], amount)]
+            raw = sorted(((name, weight) for name, weight in raw if weight > 0),
+                         key=lambda item: (-item[1], item[0]))[:max_influences]
+            total = sum(weight for _, weight in raw)
+            key = (region.mesh_part, i)
+            if key in result:
+                raise ValueError('Canine attachment bridges must be disjoint')
+            result[key] = tuple(BoneWeight(name, weight / total) for name, weight in raw)
+    return result
+
+
 def generate_quadruped_skin_weights(mesh, skeleton, *, max_influences=4, anatomy=None):
     """Return normalized local weights for a connected quadruped surface."""
     if type(max_influences) is not int or max_influences < 1:
@@ -110,14 +179,19 @@ def generate_quadruped_skin_weights(mesh, skeleton, *, max_influences=4, anatomy
     if not deform_bones:
         raise ValueError("Quadruped skeleton must contain deform bones")
     candidates = {}
+    attachment = {}
+    axial = tuple(bone for bone in deform_bones if not bone.name.endswith((".left", ".right")))
     if anatomy is not None:
         anatomy.validate_mesh(mesh)
         candidates = _anatomy_bone_candidates(anatomy, deform_bones)
+        attachment = _attachment_weights(mesh, anatomy, max_influences)
 
     def weights(part, index, vertex):
+        if (part.name, index) in attachment:
+            return attachment[(part.name, index)]
         local = candidates.get((part.name, index))
         if local is None:
-            local = _candidate_bones(vertex, deform_bones)
+            local = axial if anatomy is not None else _candidate_bones(vertex, deform_bones)
         return _weights_for_vertex(vertex, local, max_influences)
 
     return tuple(

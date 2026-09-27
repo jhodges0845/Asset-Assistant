@@ -143,6 +143,25 @@ class QuadrupedSemanticTests(unittest.TestCase):
             if region.name.startswith('leg.'):
                 self.assertLess(max((after[i] - before[i]).length for i in region.vertex_indices), 1e-6)
 
+    def test_shoulder_pose_keeps_chest_head_and_tail_fixed(self):
+        from object_core.providers.quadruped import _construction
+        from scripts.render_canine_review import evaluated_points
+        provider = get_provider('quadruped')
+        values = {p.key: p.default for p in provider.parameters}
+        _, anatomy = _construction(provider.dimensions(values))
+        before = evaluated_points(self.body)
+        rig = next(o for o in self.root.children if o.type == 'ARMATURE')
+        bone = rig.pose.bones['fore_upper.left']
+        bone.rotation_mode = 'XYZ'
+        bone.rotation_euler.x = .35
+        after = evaluated_points(self.body)
+        for region in anatomy.regions:
+            displacement = max((after[i] - before[i]).length for i in region.vertex_indices)
+            if region.name in ('torso', 'head', 'tail', 'leg.front.right', 'leg.hind.left', 'leg.hind.right'):
+                self.assertLess(displacement, 1e-6, region.name)
+            elif region.name == 'leg.front.left':
+                self.assertGreater(displacement, .01)
+
     def test_previous_recipe_surface_is_preserved_and_modify_is_blocked(self):
         import json
         from pathlib import Path

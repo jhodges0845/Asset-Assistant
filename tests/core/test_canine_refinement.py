@@ -61,3 +61,43 @@ class CanineRefinementTests(unittest.TestCase):
             self.assertTrue(all(cage.parts[0].vertices[i][0] * sign >= -1e-9 for i in root))
             center_z = sum(cage.parts[0].vertices[i][2] for i in ring) / len(ring)
             self.assertLess(center_z, points[connection.name][2])
+
+    def test_body_regions_do_not_acquire_limb_weights(self):
+        samples = [self.values, dict(self.values, body_length_cm=95, shoulder_height_cm=40,
+                                    body_width_cm=28, head_length_cm=30, tail_length_cm=50)]
+        for values in samples:
+            mesh, anatomy = _construction(self.provider.dimensions(values))
+            rows = self.provider.skin_weights(mesh, values)[0].vertices
+            for region in anatomy.regions:
+                if region.name in ('torso', 'head', 'tail'):
+                    for i in region.vertex_indices:
+                        self.assertFalse(any(w.bone_name.endswith(('.left', '.right')) for w in rows[i]))
+
+    def test_attachment_weights_are_local_blended_and_position_independent(self):
+        from object_core.providers.quadruped_rigging import _attachment_weights
+        attached = _attachment_weights(self.mesh, self.anatomy, 4)
+        rows = self.provider.skin_weights(self.mesh, self.values)[0].vertices
+        for connection in self.anatomy.connections:
+            region = connection.regions[1]
+            if not region.startswith('leg.'):
+                continue
+            chain = next(c for c in self.anatomy.chains if c.name == region)
+            root, limb = connection.boundaries
+            for i in root:
+                self.assertEqual([(chain.parent_bone, 1)], [(w.bone_name, w.weight) for w in rows[i]])
+            for i in limb:
+                self.assertEqual({chain.parent_bone, chain.bones[0]}, {w.bone_name for w in rows[i]})
+            amounts = {w.weight for row in attached.values() for w in row if w.bone_name == chain.bones[0]}
+            self.assertGreater(len(amounts), 2)
+            self.assertTrue(all(0 < w < 1 for w in amounts))
+        moved = self.provider.semantic_mesh(self.mesh, self.values, (
+            SemanticOperation('scale', 'leg.front.left', (('offset_x', 80), ('offset_y', -70))),))
+        self.assertEqual(attached, _attachment_weights(moved, self.anatomy, 4))
+
+    def test_missing_attachment_boundaries_are_rejected(self):
+        from dataclasses import replace
+        from object_core.providers.quadruped_rigging import _attachment_weights
+        connection = replace(self.anatomy.connections[0], boundaries=((), ()))
+        anatomy = replace(self.anatomy, connections=(connection,) + self.anatomy.connections[1:])
+        with self.assertRaisesRegex(ValueError, 'boundary loops'):
+            _attachment_weights(self.mesh, anatomy, 4)
