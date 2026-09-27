@@ -2,15 +2,56 @@
 """Canine recipe resolving the current Quadruped surface and complete rest rig.
 
 Hind limbs resolve separate hip, knee, hock and paw landmarks. The remaining
-coarse torso, front limbs and head still await anatomical refinement.
+body sections resolve a tucked waist and fuller chest. Front-joint and head
+anatomy still await refinement.
 Provider-validated dimensions enter resolution; the constructor binds topology.
 """
+from dataclasses import dataclass
+from math import isfinite
+
 from ..anatomy import AnatomyConnection, AnatomyRegion, JointChain, Landmark, ResolvedAnatomy
+
+
+@dataclass(frozen=True)
+class CanineBodySection:
+    """A recipe-owned body cross section centered on a resolved landmark."""
+    landmark: str
+    width_cm: float
+    depth_cm: float
+
+    def __post_init__(self):
+        if not isinstance(self.landmark, str) or not self.landmark:
+            raise ValueError('Canine body section requires a landmark name')
+        for value in (self.width_cm, self.depth_cm):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError('Canine section dimensions must be numbers')
+            if not isfinite(value) or value <= 0:
+                raise ValueError('Canine section dimensions must be positive and finite')
+
+
+@dataclass(frozen=True)
+class ResolvedCanineAnatomy(ResolvedAnatomy):
+    """Compact canine surface profile; construction still owns mesh topology."""
+    body_sections: tuple = ()
+
+    def __post_init__(self):
+        super().__post_init__()
+        sections = tuple(self.body_sections)
+        expected = ('tail.tip', 'tail.mid', 'tail.base', 'torso.rear', 'torso.hind',
+                    'torso.center', 'torso.fore', 'chest.center', 'neck.center',
+                    'head.center', 'muzzle.tip')
+        if any(not isinstance(section, CanineBodySection) for section in sections):
+            raise TypeError('Canine resolution requires validated body sections')
+        if tuple(section.landmark for section in sections) != expected:
+            raise ValueError('Canine body sections must follow the authored torso path')
+        if not set(expected) <= {p.name for p in self.landmarks}:
+            raise ValueError('Canine section references a missing landmark')
+        object.__setattr__(self, 'body_sections', sections)
 
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '3'
+    recipe_version = '4'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -30,11 +71,11 @@ class CanineRecipe:
             ('tail.mid', (0, -length * 0.5 - tail_length * 0.48, surface_back_z + torso_height * 0.22)),
             ('tail.base', (0, -length * 0.5, surface_back_z)),
             ('torso.rear', (0, -length * 0.42, body_z)),
-            ('torso.hind', (0, hind_y, body_z)),
-            ('torso.center', (0, 0, body_z)),
-            ('torso.fore', (0, fore_y, body_z + torso_height * 0.06)),
-            ('chest.center', (0, length * 0.43, body_z + torso_height * 0.16)),
-            ('neck.center', (0, length * 0.52, shoulder + torso_height * 0.05)),
+            ('torso.hind', (0, hind_y, body_z + torso_height * .11)),
+            ('torso.center', (0, -length * .06, body_z + torso_height * .03)),
+            ('torso.fore', (0, fore_y, body_z - torso_height * .02)),
+            ('chest.center', (0, length * .43, body_z + torso_height * .08)),
+            ('neck.center', (0, length * .47 + head_length * .12, shoulder + torso_height * .05)),
             ('head.center', (0, length * 0.5 + head_length * 0.34, shoulder + torso_height * 0.13)),
             ('muzzle.tip', (0, length * 0.5 + head_length * 0.82, shoulder + torso_height * 0.06)),
             ('root.base', (0, 0, shoulder * 0.45)),
@@ -95,10 +136,26 @@ class CanineRecipe:
             points.append(('tail.rig.' + str(index + 1), (0, start_y, start_z)))
         chains.append(JointChain('tail', tuple('tail.rig.' + str(i) for i in range(4)),
                                  ('tail.1', 'tail.2', 'tail.3'), 'spine', motion_role='tail'))
-        return ResolvedAnatomy(
+        # A tucked abdominal section expands into the ribcage/chest; these
+        # are species proportions rather than constants hidden in the builder.
+        sections = tuple(CanineBodySection(name, section_width, section_depth)
+                         for name, section_width, section_depth in (
+            ('tail.tip', width * .08, width * .08),
+            ('tail.mid', width * .12, width * .12),
+            ('tail.base', width * .18, width * .18),
+            ('torso.rear', width * .82, torso_height * .82),
+            ('torso.hind', width * .80, torso_height * .72),
+            ('torso.center', width * .92, torso_height * .92),
+            ('torso.fore', width * 1.08, torso_height * 1.10),
+            ('chest.center', width * .90, torso_height * 1.05),
+            ('neck.center', width * .58, torso_height * .62),
+            ('head.center', width * .72, torso_height * .72),
+            ('muzzle.tip', width * .48, torso_height * .42)))
+        return ResolvedCanineAnatomy(
             self.recipe_id, self.recipe_version,
             tuple((key, float(value)) for key, value in dimensions.items()),
             landmarks=tuple(Landmark(name, position) for name, position in points),
             regions=regions, chains=chains, connections=connections,
+            body_sections=sections,
             symmetry=(('leg.front.left', 'leg.front.right'), ('leg.hind.left', 'leg.hind.right')),
         )

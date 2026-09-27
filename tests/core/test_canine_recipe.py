@@ -45,6 +45,36 @@ class CanineRecipeTests(unittest.TestCase):
         self.assertEqual(4, len(self.anatomy.connections))
         self.assertTrue(all(self.regions.values()))
 
+    def test_recipe_body_section_drives_only_its_surface_ring(self):
+        sections = self.anatomy.body_sections
+        index = next(i for i, section in enumerate(sections) if section.landmark == 'torso.fore')
+        changed = replace(self.anatomy, body_sections=tuple(
+            replace(section, width_cm=section.width_cm * 1.2) if i == index else section
+            for i, section in enumerate(sections)))
+        mesh, _ = _build_quadruped_mesh(changed)
+        owned = set(range(index * 8, (index + 1) * 8))
+        self.assertEqual(self.mesh.parts[0].faces, mesh.parts[0].faces)
+        self.assertNotEqual(self.mesh.parts[0].vertices[index * 8], mesh.parts[0].vertices[index * 8])
+        self.assertTrue(all(a == b for i, (a, b) in enumerate(zip(
+            self.mesh.parts[0].vertices, mesh.parts[0].vertices)) if i not in owned))
+        self.assertEqual(_build_quadruped_skeleton(self.anatomy), _build_quadruped_skeleton(changed))
+
+    def test_canine_sections_are_validated_immutable_and_anatomically_ordered(self):
+        from object_core.providers.quadruped_anatomy import CanineBodySection
+        for bad in (0, -1, float('nan'), float('inf')):
+            with self.assertRaises(ValueError):
+                CanineBodySection('torso.fore', bad, 10)
+        for bad in (True, 'wide', []):
+            with self.assertRaises(TypeError):
+                CanineBodySection('torso.fore', bad, 10)
+        with self.assertRaises(ValueError):
+            replace(self.anatomy, body_sections=tuple(reversed(self.anatomy.body_sections)))
+        sections = {s.landmark: s for s in self.anatomy.body_sections}
+        self.assertLess(sections['torso.hind'].width_cm, sections['torso.fore'].width_cm)
+        self.assertLess(sections['torso.hind'].depth_cm, sections['torso.fore'].depth_cm)
+        points = {p.name: p.position for p in self.anatomy.landmarks}
+        self.assertLess(points['neck.center'][1], points['head.center'][1])
+
     def test_hind_landmark_drives_mesh_and_rig(self):
         changed = replace(self.anatomy, landmarks=tuple(
             replace(p, position=(p.position[0], p.position[1] + 2, p.position[2]))
@@ -81,6 +111,8 @@ class CanineRecipeTests(unittest.TestCase):
             with self.subTest(values=values):
                 mesh, anatomy = _construction(self.provider.dimensions(values))
                 points = {p.name: p.position for p in anatomy.landmarks}
+                path_y = [points[section.landmark][1] for section in anatomy.body_sections]
+                self.assertTrue(all(a < b for a, b in zip(path_y, path_y[1:])))
                 regions = {r.name: r.vertex_indices for r in anatomy.regions}
                 for side in ('left', 'right'):
                     hip, knee, hock, paw = (points[n + '.hind.' + side] for n in ('hip', 'knee', 'hock', 'paw'))

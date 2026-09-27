@@ -3,7 +3,7 @@
 
 blender --background --factory-startup --python scripts/render_canine_review.py -- \
     --output artifacts/shared-anatomy/canine-neutral.png --sample default
-Use --pose knee or hock for independently evaluated hind-left joint diagnostics.
+Use --pose knee, hock or shoulder for independently evaluated joint diagnostics.
 The adjacent JSON records parameters, counts, recipe version and pose movement.
 """
 from __future__ import annotations
@@ -55,17 +55,20 @@ def review_part(values, pose):
     body = next(o for o in root.children if o.type == 'MESH')
     rig = next(o for o in root.children if o.type == 'ARMATURE')
     before = evaluated_points(body)
-    bone_name, angle = {'knee': ('hind_lower.left', -.45),
-                        'hock': ('hind_pastern.left', .45)}[pose]
+    region_name, bone_name, angle = {
+        'knee': ('leg.hind.left', 'hind_lower.left', -.45),
+        'hock': ('leg.hind.left', 'hind_pastern.left', .45),
+        'shoulder': ('leg.front.left', 'fore_upper.left', .35),
+    }[pose]
     bone = rig.pose.bones[bone_name]
     bone.rotation_mode = 'XYZ'
     bone.rotation_euler.x = angle
     after = evaluated_points(body)
-    owned = set(next(r.vertex_indices for r in anatomy.regions if r.name == 'leg.hind.left'))
+    owned = set(next(r.vertex_indices for r in anatomy.regions if r.name == region_name))
     displacement = max((after[i] - before[i]).length for i in owned)
     # Other authored limbs must not acquire the diagnostic joint's weights.
     other = {i for r in anatomy.regions if r.name.startswith('leg.')
-             and r.name != 'leg.hind.left' for i in r.vertex_indices}
+             and r.name != region_name for i in r.vertex_indices}
     leakage = max((after[i] - before[i]).length for i in other)
     if displacement < .001 or leakage > 1e-6:
         raise RuntimeError('Canine diagnostic pose failed movement/isolation checks')
@@ -82,7 +85,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
-    parser.add_argument('--pose', choices=('neutral', 'knee', 'hock'), default='neutral')
+    parser.add_argument('--pose', choices=('neutral', 'knee', 'hock', 'shoulder'), default='neutral')
     parser.add_argument('--samples', type=int, default=4)
     parser.add_argument('--resolution-x', type=int, default=1200)
     parser.add_argument('--resolution-y', type=int, default=500)

@@ -21,9 +21,11 @@ There is no new registry, discovery UI or alternative generation pipeline.
   `surface_human_builder.py` audits it; `human_shaping.py` applies recipe controls.
   `rigging/surface_human.py` converts resolved chains directly to bones.
 - `providers/quadruped_anatomy.py` owns `CanineRecipe`: complete torso/head/tail
-  and four-limb centerlines, all 17 current bones, bilateral roles and four
+  and four-limb centerlines, validated body cross-sections, all 17 current bones,
+  bilateral roles and four
   torso/limb attachment declarations. It replaces the front-limb proof class.
-- `providers/quadruped_geometry.py` consumes resolved landmarks and dimensions,
+- `providers/quadruped_geometry.py` consumes resolved landmarks/body sections and
+  limb dimensions,
   then binds region indices and four/eight-vertex attachment loops from the
   rings it actually constructs. `quadruped_rigging.py` consumes resolved chains.
 - `providers/quadruped.py` caches mesh plus bound anatomy by recipe ID/version
@@ -183,9 +185,42 @@ Avian and all clip data are unchanged. Logs use the `canine-hock-` prefix and
 final images use `canine-hind-final-` under `artifacts/shared-anatomy/`. The save/reopen script
 is also wired into CI; CI coverage remains unverified locally.
 
+## Torso recipe (version 4)
+
+`ResolvedCanineAnatomy` now carries immutable, validated `CanineBodySection`
+records alongside the shared anatomy contract, following the existing Human
+payload pattern. Species-specific body widths/depths live in the recipe; the
+surface builder consumes them and retains ownership of topology and region
+membership. Tests demonstrate that changing one section width moves only its
+ring without changing the rest rig. No generic recipe language or registry was
+introduced.
+
+The neutral profile has a narrower, raised abdominal section and a fuller,
+deeper chest. The front-limb attachment flares into the shoulder. The neck center
+also stays behind the head across supported proportions. Body rings use the
+same stable sagittal frame as the hind construction. Mesh counts remain
+312 vertices/306 faces and the rest skeleton remains 17 bones with the same
+endpoints as version 3. Geometry and weights change intentionally; existing
+saved versions still require explicit replacement to adopt the new shape.
+
+Default/contrasting clay, silhouette and wireframe sheets were inspected and
+show the intended waist/chest separation. Local body faces point outward on
+both samples. The renderer now supports `--pose shoulder`; the evaluated clay
+and wireframe views were inspected, with no displacement of other limbs. The
+shoulder transition remains coarse and needs further shaping/deformation work.
+All 385 core tests pass. The six-sample baseline comparison confirms that only
+Quadruped geometry/weights change from version 3; all rigs, clip data, Human and
+Avian output remain unchanged. All 236 Blender integration tests, real canine
+save/reopen, the rebuilt package check, compilation and whitespace checks pass.
+Evidence uses the
+`artifacts/shared-anatomy/canine-torso-` prefix.
+
+This remains a coarse canine reference. Detailed scapular anatomy, front-joint
+stance, paws/contact, head/ears and final animation quality remain unfinished.
+
 ## Next work
 
-Refine the canine recipe into a convincing reference body: chest/scapula/pelvis,
+Continue refining the canine reference body: scapula/pelvis detail,
 neck/muzzle/ears, front-limb transitions and paws, then further localized weights
 and pose review. The initial digitigrade hind chain is now in place. Make geometry/rig changes deliberately with baseline comparisons;
 do not represent that quality milestone as completed by the preserved coarse

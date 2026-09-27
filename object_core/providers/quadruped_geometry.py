@@ -40,7 +40,7 @@ def _ring(center, width, depth, tangent, *, sagittal=False):
     reference = (0.0, 0.0, 1.0)
     if abs(sum(tangent[i] * reference[i] for i in range(3))) > 0.95:
         reference = (0.0, 1.0, 0.0)
-    # Hind-leg bends change the Y sign of the tangent. A fixed lateral axis
+    # Sagittal bends can change the Y sign of the tangent. A fixed lateral axis
     # prevents a 180-degree frame flip between knee and hock rings.
     width_axis = (-1.0, 0.0, 0.0) if sagittal else _normalize(_cross(reference, tangent))
     depth_axis = _normalize(_cross(tangent, width_axis))
@@ -142,23 +142,12 @@ def _build_quadruped_mesh(anatomy):
     landmarks = {landmark.name: landmark.position for landmark in anatomy.landmarks}
     dimensions = dict(anatomy.parameters)
     width = dimensions["body_width_cm"]
-    torso_height = dimensions["shoulder_height_cm"] * 0.42
-    centers = tuple(landmarks[name] for name in (
-        "tail.tip", "tail.mid", "tail.base", "torso.rear", "torso.hind",
-        "torso.center", "torso.fore", "chest.center", "neck.center", "head.center", "muzzle.tip"))
-    widths = (
-        width * 0.08, width * 0.12, width * 0.18,
-        width * 0.82, width * 0.96, width, width,
-        width * 0.90, width * 0.58, width * 0.72, width * 0.48,
-    )
-    depths = (
-        width * 0.08, width * 0.12, width * 0.18,
-        torso_height * 0.82, torso_height, torso_height, torso_height * 1.04,
-        torso_height * 0.94, torso_height * 0.62, torso_height * 0.72, torso_height * 0.42,
-    )
+    centers = tuple(landmarks[section.landmark] for section in anatomy.body_sections)
+    widths = tuple(section.width_cm for section in anatomy.body_sections)
+    depths = tuple(section.depth_cm for section in anatomy.body_sections)
 
     vertices, faces = [], []
-    body_rings = _append_tube(vertices, faces, centers, widths, depths)
+    body_rings = _append_tube(vertices, faces, centers, widths, depths, sagittal=True)
     limb_rings = {}
 
     openings = {}
@@ -191,8 +180,8 @@ def _build_quadruped_mesh(anatomy):
                 ankle = landmarks["ankle." + suffix]
                 centers_leg = (upper, _lerp(upper, knee, .18), knee,
                                _lerp(knee, ankle, .18), ankle, paw)
-                widths_leg = tuple(base * v for v in (1.12, 1, .88, .78, .70, .94))
-                depths_leg = tuple(base * v for v in (1.12, 1, .88, .78, .70, .58))
+                widths_leg = tuple(base * v for v in (1.50, 1.20, .88, .78, .70, .94))
+                depths_leg = tuple(base * v for v in (1.40, 1.15, .88, .78, .70, .58))
             rings = _append_branch(vertices, faces, openings[(region, side)], centers_leg,
                                    widths_leg, depths_leg, sagittal=family == "hind")
             limb_rings["leg." + suffix] = rings
