@@ -25,7 +25,7 @@ class CanineRecipeTests(unittest.TestCase):
         cached = _construction(dict(reversed(tuple(self.provider.dimensions(self.values).items()))))
         self.assertIs(cached[1], self.anatomy)
         self.assertEqual('canine', self.anatomy.recipe_id)
-        self.assertEqual(15, sum(len(c.bones) for c in self.anatomy.chains))
+        self.assertEqual(17, sum(len(c.bones) for c in self.anatomy.chains))
         bones = {b.name: b for b in self.provider.skeleton(self.values).bones}
         points = {p.name: p.position for p in self.anatomy.landmarks}
         for chain in self.anatomy.chains:
@@ -37,7 +37,7 @@ class CanineRecipeTests(unittest.TestCase):
             region = self.regions[connection.regions[1]]
             self.assertFalse(owned.intersection(region))
             owned.update(region)
-            self.assertEqual(48, len(region))
+            self.assertEqual(64 if '.hind.' in connection.regions[1] else 48, len(region))
             root, ring = connection.boundaries
             self.assertEqual((4, 8), (len(root), len(ring)))
             self.assertTrue(set(root) <= self.regions['torso'])
@@ -58,6 +58,72 @@ class CanineRecipeTests(unittest.TestCase):
             self.assertAlmostEqual(a, b)
         self.assertEqual(target, bones['hind_upper.right'].tail)
         self.assertEqual(target, bones['hind_lower.right'].head)
+
+    def test_hock_landmark_drives_surface_and_distal_bone(self):
+        changed = replace(self.anatomy, landmarks=tuple(
+            replace(p, position=(p.position[0], p.position[1] - 2, p.position[2] + 1))
+            if p.name == 'hock.hind.left' else p for p in self.anatomy.landmarks))
+        mesh, anatomy = _build_quadruped_mesh(changed)
+        bones = {b.name: b for b in _build_quadruped_skeleton(changed).bones}
+        target = next(p.position for p in changed.landmarks if p.name == 'hock.hind.left')
+        indices = next(r.vertex_indices for r in anatomy.regions if r.name == 'leg.hind.left')[32:40]
+        for axis in range(3):
+            self.assertAlmostEqual(target[axis], sum(mesh.parts[0].vertices[i][axis] for i in indices) / 8)
+        self.assertEqual(target, bones['hind_lower.left'].tail)
+        self.assertEqual(target, bones['hind_pastern.left'].head)
+        self.assertEqual('hind_lower.left', bones['hind_pastern.left'].parent)
+
+    def test_hind_stance_and_connected_topology_across_parameter_corners(self):
+        from collections import Counter
+        from itertools import product
+        for endpoints in product(('minimum', 'maximum'), repeat=len(self.provider.parameters)):
+            values = {p.key: getattr(p, endpoint) for p, endpoint in zip(self.provider.parameters, endpoints)}
+            with self.subTest(values=values):
+                mesh, anatomy = _construction(self.provider.dimensions(values))
+                points = {p.name: p.position for p in anatomy.landmarks}
+                regions = {r.name: r.vertex_indices for r in anatomy.regions}
+                for side in ('left', 'right'):
+                    hip, knee, hock, paw = (points[n + '.hind.' + side] for n in ('hip', 'knee', 'hock', 'paw'))
+                    self.assertGreater(knee[1], hip[1])
+                    self.assertLess(hock[1], hip[1])
+                    self.assertGreater(paw[1], hock[1])
+                    self.assertTrue(hip[2] > knee[2] > hock[2] > paw[2] > 0)
+                    self.assertGreater(min(mesh.parts[0].vertices[i][2] for i in regions['leg.hind.' + side]), 0)
+                part = mesh.parts[0]
+                directed = Counter((a, b) for face in part.faces for a, b in zip(face, face[1:] + face[:1]))
+                self.assertTrue(all(n == 1 and directed[(b, a)] == 1 for (a, b), n in directed.items()))
+                neighbors = {i: set() for i in range(len(part.vertices))}
+                for a, b in directed:
+                    neighbors[a].add(b)
+                seen, pending = set(), [0]
+                while pending:
+                    current = pending.pop()
+                    if current not in seen:
+                        seen.add(current)
+                        pending.extend(neighbors[current] - seen)
+                self.assertEqual(len(part.vertices), len(seen))
+                left = {tuple(round(c, 7) for c in (-part.vertices[i][0], *part.vertices[i][1:]))
+                        for i in regions['leg.hind.left']}
+                right = {tuple(round(c, 7) for c in part.vertices[i]) for i in regions['leg.hind.right']}
+                self.assertEqual(left, right)
+                # Edge winding alone cannot catch a 180-degree ring-frame flip.
+                # Tube face normals must point away from their local centerline.
+                for side in ('left', 'right'):
+                    owned = regions['leg.hind.' + side]
+                    rings = [owned[i:i + 8] for i in range(0, len(owned), 8)]
+                    centers = [tuple(sum(part.vertices[i][k] for i in ring) / 8 for k in range(3))
+                               for ring in rings]
+                    for level in range(len(rings) - 1):
+                        for segment in range(8):
+                            nxt = (segment + 1) % 8
+                            a, b, c, d = (part.vertices[i] for i in (
+                                rings[level][segment], rings[level][nxt],
+                                rings[level + 1][nxt], rings[level + 1][segment]))
+                            u, v = (tuple(point[k] - a[k] for k in range(3)) for point in (b, d))
+                            normal = (u[1]*v[2] - u[2]*v[1], u[2]*v[0] - u[0]*v[2], u[0]*v[1] - u[1]*v[0])
+                            radial = tuple((a[k] + b[k] + c[k] + d[k]) / 4
+                                           - (centers[level][k] + centers[level + 1][k]) / 2 for k in range(3))
+                            self.assertGreater(sum(normal[k] * radial[k] for k in range(3)), 0)
 
     def test_each_published_operation_changes_only_its_authored_region(self):
         for target, kind in self.provider.semantic_apply_capabilities:

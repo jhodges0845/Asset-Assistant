@@ -19,7 +19,7 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
 
 ## Shared anatomy seam
 
-`anatomy/contracts.py` owns immutable metadata. `providers/human_anatomy.py` resolves Human; `providers/quadruped_anatomy.py` resolves the whole existing Quadruped as `CanineRecipe`. Geometry owns topology/membership; rig builders consume resolved chains. Canine limb weights use their authored chains, with torso blending restricted to attachment loops. `providers/quadruped_semantic.py` executes authored-region edits using `providers/semantic_geometry.py`, shared with Human/Avian. Canine quality refinement and Avian recipe migration remain ahead.
+`anatomy/contracts.py` owns immutable metadata. `providers/human_anatomy.py` resolves Human; `providers/quadruped_anatomy.py` resolves Quadruped as `CanineRecipe` (version 3: explicit knee/hock/paw hind chains, 17 bones). Geometry owns topology/membership; rig builders consume resolved chains. Canine limb weights use their authored chains, with torso blending restricted to attachment loops. `providers/quadruped_semantic.py` executes authored-region edits using `providers/semantic_geometry.py`, shared with Human/Avian. Canine quality refinement and Avian recipe migration remain ahead.
 Tests: `test_anatomy_contracts.py`, `test_anatomy_proofs.py`, `test_human_recipe.py`, `test_canine_recipe.py` under `tests/core`; `tests/blender/test_quadruped_semantic.py`. Baseline: `scripts/anatomy_baseline.py`. Status: `docs/shared-anatomy-implementation.md`.
 
 ## Ownership by area

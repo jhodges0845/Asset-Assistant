@@ -35,12 +35,14 @@ def _lerp(a, b, amount):
     return tuple(a[i] + (b[i] - a[i]) * amount for i in range(3))
 
 
-def _ring(center, width, depth, tangent):
+def _ring(center, width, depth, tangent, *, sagittal=False):
     tangent = _normalize(tangent)
     reference = (0.0, 0.0, 1.0)
     if abs(sum(tangent[i] * reference[i] for i in range(3))) > 0.95:
         reference = (0.0, 1.0, 0.0)
-    width_axis = _normalize(_cross(reference, tangent))
+    # Hind-leg bends change the Y sign of the tangent. A fixed lateral axis
+    # prevents a 180-degree frame flip between knee and hock rings.
+    width_axis = (-1.0, 0.0, 0.0) if sagittal else _normalize(_cross(reference, tangent))
     depth_axis = _normalize(_cross(tangent, width_axis))
     return tuple(
         tuple(
@@ -53,17 +55,24 @@ def _ring(center, width, depth, tangent):
     )
 
 
-def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True):
+def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True, sagittal=False):
     rings = []
     for index, center in enumerate(centers):
         if index == 0:
             tangent = _subtract(centers[1], center)
         elif index == len(centers) - 1:
             tangent = _subtract(center, centers[index - 1])
+        elif sagittal:
+            # Bisect the two segment directions rather than weighting by their
+            # unequal lengths. A long incoming segment otherwise tilts the hock
+            # ring back across its short outgoing support section.
+            incoming = _normalize(_subtract(center, centers[index - 1]))
+            outgoing = _normalize(_subtract(centers[index + 1], center))
+            tangent = tuple(a + b for a, b in zip(incoming, outgoing))
         else:
             tangent = _subtract(centers[index + 1], centers[index - 1])
         start = len(vertices)
-        vertices.extend(_ring(center, widths[index], depths[index], tangent))
+        vertices.extend(_ring(center, widths[index], depths[index], tangent, sagittal=sagittal))
         rings.append(tuple(range(start, start + _RING_SIDES)))
 
     if cap_start:
@@ -78,11 +87,11 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
     return rings
 
 
-def _append_branch(vertices, faces, root, centers, widths, depths):
+def _append_branch(vertices, faces, root, centers, widths, depths, *, sagittal=False):
     """Replace one torso quad with an eight-sided deformable limb chain."""
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
-    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True)
+    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True, sagittal=sagittal)
     first = rings[0]
     for index in range(4):
         root_start = root[index]
@@ -168,20 +177,24 @@ def _build_quadruped_mesh(anatomy):
             suffix = family + "." + side
             upper = landmarks[upper_name + "." + suffix]
             knee = landmarks[joint_name + "." + suffix]
-            ankle = landmarks["ankle." + suffix]
             paw = landmarks["paw." + suffix]
-            centers_leg = (
-                upper,
-                _lerp(upper, knee, 0.18),
-                knee,
-                _lerp(knee, ankle, 0.18),
-                ankle,
-                paw,
-            )
             base = max(width * 0.18, 2.0)
-            widths_leg = (base * 1.12, base, base * 0.88, base * 0.78, base * 0.70, base * 0.94)
-            depths_leg = (base * 1.12, base, base * 0.88, base * 0.78, base * 0.70, base * 0.58)
-            rings = _append_branch(vertices, faces, openings[(region, side)], centers_leg, widths_leg, depths_leg)
+            if family == "hind":
+                hock = landmarks["hock." + suffix]
+                base = min(base, dimensions["shoulder_height_cm"] * .13)
+                centers_leg = (upper, _lerp(upper, knee, .35), knee,
+                               _lerp(knee, hock, .25), hock,
+                               _lerp(hock, paw, .25), _lerp(hock, paw, .80), paw)
+                widths_leg = tuple(base * v for v in (1.6, 1.45, .95, .85, .60, .55, .72, .95))
+                depths_leg = tuple(base * v for v in (1.4, 1.25, .90, .78, .60, .55, .60, .58))
+            else:
+                ankle = landmarks["ankle." + suffix]
+                centers_leg = (upper, _lerp(upper, knee, .18), knee,
+                               _lerp(knee, ankle, .18), ankle, paw)
+                widths_leg = tuple(base * v for v in (1.12, 1, .88, .78, .70, .94))
+                depths_leg = tuple(base * v for v in (1.12, 1, .88, .78, .70, .58))
+            rings = _append_branch(vertices, faces, openings[(region, side)], centers_leg,
+                                   widths_leg, depths_leg, sagittal=family == "hind")
             limb_rings["leg." + suffix] = rings
 
     vertices, faces = tuple(vertices), tuple(faces)

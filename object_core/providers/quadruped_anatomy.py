@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Canine recipe resolving the current Quadruped surface and complete rest rig.
 
-The current coarse surface/rig relationships are preserved deliberately. Canine
-quality refinement (ears, digitigrade stance and paw articulation) comes next.
+Hind limbs resolve separate hip, knee, hock and paw landmarks. The remaining
+coarse torso, front limbs and head still await anatomical refinement.
 Provider-validated dimensions enter resolution; the constructor binds topology.
 """
 from ..anatomy import AnatomyConnection, AnatomyRegion, JointChain, Landmark, ResolvedAnatomy
@@ -10,7 +10,7 @@ from ..anatomy import AnatomyConnection, AnatomyRegion, JointChain, Landmark, Re
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '2'
+    recipe_version = '3'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -59,16 +59,31 @@ class CanineRecipe:
             ):
                 suffix = family + '.' + side
                 region = 'leg.' + suffix
-                points.extend((
-                    (upper + '.' + suffix, (x, y, top_z)),
-                    (joint + '.' + suffix, (x, y, knee_z)),
-                    ('ankle.' + suffix, (x, y, max(width * 0.12, 1.5))),
-                    ('paw.' + suffix, (x, y + width * 0.10, max(width * 0.07, 1.0))),
-                    ('ground.' + suffix, (x, y, 0)),
-                ))
-                chains.append(JointChain(region,
-                    (upper + '.' + suffix, joint + '.' + suffix, 'ground.' + suffix),
-                    (bone_prefix + '_upper.' + side, bone_prefix + '_lower.' + side),
+                if family == 'hind':
+                    # +Y is forward. The stifle sits forward of the hip; the
+                    # raised hock is behind it, with a separate distal segment.
+                    # Bounded offsets keep extreme length/height combinations
+                    # ordered without deriving joint placement from mesh size.
+                    knee = (x, y + min(length * .10, shoulder * .20), shoulder * .53)
+                    hock = (x, y - min(length * .06, shoulder * .12), shoulder * .22)
+                    paw = (x, hock[1] + min(length * .06, shoulder * .10), shoulder * .045)
+                    points.extend(((upper + '.' + suffix, (x, y, top_z)),
+                                   ('knee.' + suffix, knee), ('hock.' + suffix, hock),
+                                   ('paw.' + suffix, paw)))
+                    path = (upper + '.' + suffix, 'knee.' + suffix,
+                            'hock.' + suffix, 'paw.' + suffix)
+                    bones = ('hind_upper.' + side, 'hind_lower.' + side, 'hind_pastern.' + side)
+                else:
+                    points.extend((
+                        (upper + '.' + suffix, (x, y, top_z)),
+                        (joint + '.' + suffix, (x, y, knee_z)),
+                        ('ankle.' + suffix, (x, y, max(width * 0.12, 1.5))),
+                        ('paw.' + suffix, (x, y + width * 0.10, max(width * 0.07, 1.0))),
+                        ('ground.' + suffix, (x, y, 0)),
+                    ))
+                    path = (upper + '.' + suffix, joint + '.' + suffix, 'ground.' + suffix)
+                    bones = (bone_prefix + '_upper.' + side, bone_prefix + '_lower.' + side)
+                chains.append(JointChain(region, path, bones,
                     'spine', (0, -1 if family == 'front' else 1, 0), family + '_support'))
                 regions.append(AnatomyRegion(region, 'quadruped', ()))
                 connections.append(AnatomyConnection(upper + '.' + suffix, ('torso', region), 'connected'))

@@ -21,7 +21,7 @@ There is no new registry, discovery UI or alternative generation pipeline.
   `surface_human_builder.py` audits it; `human_shaping.py` applies recipe controls.
   `rigging/surface_human.py` converts resolved chains directly to bones.
 - `providers/quadruped_anatomy.py` owns `CanineRecipe`: complete torso/head/tail
-  and four-limb centerlines, all 15 current bones, bilateral roles and four
+  and four-limb centerlines, all 17 current bones, bilateral roles and four
   torso/limb attachment declarations. It replaces the front-limb proof class.
 - `providers/quadruped_geometry.py` consumes resolved landmarks and dimensions,
   then binds region indices and four/eight-vertex attachment loops from the
@@ -60,16 +60,19 @@ nearby-region leakage. The Human reference-height rounding correction preserves
 valid input at the range endpoints. All five body types and both height/weight
 limits are tested. Saved artist work is never silently regenerated.
 
-The canine migration preserves the existing 280-vertex/274-face neutral mesh,
-15-bone rig and motion. Its current surface/rig centerlines remain distinct, and
-lower-leg bones end at ground level while surface ankle/paw landmarks are above
-it. The coarse current form is not a completed canine anatomy quality milestone.
+The initial canine migration preserved the 280-vertex/274-face neutral mesh and
+15-bone rig. Recipe version 3 deliberately changes those to 312 vertices,
+306 faces and 17 bones by adding a raised hock and distal segment to each hind
+leg. Hind surface and rig joint centers now share the same landmarks. Front
+limbs retain their earlier surface/rig differences. The coarse current form is
+not a completed canine anatomy quality milestone.
 
 Canine recipe version 2 restricts each limb to its resolved chain, plus the parent
 at the authored attachment loop. The existing distance/local-hierarchy weighting
 operates within those candidates. Torso/head/tail weighting remains spatial and
 needs refinement alongside the upcoming rest-anatomy work. This intentionally
-changes canine weights; neutral geometry, rig and clip data remain unchanged.
+changed canine weights while preserving neutral geometry, rig and clip data
+at that checkpoint. Version 3 additionally changes hind geometry and rest rig.
 
 Human attachment declarations do not yet contain local boundary loops; the
 whole-surface connectivity/winding audit remains the topology gate. Quadruped
@@ -126,10 +129,64 @@ This is a deformation isolation checkpoint, not final canine visual acceptance.
 No saved scene is automatically regenerated; new weights are used when the
 existing workflow explicitly creates, rigs or applies a generated modification.
 
+## Hind-leg stance (recipe version 3)
+
+Each hind chain now resolves hip -> knee -> hock -> paw. Existing `hind_upper`
+and `hind_lower` bone names remain, with a new `hind_pastern` child starting at
+the hock. The knee is forward of the hip and the raised hock is behind it; the
+paw endpoint is forward of the hock. These proportions are an authored neutral
+reference, not breed-specific anatomical measurements. The distinction between
+stifle and hock is informed by the [University of Illinois rear-limb anatomy
+reference](https://vetmed.illinois.edu/demo-sa-orthopedics/orthopedic-exam-rearlimb/).
+
+Hind tubes now have eight rings (64 vertices per limb), fuller upper sections
+and support near the hock. A consistent sagittal frame prevents the old tangent
+rule from flipping a ring when the leg changes direction. Interior hind rings
+use the angle bisector of incoming/outgoing segments; this prevents an inner
+fold found at the longest-body/shortest-height parameter corner. Front-limb and body
+construction are unchanged. Existing motion tracks still resolve; new distal
+bones inherit their parent motion. Dedicated gait/hock tuning remains ahead.
+
+Core tests check connected, consistently wound topology, outward local hind-tube
+faces and mirrored, ordered hind landmarks at all 32 parameter corners, plus independent hock movement
+through both geometry and rig. Blender checks actual distal articulation and
+other-limb isolation. `tests/fixtures/canine_v2_default.json` is a frozen previous
+surface from `ce279f6`, used to prove incompatible saved geometry is preserved
+and procedural Modify is blocked. To use version 3 on an older asset, explicitly
+create a new Quadruped; there is no automatic topology, weight or Action migration.
+
+Reproduce four-view clay/silhouette/wireframe sheets:
+
+```powershell
+blender --background --factory-startup --python scripts/render_canine_review.py -- --output artifacts/shared-anatomy/canine-hind-final-default.png
+```
+
+Use `--sample contrasting` for the second proportion set and `--pose knee` or
+`--pose hock` for evaluated joint diagnostics. The renderer uses the real provider
+and Blender adapter; it also checks pose movement and other-limb isolation. Each
+sheet has adjacent JSON recording recipe/version, parameters, commit, landmarks,
+counts and pose measurements. It reuses the existing camera/material helpers.
+
+Before/after neutral clay, silhouette and wireframe views were inspected: the
+hind bend is now readable and the rings remain continuous. This is a rest-chain
+checkpoint, not acceptance of the complete canine. The torso/head remain coarse;
+front legs, actual paw shape and ground contact still need refinement. The
+contrasting neutral and bent knee/hock clay/wireframe sheets were also inspected:
+limbs remain attached and the joints move independently; coarse body transitions
+and broad joint blending still limit the result. Diagnostic movements are not
+proof of final gait or ground-contact quality.
+
+All 383 core tests, 236 Blender integration tests, actual canine plugin
+save/reopen and the isolated packaged add-on check pass on the final surface. The six
+baseline samples show only intended Quadruped mesh/rig/weight changes; Human,
+Avian and all clip data are unchanged. Logs use the `canine-hock-` prefix and
+final images use `canine-hind-final-` under `artifacts/shared-anatomy/`. The save/reopen script
+is also wired into CI; CI coverage remains unverified locally.
+
 ## Next work
 
 Refine the canine recipe into a convincing reference body: chest/scapula/pelvis,
-neck/muzzle/ears, digitigrade hind-limb chain and paws, then localized weights and
-pose review. Make geometry/rig changes deliberately with baseline comparisons;
+neck/muzzle/ears, front-limb transitions and paws, then further localized weights
+and pose review. The initial digitigrade hind chain is now in place. Make geometry/rig changes deliberately with baseline comparisons;
 do not represent that quality milestone as completed by the preserved coarse
 mesh. After that, migrate Avian through the same layer using bird-specific rules.

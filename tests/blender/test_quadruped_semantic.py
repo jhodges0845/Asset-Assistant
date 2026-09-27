@@ -91,6 +91,54 @@ class QuadrupedSemanticTests(unittest.TestCase):
         after = evaluated()
         self.assertGreater(max((after[i] - before[i]).length for i in indices), .01)
 
+    def test_hock_is_independently_posable_and_existing_clips_resolve(self):
+        from object_core.providers.quadruped import _construction
+        from scripts.render_canine_review import evaluated_points
+        provider = get_provider('quadruped')
+        values = {p.key: p.default for p in provider.parameters}
+        _, anatomy = _construction(provider.dimensions(values))
+        rig = next(o for o in self.root.children if o.type == 'ARMATURE')
+        self.assertEqual(17, len(rig.pose.bones))
+        for clip in (provider.idle(2, 1), provider.locomotion(2, 1), provider.run(1, 1)):
+            self.assertTrue(all(t.bone in rig.pose.bones for t in clip.tracks))
+        before = evaluated_points(self.body)
+        knee = rig.pose.bones['hind_lower.left'].head.copy()
+        hock = rig.pose.bones['hind_pastern.left']
+        old_head, old_tail = hock.head.copy(), hock.tail.copy()
+        hock.rotation_mode = 'XYZ'
+        hock.rotation_euler.x = .45
+        after = evaluated_points(self.body)
+        self.assertLess((hock.head - old_head).length, 1e-6)
+        self.assertLess((rig.pose.bones['hind_lower.left'].head - knee).length, 1e-6)
+        self.assertGreater((hock.tail - old_tail).length, .01)
+        regions = {r.name: r.vertex_indices for r in anatomy.regions}
+        self.assertGreater(max((after[i] - before[i]).length for i in regions['leg.hind.left'][-8:]), .01)
+        for name in ('leg.hind.right', 'leg.front.left', 'leg.front.right'):
+            self.assertLess(max((after[i] - before[i]).length for i in regions[name]), 1e-6)
+
+    def test_previous_recipe_surface_is_preserved_and_modify_is_blocked(self):
+        import json
+        from pathlib import Path
+        from object_core.models import MeshPart, ObjectMesh
+        document = json.loads((Path(__file__).resolve().parents[1] / 'fixtures' / 'canine_v2_default.json').read_text())
+        raw = document['part']
+        mesh = ObjectMesh((MeshPart(raw['name'], raw['vertices'], raw['faces'], raw['uvs']),))
+        legacy = create_character(mesh, name='SavedCanineV2', scene=self.scene)
+        legacy['object_type'] = 'quadruped'
+        for key, value in document['parameters'].items():
+            legacy[key] = value
+        body = next(o for o in legacy.children if o.type == 'MESH')
+        before = tuple(tuple(v.co) for v in body.data.vertices)
+        snapshot = inspect_generated_asset(legacy)
+        self.assertFalse(snapshot.owns_geometry)
+        operation = SemanticOperation('scale', 'leg.hind.left', (('factor', 1.1),))
+        plan = plan_modification(snapshot, ModificationRequest(semantic_operations=(operation,)))
+        self.assertFalse(plan.safe_to_apply)
+        with self.assertRaises(ValueError):
+            apply_semantic_modification(legacy, plan)
+        self.assertEqual(before, tuple(tuple(v.co) for v in body.data.vertices))
+        self.assertEqual(280, len(body.data.vertices))
+
     def test_manual_artist_edit_blocks_recipe_apply(self):
         self.body.data.vertices[0].co.x += .123
         snapshot = inspect_generated_asset(self.root)

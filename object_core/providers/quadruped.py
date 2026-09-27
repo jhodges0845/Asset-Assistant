@@ -78,7 +78,7 @@ def _validate_topology(mesh, base):
     if (len(mesh.parts) != 1 or mesh.parts[0].name != base.parts[0].name
             or mesh.parts[0].faces != base.parts[0].faces
             or len(mesh.parts[0].vertices) != len(base.parts[0].vertices)):
-        raise ValueError("Quadruped ownership requires the authored surface topology")
+        raise ValueError("Quadruped ownership requires the authored surface topology; explicitly regenerate this asset before applying recipe edits")
 
 
 class QuadrupedProvider:
