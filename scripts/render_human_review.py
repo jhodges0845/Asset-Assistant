@@ -273,8 +273,11 @@ def _configure_scene(args, part):
     mesh_objects = []
     for view_name, angle, x in zip(VIEW_NAMES, rotations, positions):
         obj = _make_mesh_object("Human " + view_name, part)
-        x_bounds = rotated_bounds[len(mesh_objects)][0]
+        x_bounds, y_bounds = rotated_bounds[len(mesh_objects)]
         obj.location.x = x - (x_bounds[0] + x_bounds[1]) * 0.5
+        # Cropped regions can be far from the source origin. Center depth too
+        # so clipping and light placement depend on size, not source position.
+        obj.location.y = -(y_bounds[0] + y_bounds[1]) * 0.5
         obj.rotation_euler.z = math.radians(angle)
         obj.data.materials.append(material)
         mesh_objects.append(obj)
@@ -298,7 +301,7 @@ def _configure_scene(args, part):
     _look_at(camera, (0.0, 0.0, target_z))
     scene.camera = camera
 
-    front_y = min(bounds[1][0] for bounds in rotated_bounds)
+    front_y = -maximum_depth * 0.5
     _add_lighting(center_z, total_width, model_height, front_y)
     bpy.context.view_layer.update()
     review_objects = mesh_objects + [obj for obj in scene.objects if obj.type == "FONT"]

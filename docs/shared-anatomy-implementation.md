@@ -576,6 +576,8 @@ committed in `17c6b01`. The reports retain their original capture provenance.
 
 ## Distal front-leg bounds (recipe version 11)
 
+Implementation commit: `4fd30d6`.
+
 The former width-only front ankle height could exceed elbow height for very
 short, wide bodies. Recipe 11 bounds ankle height to half the elbow height and
 paw height to 60% of ankle height; forward paw reach is limited to 8% of shoulder
@@ -611,13 +613,52 @@ compilation and whitespace checks pass. Logs use `distal-*`. The extreme sample
 retains its exact face topology. Package installation, gait playback and remote
 CI were not repeated for this slice.
 
+## Paw close-up diagnostics (recipe 11 baseline)
+
+`scripts/render_canine_review.py` now accepts `--region front-paw` and
+`--region hind-paw`. Both select the left limb. Selection uses neutral authored
+membership and whole faces touching the low-paw band (twice the larger of the
+recipe paw-profile height and paw-landmark height). Evaluated pose coordinates
+are then applied to the same indices. The open upper boundary is a crop, not a
+new cap; no provider geometry, rig, weights or clips change.
+
+Adjacent JSON records source vertex indices, the neutral selection height and
+the chosen limb. Ground-clearance and footprint reports still describe the full
+evaluated asset, not the cropped display. Body/head views retain their face
+selection. Shared review layout now centers each view in depth as well as width,
+so small off-origin crops do not fall behind the camera or beyond its far plane;
+lighting uses the resulting centered bounds.
+
+Example commands (using the portable Blender executable documented above):
+
+```text
+blender --background --factory-startup --python scripts/render_canine_review.py -- --output artifacts/shared-anatomy/closeup-default-front-paw.png --region front-paw --modes clay wireframe
+blender --background --factory-startup --python scripts/render_canine_review.py -- --output artifacts/shared-anatomy/closeup-contrasting-hock.png --region hind-paw --sample contrasting --pose hock --modes clay
+```
+
+The focused crop/camera/deformation suite has ten passing Blender tests,
+including default, contrasting and short/wide framing; pose-stable selection;
+source-face ownership; and existing Human camera gates. Log:
+`artifacts/shared-anatomy/paw-closeup-tests.log`. This diagnostic slice retains
+recipe 11 and does not resolve the previously documented extreme elbow contact
+limitation. Full core/integration, package and save/reopen suites are not repeated
+for these review-only changes.
+
+Local baseline sheets use `closeup-default-front-paw` and
+`closeup-default-hind-paw` (clay/wireframe), plus `closeup-contrasting-elbow` and
+`closeup-contrasting-hock` (clay). They show broad terminal volumes without
+distinct toes or pads; the front sole remains visibly faceted. These views are
+a shape baseline, not anatomical acceptance. JSON reports retain full-asset
+support metrics and the selected crop indices. Compilation and whitespace checks
+pass; the source checkpoint is `4fd30d6` plus these review-tool edits.
+
 ## Next work
 
 Next, refine detailed paw anatomy and shoulder/hip attachment creases using
-recipe 11 as the baseline. Use its neutral and joint diagnostics as the
-before-state for the next geometry change, rendering comparisons with corrected
-lighting and
-portable Blender 5.2.1 runtime above. Neutral sole contact is complete; planted
+recipe 11 as the baseline. Use the new paw close-ups alongside its whole-body
+neutral and joint diagnostics as the before-state for the next geometry change,
+rendering comparisons with corrected lighting and the portable Blender 5.2.1
+runtime above. Neutral sole contact is complete; planted
 support through a gait cycle and contact drift remain open.
 
 Eyes, nose/mouth detail and scapula/pelvis shaping also remain in the canine

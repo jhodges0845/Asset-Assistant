@@ -4,6 +4,7 @@
 blender --background --factory-startup --python scripts/render_canine_review.py -- \
     --output artifacts/shared-anatomy/canine-neutral.png --sample default
 Use --pose shoulder, elbow, hip, knee or hock for independently evaluated joint diagnostics.
+Use --region front-paw or hind-paw for left-paw close-ups selected in neutral space.
 The adjacent JSON records parameters, counts, recipe version and pose movement.
 """
 from __future__ import annotations
@@ -100,11 +101,50 @@ def review_part(values, pose):
     return part, evidence
 
 
+
+def crop_review_part(part, neutral, anatomy, region):
+    """Select authored faces in neutral space, then display evaluated coordinates.
+
+    Paw crops retain whole faces touching the low-limb band, so the open upper
+    boundary is a diagnostic crop rather than a new cap or generated anatomy.
+    """
+    if region == 'body':
+        return part, {}
+    if region not in ('head', 'front-paw', 'hind-paw'):
+        raise ValueError('Unknown canine review region: ' + region)
+    if part.faces != neutral.faces or len(part.vertices) != len(neutral.vertices):
+        raise ValueError('Canine review crop requires matching neutral topology')
+    metadata = {}
+    if region == 'head':
+        target = 'head'
+        height = None
+    else:
+        family = region.split('-')[0]
+        target = 'leg.' + family + '.left'
+        points = {p.name: p.position for p in anatomy.landmarks}
+        # Include the paw and a short proximal segment for shape context.
+        height = max(anatomy.paw_profile.height_cm * 2,
+                     points['paw.' + family + '.left'][2] * 2)
+        metadata.update(review_selection_height_cm=height,
+                        review_selection_space='neutral', review_limb=target)
+    owned = set(next(r.vertex_indices for r in anatomy.regions if r.name == target))
+    faces = tuple(face for face in neutral.faces if set(face) <= owned
+                  and (height is None or any(neutral.vertices[i][2] <= height for i in face)))
+    if not faces:
+        raise ValueError('Canine review crop contains no authored faces')
+    indices = sorted({i for face in faces for i in face})
+    remap = {old: new for new, old in enumerate(indices)}
+    result = MeshPart(part.name, tuple(part.vertices[i] for i in indices),
+                      tuple(tuple(remap[i] for i in face) for face in faces))
+    metadata['review_source_vertex_indices'] = indices
+    return result, metadata
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
-    parser.add_argument('--region', choices=('body', 'head'), default='body')
+    parser.add_argument('--region', choices=('body', 'head', 'front-paw', 'hind-paw'), default='body')
     parser.add_argument('--pose', choices=('neutral', 'knee', 'hock', 'shoulder', 'elbow', 'hip'), default='neutral')
     parser.add_argument('--samples', type=int, default=4)
     parser.add_argument('--resolution-x', type=int, default=1200)
@@ -122,14 +162,9 @@ def main():
     sheets._clear_scene()
     part, evidence = review_part(values, args.pose)
     evidence['review_region'] = args.region
-    if args.region == 'head':
-        _, anatomy = _construction(provider.dimensions(values))
-        owned = set(next(r.vertex_indices for r in anatomy.regions if r.name == 'head'))
-        faces = tuple(face for face in part.faces if set(face) <= owned)
-        indices = sorted({i for face in faces for i in face})
-        remap = {old: new for new, old in enumerate(indices)}
-        part = MeshPart(part.name, tuple(part.vertices[i] for i in indices),
-                        tuple(tuple(remap[i] for i in face) for face in faces))
+    neutral, anatomy = _construction(provider.dimensions(values))
+    part, selection = crop_review_part(part, neutral.parts[0], anatomy, args.region)
+    evidence.update(selection)
     evidence.update(review_vertices=len(part.vertices), review_faces=len(part.faces))
     sheets._clear_scene()
     material = sheets._configure_scene(args, part)
