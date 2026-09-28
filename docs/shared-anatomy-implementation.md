@@ -538,6 +538,9 @@ This remains a limited shape checkpoint, not final canine visual acceptance.
 
 ## Front stance (recipe version 10)
 
+Implementation commit: `17c6b01` (pushed to `codex/shared-generation-system`).
+Generated renders, pose reports and validation logs remain local artifacts.
+
 The recipe advances each front shoulder by `min(body_length * .04,
 shoulder_height * .06)` in +Y, leaving elbow, ankle, paw and ground landmarks
 fixed. The upper leg now slopes back toward the elbow; the existing lower-leg
@@ -567,15 +570,16 @@ including 0.0901 cm for the contrasting elbow. Evidence is `stance-poses.json`.
 Default/contrasting neutral clay/wireframe and default shoulder clay were rendered
 and visually reviewed. Compilation and whitespace checks pass. Logs use the
 `stance-*` prefix. Package installation, gait playback and remote CI were not
-repeated for this slice. Changes and evidence were captured on working-tree
-edits above `6cf84de`; this is not a clean-commit baseline.
+repeated for this slice. Evidence was captured with HEAD `6cf84de` plus the
+recorded working-tree edits; the final source and regression changes are now
+committed in `17c6b01`. The reports retain their original capture provenance.
 
 ## Next work
 
 Next, address distal front-cage folds at short/wide parameter extremes and
-refine detailed paw anatomy using the version 10 stance as the baseline. Review shoulder/hip attachment creases and
-use the version 10 neutral and joint diagnostics as the before-state for the
-next geometry change, rendering comparisons with the corrected lighting and
+refine detailed paw anatomy using the version 10 stance as the baseline. Review
+shoulder/hip attachment creases and use the version 10 neutral and joint
+diagnostics as the before-state for the next geometry change, rendering comparisons with the corrected lighting and
 portable Blender 5.2.1 runtime above. Neutral sole contact is complete; planted
 support through a gait cycle and contact drift remain open.
 
