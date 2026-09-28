@@ -166,7 +166,9 @@ class CanineRecipeTests(unittest.TestCase):
                                                for n in ('shoulder', 'elbow', 'ground'))
                     self.assertLess(elbow[1], shoulder[1])
                     self.assertEqual(elbow[1], ground[1])
-                    self.assertTrue(shoulder[2] > elbow[2] > ground[2])
+                    ankle = points['ankle.front.' + side]
+                    paw = points['paw.front.' + side]
+                    self.assertTrue(shoulder[2] > elbow[2] > ankle[2] > paw[2] > ground[2])
                     self.assertAlmostEqual(min(mesh.parts[0].vertices[i][2]
                                                for i in regions['leg.front.' + side]), 0)
                 left = [(-mesh.parts[0].vertices[i][0], *mesh.parts[0].vertices[i][1:])
@@ -192,7 +194,7 @@ class CanineRecipeTests(unittest.TestCase):
         self.assertEqual(target, bones['hind_pastern.left'].head)
         self.assertEqual('hind_lower.left', bones['hind_pastern.left'].parent)
 
-    def test_hind_stance_and_connected_topology_across_parameter_corners(self):
+    def test_limb_stance_and_connected_topology_across_parameter_corners(self):
         from collections import Counter
         from itertools import product
         for endpoints in product(('minimum', 'maximum'), repeat=len(self.provider.parameters)):
@@ -237,9 +239,7 @@ class CanineRecipeTests(unittest.TestCase):
                     rings = [owned[i:i + 8] for i in range(0, len(owned), 8)]
                     centers = [tuple(sum(part.vertices[i][k] for i in ring) / 8 for k in range(3))
                                for ring in rings]
-                    # Front stance changes only the upper two intervals. The
-                    # old distal cage folds at very short/wide parameter corners.
-                    levels = 2 if family == 'front' else len(rings) - 1
+                    levels = len(rings) - 1
                     for level in range(levels):
                         for segment in range(8):
                             nxt = (segment + 1) % 8

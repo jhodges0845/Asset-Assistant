@@ -193,6 +193,8 @@ def _build_quadruped_cage(anatomy):
                 widths_leg = tuple(base * v for v in (1.6, 1.45, .95, .85, .60, .55, .85, 1.35))
                 depths_leg = tuple(base * v for v in (1.4, 1.25, .90, .78, .60, .55, .65, .80))
             else:
+                # Bound front-limb thickness by the available vertical span.
+                base = min(base, dimensions["shoulder_height_cm"] * .18)
                 ankle = landmarks["ankle." + suffix]
                 centers_leg = (upper, _lerp(upper, knee, .18), knee,
                                _lerp(knee, ankle, .18), ankle, paw)

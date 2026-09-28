@@ -4,7 +4,7 @@
 Hind limbs resolve separate hip, knee, hock and paw landmarks. The remaining
 body sections resolve a tucked waist, fuller chest and a separate muzzle base.
 Each limb declares a ground landmark for neutral sole contact.
-Front shoulders resolve ahead of the elbow while distal support stays fixed.
+Front shoulders resolve ahead of the elbow; distal dimensions fit leg height.
 Detailed facial features still await refinement.
 Provider-validated dimensions enter resolution; the constructor binds topology.
 """
@@ -73,7 +73,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '10'
+    recipe_version = '11'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -90,6 +90,10 @@ class CanineRecipe:
         rig_back_z = shoulder - torso_height * 0.48 + torso_height * 0.18
         fore_y, hind_y = length * 0.32, -length * 0.32
         knee_z = (shoulder - torso_height * 0.45) * 0.48
+        # Distal landmarks must stay below the elbow even for short, wide bodies.
+        ankle_z = min(max(width * .12, 1.5), knee_z * .5)
+        paw_z = min(max(width * .07, 1.0), ankle_z * .6)
+        paw_forward = min(width * .10, shoulder * .08)
         points = [
             ('tail.tip', (0, -length * 0.5 - tail_length, surface_back_z + torso_height * 0.36)),
             ('tail.mid', (0, -length * 0.5 - tail_length * 0.48, surface_back_z + torso_height * 0.22)),
@@ -146,8 +150,8 @@ class CanineRecipe:
                         # distal chain aligned with the existing support.
                         (upper + '.' + suffix, (x, y + min(length * .04, shoulder * .06), top_z)),
                         (joint + '.' + suffix, (x, y, knee_z)),
-                        ('ankle.' + suffix, (x, y, max(width * 0.12, 1.5))),
-                        ('paw.' + suffix, (x, y + width * 0.10, max(width * 0.07, 1.0))),
+                        ('ankle.' + suffix, (x, y, ankle_z)),
+                        ('paw.' + suffix, (x, y + paw_forward, paw_z)),
                         ('ground.' + suffix, (x, y, 0)),
                     ))
                     path = (upper + '.' + suffix, joint + '.' + suffix, 'ground.' + suffix)

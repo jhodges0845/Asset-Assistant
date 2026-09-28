@@ -574,12 +574,49 @@ repeated for this slice. Evidence was captured with HEAD `6cf84de` plus the
 recorded working-tree edits; the final source and regression changes are now
 committed in `17c6b01`. The reports retain their original capture provenance.
 
+## Distal front-leg bounds (recipe version 11)
+
+The former width-only front ankle height could exceed elbow height for very
+short, wide bodies. Recipe 11 bounds ankle height to half the elbow height and
+paw height to 60% of ankle height; forward paw reach is limited to 8% of shoulder
+height. The front cage thickness is bounded to 18% of shoulder height, using the
+existing construction seam. Dimensions below these bounds retain their previous
+values. Shoulder, elbow and ground landmarks remain fixed, so all rest bones and
+clips are unchanged. These construction changes require explicit replacement of
+older generated surfaces and do not rebase artist edits or semantic Modify.
+
+The full front-ring outward-normal regression fails at eight version 10 parameter
+corners and passes with these bounds. Coverage now includes every front and hind
+ring interval, strict front-joint height ordering, grounded soles, symmetry and
+connected topology. A separate 49-point height/width sweep found no inverted
+front cage faces. This gate addresses cage folding; it does not establish full
+anatomical quality or prove absence of all surface intersections.
+
+The six-sample `distal-before.json` / `distal-after.json` comparison leaves every
+mesh, rig, weight and clip fingerprint unchanged for default/contrasting Human,
+Quadruped and Avian. The saved failing corner and corresponding renders use the
+`distal-corner-*` prefix under `artifacts/shared-anatomy/`. Evidence was captured
+above `49487dc` with working-tree edits; generated evidence remains local.
+
+The 18 neutral/joint evaluations cover default, contrasting and the short/wide
+sample; movement and isolation checks pass. The extreme elbow still penetrates
+by 0.1361 cm, improved from 1.1549 cm when the saved version 10 mesh is evaluated
+with the unchanged rig and weighting algorithm (`distal-before-elbow.json`).
+This is a residual pose-contact limitation, not a neutral-fold regression.
+Before/after clay and wireframe sheets show the corrected front limbs; the
+extreme overall body proportions are not anatomically accepted.
+
+All 407 core tests and 240 Blender integration tests pass; canine save/reopen,
+compilation and whitespace checks pass. Logs use `distal-*`. The extreme sample
+retains its exact face topology. Package installation, gait playback and remote
+CI were not repeated for this slice.
+
 ## Next work
 
-Next, address distal front-cage folds at short/wide parameter extremes and
-refine detailed paw anatomy using the version 10 stance as the baseline. Review
-shoulder/hip attachment creases and use the version 10 neutral and joint
-diagnostics as the before-state for the next geometry change, rendering comparisons with the corrected lighting and
+Next, refine detailed paw anatomy and shoulder/hip attachment creases using
+recipe 11 as the baseline. Use its neutral and joint diagnostics as the
+before-state for the next geometry change, rendering comparisons with corrected
+lighting and
 portable Blender 5.2.1 runtime above. Neutral sole contact is complete; planted
 support through a gait cycle and contact drift remain open.
 
