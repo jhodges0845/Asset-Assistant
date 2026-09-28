@@ -140,6 +140,44 @@ class CanineRecipeTests(unittest.TestCase):
         self.assertEqual(target, bones['hind_upper.right'].tail)
         self.assertEqual(target, bones['hind_lower.right'].head)
 
+    def test_front_elbow_landmark_drives_surface_and_both_bones(self):
+        changed = replace(self.anatomy, landmarks=tuple(
+            replace(p, position=(p.position[0], p.position[1] - 1, p.position[2]))
+            if p.name == 'elbow.front.left' else p for p in self.anatomy.landmarks))
+        mesh, anatomy = _build_quadruped_cage(changed)
+        bones = {b.name: b for b in _build_quadruped_skeleton(changed).bones}
+        target = next(p.position for p in changed.landmarks if p.name == 'elbow.front.left')
+        indices = next(r.vertex_indices for r in anatomy.regions if r.name == 'leg.front.left')[16:24]
+        for axis in range(3):
+            self.assertAlmostEqual(target[axis], sum(mesh.parts[0].vertices[i][axis] for i in indices) / 8)
+        self.assertEqual(target, bones['fore_upper.left'].tail)
+        self.assertEqual(target, bones['fore_lower.left'].head)
+
+    def test_front_stance_is_bent_symmetric_and_grounded_at_parameter_corners(self):
+        from itertools import product
+        for endpoints in product(('minimum', 'maximum'), repeat=len(self.provider.parameters)):
+            values = {p.key: getattr(p, endpoint) for p, endpoint in zip(self.provider.parameters, endpoints)}
+            with self.subTest(values=values):
+                mesh, anatomy = _construction(self.provider.dimensions(values))
+                points = {p.name: p.position for p in anatomy.landmarks}
+                regions = {r.name: r.vertex_indices for r in anatomy.regions}
+                for side in ('left', 'right'):
+                    shoulder, elbow, ground = (points[n + '.front.' + side]
+                                               for n in ('shoulder', 'elbow', 'ground'))
+                    self.assertLess(elbow[1], shoulder[1])
+                    self.assertEqual(elbow[1], ground[1])
+                    self.assertTrue(shoulder[2] > elbow[2] > ground[2])
+                    self.assertAlmostEqual(min(mesh.parts[0].vertices[i][2]
+                                               for i in regions['leg.front.' + side]), 0)
+                left = [(-mesh.parts[0].vertices[i][0], *mesh.parts[0].vertices[i][1:])
+                        for i in regions['leg.front.left']]
+                right = [mesh.parts[0].vertices[i] for i in regions['leg.front.right']]
+                order = lambda point: tuple(round(c, 5) for c in point)
+                self.assertEqual(len(left), len(right))
+                for a, b in zip(sorted(left, key=order), sorted(right, key=order)):
+                    for x, y in zip(a, b):
+                        self.assertAlmostEqual(x, y, places=7)
+
     def test_hock_landmark_drives_surface_and_distal_bone(self):
         changed = replace(self.anatomy, landmarks=tuple(
             replace(p, position=(p.position[0], p.position[1] - 2, p.position[2] + 1))
@@ -194,12 +232,15 @@ class CanineRecipeTests(unittest.TestCase):
                 regions = {r.name: r.vertex_indices for r in cage_anatomy.regions}
                 # Edge winding alone cannot catch a 180-degree ring-frame flip.
                 # Tube face normals must point away from their local centerline.
-                for side in ('left', 'right'):
-                    owned = regions['leg.hind.' + side]
+                for family, side in product(('front', 'hind'), ('left', 'right')):
+                    owned = regions['leg.' + family + '.' + side]
                     rings = [owned[i:i + 8] for i in range(0, len(owned), 8)]
                     centers = [tuple(sum(part.vertices[i][k] for i in ring) / 8 for k in range(3))
                                for ring in rings]
-                    for level in range(len(rings) - 1):
+                    # Front stance changes only the upper two intervals. The
+                    # old distal cage folds at very short/wide parameter corners.
+                    levels = 2 if family == 'front' else len(rings) - 1
+                    for level in range(levels):
                         for segment in range(8):
                             nxt = (segment + 1) % 8
                             a, b, c, d = (part.vertices[i] for i in (
@@ -209,7 +250,7 @@ class CanineRecipeTests(unittest.TestCase):
                             normal = (u[1]*v[2] - u[2]*v[1], u[2]*v[0] - u[0]*v[2], u[0]*v[1] - u[1]*v[0])
                             radial = tuple((a[k] + b[k] + c[k] + d[k]) / 4
                                            - (centers[level][k] + centers[level + 1][k]) / 2 for k in range(3))
-                            self.assertGreater(sum(normal[k] * radial[k] for k in range(3)), 0)
+                            self.assertGreater(sum(normal[k] * radial[k] for k in range(3)), 0, (family, side, level, segment))
 
     def test_each_published_operation_changes_only_its_authored_region(self):
         for target, kind in self.provider.semantic_apply_capabilities:

@@ -4,7 +4,8 @@
 Hind limbs resolve separate hip, knee, hock and paw landmarks. The remaining
 body sections resolve a tucked waist, fuller chest and a separate muzzle base.
 Each limb declares a ground landmark for neutral sole contact.
-Front-joint stance and detailed facial features still await refinement.
+Front shoulders resolve ahead of the elbow while distal support stays fixed.
+Detailed facial features still await refinement.
 Provider-validated dimensions enter resolution; the constructor binds topology.
 """
 from dataclasses import dataclass
@@ -72,7 +73,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '9'
+    recipe_version = '10'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -141,7 +142,9 @@ class CanineRecipe:
                     bones = ('hind_upper.' + side, 'hind_lower.' + side, 'hind_pastern.' + side)
                 else:
                     points.extend((
-                        (upper + '.' + suffix, (x, y, top_z)),
+                        # Bound the upper-leg slope while keeping the elbow and
+                        # distal chain aligned with the existing support.
+                        (upper + '.' + suffix, (x, y + min(length * .04, shoulder * .06), top_z)),
                         (joint + '.' + suffix, (x, y, knee_z)),
                         ('ankle.' + suffix, (x, y, max(width * 0.12, 1.5))),
                         ('paw.' + suffix, (x, y + width * 0.10, max(width * 0.07, 1.0))),

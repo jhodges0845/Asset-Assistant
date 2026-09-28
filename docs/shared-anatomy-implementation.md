@@ -536,11 +536,45 @@ Actual canine save/reopen, rebuilt isolated package, compilation and whitespace
 checks pass. Final logs and evidence use `paw-final-*`; remote CI is unverified.
 This remains a limited shape checkpoint, not final canine visual acceptance.
 
+## Front stance (recipe version 10)
+
+The recipe advances each front shoulder by `min(body_length * .04,
+shoulder_height * .06)` in +Y, leaving elbow, ankle, paw and ground landmarks
+fixed. The upper leg now slopes back toward the elbow; the existing lower-leg
+alignment and low-paw profile remain. Both surface and rig consume the same
+resolved shoulder. The 17 bone names and parents remain; upper front rest bones,
+mesh and weights change. Existing assets require explicit replacement to adopt
+this construction; artist-owned surfaces are not regenerated automatically.
+
+The local `stance-before.json` / `stance-after.json` six-sample comparison changes
+only Quadruped mesh, skeleton and weights. Human, Avian and all clip fingerprints
+match. Default/contrasting topology, region membership and attachment loops match
+the previous shoulder placement. Clay/wireframe sheets are `stance-*-neutral*`
+under `artifacts/shared-anatomy/`. The visual change is modest; shoulder attachment
+creases and detailed paw anatomy remain unresolved.
+
+Expanded inspection found pre-existing distal front-cage face folds at the
+shortest/widest parameter corners (height 15 cm, width 55 cm). The version 9
+shoulder placement reproduces all eight affected corner combinations; evidence
+is `stance-before-front-normals.log`. Upper front-ring orientation is covered by
+the stance regression, while the existing hind-chain orientation gate remains.
+This is not full anatomical acceptance across the entire parameter range.
+
+Validation: all 407 core tests and 240 Blender integration tests pass. Actual
+canine save/reopen passes. The 12 default/contrasting neutral and joint checks
+pass movement/isolation; all ten posed moving limbs retain positive clearance,
+including 0.0901 cm for the contrasting elbow. Evidence is `stance-poses.json`.
+Default/contrasting neutral clay/wireframe and default shoulder clay were rendered
+and visually reviewed. Compilation and whitespace checks pass. Logs use the
+`stance-*` prefix. Package installation, gait playback and remote CI were not
+repeated for this slice. Changes and evidence were captured on working-tree
+edits above `6cf84de`; this is not a clean-commit baseline.
+
 ## Next work
 
-Next, refine front-joint stance and detailed paw anatomy using the localized
-version 9 paw profile as the baseline. Review shoulder/hip attachment creases and
-use the version 9 neutral and joint diagnostics as the before-state for the
+Next, address distal front-cage folds at short/wide parameter extremes and
+refine detailed paw anatomy using the version 10 stance as the baseline. Review shoulder/hip attachment creases and
+use the version 10 neutral and joint diagnostics as the before-state for the
 next geometry change, rendering comparisons with the corrected lighting and
 portable Blender 5.2.1 runtime above. Neutral sole contact is complete; planted
 support through a gait cycle and contact drift remain open.
