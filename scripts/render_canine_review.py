@@ -61,6 +61,11 @@ def review_part(values, pose):
     body = next(o for o in root.children if o.type == 'MESH')
     rig = next(o for o in root.children if o.type == 'ARMATURE')
     before = evaluated_points(body)
+    # Compare stationary support in the same evaluated precision as the pose.
+    # The source-space report above remains the exact construction baseline.
+    evidence['evaluated_neutral_support_footprint'] = limb_support_footprint(
+        tuple(tuple(float(c) * 100 for c in point) for point in before),
+        mesh.parts[0].faces, anatomy.regions)
     region_name, bone_name, angle = {
         'knee': ('leg.hind.left', 'hind_lower.left', -.45),
         'hock': ('leg.hind.left', 'hind_pastern.left', .45),

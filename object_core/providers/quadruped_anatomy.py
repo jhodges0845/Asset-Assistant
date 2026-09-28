@@ -31,12 +31,32 @@ class CanineBodySection:
 
 
 @dataclass(frozen=True)
+class CaninePawProfile:
+    """Low-paw volume and forward projection, independent of rest-rig joints."""
+    width_scale: float
+    length_scale: float
+    forward_cm: float
+    height_cm: float
+
+    def __post_init__(self):
+        for name in ('width_scale', 'length_scale', 'forward_cm', 'height_cm'):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError('Canine paw profile values must be numbers')
+            if not isfinite(value) or value < 0 or (name != 'forward_cm' and value == 0):
+                raise ValueError('Canine paw profile requires positive scales/height and nonnegative projection')
+
+
+@dataclass(frozen=True)
 class ResolvedCanineAnatomy(ResolvedAnatomy):
     """Compact canine surface profile; construction still owns mesh topology."""
     body_sections: tuple = ()
+    paw_profile: CaninePawProfile = None
 
     def __post_init__(self):
         super().__post_init__()
+        if not isinstance(self.paw_profile, CaninePawProfile):
+            raise TypeError('Canine resolution requires a validated paw profile')
         sections = tuple(self.body_sections)
         expected = ('tail.tip', 'tail.mid', 'tail.base', 'torso.rear', 'torso.hind',
                     'torso.center', 'torso.fore', 'chest.center', 'neck.center',
@@ -52,7 +72,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '8'
+    recipe_version = '9'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -170,5 +190,9 @@ class CanineRecipe:
             landmarks=tuple(Landmark(name, position) for name, position in points),
             regions=regions, chains=chains, connections=connections,
             body_sections=sections,
+            paw_profile=CaninePawProfile(
+                width_scale=1.20, length_scale=1.65,
+                forward_cm=min(width * .02, shoulder * .03),
+                height_cm=min(width * .16, shoulder * .08)),
             symmetry=(('leg.front.left', 'leg.front.right'), ('leg.hind.left', 'leg.hind.right'), ('ear.left', 'ear.right')),
         )

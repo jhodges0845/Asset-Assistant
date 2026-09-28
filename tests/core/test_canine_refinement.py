@@ -115,7 +115,10 @@ class CanineRefinementTests(unittest.TestCase):
                 cage, anatomy = _build_quadruped_cage(CanineRecipe().resolve(self.provider.dimensions(values)))
                 raw, anatomy = refine_canine_surface(cage, anatomy)
                 mesh, resolved = _construction(self.provider.dimensions(values))
-                before, after = raw.parts[0].vertices, mesh.parts[0].vertices
+                before = raw.parts[0].vertices
+                after = _ground_paw_surfaces(before, anatomy)
+                self.assertEqual(tuple(v[2] for v in after),
+                                 tuple(v[2] for v in mesh.parts[0].vertices))
                 points = {p.name: p.position for p in anatomy.landmarks}
                 self.assertEqual(raw.parts[0].faces, mesh.parts[0].faces)
                 self.assertEqual(anatomy.regions, resolved.regions)
@@ -138,6 +141,30 @@ class CanineRefinementTests(unittest.TestCase):
                     if i not in changed_allowed:
                         self.assertEqual(a, b)
                 self.assertEqual(after, _ground_paw_surfaces(after, resolved))
+                # The independent horizontal profile must leave joints, body and
+                # all height/contact results untouched at every parameter corner.
+                shaped = mesh.parts[0].vertices
+                paw_indices = set()
+                for region in resolved.regions:
+                    if not region.name.startswith('leg.'):
+                        continue
+                    suffix = region.name[4:]
+                    ground = points['ground.' + suffix][2]
+                    upper = points[('ankle.' if suffix.startswith('front.') else 'hock.') + suffix][2]
+                    top = ground + min(resolved.paw_profile.height_cm, upper - ground)
+                    paw_indices.update(i for i in region.vertex_indices if after[i][2] < top)
+                self.assertTrue(any(after[i] != shaped[i] for i in paw_indices))
+                for i, (a, b) in enumerate(zip(after, shaped)):
+                    if i not in paw_indices:
+                        self.assertEqual(a, b)
+                for face in mesh.parts[0].faces:
+                    if not set(face).intersection(paw_indices):
+                        continue
+                    a, b, c = (shaped[i] for i in face[:3])
+                    u, v = tuple(b[k] - a[k] for k in range(3)), tuple(c[k] - a[k] for k in range(3))
+                    cross = (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0])
+                    self.assertGreater(sum(value * value for value in cross), 1e-16)
+
 
     def test_modify_can_lift_grounded_paw_without_regrounding(self):
         region = next(r for r in self.anatomy.regions if r.name == 'leg.front.left')
@@ -164,3 +191,39 @@ class CanineRefinementTests(unittest.TestCase):
                         for face in part.faces:
                             if set(face) <= owned:
                                 self.assertGreater(max(part.vertices[i][2] for i in face), 0)
+
+    def test_paw_profile_adds_forward_support_without_changing_rig(self):
+        from dataclasses import replace
+        from object_core.providers.quadruped_geometry import _build_quadruped_mesh
+        from object_core.providers.quadruped_rigging import _build_quadruped_skeleton
+        from scripts.canine_review_metrics import limb_support_footprint
+        for values in (self.values, dict(self.values, body_length_cm=95, shoulder_height_cm=40,
+                                        body_width_cm=28, head_length_cm=30, tail_length_cm=50)):
+            mesh, anatomy = _construction(self.provider.dimensions(values))
+            # An identity profile recovers the version 8 support shape.
+            original = replace(anatomy, paw_profile=replace(anatomy.paw_profile,
+                               width_scale=1, length_scale=1, forward_cm=0))
+            old_mesh, _ = _build_quadruped_mesh(original)
+            self.assertEqual(_build_quadruped_skeleton(original), _build_quadruped_skeleton(anatomy))
+            before, after = old_mesh.parts[0], mesh.parts[0]
+            self.assertEqual(before.faces, after.faces)
+            old = limb_support_footprint(before.vertices, before.faces, anatomy.regions)
+            new = limb_support_footprint(after.vertices, after.faces, anatomy.regions)
+            for region in anatomy.regions:
+                if not region.name.startswith('leg.'):
+                    continue
+                self.assertGreater(new[region.name]['length_cm'], old[region.name]['length_cm'] * 1.5)
+                low = [i for i in region.vertex_indices if before.vertices[i][2] < .1]
+                self.assertGreater(max(after.vertices[i][1] for i in low),
+                                   max(before.vertices[i][1] for i in low))
+
+    def test_paw_profile_rejects_invalid_values(self):
+        from dataclasses import replace
+        for field in ('width_scale', 'length_scale', 'forward_cm', 'height_cm'):
+            invalid = (-1, float('nan'), float('inf'), True, 'large')
+            for value in invalid + (() if field == 'forward_cm' else (0,)):
+                with self.subTest(field=field, value=value):
+                    with self.assertRaises((TypeError, ValueError)):
+                        replace(self.anatomy.paw_profile, **{field: value})
+        with self.assertRaises(TypeError):
+            replace(self.anatomy, paw_profile=None)

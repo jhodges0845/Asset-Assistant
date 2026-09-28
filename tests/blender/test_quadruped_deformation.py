@@ -110,11 +110,14 @@ class QuadrupedDeformationTests(unittest.TestCase):
                     self.assertLessEqual(evidence['other_limb_displacement_cm'], .0001)
                     self.assertLessEqual(evidence['body_displacement_cm'], .0001)
                     mesh, anatomy = _construction(provider.dimensions(values))
-                    neutral = evidence['neutral_support_footprint']
+                    neutral = evidence['evaluated_neutral_support_footprint']
                     posed = evidence['posed_support_footprint']
                     self.assertEqual(len(neutral), 4)
                     self.assertEqual(set(neutral), set(posed))
                     target = 'leg.front.left' if pose == 'elbow' else 'leg.hind.left'
+                    # Paw volume must not introduce ground penetration in the
+                    # established isolated bend diagnostics (not a gait gate).
+                    self.assertGreater(evidence['posed_ground_clearance'][target]['minimum_z_cm'], 0)
                     self.assertNotAlmostEqual(neutral[target]['near_ground_hull_area_cm2'],
                                               posed[target]['near_ground_hull_area_cm2'], places=4)
                     for name in neutral.keys() - {target}:

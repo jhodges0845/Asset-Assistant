@@ -184,9 +184,12 @@ def _look_at(obj, target):
     obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 
-def _add_lighting(center_z, scene_width, model_height):
-    size = max(model_height, scene_width * 0.35)
-    power_scale = (model_height / 1.8) ** 2
+def _add_lighting(center_z, scene_width, model_height, front_y=0.0):
+    # Long, low bodies can extend in front of height-based light positions.
+    # Keep even the nearer fill ahead of every rotated view, with a margin.
+    lighting_distance = max(model_height, (-front_y + model_height * 0.25) / 0.65)
+    size = max(lighting_distance, scene_width * 0.35)
+    power_scale = (lighting_distance / 1.8) ** 2
 
     key_data = bpy.data.lights.new("Key", type="AREA")
     key_data.energy = 100.0 * power_scale
@@ -195,7 +198,7 @@ def _add_lighting(center_z, scene_width, model_height):
     key_data.size_y = size * 0.70
     key = bpy.data.objects.new("Key", key_data)
     bpy.context.collection.objects.link(key)
-    key.location = (-scene_width * 0.18, -model_height * 0.85, center_z + model_height * 0.25)
+    key.location = (-scene_width * 0.18, -lighting_distance * 0.85, center_z + lighting_distance * 0.25)
     _look_at(key, (0.0, 0.0, center_z))
 
     fill_data = bpy.data.lights.new("Fill", type="AREA")
@@ -203,7 +206,7 @@ def _add_lighting(center_z, scene_width, model_height):
     fill_data.size = size * 0.55
     fill = bpy.data.objects.new("Fill", fill_data)
     bpy.context.collection.objects.link(fill)
-    fill.location = (scene_width * 0.18, -model_height * 0.65, center_z)
+    fill.location = (scene_width * 0.18, -lighting_distance * 0.65, center_z)
     _look_at(fill, (0.0, 0.0, center_z))
 
 
@@ -295,7 +298,8 @@ def _configure_scene(args, part):
     _look_at(camera, (0.0, 0.0, target_z))
     scene.camera = camera
 
-    _add_lighting(center_z, total_width, model_height)
+    front_y = min(bounds[1][0] for bounds in rotated_bounds)
+    _add_lighting(center_z, total_width, model_height, front_y)
     bpy.context.view_layer.update()
     review_objects = mesh_objects + [obj for obj in scene.objects if obj.type == "FONT"]
     _validate_camera_frame(camera, review_objects, scene)

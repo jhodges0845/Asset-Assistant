@@ -283,13 +283,46 @@ def _ground_paw_surfaces(vertices, anatomy):
     return tuple(result)
 
 
+def _shape_paw_surfaces(vertices, anatomy):
+    """Add low-paw volume/toe projection without altering grounded heights.
+
+    Positive horizontal scales and a smooth height falloff retain cross-section
+    ordering. Only construction calls this map; semantic edits are never rebased.
+    """
+    result = list(vertices)
+    points = {point.name: point.position for point in anatomy.landmarks}
+    profile = anatomy.paw_profile
+    for region in anatomy.regions:
+        if not region.name.startswith('leg.'):
+            continue
+        suffix = region.name[4:]
+        cx, cy, ground = points['ground.' + suffix]
+        upper = points[('ankle.' if suffix.startswith('front.') else 'hock.') + suffix][2]
+        height = min(profile.height_cm, upper - ground)
+        if height <= 0:
+            raise ValueError('Paw shape requires a transition above ground')
+        for index in region.vertex_indices:
+            x, y, z = vertices[index]
+            if z >= ground + height:
+                continue
+            t = max(0.0, (z - ground) / height)
+            influence = (1 - t) ** 2 * (1 + 2 * t)
+            result[index] = (
+                cx + (x - cx) * (1 + (profile.width_scale - 1) * influence),
+                cy + (y - cy) * (1 + (profile.length_scale - 1) * influence)
+                + profile.forward_cm * influence,
+                z,
+            )
+    return tuple(result)
+
+
 def _build_quadruped_mesh(anatomy):
     """Build and refine the one canonical canine surface, retaining ownership."""
     from .quadruped_refinement import refine_canine_surface
     cage, resolved = _build_quadruped_cage(anatomy)
     mesh, resolved = refine_canine_surface(cage, resolved)
     part = mesh.parts[0]
-    vertices = _ground_paw_surfaces(part.vertices, resolved)
+    vertices = _shape_paw_surfaces(_ground_paw_surfaces(part.vertices, resolved), resolved)
     result = ObjectMesh((MeshPart(part.name, vertices, part.faces,
                                   _project_uvs(vertices, part.faces)),))
     resolved.validate_mesh(result)
