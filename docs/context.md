@@ -8,12 +8,12 @@ Read `human-workflow.md` for the user workflow and code ownership map.
 
 ## Active pre-alpha direction (2026-09-21)
 
-Plan: [shared-anatomy-alpha-plan.md](shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human and Quadruped now use shared resolved-anatomy contracts; canine recipe version 7 is implemented, with visual refinement and Avian migration remaining. The plan supersedes older Human-only milestone sequencing.
+Plan: [shared-anatomy-alpha-plan.md](shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human and Quadruped now use shared resolved-anatomy contracts; canine recipe version 9 adds low-paw volume and forward projection, with visual refinement and Avian migration remaining. The plan supersedes older Human-only milestone sequencing.
 
 ## Shared anatomy implementation
 
 - `anatomy-recipe-contract.md` — recipe seam and staged proof requirements.
-- `shared-anatomy-implementation.md` — current version 7 behavior, Blender upgrade steps, checkpoint commits, validation/review commands and remaining work.
+- `shared-anatomy-implementation.md` — current version 9 behavior, Blender upgrade steps, checkpoint commits, validation/review commands and remaining work.
 
 ## Current Human V2 integration (2026-09-20)
 
