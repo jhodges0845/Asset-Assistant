@@ -73,7 +73,8 @@ class AnatomyProofTests(unittest.TestCase):
                 self.assertNotEqual(points['ankle.front.left'], points['ground.front.left'])
                 self.assertNotEqual(points['paw.front.left'], points['ground.front.left'])
                 mesh, resolved = _build_quadruped_cage(anatomy)
-                self.assertEqual(48, len(next(r.vertex_indices for r in resolved.regions if r.name == 'leg.front.left')))
+                # Six eight-vertex rings plus the owned quad-cap center.
+                self.assertEqual(49, len(next(r.vertex_indices for r in resolved.regions if r.name == 'leg.front.left')))
                 self.assertEqual('connected', resolved.connections[0].continuity)
                 root, first_ring = resolved.connections[0].boundaries
                 self.assertEqual((4, 8), (len(root), len(first_ring)))

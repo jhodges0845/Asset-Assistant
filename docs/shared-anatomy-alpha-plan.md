@@ -1,6 +1,6 @@
 # Shared anatomy and animation: alpha plan
 
-Status: in progress, September 27, 2026. Human and Quadruped use shared anatomy contracts; canine recipe version 9 adds localized paw volume and forward projection to the grounded soles. Detailed paws and front-joint refinement remain open. Canine visual acceptance, Avian migration and the final animation quality pass remain open. See the [implementation checkpoint](shared-anatomy-implementation.md) for branch-specific evidence.
+Status: in progress, September 28, 2026. Human and Quadruped use shared anatomy contracts; canine recipe version 12 adds quad paw caps on grounded, height-bounded distal limbs. Detailed paws and front-joint refinement remain open. Canine visual acceptance, Avian migration and the final animation quality pass remain open. See the [implementation checkpoint](shared-anatomy-implementation.md) for branch-specific evidence.
 
 ## Alpha promise
 

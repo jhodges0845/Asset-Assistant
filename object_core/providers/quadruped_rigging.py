@@ -69,8 +69,8 @@ def _anatomy_bone_candidates(anatomy, bones):
     """Bind limbs to their chains and ears to the head, including after edits.
 
     Positions can move through Modify, so neither side nor front/hind ownership
-    is inferred from coordinates. Only the declared limb attachment boundary
-    may blend to the chain parent; distal vertices stay within their own chain.
+    is inferred from coordinates. The bridge and its short topology-owned collar
+    blend to the chain parent separately; distal vertices stay within their chain.
     """
     chains = {chain.name: chain for chain in anatomy.chains}
     boundaries = {}
@@ -103,14 +103,7 @@ def _anatomy_bone_candidates(anatomy, bones):
     return candidates
 
 
-def _attachment_weights(mesh, anatomy, max_influences):
-    """Blend across the declared bridge, never through unrelated body surfaces.
-
-    Graph distance uses topology rather than edited positions. The body loop
-    stays on the parent; the limb loop retains a quarter parent influence.
-    """
-    regions = {region.name: region for region in anatomy.regions}
-    chains = {chain.name: chain for chain in anatomy.chains}
+def _mesh_graphs(mesh):
     graphs = {}
     for part in mesh.parts:
         graph = [set() for _ in part.vertices]
@@ -119,6 +112,18 @@ def _attachment_weights(mesh, anatomy, max_influences):
                 graph[a].add(b)
                 graph[b].add(a)
         graphs[part.name] = graph
+    return graphs
+
+
+def _attachment_weights(mesh, anatomy, max_influences, graphs=None):
+    """Blend across the declared bridge, never through unrelated body surfaces.
+
+    Graph distance uses topology rather than edited positions. The body loop
+    stays on the parent; the limb loop retains a quarter parent influence.
+    """
+    regions = {region.name: region for region in anatomy.regions}
+    chains = {chain.name: chain for chain in anatomy.chains}
+    graphs = _mesh_graphs(mesh) if graphs is None else graphs
     result = {}
     for connection in anatomy.connections:
         name = connection.regions[1]
@@ -171,6 +176,58 @@ def _attachment_weights(mesh, anatomy, max_influences):
     return result
 
 
+def _attachment_collar_weights(mesh, anatomy, bones, max_influences, graphs):
+    """Fade the boundary's parent weight over one refined cage interval.
+
+    Two subdivision passes produce four edges per cage interval. The three
+    interior rows blend into the existing chain weights at the fourth edge.
+    Restrict traversal to authored limb ownership so no nearby body or other
+    limb can acquire influence, including after large semantic translations.
+    """
+    regions = {region.name: region for region in anatomy.regions}
+    chains = {chain.name: chain for chain in anatomy.chains}
+    parts = {part.name: part for part in mesh.parts}
+    result = {}
+    for connection in anatomy.connections:
+        name = connection.regions[1]
+        if not name.startswith('leg.') or connection.continuity != 'connected':
+            continue
+        region, chain = regions[name], chains[name]
+        graph = graphs[region.mesh_part]
+        owned = set(region.vertex_indices)
+        depths = dict.fromkeys(connection.boundaries[1], 0)
+        if not set(depths) <= owned:
+            raise ValueError('Canine attachment loop must belong to its limb')
+        queue = deque(sorted(depths))
+        while queue:
+            i = queue.popleft()
+            if depths[i] == 3:
+                continue
+            for j in sorted(graph[i] & owned):
+                if j not in depths:
+                    depths[j] = depths[i] + 1
+                    queue.append(j)
+        local = tuple(bone for bone in bones if bone.name in chain.bones)
+        for i, depth in sorted(depths.items()):
+            if depth == 0:
+                continue  # The declared bridge owns the boundary itself.
+            t = depth / 4
+            blend = t*t*(3 - 2*t)
+            parent = .25 * (1 - blend)
+            raw = {w.bone_name: w.weight * blend for w in _weights_for_vertex(
+                parts[region.mesh_part].vertices[i], local, max_influences)}
+            raw[chain.bones[0]] = raw.get(chain.bones[0], 0) + 1 - blend
+            raw = {name: weight * (1 - parent) for name, weight in raw.items()}
+            raw[chain.parent_bone] = parent
+            ranked = sorted(raw.items(), key=lambda item: (-item[1], item[0]))[:max_influences]
+            total = sum(weight for _, weight in ranked)
+            key = (region.mesh_part, i)
+            if key in result:
+                raise ValueError('Canine attachment collars must be disjoint')
+            result[key] = tuple(BoneWeight(name, weight / total) for name, weight in ranked)
+    return result
+
+
 def generate_quadruped_skin_weights(mesh, skeleton, *, max_influences=4, anatomy=None):
     """Return normalized local weights for a connected quadruped surface."""
     if type(max_influences) is not int or max_influences < 1:
@@ -184,7 +241,12 @@ def generate_quadruped_skin_weights(mesh, skeleton, *, max_influences=4, anatomy
     if anatomy is not None:
         anatomy.validate_mesh(mesh)
         candidates = _anatomy_bone_candidates(anatomy, deform_bones)
-        attachment = _attachment_weights(mesh, anatomy, max_influences)
+        graphs = _mesh_graphs(mesh)
+        attachment = _attachment_weights(mesh, anatomy, max_influences, graphs)
+        collar = _attachment_collar_weights(mesh, anatomy, deform_bones, max_influences, graphs)
+        if attachment.keys() & collar.keys():
+            raise ValueError("Canine attachment collar overlaps the declared bridge")
+        attachment.update(collar)
 
     def weights(part, index, vertex):
         if (part.name, index) in attachment:

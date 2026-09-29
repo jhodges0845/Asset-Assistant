@@ -1,15 +1,15 @@
 # Shared anatomy implementation checkpoint
 
-Current implementation: September 27, 2026, recipe version 9 at `572813c` on
+Current implementation: September 28, 2026, recipe version 12 working-tree continuation after `b3b130f` on
 `codex/shared-generation-system`. Human and Quadruped use shared resolved-anatomy
-contracts. Canine recipe version 9 adds localized paw volume and forward
-projection to the grounded soles; visual refinement continues.
+contracts. Canine recipe version 12 adds four-quad paw caps on the bounded
+distal construction; attachment-weight refinement continues.
 Avian still uses its existing provider construction and awaits recipe migration.
 This is a development-branch checkpoint, not a release or final anatomy acceptance.
 
 ## Current behavior
 
-The canine generates one connected surface with 6,274 vertices, 6,272 quads and
+The canine generates one connected surface with 6,402 vertices, 6,400 quads and
 17 bones. It has a tucked waist, fuller chest, connected ears, a distinct muzzle,
 and separate hip/knee/hock/paw hind chains. Two portable subdivision passes refine
 the control cage while preserving authored region and attachment ownership.
@@ -22,7 +22,9 @@ Coat/accessory operations are not executable canine geometry capabilities.
 
 Limb weights follow authored chains. A topology-distance blend spans each limb's
 attachment bridge: the body loop follows its parent and the limb loop retains
-25% parent influence with the default influence limit. The remaining body uses
+25% parent influence with the default influence limit. A three-row collar inside
+each authored limb fades that remaining parent influence to zero at the fourth
+refined edge, joining the existing chain weights. The remaining body uses
 axial bones; ears follow the head. Shoulder poses no longer pull the chest and
 neck into large folds. A small attachment crease remains. Version 7 brings all
 four neutral soles to their recipe ground plane through a localized
@@ -32,6 +34,8 @@ topology and rest-rig landmarks. Version 9 adds a validated recipe-owned paw
 profile: horizontal width/length and forward projection fade smoothly below
 a low-paw transition, capped below each ankle/hock. It preserves every height,
 upper-limb vertex, rest joint and connection while making the paw end more distinct.
+Versions 10/11 add forward shoulder stance and height-bounded distal dimensions;
+version 12 replaces radial paw caps with four quads and reduces front projection.
 
 ## Construction and ownership
 
@@ -50,7 +54,7 @@ introduce a registry or an alternative Blender generation workflow.
 | `providers/quadruped_anatomy.py` | Canine landmarks, body/paw profiles, 17 bones and six connections: four limbs and two ears. |
 | `providers/quadruped_geometry.py` | Internal control cage, region indices, body/branch attachment loops and final UV projection. |
 | `providers/quadruped_refinement.py` | Two subdivision passes; propagates regions and ordered loops. Cage loops of 4/8 vertices become 16/32 on the final surface. |
-| `providers/quadruped_rigging.py` | Rest chains, authored limb/ear ownership and localized attachment blends. |
+| `providers/quadruped_rigging.py` | Rest chains, authored limb/ear ownership, attachment bridges and interior collar fades. |
 | `providers/quadruped_semantic.py`, `semantic_geometry.py` | Species profiles and shared validated indexed transforms. |
 | `providers/quadruped.py` | Public provider, full recipe/version/parameter cache identity and topology compatibility checks. |
 
@@ -67,17 +71,18 @@ Build with `python -m scripts.build_blender_addon`, then install/update
 Animate > Rig & Pose workflows; Idle/Walk/Run remain available.
 
 Saved surfaces from older recipe versions are preserved. Create a new Quadruped
-to adopt version 9; there is no automatic topology, weight or Action migration.
+to adopt version 12; there is no automatic topology, weight or Action migration.
 Manual artist edits continue to block procedural replacement. Installing the
 updated add-on alone does not upgrade existing geometry or artist-owned weights.
 
 ## Validation and reproducibility
 
-Historical version 6 local results for `79c855b`: 394 core tests and 238 Blender tests passed,
-as did actual canine save/reopen, isolated package verification, compilation and
-whitespace checks. The version 6 six-sample comparison changed only Quadruped
-mesh/weights from the prior checkpoint; all rest rigs, clips, Human and Avian
-outputs stayed unchanged. Local results do not establish remote CI/coverage status.
+Latest local validation (September 28, 2026): all 411 core tests and 243 Blender
+integration tests pass, along with real canine save/reopen, the rebuilt isolated
+package, compilation and whitespace checks. This is the recipe 12 working tree
+plus the attachment collar fade described below; see `collar-*` artifacts for
+this slice and `paw-cap-*` for the preceding topology checkpoint. Remote CI and
+gait playback are not established by these local results.
 
 Run from the repository root with `blender` on PATH (or substitute its full path):
 
@@ -615,6 +620,8 @@ CI were not repeated for this slice.
 
 ## Paw close-up diagnostics (recipe 11 baseline)
 
+Implementation commit: `b3b130f`, pushed to `codex/shared-generation-system`.
+
 `scripts/render_canine_review.py` now accepts `--region front-paw` and
 `--region hind-paw`. Both select the left limb. Selection uses neutral authored
 membership and whole faces touching the low-paw band (twice the larger of the
@@ -652,10 +659,87 @@ a shape baseline, not anatomical acceptance. JSON reports retain full-asset
 support metrics and the selected crop indices. Compilation and whitespace checks
 pass; the source checkpoint is `4fd30d6` plus these review-tool edits.
 
+## Paw quad caps (recipe version 12)
+
+Each paw now closes with four cage quads around a regular four-edge center,
+replacing the single octagonal cap that refined into an eight-edge radial pole.
+The original boundary ring is retained. The new center is explicitly owned by
+its limb, and subdivision propagates that ownership through the cap. Body,
+attachment rings, landmarks and the 17-bone rig are unchanged. This is a local
+paw topology migration: old surfaces require explicit replacement, and artist
+edits are not silently rebased onto new connectivity.
+
+The fuller front cap uses a validated `front_forward_scale=.25` on the existing
+`min(body_width * .02, shoulder_height * .03)` cm projection. Hind projection
+is unchanged; both retain the existing 1.20 width and 1.65 length scales.
+This balance preserves forward hind support and the established elbow
+clearance gate. Grounding still runs through the existing construction path;
+there is no pose-specific correction or alternate geometry implementation.
+The cap is a better surface foundation for toe/pad work, not separated digits
+or completed paw anatomy.
+
+The new regression checks four cap quads, center position and valence, and
+limb ownership after refinement. Existing parameter-corner coverage now treats
+the cap center separately from the tube rings, preserving full front/hind ring
+orientation, manifold, symmetry, ground-contact and Modify checks.
+
+The final six-sample comparison (`toe-before.json` to `paw-cap-baseline.json`)
+changes only Quadruped mesh and weight fingerprints. Human, Avian, every rest
+rig and every clip match. Quadruped grows from 6,274 vertices / 6,272 faces to
+6,402 / 6,400: 128 additional vertices and quads across the four paws. Evidence
+is captured at `b3b130f` plus working-tree edits. The earlier `toe-*` contour
+renders are rejected experiments and are not the accepted recipe 12 surface;
+use the final `paw-cap-*` reports and renders.
+
+The final 18-case neutral/joint matrix passes movement and isolation checks.
+Default/contrasting moving paws retain positive diagnostic clearance; the
+contrasting elbow has 0.0349 cm. The short/wide elbow remains 0.0402 cm below
+ground, improved from recipe 11's 0.1361 cm penetration. This is still an open
+pose-contact limitation, not a gait acceptance result. Default front/hind
+clay/wireframe close-ups, contrasting elbow/hock clay, and default whole-body
+clay were rendered and visually inspected. The front cap no longer has the
+previous radial pinch; individual toes and pads remain future work.
+
+Final validation: all 409 core tests and 243 Blender integration tests pass on
+the front-only projection profile. Canine save/reopen, a rebuilt isolated add-on
+package, compilation and whitespace checks pass. Logs and final renders use
+`paw-cap-*` under `artifacts/shared-anatomy/`. Remote CI and gait playback were
+not repeated. This remains a limited paw-surface checkpoint, not final canine
+visual acceptance.
+
+## Attachment collar fade (September 28, 2026)
+
+The body-to-limb bridge already retained 25% parent influence at the limb loop,
+but the next interior row dropped directly to chain-only weights. A short collar
+now fades parent influence across the next three refined edge rows: 21.09375%,
+12.5% and 3.90625%, reaching zero at the fourth edge with the default four-bone
+limit. In parallel it blends from the boundary's upper-bone weighting into the
+existing distance-based chain weights. Lower influence limits truncate and
+renormalize as before; they do not retain those exact parent percentages.
+
+The collar traverses authored limb topology, so it stays local after Modify
+translations. Body/bridge rows and vertices four or more edges inside the limb
+keep their previous weights. Meshes, UVs, rest rigs, clips and recipe version 12
+are unchanged by this weighting slice. Saved artist-owned weights remain intact;
+new weights enter through the existing explicit generation/rig/Modify workflow.
+
+Independent graph-distance regressions check the parent fade and exact distal
+weights for default/contrasting samples, plus normalization, influence limits,
+determinism and large Modify translations. Evidence uses `collar-*` in
+`artifacts/shared-anatomy/`. The six-sample `collar-before.json` to
+`collar-after.json` comparison changes only Quadruped weights; all mesh, rest-rig
+and clip fingerprints, and all Human/Avian output, match the pre-change recipe
+12 working tree. Default/contrasting shoulder and hip clay/wireframe sheets were
+inspected. All four poses retain zero other-limb and torso/head/tail displacement.
+The visible attachment crease remains, so this is a weight-continuity improvement,
+not final anatomical/gait acceptance. The rebuilt isolated package and real
+canine save/reopen checks pass in Blender 5.2.1. All 411 core tests and 243
+Blender integration tests pass, as do compilation and whitespace checks.
+
 ## Next work
 
 Next, refine detailed paw anatomy and shoulder/hip attachment creases using
-recipe 11 as the baseline. Use the new paw close-ups alongside its whole-body
+recipe 12 as the baseline. Use the paw close-ups alongside its whole-body
 neutral and joint diagnostics as the before-state for the next geometry change,
 rendering comparisons with corrected lighting and the portable Blender 5.2.1
 runtime above. Neutral sole contact is complete; planted

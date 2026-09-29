@@ -28,6 +28,27 @@ class CanineRefinementTests(unittest.TestCase):
                 self.assertTrue(all(tuple(sorted((a, b))) in edges
                                     for a, b in zip(loop, loop[1:] + loop[:1])))
 
+    def test_paw_caps_have_four_owned_quads_and_regular_centers(self):
+        cage, anatomy = _build_quadruped_cage(self.anatomy)
+        part = cage.parts[0]
+        points = {p.name: p.position for p in anatomy.landmarks}
+        for region in anatomy.regions:
+            if not region.name.startswith('leg.'):
+                continue
+            center = region.vertex_indices[-1]
+            boundary = set(region.vertex_indices[-9:-1])
+            faces = [face for face in part.faces if center in face]
+            self.assertEqual(4, len(faces))
+            self.assertTrue(all(len(face) == 4 and set(face) <= boundary | {center} for face in faces))
+            self.assertEqual(boundary | {center}, {i for face in faces for i in face})
+            for value, expected in zip(part.vertices[center], points['paw.' + region.name[4:]]):
+                self.assertAlmostEqual(value, expected)
+            # The regular pole survives refinement and remains fully limb-owned.
+            refined_faces = [face for face in self.mesh.parts[0].faces if center in face]
+            self.assertEqual(4, len(refined_faces))
+            owned = set(next(r.vertex_indices for r in self.anatomy.regions if r.name == region.name))
+            self.assertTrue(all(set(face) <= owned for face in refined_faces))
+
     def test_refinement_rejects_open_and_reversed_cages(self):
         cage, anatomy = _build_quadruped_cage(self.anatomy)
         part = cage.parts[0]
@@ -200,7 +221,7 @@ class CanineRefinementTests(unittest.TestCase):
         for values in (self.values, dict(self.values, body_length_cm=95, shoulder_height_cm=40,
                                         body_width_cm=28, head_length_cm=30, tail_length_cm=50)):
             mesh, anatomy = _construction(self.provider.dimensions(values))
-            # An identity profile recovers the version 8 support shape.
+            # Isolate the volume profile while retaining the current cap topology.
             original = replace(anatomy, paw_profile=replace(anatomy.paw_profile,
                                width_scale=1, length_scale=1, forward_cm=0))
             old_mesh, _ = _build_quadruped_mesh(original)
@@ -216,6 +237,21 @@ class CanineRefinementTests(unittest.TestCase):
                 low = [i for i in region.vertex_indices if before.vertices[i][2] < .1]
                 self.assertGreater(max(after.vertices[i][1] for i in low),
                                    max(before.vertices[i][1] for i in low))
+
+    def test_front_projection_scale_preserves_hind_paws_and_sole_heights(self):
+        from dataclasses import replace
+        from object_core.providers.quadruped_geometry import _build_quadruped_mesh
+        original = replace(self.anatomy, paw_profile=replace(self.anatomy.paw_profile, front_forward_scale=1))
+        before, _ = _build_quadruped_mesh(original)
+        front = {i for r in self.anatomy.regions if r.name.startswith('leg.front.') for i in r.vertex_indices}
+        self.assertTrue(any(before.parts[0].vertices[i] != self.mesh.parts[0].vertices[i] for i in front))
+        for i, (a, b) in enumerate(zip(before.parts[0].vertices, self.mesh.parts[0].vertices)):
+            self.assertEqual(a[2], b[2])
+            if i not in front:
+                self.assertEqual(a, b)
+        for value in (-.1, 1.1, float('nan'), float('inf'), True, 'quarter'):
+            with self.assertRaises((ValueError, TypeError)):
+                replace(self.anatomy.paw_profile, front_forward_scale=value)
 
     def test_paw_profile_rejects_invalid_values(self):
         from dataclasses import replace

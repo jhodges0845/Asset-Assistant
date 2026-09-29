@@ -236,7 +236,9 @@ class CanineRecipeTests(unittest.TestCase):
                 # Tube face normals must point away from their local centerline.
                 for family, side in product(('front', 'hind'), ('left', 'right')):
                     owned = regions['leg.' + family + '.' + side]
-                    rings = [owned[i:i + 8] for i in range(0, len(owned), 8)]
+                    # The final owned cage vertex is the separate quad-cap center.
+                    self.assertEqual(1, len(owned) % 8)
+                    rings = [owned[i:i + 8] for i in range(0, len(owned) - 1, 8)]
                     centers = [tuple(sum(part.vertices[i][k] for i in ring) / 8 for k in range(3))
                                for ring in rings]
                     levels = len(rings) - 1
@@ -273,13 +275,25 @@ class CanineRecipeTests(unittest.TestCase):
             self.assertFalse(any(w.bone_name.endswith('.right') for w in weights.vertices[i]))
         self.assertTrue(all(sum(w.weight for w in v) > .99999 for v in weights.vertices))
 
+    def _parent_blend_indices(self, connection):
+        owned = self.regions[connection.regions[1]]
+        indices = set(connection.boundaries[1])
+        neighbors = [set() for _ in self.mesh.parts[0].vertices]
+        for face in self.mesh.parts[0].faces:
+            for a, b in zip(face, face[1:] + face[:1]):
+                neighbors[a].add(b)
+                neighbors[b].add(a)
+        for _ in range(3):
+            indices |= {j for i in indices for j in neighbors[i] if j in owned}
+        return indices
+
     def test_limb_weights_stay_in_authored_chain_after_large_edits(self):
         # Reproduce a front leg moved onto the hind leg, then challenge both
         # sides/families near unrelated head, tail and opposite-side bones.
         for region in (r for r in self.anatomy.regions if r.name.startswith('leg.')):
             chain = next(c for c in self.anatomy.chains if c.name == region.name)
             connection = next(c for c in self.anatomy.connections if c.regions[1] == region.name)
-            boundary = set(connection.boundaries[1])
+            boundary = self._parent_blend_indices(connection)
             for offset in ((0, -44.8, 0), (80, 44.8, 35), (0, -80, 45)):
                 with self.subTest(region=region.name, offset=offset):
                     moved = self.provider.semantic_mesh(self.mesh, self.values, (
@@ -299,7 +313,7 @@ class CanineRecipeTests(unittest.TestCase):
             if not region.startswith('leg.'):
                 continue
             chain = next(c for c in self.anatomy.chains if c.name == region)
-            boundary = set(connection.boundaries[1])
+            boundary = self._parent_blend_indices(connection)
             self.assertTrue(any(w.bone_name == chain.parent_bone
                                 for i in boundary for w in weights.vertices[i]))
             for i in self.regions[region] - boundary:

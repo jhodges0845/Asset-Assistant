@@ -215,6 +215,21 @@ def _build_quadruped_cage(anatomy):
             (size*.25, size*.20, size*.07, size*.02),
             (size*.12, size*.07, size*.035, size*.015))
 
+    # Four quads give each paw a regular center instead of the eight-way
+    # subdivision pole created by a single octagonal end cap. Keep the original
+    # boundary and explicitly assign the new center to the authored limb.
+    limb_caps = {}
+    for name, rings in limb_rings.items():
+        boundary = set(rings[-1])
+        face_index = next(i for i, face in enumerate(faces) if set(face) == boundary)
+        cap = faces[face_index]
+        center = len(vertices)
+        vertices.append(tuple(sum(vertices[i][axis] for i in cap) / len(cap) for axis in range(3)))
+        limb_caps[name] = (center,)
+        faces[face_index:face_index + 1] = [
+            (cap[i], cap[(i + 1) % 8], cap[(i + 2) % 8], center)
+            for i in range(0, 8, 2)]
+
     vertices, faces = tuple(vertices), tuple(faces)
     mesh = ObjectMesh((MeshPart("quadruped", vertices, faces, _project_uvs(vertices, faces)),))
     def indices(rings):
@@ -226,7 +241,7 @@ def _build_quadruped_cage(anatomy):
         "head": indices(body_rings[8:]), "muzzle": indices(body_rings[10:]),
         "tail": indices(body_rings[:3]),
     }
-    memberships.update({name: indices(rings) for name, rings in limb_rings.items()})
+    memberships.update({name: indices(rings) + limb_caps[name] for name, rings in limb_rings.items()})
     memberships.update({name: indices(rings) for name, rings in ear_rings.items()})
     memberships["head"] += tuple(i for rings in ear_rings.values() for ring in rings for i in ring)
     connections = []
@@ -301,6 +316,7 @@ def _shape_paw_surfaces(vertices, anatomy):
         cx, cy, ground = points['ground.' + suffix]
         upper = points[('ankle.' if suffix.startswith('front.') else 'hock.') + suffix][2]
         height = min(profile.height_cm, upper - ground)
+        forward = profile.forward_cm * (profile.front_forward_scale if suffix.startswith('front.') else 1)
         if height <= 0:
             raise ValueError('Paw shape requires a transition above ground')
         for index in region.vertex_indices:
@@ -312,7 +328,7 @@ def _shape_paw_surfaces(vertices, anatomy):
             result[index] = (
                 cx + (x - cx) * (1 + (profile.width_scale - 1) * influence),
                 cy + (y - cy) * (1 + (profile.length_scale - 1) * influence)
-                + profile.forward_cm * influence,
+                + forward * influence,
                 z,
             )
     return tuple(result)

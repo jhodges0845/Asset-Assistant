@@ -12,7 +12,7 @@ Plan: [docs/shared-anatomy-alpha-plan.md](docs/shared-anatomy-alpha-plan.md). Sh
 
 ## Shared anatomy implementation checkpoint
 
-Human and the existing Quadruped construction now use resolved recipes. Quadruped has executable authored-region Modify controls and a distinct knee/hock/paw hind chain. Recipe version 11 bounds front ankle/paw height, reach and limb thickness to prevent distal cage folds at short/wide proportions, retaining the version 10 shoulder stance; older surfaces remain untouched and need explicit replacement to use the new construction. Canine anatomical quality refinement and Avian recipe migration remain ahead. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for ownership, tests and remaining work.
+Human and the existing Quadruped construction now use resolved recipes. Quadruped has executable authored-region Modify controls and a distinct knee/hock/paw hind chain. Recipe version 12 replaces radial paw caps with four-quad patches and reduces extra forward projection, retaining the bounded version 11 distal dimensions and shoulder stance; older surfaces remain untouched and need explicit replacement to use the new construction. Canine anatomical quality refinement and Avian recipe migration remain ahead. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for ownership, tests and remaining work.
 
 Paw-review baseline: `scripts/canine_review_metrics.py` measures per-limb ground clearance and near-ground footprint hulls; `scripts/render_canine_review.py` records neutral and evaluated pose results and supports pose-stable `front-paw` / `hind-paw` close-ups. See the implementation checkpoint for values and interpretation limits.
 
