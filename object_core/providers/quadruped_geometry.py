@@ -309,10 +309,26 @@ def _shape_paw_surfaces(vertices, anatomy):
                 continue
             t = max(0.0, (z - ground) / height)
             influence = (1 - t) ** 2 * (1 + 2 * t)
-            result[index] = (
-                cx + (x - cx) * (1 + (profile.width_scale - 1) * influence),
+            # Keep the forefoot broad through the pad, then soften the leading
+            # edge into a blunt canine toe shape. +Y is forward for every limb;
+            # the taper is horizontal only, so sole contact remains unchanged.
+            projected_y = (
                 cy + (y - cy) * (1 + (profile.length_scale - 1) * influence)
-                + profile.forward_cm * influence,
+                + profile.forward_cm * influence
+            )
+            half_length = max(
+                abs(vertices[i][1] - cy)
+                for i in region.vertex_indices
+                if vertices[i][2] < ground + height
+            )
+            forward = max(0.0, projected_y - cy)
+            toe_start = half_length * 0.55
+            toe_span = max(half_length - toe_start, 1e-9)
+            toe = min(1.0, max(0.0, (forward - toe_start) / toe_span))
+            toe_taper = 1.0 - 0.18 * toe * toe * (3 - 2 * toe)
+            result[index] = (
+                cx + (x - cx) * (1 + (profile.width_scale - 1) * influence) * toe_taper,
+                projected_y,
                 z,
             )
     return tuple(result)
