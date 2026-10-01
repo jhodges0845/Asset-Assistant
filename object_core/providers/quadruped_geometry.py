@@ -326,8 +326,17 @@ def _shape_paw_surfaces(vertices, anatomy):
             toe_span = max(half_length - toe_start, 1e-9)
             toe = min(1.0, max(0.0, (forward - toe_start) / toe_span))
             toe_taper = 1.0 - 0.18 * toe * toe * (3 - 2 * toe)
+            shaped_x = cx + (x - cx) * (1 + (profile.width_scale - 1) * influence) * toe_taper
+            # Suggest the paired central digits in silhouette without adding
+            # topology: near the forefoot, bias each half of the paw slightly
+            # away from the centerline. The smooth lateral term is zero on the
+            # centerline and remains symmetric between left/right limbs.
+            lateral = shaped_x - cx
+            digit_split = 0.06 * toe * influence
+            if lateral:
+                shaped_x += (1.0 if lateral > 0 else -1.0) * half_length * digit_split
             result[index] = (
-                cx + (x - cx) * (1 + (profile.width_scale - 1) * influence) * toe_taper,
+                shaped_x,
                 projected_y,
                 z,
             )
