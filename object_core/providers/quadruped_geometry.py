@@ -303,10 +303,13 @@ def _shape_paw_surfaces(vertices, anatomy):
         height = min(profile.height_cm, upper - ground)
         if height <= 0:
             raise ValueError('Paw shape requires a transition above ground')
-        for index in region.vertex_indices:
+        low_paw_indices = tuple(
+            i for i in region.vertex_indices
+            if vertices[i][2] < ground + height
+        )
+        half_length = max(abs(vertices[i][1] - cy) for i in low_paw_indices)
+        for index in low_paw_indices:
             x, y, z = vertices[index]
-            if z >= ground + height:
-                continue
             t = max(0.0, (z - ground) / height)
             influence = (1 - t) ** 2 * (1 + 2 * t)
             # Keep the forefoot broad through the pad, then soften the leading
@@ -315,11 +318,6 @@ def _shape_paw_surfaces(vertices, anatomy):
             projected_y = (
                 cy + (y - cy) * (1 + (profile.length_scale - 1) * influence)
                 + profile.forward_cm * influence
-            )
-            half_length = max(
-                abs(vertices[i][1] - cy)
-                for i in region.vertex_indices
-                if vertices[i][2] < ground + height
             )
             forward = max(0.0, projected_y - cy)
             toe_start = half_length * 0.55
