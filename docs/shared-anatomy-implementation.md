@@ -1,6 +1,6 @@
 # Shared anatomy implementation checkpoint
 
-Current implementation: October 3, 2026, recipe version 13 working-tree continuation after `52a1f66` on
+Current implementation: October 3, 2026, recipe version 13 at `27dfb74`, with gait-diagnostic continuation on
 `codex/shared-generation-system`. Human and Quadruped use shared resolved-anatomy
 contracts. Canine recipe version 13 adds front-paw resolution and connected toe
 contours; detailed paw and attachment refinement continues.
@@ -787,10 +787,61 @@ were rendered and inspected. The rebuilt isolated package and canine save/reopen
 checks pass in Blender 5.2.1. Compilation and whitespace checks pass. Remote CI
 and gait playback were not repeated.
 
+## Sampled walk/run contact baseline (October 3, 2026)
+
+`scripts/review_canine_gait.py` generates actual editable Blender walk/run actions
+through the normal adapter, evaluates their deformed surfaces in world centimeters,
+and records 33 evenly spaced cycle samples including both endpoints. It creates
+and removes its own scene and generated data, preserving the caller's scene/frame.
+The report includes per-frame signed clearance and near-ground hulls, the worst
+sample phase, loop closure, and a fixed neutral sole patch's centroid trajectory.
+Centroid XY excursion is the largest separation over the cycle, not inferred foot
+sliding: these clips are in-place and no stance schedule or root travel is assumed.
+Sampling can miss between-sample peaks. Hulls remain envelopes, not contact area.
+
+Reproduce each row in Blender 5.2.1 with:
+
+```text
+blender --background --factory-startup --python-exit-code 1 --python scripts/review_canine_gait.py -- --sample default --output artifacts/shared-anatomy/gait-default.json
+```
+
+Use `--sample contrasting` or `--sample short-wide` and a matching output name for
+the other shapes. `--intervals 32` is the default; 4..256 intervals are supported.
+The CLI uses strength 1, a 1.2-second walk and a 0.64-second run at 24 fps; fractional
+frames retain exact normalized sample phases. JSON includes source provenance,
+parameters, recipe, runtime, and the fixed sole vertex indices.
+
+| Shape | Clip | Worst sampled penetration (cm) | Limb | Phase |
+| --- | --- | ---: | --- | ---: |
+| Default | Walk | 1.6194 | Hind right | 0.28125 |
+| Default | Run | 5.4796 | Front right | 0.31250 |
+| Contrasting | Walk | 2.0399 | Hind right | 0.28125 |
+| Contrasting | Run | 7.5214 | Front right | 0.28125 |
+| Short/wide | Walk | 0.5609 | Hind left | 0.78125 |
+| Short/wide | Run | 2.0425 | Front right | 0.31250 |
+
+All six cycles close exactly in evaluated vertex positions at their endpoints,
+but all penetrate the fixed ground plane between them. This establishes a gait
+contact defect despite the passing isolated elbow/hip checks; it is not gait
+acceptance. The diagnostic change does not alter generated geometry, weights,
+rigs or clips. Keep `front-toes-baseline.json` as their fingerprint baseline.
+Local reports use `gait-default.json`, `gait-contrasting.json` and
+`gait-short-wide.json` under `artifacts/shared-anatomy/`.
+
+Blender regressions exercise real walk/run movement, fractional endpoint timing,
+closed cycles, report consistency and caller-data preservation on success,
+invalid input and an injected measurement failure. All 245 Blender integration
+tests pass in Blender 5.2.1, including the two new gait-review tests. Compilation
+and whitespace checks pass. Core/provider code is unchanged from `27dfb74`,
+whose 414 core tests passed at the recipe checkpoint.
+
 ## Next work
 
-Next, refine pads/claws, hind-paw volume and shoulder/hip attachment creases using
-recipe 13 as the baseline. Use the paw close-ups alongside its whole-body
+Next, correct gait contact using the sampled walk/run baseline; do not hide
+penetration by clamping evaluated mesh vertices. Establish stance timing and
+root-travel assumptions before treating centroid motion as foot sliding. Continue
+pads/claws, hind-paw volume and shoulder/hip attachment refinement from recipe 13.
+Use the paw close-ups alongside its whole-body
 neutral and joint diagnostics as the before-state for the next geometry change,
 rendering comparisons with corrected lighting and the portable Blender 5.2.1
 runtime above. Neutral sole contact is complete; planted
