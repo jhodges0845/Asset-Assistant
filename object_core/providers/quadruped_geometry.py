@@ -331,6 +331,30 @@ def _shape_paw_surfaces(vertices, anatomy):
                 + forward * influence,
                 z,
             )
+        if suffix.startswith('front.') and profile.front_toe_indent_scale:
+            # Three shallow webs suggest four toes without cutting the sole or
+            # adding disconnected digits. Work in this limb's local low-paw
+            # bounds; every map leaves X/Z fixed and is monotone in forward Y.
+            low = [i for i in region.vertex_indices if result[i][2] < ground + height]
+            radius = max(abs(result[i][0] - cx) for i in low)
+            rear = min(result[i][1] for i in low)
+            length = max(result[i][1] for i in low) - rear
+            if radius <= 0 or length <= 0:
+                raise ValueError('Toe contours require a nonzero paw footprint')
+            for index in low:
+                x, y, z = result[index]
+                u = (x - cx) / radius
+                grooves = 0.0
+                for center in (-.5, 0.0, .5):
+                    distance = (u - center) / .24
+                    if abs(distance) < 1:
+                        grooves += (1 - distance * distance) ** 2
+                forward = max(0.0, ((y - rear) / length - .45) / .55)
+                forward = forward * forward * (3 - 2 * forward)
+                t = max(0.0, (z - ground) / height)
+                fade = (1 - t) ** 2 * (1 + 2 * t)
+                # At the validated maximum depth, dY'/dY stays above .45.
+                result[index] = (x, y - length * profile.front_toe_indent_scale * grooves * forward * fade, z)
     return tuple(result)
 
 

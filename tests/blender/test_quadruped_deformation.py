@@ -101,7 +101,9 @@ class QuadrupedDeformationTests(unittest.TestCase):
         defaults = {field.key: field.default for field in provider.parameters}
         contrasting = dict(defaults, body_length_cm=95, shoulder_height_cm=40,
                            body_width_cm=28, head_length_cm=30, tail_length_cm=50)
-        for values in (defaults, contrasting):
+        short_wide = dict(defaults, body_length_cm=25, shoulder_height_cm=15,
+                          body_width_cm=55, head_length_cm=8, tail_length_cm=5)
+        for values in (defaults, contrasting, short_wide):
             for pose, bone in (('elbow', 'fore_lower.left'), ('hip', 'hind_upper.left')):
                 with self.subTest(values=values, pose=pose):
                     part, evidence = review_part(values, pose)

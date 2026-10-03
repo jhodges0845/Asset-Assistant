@@ -39,6 +39,7 @@ class CaninePawProfile:
     forward_cm: float
     height_cm: float
     front_forward_scale: float = 1.0
+    front_toe_indent_scale: float = 0.0
 
     def __post_init__(self):
         for name in ('width_scale', 'length_scale', 'forward_cm', 'height_cm'):
@@ -52,6 +53,11 @@ class CaninePawProfile:
             raise TypeError('Front paw projection scale must be a number')
         if not isfinite(value) or not 0 <= value <= 1:
             raise ValueError('Front paw projection scale must be between zero and one')
+        value = self.front_toe_indent_scale
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError('Toe indentation scale must be a number')
+        if not isfinite(value) or not 0 <= value <= .2:
+            raise ValueError('Toe indentation scale must be between zero and 0.2')
 
 
 @dataclass(frozen=True)
@@ -79,7 +85,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '12'
+    recipe_version = '13'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -208,6 +214,6 @@ class CanineRecipe:
                 forward_cm=min(width * .02, shoulder * .03),
                 height_cm=min(width * .16, shoulder * .08),
                 # The fuller front quad cap needs less extra toe projection.
-                front_forward_scale=.25),
+                front_forward_scale=.25, front_toe_indent_scale=.18),
             symmetry=(('leg.front.left', 'leg.front.right'), ('leg.hind.left', 'leg.hind.right'), ('ear.left', 'ear.right')),
         )

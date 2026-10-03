@@ -1,18 +1,19 @@
 # Shared anatomy implementation checkpoint
 
-Current implementation: September 28, 2026, recipe version 12 working-tree continuation after `b3b130f` on
+Current implementation: October 3, 2026, recipe version 13 working-tree continuation after `52a1f66` on
 `codex/shared-generation-system`. Human and Quadruped use shared resolved-anatomy
-contracts. Canine recipe version 12 adds four-quad paw caps on the bounded
-distal construction; attachment-weight refinement continues.
+contracts. Canine recipe version 13 adds front-paw resolution and connected toe
+contours; detailed paw and attachment refinement continues.
 Avian still uses its existing provider construction and awaits recipe migration.
 This is a development-branch checkpoint, not a release or final anatomy acceptance.
 
 ## Current behavior
 
-The canine generates one connected surface with 6,402 vertices, 6,400 quads and
+The canine generates one connected surface with 7,618 vertices, 7,616 quads and
 17 bones. It has a tucked waist, fuller chest, connected ears, a distinct muzzle,
 and separate hip/knee/hock/paw hind chains. Two portable subdivision passes refine
 the control cage while preserving authored region and attachment ownership.
+The terminal front-paw cages receive a local conforming split before those passes.
 
 Shape/scale Modify executes for body, torso, chest, waist, head, muzzle, tail,
 both ears and all four limbs. Profiles include broad chest/head, tucked waist,
@@ -36,6 +37,9 @@ a low-paw transition, capped below each ankle/hock. It preserves every height,
 upper-limb vertex, rest joint and connection while making the paw end more distinct.
 Versions 10/11 add forward shoulder stance and height-bounded distal dimensions;
 version 12 replaces radial paw caps with four quads and reduces front projection.
+Version 13 adds three shallow front-paw indentations suggesting four connected
+toes while leaving the rest-rig landmarks and every grounded height unchanged
+by the contour map. Local cage refinement also changes the front sole profile.
 
 ## Construction and ownership
 
@@ -736,10 +740,57 @@ not final anatomical/gait acceptance. The rebuilt isolated package and real
 canine save/reopen checks pass in Blender 5.2.1. All 411 core tests and 243
 Blender integration tests pass, as do compilation and whitespace checks.
 
+## Front-paw toe contours (recipe version 13, October 3, 2026)
+
+The two terminal front-paw cage rings and their four-quad caps receive a local
+linear split before the existing two subdivision passes. Shared edge midpoints
+also enter adjacent polygons, so the normal refinement produces a closed quad
+surface with no hanging seam vertices. Added vertices stay limb-owned; attachment
+loops are unchanged. This grows the mesh by 1,216 vertices and quads to
+7,618 / 7,616. Older generated surfaces require explicit replacement; construction
+does not rebase saved artist edits or apply the contour during Modify.
+
+A validated `front_toe_indent_scale=.18` retracts three narrow bands on the front
+half of each low front paw, suggesting four toes in the connected surface.
+The map preserves X/Z coordinates, fades out below the ankle, and keeps forward
+ordering (its Y derivative remains positive throughout the allowed 0..0.2 depth
+range). Neutral sole grounding still uses the canonical construction path.
+This is stylized surface detail, not separated digits, pads, claws or dewclaws.
+The four-toe direction follows the primary toe/pad arrangement described by
+[University of Illinois Extension](https://web.extension.illinois.edu/dogs/parts.cfm?slide=15).
+
+Initial sparse-cage contours looked like faceted dimples. Refining all four paws
+made the hind soles look too flat, so that draft was rejected. Only front paws
+receive this change. The accepted evidence uses `front-toes-*` under
+`artifacts/shared-anatomy/`; `toe-contour-*` files are intermediate experiments.
+The front contour is clearer in close-up and whole-body views but remains
+faceted, with a visible upper toe lip. Hind shape and the attachment creases
+still require anatomical refinement.
+
+Portable regressions cover closed local splits, ownership/seam preservation,
+contour locality, exact height preservation, depth validation, and supported
+parameter corners. The symmetry check compares coordinates with an explicit
+1e-7 cm tolerance rather than requiring identical decimal rounding bins.
+
+The six-sample comparison from `toe-contour-before.json` (clean `52a1f66`) to
+`front-toes-baseline.json` changes only Quadruped mesh and weight fingerprints.
+Human, Avian, all rest rigs and all clips match. The 18-case neutral/joint matrix
+passes movement and isolation checks. All neutral soles remain grounded.
+Default, contrasting and short/wide elbow clearances are 0.8723, 0.1091 and
+0.0572 cm respectively. This removes the prior short/wide elbow penetration in
+that isolated pose; it is not a planted-foot or gait-cycle acceptance result.
+The Blender elbow/hip regression now also includes that short/wide sample.
+
+All 414 core tests and 243 Blender integration tests pass. Default front/hind
+clay/wireframe, contrasting elbow/hock clay, and default whole-body clay sheets
+were rendered and inspected. The rebuilt isolated package and canine save/reopen
+checks pass in Blender 5.2.1. Compilation and whitespace checks pass. Remote CI
+and gait playback were not repeated.
+
 ## Next work
 
-Next, refine detailed paw anatomy and shoulder/hip attachment creases using
-recipe 12 as the baseline. Use the paw close-ups alongside its whole-body
+Next, refine pads/claws, hind-paw volume and shoulder/hip attachment creases using
+recipe 13 as the baseline. Use the paw close-ups alongside its whole-body
 neutral and joint diagnostics as the before-state for the next geometry change,
 rendering comparisons with corrected lighting and the portable Blender 5.2.1
 runtime above. Neutral sole contact is complete; planted

@@ -24,8 +24,8 @@ class QuadrupedProviderTests(unittest.TestCase):
         self.assertIsInstance(mesh, ObjectMesh)
         self.assertEqual(mesh, self.provider.mesh(self.defaults))
         self.assertEqual(tuple(part.name for part in mesh.parts), ("quadruped",))
-        self.assertEqual(mesh.vertex_count, 6402)
-        self.assertEqual(mesh.face_count, 6400)
+        self.assertEqual(mesh.vertex_count, 7618)
+        self.assertEqual(mesh.face_count, 7616)
         part = mesh.parts[0]
         referenced = {index for face in part.faces for index in face}
         self.assertEqual(referenced, set(range(len(part.vertices))))

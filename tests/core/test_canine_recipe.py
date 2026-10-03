@@ -225,10 +225,16 @@ class CanineRecipeTests(unittest.TestCase):
                         seen.add(current)
                         pending.extend(neighbors[current] - seen)
                 self.assertEqual(len(part.vertices), len(seen))
-                left = {tuple(round(c, 7) for c in (-part.vertices[i][0], *part.vertices[i][1:]))
-                        for i in regions['leg.hind.left']}
-                right = {tuple(round(c, 7) for c in part.vertices[i]) for i in regions['leg.hind.right']}
-                self.assertEqual(left, right)
+                # Rounding into bins can disagree at a decimal midpoint even
+                # for mirrored coordinates differing only by float summation.
+                order = lambda point: tuple(round(c, 6) for c in point)
+                left = sorted(((-part.vertices[i][0], *part.vertices[i][1:])
+                               for i in regions['leg.hind.left']), key=order)
+                right = sorted((part.vertices[i] for i in regions['leg.hind.right']), key=order)
+                self.assertEqual(len(left), len(right))
+                for mirrored, actual in zip(left, right):
+                    for expected, coordinate in zip(mirrored, actual):
+                        self.assertAlmostEqual(expected, coordinate, delta=1e-7)
                 cage, cage_anatomy = _build_quadruped_cage(anatomy)
                 part = cage.parts[0]
                 regions = {r.name: r.vertex_indices for r in cage_anatomy.regions}

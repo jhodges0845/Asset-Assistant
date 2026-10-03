@@ -13,7 +13,64 @@ def _mean(points):
     return tuple(sum(p[k] for p in points) / len(points) for k in range(3))
 
 
+def _densify_paw_cages(mesh, anatomy):
+    """Split terminal front-paw quads before smoothing, with conforming transitions.
+
+    Cage limb ownership ends with two eight-vertex rings and the cap center.
+    Split-edge midpoints are also inserted into adjacent unsplit polygons; the
+    normal subdivision pass then produces quads with no hanging seam vertices.
+    """
+    part = mesh.parts[0]
+    selected = set()
+    for region in anatomy.regions:
+        if region.name.startswith('leg.front.'):
+            terminal = set(region.vertex_indices[-17:])
+            selected.update(i for i, face in enumerate(part.faces) if set(face) <= terminal)
+    edges = sorted({tuple(sorted((a, b))) for i in selected
+                    for a, b in zip(part.faces[i], part.faces[i][1:] + part.faces[i][:1])})
+    vertices = list(part.vertices)
+    sources = [(i,) for i in range(len(vertices))]
+    midpoints = {}
+    for edge in edges:
+        midpoints[edge] = len(vertices)
+        vertices.append(_mean(part.vertices[i] for i in edge))
+        sources.append(edge)
+    faces = []
+    for fi, face in enumerate(part.faces):
+        if fi in selected:
+            center = len(vertices)
+            vertices.append(_mean(part.vertices[i] for i in face))
+            sources.append(face)
+            for i, a in enumerate(face):
+                b, previous = face[(i + 1) % len(face)], face[i - 1]
+                faces.append((a, midpoints[tuple(sorted((a, b)))], center,
+                              midpoints[tuple(sorted((previous, a)))]))
+        else:
+            expanded = []
+            for a, b in zip(face, face[1:] + face[:1]):
+                expanded.append(a)
+                mid = midpoints.get(tuple(sorted((a, b))))
+                if mid is not None:
+                    expanded.append(mid)
+            faces.append(tuple(expanded))
+    regions = []
+    for region in anatomy.regions:
+        owned = set(region.vertex_indices)
+        regions.append(replace(region, vertex_indices=tuple(
+            i for i, source in enumerate(sources) if all(j in owned for j in source))))
+    # Only terminal faces are split; attachment loops must remain untouched.
+    for connection in anatomy.connections:
+        for loop in connection.boundaries:
+            if any(tuple(sorted((a, b))) in midpoints for a, b in zip(loop, loop[1:] + loop[:1])):
+                raise ValueError('Paw refinement must not reach attachment boundaries')
+    result = ObjectMesh((MeshPart(part.name, tuple(vertices), tuple(faces)),))
+    resolved = replace(anatomy, regions=tuple(regions))
+    resolved.validate_mesh(result)
+    return result, resolved
+
+
 def refine_canine_surface(mesh, anatomy, levels=2):
+    mesh, anatomy = _densify_paw_cages(mesh, anatomy)
     vertices, faces = mesh.parts[0].vertices, mesh.parts[0].faces
     regions = {r.name: set(r.vertex_indices) for r in anatomy.regions}
     boundaries = [c.boundaries for c in anatomy.connections]
