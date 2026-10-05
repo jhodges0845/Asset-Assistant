@@ -15,6 +15,13 @@ class RotationTrack:
 
 
 @dataclass(frozen=True)
+class TranslationTrack:
+    """Bone displacement in rest armature axes, in centimeters."""
+    bone: str
+    keys: Tuple[Tuple[float, Tuple[float, float, float]], ...]
+
+
+@dataclass(frozen=True)
 class IdleClip:
     duration: float
     tracks: Tuple[RotationTrack, ...]

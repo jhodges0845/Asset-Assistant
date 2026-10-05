@@ -41,7 +41,7 @@ def evaluated_points(body):
         obj.to_mesh_clear()
 
 
-def review_part(values, pose):
+def review_part(values, pose, gait=None, phase=0.0):
     provider = get_provider('quadruped')
     mesh, anatomy = _construction(provider.dimensions(values))
     skeleton = provider.skeleton(values)
@@ -55,12 +55,31 @@ def review_part(values, pose):
                     mesh.parts[0].vertices, anatomy.regions),
                 'neutral_support_footprint': limb_support_footprint(
                     mesh.parts[0].vertices, mesh.parts[0].faces, anatomy.regions)}
-    if pose == 'neutral':
+    if pose == 'neutral' and gait is None:
         return mesh.parts[0], evidence
     root = create_character(mesh, name='CaninePoseReview', scene=bpy.context.scene,
                             skeleton=skeleton, skin_weights=provider.skin_weights(mesh, values))
     body = next(o for o in root.children if o.type == 'MESH')
     rig = next(o for o in root.children if o.type == 'ARMATURE')
+    if gait is not None:
+        from math import floor, isfinite
+        from blender_adapter.animation import add_locomotion, add_run
+        if gait not in ('walk', 'run') or not isfinite(phase) or not 0 <= phase <= 1:
+            raise ValueError('Gait review requires walk/run and a phase in [0, 1]')
+        root['object_type'] = provider.key
+        for key, value in values.items():
+            root[key] = value
+        scene = bpy.context.scene
+        duration = 1.2 if gait == 'walk' else .64
+        (add_locomotion if gait == 'walk' else add_run)(root, scene, duration, 1.0)
+        frame = scene.frame_start + duration * phase * scene.render.fps / scene.render.fps_base
+        scene.frame_set(floor(frame), subframe=frame-floor(frame))
+        points = evaluated_points(body)
+        part = MeshPart(mesh.parts[0].name,
+                       tuple(tuple(float(c)*100 for c in point) for point in points), mesh.parts[0].faces)
+        evidence.update(gait=gait, phase=phase, duration_seconds=duration,
+                        posed_ground_clearance=limb_ground_clearance(part.vertices, anatomy.regions))
+        return part, evidence
     before = evaluated_points(body)
     # Compare stationary support in the same evaluated precision as the pose.
     # The source-space report above remains the exact construction baseline.
@@ -143,15 +162,19 @@ def crop_review_part(part, neutral, anatomy, region):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
+    parser.add_argument('--sample', choices=('default', 'contrasting', 'short-wide'), default='default')
     parser.add_argument('--region', choices=('body', 'head', 'front-paw', 'hind-paw'), default='body')
     parser.add_argument('--pose', choices=('neutral', 'knee', 'hock', 'shoulder', 'elbow', 'hip'), default='neutral')
+    parser.add_argument('--gait', choices=('walk', 'run'))
+    parser.add_argument('--phase', type=float, default=0.0)
     parser.add_argument('--samples', type=int, default=4)
     parser.add_argument('--resolution-x', type=int, default=1200)
     parser.add_argument('--resolution-y', type=int, default=500)
     parser.add_argument('--modes', nargs='+', choices=sheets.REVIEW_MODES,
                         default=list(sheets.REVIEW_MODES))
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else [])
+    if args.gait is not None and args.pose != 'neutral':
+        parser.error('--gait cannot be combined with an isolated --pose')
     args.output = args.output.resolve()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     provider = get_provider('quadruped')
@@ -159,8 +182,11 @@ def main():
     if args.sample == 'contrasting':
         values.update(body_length_cm=95, shoulder_height_cm=40, body_width_cm=28,
                       head_length_cm=30, tail_length_cm=50)
+    elif args.sample == 'short-wide':
+        values.update(body_length_cm=25, shoulder_height_cm=15, body_width_cm=55,
+                      head_length_cm=8, tail_length_cm=5)
     sheets._clear_scene()
-    part, evidence = review_part(values, args.pose)
+    part, evidence = review_part(values, args.pose, args.gait, args.phase)
     evidence['review_region'] = args.region
     neutral, anatomy = _construction(provider.dimensions(values))
     part, selection = crop_review_part(part, neutral.parts[0], anatomy, args.region)

@@ -87,6 +87,7 @@ class QuadrupedProvider:
     key, label = "quadruped", "Quadruped"
     supports_rig = supports_idle = supports_locomotion = supports_run = supports_materials = True
     uses_skin_weights = True
+    animation_uses_parameters = True
     parameters = QUADRUPED_PARAMETERS
     semantic_targets = QUADRUPED_SEMANTIC_TARGETS
     semantic_apply_capabilities = QUADRUPED_SEMANTIC_APPLY_CAPABILITIES
@@ -113,11 +114,11 @@ class QuadrupedProvider:
     def idle(self, duration, strength):
         return generate_quadruped_idle(duration, strength)
 
-    def locomotion(self, duration, strength):
-        return generate_quadruped_walk(duration, strength)
+    def locomotion(self, duration, strength, values=None):
+        return generate_quadruped_walk(duration, strength, values)
 
-    def run(self, duration, strength):
-        return generate_quadruped_run(duration, strength)
+    def run(self, duration, strength, values=None):
+        return generate_quadruped_run(duration, strength, values)
 
     def materials(self, values):
         texture = ImageTextureSpec(

@@ -61,7 +61,8 @@ def capture(provider_key, sample):
                                ('supports_locomotion', 'locomotion'),
                                ('supports_run', 'run'), ('supports_flight', 'flight')):
         if getattr(provider, capability, False):
-            clip = timed(method, lambda: getattr(provider, method)(2.0, 1.0))
+            kwargs = {'values': values} if getattr(provider, 'animation_uses_parameters', False) and method in ('locomotion', 'run') else {}
+            clip = timed(method, lambda: getattr(provider, method)(2.0, 1.0, **kwargs))
             clips[method] = fingerprint(clip)
     return {
         'provider': provider_key, 'sample': sample, 'parameters': values,

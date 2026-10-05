@@ -31,8 +31,8 @@ class CanineGaitReviewTests(unittest.TestCase):
     def test_real_walk_and_run_have_motion_closed_cycles_and_consistent_reports(self):
         for clip, duration in (('walk', 1.2), ('run', .64)):
             with self.subTest(clip=clip):
-                report = review_cycle(self.values, clip, intervals=8)
-                self.assertEqual(len(report['frames']), 9)
+                report = review_cycle(self.values, clip, intervals=17)
+                self.assertEqual(len(report['frames']), 18)
                 self.assertGreater(report['maximum_vertex_motion_cm'], 1)
                 self.assertLess(report['loop_closure_error_cm'], .0001)
                 self.assertEqual(report['frames'][0]['phase'], 0)
@@ -45,6 +45,11 @@ class CanineGaitReviewTests(unittest.TestCase):
                     self.assertEqual(summary['maximum_z_cm'], max(heights))
                     self.assertGreater(summary['sole_centroid_xy_excursion_cm'], .1)
                     self.assertTrue(report['sole_vertex_indices'][name])
+                    self.assertGreaterEqual(summary['minimum_z_cm'], -.001)
+                    self.assertLess(summary['maximum_clearance_target_error_cm'], .03)
+                    self.assertLess(summary['maximum_forward_target_error_cm'], .03)
+                    self.assertLess(summary['reference_stance_drift_cm'], .03)
+                    self.assertGreater(summary['reference_stance_samples'], 2)
                 self.assert_caller_preserved()
 
     def test_failure_and_invalid_input_leave_caller_data_intact(self):

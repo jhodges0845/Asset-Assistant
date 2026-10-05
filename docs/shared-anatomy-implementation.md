@@ -75,13 +75,13 @@ Build with `python -m scripts.build_blender_addon`, then install/update
 Animate > Rig & Pose workflows; Idle/Walk/Run remain available.
 
 Saved surfaces from older recipe versions are preserved. Create a new Quadruped
-to adopt version 12; there is no automatic topology, weight or Action migration.
+to adopt version 13; there is no automatic topology, weight or Action migration.
 Manual artist edits continue to block procedural replacement. Installing the
 updated add-on alone does not upgrade existing geometry or artist-owned weights.
 
 ## Validation and reproducibility
 
-Latest local validation (September 28, 2026): all 411 core tests and 243 Blender
+Recipe-12 validation checkpoint (September 28, 2026): all 411 core tests and 243 Blender
 integration tests pass, along with real canine save/reopen, the rebuilt isolated
 package, compilation and whitespace checks. This is the recipe 12 working tree
 plus the attachment collar fade described below; see `collar-*` artifacts for
@@ -835,17 +835,134 @@ tests pass in Blender 5.2.1, including the two new gait-review tests. Compilatio
 and whitespace checks pass. Core/provider code is unchanged from `27dfb74`,
 whose 414 core tests passed at the recipe checkpoint.
 
+## Portable contact trajectory foundation (October 3, 2026)
+
+`object_core/animation/contact.py` now defines an immutable `ContactCycle` and
+`ContactTarget` for the next gait solver. Each foot declares duration, reference
+root travel per cycle (cm), stance duty factor, swing height (cm), and touchdown
+phase. Forward is a scalar axis selected by the caller; it is not implicitly a
+Blender bone axis. Targets are offsets from a neutral contact point.
+
+Stance moves backward at constant reference speed `stride_cm / duration` with
+zero lift. Adding the corresponding forward root travel produces a stationary
+reference contact. Swing returns through a cubic Hermite curve with matching
+endpoint velocities and a quartic lift with zero endpoint velocity. Small
+fore/aft overshoot during swing is intentional. Position and velocity are
+continuous; acceleration continuity is not promised. Phase wraps over repeated
+cycles, including negative phases. Stance includes touchdown and excludes
+liftoff. Stride means full-cycle root travel, not stance excursion.
+
+Six portable tests independently check stationary stance under reference travel,
+nonnegative lift and the declared apex, numerical position/velocity continuity,
+phase offsets and loop wrapping, duration scaling, and invalid input. This is
+an executable target contract, not a joint solver or gait acceptance result.
+At this foundation checkpoint no provider consumed it; meshes, rigs, weights
+and clips were unchanged. The integration checkpoint below supersedes that state.
+All 420 core tests pass on Python 3.9; compilation and whitespace checks pass.
+The focused tests exercise every executable line in the new module under the
+standard-library trace tool. Full coverage.py reporting was unavailable locally.
+Evidence: `artifacts/shared-anatomy/contact-core-tests.log` and
+`contact-coverage/`. Blender and remote CI were not repeated for this portable,
+unconnected foundation.
+
+The integration below supplies canine footfall/duty-factor and travel values,
+solves joint channels against generated proportions, and validates the deformed
+sole with the Blender gait review. Its stance labels describe the new clips,
+not the earlier sinusoidal baseline.
+
+## Contact-driven walk/run integration (October 3, 2026)
+
+`providers/quadruped_gait.py` now consumes the portable contact targets through
+normal Quadruped Walk/Run generation. The provider accepts optional saved
+parameter values; omitting them retains the public default-proportion call.
+The Blender adapter passes the asset's saved values through the generic
+`animation_uses_parameters` seam. Human and Avian remain on their existing path.
+
+The solver uses recipe 13's canonical geometry, region membership, rest bones
+and weights. In each limb's YZ plane it solves upper/lower rotations for both
+the fixed neutral sole patch's forward centroid and the minimum height of every
+authored limb vertex under linear-blend skinning. Hind pastern rotation cancels
+the accumulated upper/lower rotation. A constant root crouch of
+`0.07 * shoulder_height_cm * strength` provides front-leg reach. No evaluated
+vertices are clamped, no mesh or weights are rewritten, and the 17-bone rest rig
+is unchanged. The solver rejects a target when it cannot converge within its
+bounded iterations/rotation range, rather than silently clipping the target.
+
+Walk uses touchdown phases front-left 0, hind-right .25, front-right .5 and
+hind-left .75, with stance duty .65. Run is a diagonal running trot: front-left
+and hind-right at 0, the other diagonal at .5, with duty .4 and flight intervals.
+Reference stride per cycle is shoulder height times strength times .20 (Walk)
+or .30 (Run). Swing lift uses .06 or .10 respectively. Forward is +Y, and
+reference speed is stride/duration. These are deliberate stylized starting
+values, not species-wide biomechanical claims or generated root travel.
+
+Each limb has 128 joint intervals per cycle and a 0.02 cm contact margin.
+Quaternions and the root-height translation become ordinary editable curves
+through the existing action lifecycle. Idle explicitly keys zero root height so
+native/clip-list switching cannot retain a gait crouch. Neck/tail follow-through
+remains; spine oscillation is omitted while contact is solved against a steady
+body. Existing actions are preserved and are not automatically replaced.
+The bounded cache includes recipe identity/version, parameters, duration,
+strength and gait. Cold generation is several seconds per clip; the fingerprint
+report records timings. This is a material cost versus the old angle waves.
+
+The schema-2 gait review records declared stance, reference travel, forward and
+clearance target errors, and stance-centroid drift after reference +Y travel.
+It joins stance samples across the cycle seam. This tracks a fixed material
+patch centroid, not zero velocity at every sole vertex, physical contact area,
+or arbitrary artist-modified surfaces/weights. Contact guarantees here apply
+to the tested canonical generated assets. Strength/curve editing can change
+contact and needs a fresh review. Samples cannot bound every between-sample peak.
+
+Final 127-interval reports (all six have exactly zero evaluated loop error):
+
+| Shape | Clip | Minimum clearance (cm) | Maximum reference stance drift (cm) |
+| --- | --- | ---: | ---: |
+| Default | Walk | 0.01997 | 0.001565 |
+| Default | Run | 0.01994 | 0.000026 |
+| Contrasting | Walk | 0.01997 | 0.001137 |
+| Contrasting | Run | 0.01995 | 0.000018 |
+| Short/wide | Walk | 0.01999 | 0.000427 |
+| Short/wide | Run | 0.01998 | 0.000009 |
+
+The largest sampled forward target error is 0.00401 cm and clearance target
+error 0.00612 cm. Interior review phases fall between the 128 animation key intervals. Evidence is
+`artifacts/shared-anatomy/gait-contact-{default,contrasting,short-wide}.json`.
+Reproduce with the earlier gait CLI plus `--intervals 127`. The new
+`render_canine_review.py --gait walk|run --phase 0..1` options render actual
+editable actions; the `contact-run-default.png` and
+`contact-walk-contrasting.png` clay sheets inspect the former worst-contact
+phases from front/side/angled views. Bends remain connected and readable;
+attachment creases and faceted paws remain. This is not final animation acceptance.
+
+The six-sample `gait-contact-baseline.json` comparison against
+`front-toes-baseline.json` retains every mesh, rest-rig and weight fingerprint,
+and all Human/Avian output. Quadruped clips change, including an explicit zero
+root translation in Idle. The 18-case generation matrix covers default,
+contrasting and short/wide shapes at strengths .1, 1 and 2. Additional
+length/height/width corner checks exposed an overly restrictive solve limit for
+tall short bodies at run strength 2; the corrected limit and focused regression
+cover that case without changing ordinary gait targets.
+
+Validation: all 425 core tests and 246 Blender integration tests pass. After
+the explicit Idle-height reset was added, the 30 portable animation tests were
+repeated and passed; the 246-test Blender run includes that final change and
+the new centimeter-unit/clip-list-switch regression. Real canine save/reopen,
+the rebuilt isolated add-on package, compilation and whitespace checks pass.
+Logs use `contact-final-*` under `artifacts/shared-anatomy/`. Remote CI and
+destination playback were not repeated. The two inspected pose sheets are not
+a three-cycle animation-quality review.
+
 ## Next work
 
-Next, correct gait contact using the sampled walk/run baseline; do not hide
-penetration by clamping evaluated mesh vertices. Establish stance timing and
-root-travel assumptions before treating centroid motion as foot sliding. Continue
-pads/claws, hind-paw volume and shoulder/hip attachment refinement from recipe 13.
-Use the paw close-ups alongside its whole-body
-neutral and joint diagnostics as the before-state for the next geometry change,
-rendering comparisons with corrected lighting and the portable Blender 5.2.1
-runtime above. Neutral sole contact is complete; planted
-support through a gait cycle and contact drift remain open.
+Next, improve gait body response and paw roll, inspect at least three cycles
+from front/side/three-quarter views, and verify destination playback before
+final animation acceptance. Keep the declared stance/travel contract and the
+new sampled contact/drift checks while tuning. Per-vertex contact drift,
+body dynamics during flight, arbitrary edited shapes/weights and dense-time
+contact remain outside this checkpoint. Continue pads/claws, hind-paw volume
+and shoulder/hip attachment refinement from recipe 13, using paw close-ups
+alongside whole-body neutral, joint and gait diagnostics.
 
 Eyes, nose/mouth detail and scapula/pelvis shaping also remain in the canine
 quality pass. Compare geometry, rig, weights and clips deliberately against the

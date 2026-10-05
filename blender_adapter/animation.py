@@ -136,7 +136,8 @@ def _add_clip(root, scene, clip, suffix, capability, strength):
             if bone.constraints or any(abs(bone.matrix_basis[i][j] - Matrix.Identity(4)[i][j]) > 1e-6
                                        for i in range(4) for j in range(4)):
                 raise ValueError('Start from an unconstrained rest pose; existing pose preserved.')
-        if any(track.bone not in rig.pose.bones for track in clip.tracks):
+        translations = getattr(clip, 'translations', ())
+        if any(track.bone not in rig.pose.bones for track in tuple(clip.tracks) + tuple(translations)):
             raise ValueError('This rig is missing bones required by the provider animation.')
 
         fps = scene.render.fps / scene.render.fps_base
@@ -177,6 +178,22 @@ def _add_clip(root, scene, clip, suffix, capability, strength):
                     curve.keyframe_points.add(len(samples))
                     for key, (frame, rotation) in zip(curve.keyframe_points, samples):
                         key.co = (frame, rotation[component])
+                        key.interpolation = 'LINEAR'
+                    curve.modifiers.new('CYCLES')
+                    curve.update()
+
+            scale = root.get('coordinate_scale', 0.01 / scene.unit_settings.scale_length)
+            for track in translations:
+                bone = rig.pose.bones[track.bone]
+                inverse = bone.bone.matrix_local.to_3x3().inverted()
+                samples = [(start + seconds * fps, inverse @ (Vector(offset) * scale))
+                           for seconds, offset in track.keys]
+                group = {'group_name' if slot is not None else 'action_group': bone.name}
+                for component in range(3):
+                    curve = curves.new(bone.path_from_id('location'), index=component, **group)
+                    curve.keyframe_points.add(len(samples))
+                    for key, (frame, offset) in zip(curve.keyframe_points, samples):
+                        key.co = (frame, offset[component])
                         key.interpolation = 'LINEAR'
                     curve.modifiers.new('CYCLES')
                     curve.update()
@@ -240,7 +257,7 @@ def add_locomotion(root, scene, duration=1.2, strength=1.0):
     return _add_clip(
         root,
         scene,
-        provider.locomotion(duration, strength),
+        _provider_motion(provider, root, 'locomotion', duration, strength),
         locomotion_clip_name(provider),
         'locomotion',
         strength,
@@ -258,4 +275,12 @@ def add_run(root, scene, duration=0.72, strength=1.0):
     provider = provider_for(root)
     if not getattr(provider, 'supports_run', False):
         raise ValueError(provider.label + ' does not support run animation.')
-    return _add_clip(root, scene, provider.run(duration, strength), 'Run', 'run', strength)
+    return _add_clip(root, scene, _provider_motion(provider, root, 'run', duration, strength), 'Run', 'run', strength)
+
+
+def _provider_motion(provider, root, capability, duration, strength):
+    method = getattr(provider, capability)
+    if getattr(provider, 'animation_uses_parameters', False):
+        from .workflow import _saved_values
+        return method(duration, strength, values=_saved_values(provider, root))
+    return method(duration, strength)

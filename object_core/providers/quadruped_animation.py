@@ -3,7 +3,7 @@
 
 from math import cos, isfinite, pi, radians
 
-from ..animation import IdleClip, RotationTrack, RunClip, WalkClip
+from ..animation import RotationTrack
 
 
 def _validate(duration, strength, duration_min, duration_max):
@@ -38,54 +38,32 @@ def generate_quadruped_idle(duration=4.0, strength=1.0):
         RotationTrack("tail.2", (0.0, 0.0, 1.0), _closed_wave(duration, 6.0, strength, phase=pi)),
         RotationTrack("tail.3", (0.0, 0.0, 1.0), _closed_wave(duration, 8.0, strength, phase=3 * pi / 2)),
     )
-    return IdleClip(float(duration), tracks)
+    # Explicit zero height prevents crouch leaking when Blender's native action
+    # selector (or the clip list) switches from a contact gait back to Idle.
+    from .quadruped_gait import ContactIdleClip
+    from ..animation.idle import TranslationTrack
+    return ContactIdleClip(float(duration), tracks,
+                           (TranslationTrack('root', ((0., (0., 0., 0.)),
+                                                      (float(duration), (0., 0., 0.)))),))
 
 
-def generate_quadruped_walk(duration=1.2, strength=1.0):
-    """Return an in-place closed quadruped walk with diagonal gait timing."""
+def _contact_clip(duration, strength, running, values):
+    from .quadruped import QUADRUPED_PARAMETERS
+    from .quadruped_anatomy import CanineRecipe
+    from .quadruped_gait import generate_contact_clip
+    parameters = {p.key: p.default for p in QUADRUPED_PARAMETERS} if values is None else values
+    return generate_contact_clip(float(duration), float(strength), running,
+                                 tuple(sorted(parameters.items())),
+                                 (CanineRecipe.recipe_id, CanineRecipe.recipe_version))
+
+
+def generate_quadruped_walk(duration=1.2, strength=1.0, values=None):
+    """Return a contact-solved four-beat walk for the supplied proportions."""
     _validate(duration, strength, 0.5, 4.0)
-    tracks = []
-    for bone, degrees, phase in (
-        ("fore_upper.left", 24.0, 0.0),
-        ("hind_upper.right", 22.0, 0.0),
-        ("fore_upper.right", 24.0, pi),
-        ("hind_upper.left", 22.0, pi),
-        ("fore_lower.left", -12.0, pi / 2),
-        ("hind_lower.right", -14.0, pi / 2),
-        ("fore_lower.right", -12.0, 3 * pi / 2),
-        ("hind_lower.left", -14.0, 3 * pi / 2),
-    ):
-        tracks.append(RotationTrack(bone, (1.0, 0.0, 0.0), _closed_wave(duration, degrees, strength, phase=phase)))
-    tracks.extend((
-        RotationTrack("spine", (0.0, 0.0, 1.0), _closed_wave(duration, 3.0, strength, phase=pi / 2)),
-        RotationTrack("neck", (1.0, 0.0, 0.0), _closed_wave(duration, 2.0, strength, phase=pi)),
-        RotationTrack("tail.1", (0.0, 0.0, 1.0), _closed_wave(duration, 7.0, strength, phase=pi)),
-        RotationTrack("tail.2", (0.0, 0.0, 1.0), _closed_wave(duration, 10.0, strength, phase=3 * pi / 2)),
-        RotationTrack("tail.3", (0.0, 0.0, 1.0), _closed_wave(duration, 12.0, strength, phase=0.0)),
-    ))
-    return WalkClip(float(duration), tuple(tracks))
+    return _contact_clip(duration, strength, False, values)
 
 
-def generate_quadruped_run(duration=0.64, strength=1.0):
-    """Return an in-place closed faster quadruped run with stronger limb drive."""
+def generate_quadruped_run(duration=0.64, strength=1.0, values=None):
+    """Return a contact-solved diagonal running trot with flight intervals."""
     _validate(duration, strength, 0.3, 2.0)
-    tracks = []
-    for bone, degrees, phase in (
-        ("fore_upper.left", 38.0, 0.0),
-        ("fore_upper.right", 38.0, pi),
-        ("hind_upper.left", 34.0, pi),
-        ("hind_upper.right", 34.0, 0.0),
-        ("fore_lower.left", -24.0, pi / 2),
-        ("fore_lower.right", -24.0, 3 * pi / 2),
-        ("hind_lower.left", -28.0, 3 * pi / 2),
-        ("hind_lower.right", -28.0, pi / 2),
-    ):
-        tracks.append(RotationTrack(bone, (1.0, 0.0, 0.0), _closed_wave(duration, degrees, strength, phase=phase)))
-    tracks.extend((
-        RotationTrack("spine", (1.0, 0.0, 0.0), _closed_wave(duration, 7.0, strength, phase=pi / 2)),
-        RotationTrack("neck", (1.0, 0.0, 0.0), _closed_wave(duration, 5.0, strength, phase=pi)),
-        RotationTrack("tail.1", (0.0, 0.0, 1.0), _closed_wave(duration, 11.0, strength, phase=pi)),
-        RotationTrack("tail.2", (0.0, 0.0, 1.0), _closed_wave(duration, 14.0, strength, phase=3 * pi / 2)),
-        RotationTrack("tail.3", (0.0, 0.0, 1.0), _closed_wave(duration, 16.0, strength)),
-    ))
-    return RunClip(float(duration), tuple(tracks))
+    return _contact_clip(duration, strength, True, values)

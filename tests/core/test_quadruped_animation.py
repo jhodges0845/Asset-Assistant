@@ -16,6 +16,8 @@ class QuadrupedAnimationTests(unittest.TestCase):
     def test_idle_is_closed_and_targets_quadruped_upper_body_and_tail(self):
         clip = self.provider.idle(4.0, 1.0)
         self.assertEqual(clip.duration, 4.0)
+        self.assertEqual(clip.translations[0].bone, 'root')
+        self.assertTrue(all(offset == (0., 0., 0.) for _, offset in clip.translations[0].keys))
         names = {track.bone for track in clip.tracks}
         self.assertEqual(names, {"spine", "neck", "head", "tail.1", "tail.2", "tail.3"})
         for track in clip.tracks:
@@ -23,23 +25,20 @@ class QuadrupedAnimationTests(unittest.TestCase):
             self.assertAlmostEqual(track.keys[-1][0], clip.duration)
             self.assertAlmostEqual(track.keys[0][1], track.keys[-1][1])
 
-    def test_walk_uses_diagonal_quadruped_gait_and_is_closed(self):
+    def test_walk_solves_all_limb_joints_and_closes_with_body_crouch(self):
         clip = self.provider.locomotion(1.2, 1.0)
         tracks = {track.bone: track for track in clip.tracks}
-        required = {
-            "fore_upper.left", "fore_upper.right", "fore_lower.left", "fore_lower.right",
-            "hind_upper.left", "hind_upper.right", "hind_lower.left", "hind_lower.right",
-            "spine", "neck", "tail.1", "tail.2", "tail.3",
-        }
-        self.assertEqual(set(tracks), required)
+        for family in ('fore_upper', 'fore_lower', 'hind_upper', 'hind_lower', 'hind_pastern'):
+            for side in ('left', 'right'):
+                self.assertIn(family + '.' + side, tracks)
         for track in tracks.values():
-            self.assertAlmostEqual(track.keys[0][1], track.keys[-1][1])
-        self.assertAlmostEqual(tracks["fore_upper.left"].keys[0][1],
-                               tracks["hind_upper.right"].keys[0][1] * (24.0 / 22.0))
-        self.assertLess(tracks["fore_upper.left"].keys[0][1] *
-                        tracks["fore_upper.right"].keys[0][1], 0.0)
-        self.assertLess(tracks["hind_upper.left"].keys[0][1] *
-                        tracks["hind_upper.right"].keys[0][1], 0.0)
+            self.assertEqual(track.keys[0][1], track.keys[-1][1])
+        self.assertEqual(clip.translations[0].bone, 'root')
+        self.assertLess(clip.translations[0].keys[0][1][2], 0)
+        for side in ('left', 'right'):
+            rows = [tracks[name + '.' + side].keys for name in ('hind_upper', 'hind_lower', 'hind_pastern')]
+            for sample in zip(*rows):
+                self.assertAlmostEqual(sum(angle for _, angle in sample), 0)
 
     def test_animation_validation_matches_shared_provider_ranges(self):
         for method in (self.provider.idle, self.provider.locomotion, self.provider.run):
