@@ -5,7 +5,7 @@ Hind limbs resolve separate hip, knee, hock and paw landmarks. The remaining
 body sections resolve a tucked waist, fuller chest and a separate muzzle base.
 Each limb declares a ground landmark for neutral sole contact.
 Front shoulders resolve ahead of the elbow; distal dimensions fit leg height.
-Detailed facial features still await refinement.
+Facial relief and matching four-toe paws complete the reference surface.
 Provider-validated dimensions enter resolution; the constructor binds topology.
 """
 from dataclasses import dataclass
@@ -39,7 +39,7 @@ class CaninePawProfile:
     forward_cm: float
     height_cm: float
     front_forward_scale: float = 1.0
-    front_toe_indent_scale: float = 0.0
+    toe_indent_scale: float = 0.0
 
     def __post_init__(self):
         for name in ('width_scale', 'length_scale', 'forward_cm', 'height_cm'):
@@ -53,7 +53,7 @@ class CaninePawProfile:
             raise TypeError('Front paw projection scale must be a number')
         if not isfinite(value) or not 0 <= value <= 1:
             raise ValueError('Front paw projection scale must be between zero and one')
-        value = self.front_toe_indent_scale
+        value = self.toe_indent_scale
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise TypeError('Toe indentation scale must be a number')
         if not isfinite(value) or not 0 <= value <= .2:
@@ -85,7 +85,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '13'
+    recipe_version = '14'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -105,7 +105,7 @@ class CanineRecipe:
         # Distal landmarks must stay below the elbow even for short, wide bodies.
         ankle_z = min(max(width * .12, 1.5), knee_z * .5)
         paw_z = min(max(width * .07, 1.0), ankle_z * .6)
-        paw_forward = min(width * .10, shoulder * .08)
+        paw_forward = min(width * .07, shoulder * .035)
         points = [
             ('tail.tip', (0, -length * 0.5 - tail_length, surface_back_z + torso_height * 0.36)),
             ('tail.mid', (0, -length * 0.5 - tail_length * 0.48, surface_back_z + torso_height * 0.22)),
@@ -168,6 +168,11 @@ class CanineRecipe:
                     ))
                     path = (upper + '.' + suffix, joint + '.' + suffix, 'ground.' + suffix)
                     bones = (bone_prefix + '_upper.' + side, bone_prefix + '_lower.' + side)
+                paw_surface = next(position for name, position in points if name == 'paw.' + suffix)
+                points.append(('toe.' + suffix, (x,
+                    paw_surface[1] + min(width * (.05 if family == 'front' else .18),
+                                         shoulder * (.023 if family == 'front' else .09)),
+                    paw_surface[2] * .7)))
                 chains.append(JointChain(region, path, bones,
                     'spine', (0, -1 if family == 'front' else 1, 0), family + '_support'))
                 regions.append(AnatomyRegion(region, 'quadruped', ()))
@@ -194,8 +199,8 @@ class CanineRecipe:
             ('tail.tip', width * .08, width * .08),
             ('tail.mid', width * .12, width * .12),
             ('tail.base', width * .18, width * .18),
-            ('torso.rear', width * .82, torso_height * .82),
-            ('torso.hind', width * .80, torso_height * .72),
+            ('torso.rear', width * .88, torso_height * .86),
+            ('torso.hind', width * .86, torso_height * .78),
             ('torso.center', width * .92, torso_height * .92),
             ('torso.fore', width * 1.08, torso_height * 1.10),
             ('chest.center', width * .90, torso_height * 1.05),
@@ -214,6 +219,6 @@ class CanineRecipe:
                 forward_cm=min(width * .02, shoulder * .03),
                 height_cm=min(width * .16, shoulder * .08),
                 # The fuller front quad cap needs less extra toe projection.
-                front_forward_scale=.25, front_toe_indent_scale=.18),
+                front_forward_scale=.25, toe_indent_scale=.18),
             symmetry=(('leg.front.left', 'leg.front.right'), ('leg.hind.left', 'leg.hind.right'), ('ear.left', 'ear.right')),
         )

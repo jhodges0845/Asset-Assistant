@@ -27,11 +27,11 @@ class CanineToeTests(unittest.TestCase):
         self.assertEqual(anatomy.connections, resolved.connections)
         original_regions = {r.name: set(r.vertex_indices) for r in anatomy.regions}
         for region in resolved.regions:
-            if region.name not in ('body',) and not region.name.startswith('leg.front.'):
+            if region.name not in ('body',) and not region.name.startswith('leg.'):
                 self.assertEqual(original_regions[region.name], set(region.vertex_indices))
         new_indices = set(range(len(original.vertices), len(part.vertices)))
         limb_indices = set().union(*(set(r.vertex_indices) for r in resolved.regions
-                                    if r.name.startswith('leg.front.')))
+                                    if r.name.startswith('leg.')))
         self.assertTrue(new_indices)
         self.assertTrue(new_indices <= limb_indices)
         directed = Counter((a, b) for face in part.faces
@@ -41,16 +41,16 @@ class CanineToeTests(unittest.TestCase):
         # Euler characteristic of the connected closed genus-zero surface.
         self.assertEqual(2, len(part.vertices) - len(directed) // 2 + len(part.faces))
 
-    def test_toe_contour_only_retracts_low_front_surface_and_preserves_contact(self):
+    def test_toe_contour_only_retracts_low_paw_surfaces_and_preserves_contact(self):
         cage, anatomy = _build_quadruped_cage(self.anatomy)
         refined, anatomy = refine_canine_surface(cage, anatomy)
         grounded = _ground_paw_surfaces(refined.parts[0].vertices, anatomy)
         plain = _shape_paw_surfaces(grounded, replace(anatomy,
-            paw_profile=replace(anatomy.paw_profile, front_toe_indent_scale=0)))
+            paw_profile=replace(anatomy.paw_profile, toe_indent_scale=0)))
         shaped = _shape_paw_surfaces(grounded, anatomy)
         changed = {i for i, (a, b) in enumerate(zip(plain, shaped)) if a != b}
         self.assertTrue(changed)
-        regions = [r for r in anatomy.regions if r.name.startswith('leg.front.')]
+        regions = [r for r in anatomy.regions if r.name.startswith('leg.')]
         self.assertTrue(changed <= set().union(*(set(r.vertex_indices) for r in regions)))
         points = {p.name: p.position for p in anatomy.landmarks}
         for a, b in zip(plain, shaped):
@@ -75,9 +75,9 @@ class CanineToeTests(unittest.TestCase):
         profile = self.anatomy.paw_profile
         for value in (-.01, .201, float('nan'), float('inf')):
             with self.subTest(value=value), self.assertRaises(ValueError):
-                replace(profile, front_toe_indent_scale=value)
+                replace(profile, toe_indent_scale=value)
         for value in (True, None, '0.1'):
             with self.subTest(value=value), self.assertRaises(TypeError):
-                replace(profile, front_toe_indent_scale=value)
+                replace(profile, toe_indent_scale=value)
         for value in (0, .2):
-            self.assertEqual(value, replace(profile, front_toe_indent_scale=value).front_toe_indent_scale)
+            self.assertEqual(value, replace(profile, toe_indent_scale=value).toe_indent_scale)

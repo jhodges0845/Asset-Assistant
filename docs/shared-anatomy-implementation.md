@@ -1,45 +1,39 @@
 # Shared anatomy implementation checkpoint
 
-Current implementation: October 3, 2026, recipe version 13 at `27dfb74`, with gait-diagnostic continuation on
+Current implementation: October 5, 2026, recipe version 14 on
 `codex/shared-generation-system`. Human and Quadruped use shared resolved-anatomy
-contracts. Canine recipe version 13 adds front-paw resolution and connected toe
-contours; detailed paw and attachment refinement continues.
-Avian still uses its existing provider construction and awaits recipe migration.
-This is a development-branch checkpoint, not a release or final anatomy acceptance.
+contracts. The stylized canine anatomy finishing pass adds facial relief,
+matching four-toe paws, shallow pad/claw forms and fuller limb/pelvis profiles.
+Avian still uses its existing construction and awaits recipe migration.
+This is a development checkpoint; final motion acceptance remains open.
 
 ## Current behavior
 
-The canine generates one connected surface with 7,618 vertices, 7,616 quads and
-17 bones. It has a tucked waist, fuller chest, connected ears, a distinct muzzle,
-and separate hip/knee/hock/paw hind chains. Two portable subdivision passes refine
-the control cage while preserving authored region and attachment ownership.
-The terminal front-paw cages receive a local conforming split before those passes.
+The canine generates one connected surface with 17,218 vertices, 17,216 quads
+and the existing 17-bone rest rig. It has a tucked waist, fuller chest/pelvis,
+connected ears, a distinct muzzle, and separate hip/knee/hock/paw hind chains.
+Local facial subdivision adds eye/eyelid, closed-mouth and nostril relief on
+the authored head surface. These are sculpted features, not a facial rig or
+separate eyeballs. Ear boundary loops propagate through local subdivision.
+
+Both front and hind paws now have a short recipe-owned toe section, matching
+four-toe contours and local terminal refinement. Shallow connected claw tips
+and underside pad borders remain limb-owned. Front projection and distal depth
+are bounded to preserve isolated elbow clearance and avoid folds at parameter
+corners. The hind grounding map ends lower on the pastern to retain paw volume.
+The exact neutral ground points remain at zero; pad borders only lift nearby
+underside vertices. Paw expansion uses the low sole center instead of an
+oblique rest-joint projection. Upper-leg taper and fuller rear body sections
+soften the shoulder/hip transitions without changing rest bones or weights'
+authored-chain ownership.
 
 Shape/scale Modify executes for body, torso, chest, waist, head, muzzle, tail,
-both ears and all four limbs. Profiles include broad chest/head, tucked waist,
-long muzzle/tail and sturdy limbs. Indexed selection remains stable after edits;
-head edits include ears, while muzzle edits stay within the muzzle region.
-Coat/accessory operations are not executable canine geometry capabilities.
-
-Limb weights follow authored chains. A topology-distance blend spans each limb's
-attachment bridge: the body loop follows its parent and the limb loop retains
-25% parent influence with the default influence limit. A three-row collar inside
-each authored limb fades that remaining parent influence to zero at the fourth
-refined edge, joining the existing chain weights. The remaining body uses
-axial bones; ears follow the head. Shoulder poses no longer pull the chest and
-neck into large folds. A small attachment crease remains. Version 7 brings all
-four neutral soles to their recipe ground plane through a localized
-post-refinement height map below the ankle/hock. Version 8 adds a smooth cubic
-underside profile. Both steps preserve vertices at/above those heights, surface
-topology and rest-rig landmarks. Version 9 adds a validated recipe-owned paw
-profile: horizontal width/length and forward projection fade smoothly below
-a low-paw transition, capped below each ankle/hock. It preserves every height,
-upper-limb vertex, rest joint and connection while making the paw end more distinct.
-Versions 10/11 add forward shoulder stance and height-bounded distal dimensions;
-version 12 replaces radial paw caps with four quads and reduces front projection.
-Version 13 adds three shallow front-paw indentations suggesting four connected
-toes while leaving the rest-rig landmarks and every grounded height unchanged
-by the contour map. Local cage refinement also changes the front sole profile.
+both ears and all four limbs. Head edits carry facial detail and ears; muzzle
+edits stay in their region. Coat/accessory operations are not executable canine
+geometry capabilities. Existing ownership, preview/apply and topology guards
+remain in force. Saved recipe-13 and earlier surfaces require explicit creation
+of a new Quadruped to adopt this topology; no automatic geometry, weights or
+Action migration occurs.
 
 ## Construction and ownership
 
@@ -57,7 +51,8 @@ introduce a registry or an alternative Blender generation workflow.
 | `rigging/surface_human.py` | Human bones from resolved chains. |
 | `providers/quadruped_anatomy.py` | Canine landmarks, body/paw profiles, 17 bones and six connections: four limbs and two ears. |
 | `providers/quadruped_geometry.py` | Internal control cage, region indices, body/branch attachment loops and final UV projection. |
-| `providers/quadruped_refinement.py` | Two subdivision passes; propagates regions and ordered loops. Cage loops of 4/8 vertices become 16/32 on the final surface. |
+| `providers/quadruped_refinement.py` | Global and local subdivision; propagates regions and ordered loops. Limb boundaries remain 16/32; locally refined ear boundaries are 64/32. |
+| `providers/quadruped_detail.py` | Construction-only connected facial and paw relief; retains authored region ownership. |
 | `providers/quadruped_rigging.py` | Rest chains, authored limb/ear ownership, attachment bridges and interior collar fades. |
 | `providers/quadruped_semantic.py`, `semantic_geometry.py` | Species profiles and shared validated indexed transforms. |
 | `providers/quadruped.py` | Public provider, full recipe/version/parameter cache identity and topology compatibility checks. |
@@ -75,7 +70,7 @@ Build with `python -m scripts.build_blender_addon`, then install/update
 Animate > Rig & Pose workflows; Idle/Walk/Run remain available.
 
 Saved surfaces from older recipe versions are preserved. Create a new Quadruped
-to adopt version 13; there is no automatic topology, weight or Action migration.
+to adopt version 14; there is no automatic topology, weight or Action migration.
 Manual artist edits continue to block procedural replacement. Installing the
 updated add-on alone does not upgrade existing geometry or artist-owned weights.
 
@@ -953,19 +948,89 @@ Logs use `contact-final-*` under `artifacts/shared-anatomy/`. Remote CI and
 destination playback were not repeated. The two inspected pose sheets are not
 a three-cycle animation-quality review.
 
+## Anatomy finishing checkpoint (October 5, 2026)
+
+Recipe 14 retains the same public provider, semantic targets and 17-bone rig.
+It intentionally changes geometry, topology, weights and contact-solved joint
+curves. New facial features are part of the connected surface; claws and pads
+are restrained relief suitable for this stylized reference. They are not
+individually articulated digits. Fur, facial performance and breed coverage
+remain deferred.
+
+Review evidence uses `anatomy14-final-*` in `artifacts/shared-anatomy/`:
+default/contrasting neutral clay, silhouette and wireframe; head and both paw
+close-ups; shoulder, hip, knee and hock bends. Open paw/head crop boundaries are
+diagnostic selections, not openings in the complete generated surface.
+Resumed verification confirms that all six current provider fingerprints match
+`anatomy14-baseline.json`. The corrected final core run (`anatomy14-accepted-core.log`)
+passes all 427 tests; `anatomy14-verified-blender.log` passes all 246 Blender tests.
+Earlier `final`/`verified-core` logs contain rejected drafts and are not the final
+result. The corrected paw-profile test isolates horizontal expansion from pad
+relief instead of attributing their combined clipped footprint to one map.
+The isolated package and real canine save/reopen checks pass in Blender 5.2.1.
+
+The surface now has 17,218 vertices and 17,216 quads. Compared with the contact
+recipe 13 baseline, only Quadruped mesh, weights and clips change; its rest rig
+and all Human/Avian fingerprints match. Local facial resolution, the extra toe
+segment and both-paw detail require explicit regeneration of older assets.
+The close-ups still show faceting and shallow relief; this checkpoint is not
+final motion/visual acceptance.
+
+Recipe 14 contact reports use 127 intervals, between the 128 animation key
+intervals. All six cycles retain positive minimum clearance (0.01993..0.01999 cm),
+zero evaluated loop error, and maximum reference stance-centroid drift below
+0.00156 cm. Evidence is `anatomy14-contact-{default,contrasting,short-wide}.json`.
+The previous recipe 13 contact limits still apply; this is sampled canonical
+asset validation, not arbitrary edited-surface or continuous-time proof.
+
+## Fractional GLB clip endpoints (October 7, 2026)
+
+The destination round-trip probe found that integer-frame NLA baking truncated
+fractional contact clips: at 24 fps, Walk ended at frame 29 instead of 29.8 and
+Run at 16 instead of 16.36. The source actions remained closed, but their exported
+files lost the precise endpoints. This was an export-timing defect, separate
+from the already-correct native-Blender contact solver.
+
+`blender_adapter/targets.py` now exports unconstrained generated clip libraries
+from authored keys using their temporary single-strip NLA associations. Explicit
+track-name merging preserves user export names, and single-armature broadcasting
+is disabled so unassociated actions cannot leak into the file. Saved actions and
+artist NLA/driver ownership retain their existing preservation boundaries.
+Allowed constrained/driven exports retain evaluated baking; existing rig-driver
+and artist-NLA preparation guards still apply. The fractional timing result
+below applies to the authored-key path on the tested Blender 5.2.1 runtime.
+
+The real GLB regression exports Idle, Walk and Run together, including a renamed
+Walk, plus an unrelated action that must be excluded. Reimported Walk/Run retain
+1.2/.64-second durations, positive sampled clearance and loop closure within
+0.001 cm. The source active action is restored and temporary tracks are removed.
+The measurement excludes importer-created bone-display helper meshes and uses
+only the mesh skinned to the imported armature.
+
+Final 127-interval default-shape round trips retain minimum clearance of
+0.01997 cm (Walk) and 0.01994 cm (Run). The largest difference from the source
+minimum-height trace is below 0.000017 cm. Evidence uses
+`anatomy14-glb-final.json` and `anatomy14-glb-test.log` under
+`artifacts/shared-anatomy/`. This is a Blender
+GLB round trip, not a Godot/Unity runtime playback sign-off. FBX and constrained
+clip timing remain outside this verification.
+
+Validation: all 247 Blender integration tests pass after the export fix. The
+rebuilt isolated package and all five portable export-contract tests also pass,
+as do compilation and whitespace checks. Logs use `anatomy14-resume-*` and
+`anatomy14-export-core.log`. The confirmed 427-test anatomy core result above
+remains applicable; this continuation changes only export behavior, its regression
+and checkpoint documentation.
+
 ## Next work
 
-Next, improve gait body response and paw roll, inspect at least three cycles
-from front/side/three-quarter views, and verify destination playback before
-final animation acceptance. Keep the declared stance/travel contract and the
-new sampled contact/drift checks while tuning. Per-vertex contact drift,
-body dynamics during flight, arbitrary edited shapes/weights and dense-time
-contact remain outside this checkpoint. Continue pads/claws, hind-paw volume
-and shoulder/hip attachment refinement from recipe 13, using paw close-ups
-alongside whole-body neutral, joint and gait diagnostics.
+Complete the motion pass: body response, weight shift and paw roll, then inspect
+at least three cycles from front/side/three-quarter views and verify destination
+playback. Preserve the declared stance/travel contract and sampled contact/drift
+checks while tuning. Arbitrary edited shapes/weights and dense-time contact
+remain outside the canonical generated-asset checkpoint.
 
-Eyes, nose/mouth detail and scapula/pelvis shaping also remain in the canine
-quality pass. Compare geometry, rig, weights and clips deliberately against the
-baseline and preserve artist-owned edits. After canine visual acceptance, migrate
-Avian through the same layer using bird-specific rules, then continue the shared
-anatomy/Modify acceptance and cross-provider animation milestones in the alpha plan.
+After the canine motion/visual sign-off, migrate Avian through the shared layer
+using bird-specific rules, then complete cross-provider Modify acceptance and
+release hardening in the alpha plan. Do not reopen canine anatomy for additional
+species, fur or facial animation unless a concrete release blocker requires it.

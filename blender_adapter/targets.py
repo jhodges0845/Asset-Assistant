@@ -97,7 +97,21 @@ def _export_gltf(options, root):
         options.pop('use_active_scene', None)
     with _stage_generated_animation_tracks(root) as staged:
         if 'export_animation_mode' in properties:
-            options['export_animation_mode'] = 'NLA_TRACKS' if staged else 'ACTIONS'
+            # Integer-frame NLA baking truncates fractional clip endpoints and
+            # discards dense contact keys. Pure keyed generated actions can be
+            # exported directly through their temporary single-strip tracks.
+            # Constrained/driven assets retain evaluated baking.
+            authored = staged and 'export_merge_animation' in properties and not any(
+                obj.constraints or (obj.animation_data and obj.animation_data.drivers)
+                or (obj.type == 'ARMATURE' and any(b.constraints for b in obj.pose.bones))
+                for obj in asset_objects(root))
+            options['export_animation_mode'] = 'ACTIONS' if authored or not staged else 'NLA_TRACKS'
+            if authored:
+                options['export_force_sampling'] = False
+                options['export_merge_animation'] = 'NLA_TRACK'
+                # Only actions associated with this asset may enter its file.
+                if 'export_anim_single_armature' in properties:
+                    options['export_anim_single_armature'] = False
         return bpy.ops.export_scene.gltf(**options)
 
 

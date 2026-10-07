@@ -41,7 +41,7 @@ class CanineRefinementTests(unittest.TestCase):
             self.assertEqual(4, len(faces))
             self.assertTrue(all(len(face) == 4 and set(face) <= boundary | {center} for face in faces))
             self.assertEqual(boundary | {center}, {i for face in faces for i in face})
-            for value, expected in zip(part.vertices[center], points['paw.' + region.name[4:]]):
+            for value, expected in zip(part.vertices[center], points['toe.' + region.name[4:]]):
                 self.assertAlmostEqual(value, expected)
             # The regular pole survives refinement and remains fully limb-owned.
             refined_faces = [face for face in self.mesh.parts[0].faces if center in face]
@@ -138,8 +138,9 @@ class CanineRefinementTests(unittest.TestCase):
                 mesh, resolved = _construction(self.provider.dimensions(values))
                 before = raw.parts[0].vertices
                 after = _ground_paw_surfaces(before, anatomy)
-                self.assertEqual(tuple(v[2] for v in after),
-                                 tuple(v[2] for v in mesh.parts[0].vertices))
+                # Pad borders may lift nearby underside vertices but never
+                # penetrate the ground or move the exact sole contact points.
+                self.assertTrue(all(b[2] >= a[2] for a, b in zip(after, mesh.parts[0].vertices)))
                 points = {p.name: p.position for p in anatomy.landmarks}
                 self.assertEqual(raw.parts[0].faces, mesh.parts[0].faces)
                 self.assertEqual(anatomy.regions, resolved.regions)
@@ -164,7 +165,8 @@ class CanineRefinementTests(unittest.TestCase):
                 self.assertEqual(after, _ground_paw_surfaces(after, resolved))
                 # The independent horizontal profile must leave joints, body and
                 # all height/contact results untouched at every parameter corner.
-                shaped = mesh.parts[0].vertices
+                from object_core.providers.quadruped_geometry import _shape_paw_surfaces
+                shaped = _shape_paw_surfaces(after, resolved)
                 paw_indices = set()
                 for region in resolved.regions:
                     if not region.name.startswith('leg.'):
@@ -215,18 +217,27 @@ class CanineRefinementTests(unittest.TestCase):
 
     def test_paw_profile_adds_forward_support_without_changing_rig(self):
         from dataclasses import replace
-        from object_core.providers.quadruped_geometry import _build_quadruped_mesh
         from object_core.providers.quadruped_rigging import _build_quadruped_skeleton
         from scripts.canine_review_metrics import limb_support_footprint
         for values in (self.values, dict(self.values, body_length_cm=95, shoulder_height_cm=40,
                                         body_width_cm=28, head_length_cm=30, tail_length_cm=50)):
             mesh, anatomy = _construction(self.provider.dimensions(values))
             # Isolate the volume profile while retaining the current cap topology.
-            original = replace(anatomy, paw_profile=replace(anatomy.paw_profile,
+            volume_profile = replace(anatomy.paw_profile, toe_indent_scale=0)
+            original = replace(anatomy, paw_profile=replace(volume_profile,
                                width_scale=1, length_scale=1, forward_cm=0))
-            old_mesh, _ = _build_quadruped_mesh(original)
+            # Isolate horizontal volume from the toe contours and footprint-relative pad
+            # grooves. Their lifted borders deliberately alter the clipped
+            # 0.1 cm contact band, independently of horizontal expansion.
+            from object_core.providers.quadruped_geometry import _ground_paw_surfaces, _shape_paw_surfaces
+            cage, bound = _build_quadruped_cage(anatomy)
+            raw, bound = refine_canine_surface(cage, bound)
+            grounded = _ground_paw_surfaces(raw.parts[0].vertices, bound)
+            before = MeshPart('quadruped', _shape_paw_surfaces(grounded,
+                replace(bound, paw_profile=original.paw_profile)), raw.parts[0].faces)
+            after = MeshPart('quadruped', _shape_paw_surfaces(grounded,
+                replace(bound, paw_profile=volume_profile)), raw.parts[0].faces)
             self.assertEqual(_build_quadruped_skeleton(original), _build_quadruped_skeleton(anatomy))
-            before, after = old_mesh.parts[0], mesh.parts[0]
             self.assertEqual(before.faces, after.faces)
             old = limb_support_footprint(before.vertices, before.faces, anatomy.regions)
             new = limb_support_footprint(after.vertices, after.faces, anatomy.regions)
@@ -240,12 +251,16 @@ class CanineRefinementTests(unittest.TestCase):
 
     def test_front_projection_scale_preserves_hind_paws_and_sole_heights(self):
         from dataclasses import replace
-        from object_core.providers.quadruped_geometry import _build_quadruped_mesh
         original = replace(self.anatomy, paw_profile=replace(self.anatomy.paw_profile, front_forward_scale=1))
-        before, _ = _build_quadruped_mesh(original)
+        from object_core.providers.quadruped_geometry import _ground_paw_surfaces, _shape_paw_surfaces
+        cage, bound = _build_quadruped_cage(self.anatomy)
+        refined, bound = refine_canine_surface(cage, bound)
+        grounded = _ground_paw_surfaces(refined.parts[0].vertices, bound)
+        before_vertices = _shape_paw_surfaces(grounded, replace(bound, paw_profile=original.paw_profile))
+        after_vertices = _shape_paw_surfaces(grounded, bound)
         front = {i for r in self.anatomy.regions if r.name.startswith('leg.front.') for i in r.vertex_indices}
-        self.assertTrue(any(before.parts[0].vertices[i] != self.mesh.parts[0].vertices[i] for i in front))
-        for i, (a, b) in enumerate(zip(before.parts[0].vertices, self.mesh.parts[0].vertices)):
+        self.assertTrue(any(before_vertices[i] != after_vertices[i] for i in front))
+        for i, (a, b) in enumerate(zip(before_vertices, after_vertices)):
             self.assertEqual(a[2], b[2])
             if i not in front:
                 self.assertEqual(a, b)

@@ -38,7 +38,7 @@ class CanineRecipeTests(unittest.TestCase):
             owned.update(region)
             self.assertGreater(len(region), 100)
             root, ring = connection.boundaries
-            self.assertEqual((16, 32), (len(root), len(ring)))
+            self.assertEqual((64 if connection.name.startswith('ear.') else 16, 32), (len(root), len(ring)))
             self.assertTrue(set(root) <= self.regions[connection.regions[0]])
             self.assertTrue(set(ring) <= region)
         self.assertEqual(6, len(self.anatomy.connections))

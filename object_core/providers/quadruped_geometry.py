@@ -91,11 +91,12 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
     return rings
 
 
-def _append_branch(vertices, faces, root, centers, widths, depths, *, sagittal=False):
+def _append_branch(vertices, faces, root, centers, widths, depths, *, sagittal=False, forward_tip=False):
     """Bridge one body quad to an eight-sided branch with symmetric triangles."""
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
-    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True, sagittal=sagittal)
+    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True, sagittal=sagittal,
+                         upright_from=len(centers)-1 if forward_tip else None)
     # Match the cyclic boundary phase without changing winding or ownership.
     offset = min(range(_RING_SIDES), key=lambda shift: sum(
         sum((vertices[root[j]][k] - vertices[rings[0][(2*j+shift) % _RING_SIDES]][k])**2
@@ -190,18 +191,25 @@ def _build_quadruped_cage(anatomy):
                 centers_leg = (upper, _lerp(upper, knee, .35), knee,
                                _lerp(knee, hock, .25), hock,
                                _lerp(hock, paw, .25), _lerp(hock, paw, .80), paw)
-                widths_leg = tuple(base * v for v in (1.6, 1.45, .95, .85, .60, .55, .85, 1.35))
-                depths_leg = tuple(base * v for v in (1.4, 1.25, .90, .78, .60, .55, .65, .80))
+                widths_leg = tuple(base * v for v in (1.65, 1.48, 1.02, .92, .70, .66, 1.05, 1.48))
+                depths_leg = tuple(base * v for v in (1.52, 1.30, .96, .84, .68, .64)) + (
+                    min(base * .82, centers_leg[-2][2] * .85), min(base * 1.05, paw[2] * 1.4))
             else:
                 # Bound front-limb thickness by the available vertical span.
                 base = min(base, dimensions["shoulder_height_cm"] * .18)
                 ankle = landmarks["ankle." + suffix]
-                centers_leg = (upper, _lerp(upper, knee, .18), knee,
+                centers_leg = (upper, _lerp(upper, knee, .32), knee,
                                _lerp(knee, ankle, .18), ankle, paw)
-                widths_leg = tuple(base * v for v in (1.50, 1.20, .88, .78, .85, 1.35))
-                depths_leg = tuple(base * v for v in (1.40, 1.15, .88, .78, .65, .80))
+                widths_leg = tuple(base * v for v in (1.55, 1.25, .96, .88, .90, 1.35))
+                depths_leg = tuple(base * v for v in (1.48, 1.22, .96, .88)) + (
+                    min(base * .74, ankle[2] * .70), min(base * .90, paw[2] * .90))
+            # A short fore-facing toe segment rounds the turn from pastern to
+            # paw; rotating the old terminal cap alone folds its inner quads.
+            centers_leg += (landmarks['toe.' + suffix],)
+            widths_leg += (base * (1.20 if family == 'hind' else 1.10),)
+            depths_leg += (base * (.60 if family == 'hind' else .30),)
             rings = _append_branch(vertices, faces, openings[(region, side)], centers_leg,
-                                   widths_leg, depths_leg, sagittal=family == "hind")
+                                   widths_leg, depths_leg, sagittal=True, forward_tip=True)
             limb_rings["leg." + suffix] = rings
 
     ear_rings = {}
@@ -279,6 +287,9 @@ def _ground_paw_surfaces(vertices, anatomy):
         suffix = region.name[4:]
         ground = points['ground.' + suffix][2]
         upper = points[('ankle.' if suffix.startswith('front.') else 'hock.') + suffix][2]
+        if suffix.startswith('hind.'):
+            upper = min(upper, max(anatomy.paw_profile.height_cm * 1.6,
+                                   points['paw.' + suffix][2] * 2))
         lowest = min(vertices[i][2] for i in region.vertex_indices)
         if not lowest < upper or not ground < upper:
             raise ValueError('Paw contact requires a sole below the ankle/hock')
@@ -316,6 +327,10 @@ def _shape_paw_surfaces(vertices, anatomy):
         cx, cy, ground = points['ground.' + suffix]
         upper = points[('ankle.' if suffix.startswith('front.') else 'hock.') + suffix][2]
         height = min(profile.height_cm, upper - ground)
+        # Expand around the actual low sole, not the rest-joint projection:
+        # an oblique hind cap can sit behind its joint before grounding.
+        low_y = [vertices[i][1] for i in region.vertex_indices if vertices[i][2] < ground + height]
+        cy = (min(low_y) + max(low_y)) * .5
         forward = profile.forward_cm * (profile.front_forward_scale if suffix.startswith('front.') else 1)
         if height <= 0:
             raise ValueError('Paw shape requires a transition above ground')
@@ -331,7 +346,7 @@ def _shape_paw_surfaces(vertices, anatomy):
                 + forward * influence,
                 z,
             )
-        if suffix.startswith('front.') and profile.front_toe_indent_scale:
+        if profile.toe_indent_scale:
             # Three shallow webs suggest four toes without cutting the sole or
             # adding disconnected digits. Work in this limb's local low-paw
             # bounds; every map leaves X/Z fixed and is monotone in forward Y.
@@ -354,7 +369,7 @@ def _shape_paw_surfaces(vertices, anatomy):
                 t = max(0.0, (z - ground) / height)
                 fade = (1 - t) ** 2 * (1 + 2 * t)
                 # At the validated maximum depth, dY'/dY stays above .45.
-                result[index] = (x, y - length * profile.front_toe_indent_scale * grooves * forward * fade, z)
+                result[index] = (x, y - length * profile.toe_indent_scale * grooves * forward * fade, z)
     return tuple(result)
 
 
@@ -365,6 +380,9 @@ def _build_quadruped_mesh(anatomy):
     mesh, resolved = refine_canine_surface(cage, resolved)
     part = mesh.parts[0]
     vertices = _shape_paw_surfaces(_ground_paw_surfaces(part.vertices, resolved), resolved)
+    from .quadruped_detail import shape_canine_face, shape_canine_paw_detail
+    vertices = shape_canine_paw_detail(vertices, resolved)
+    vertices = shape_canine_face(vertices, resolved)
     result = ObjectMesh((MeshPart(part.name, vertices, part.faces,
                                   _project_uvs(vertices, part.faces)),))
     resolved.validate_mesh(result)

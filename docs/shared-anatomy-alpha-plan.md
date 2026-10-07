@@ -1,6 +1,12 @@
 # Shared anatomy and animation: alpha plan
 
-Status: in progress, October 3, 2026. Human and Quadruped use shared anatomy contracts; canine recipe version 13 adds locally refined front-paw toe contours on grounded, height-bounded distal limbs. Actual-action walk/run diagnostics expose ground penetration; gait-contact correction, pads/claws, hind-paw shape and attachment refinement remain open. Canine visual acceptance, Avian migration and the final animation quality pass remain open. See the [implementation checkpoint](shared-anatomy-implementation.md) for branch-specific evidence.
+Status: in progress, October 5, 2026. Human and Quadruped use shared anatomy
+contracts. Canine recipe 14 completes the stylized anatomy finishing pass:
+connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
+transitions. Contact-driven Walk/Run are implemented; final body dynamics, paw
+roll, continuous playback and destination acceptance remain open. Avian recipe
+migration, cross-provider acceptance and release hardening follow. See the
+[implementation checkpoint](shared-anatomy-implementation.md) for evidence.
 
 ## Alpha promise
 
