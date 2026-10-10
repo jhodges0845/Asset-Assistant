@@ -53,6 +53,10 @@ class CanineGaitReviewTests(unittest.TestCase):
                     self.assertEqual(summary['reference_material_stance_samples'],
                                      summary['reference_stance_samples'])
                     self.assertGreaterEqual(summary['maximum_reference_vertex_displacement_cm'], 0.)
+                    if name.startswith('leg.hind.'):
+                        toe = summary['toe_material_motion']
+                        self.assertGreater(toe['near_ground_vertex_comparisons'], 0)
+                        self.assertLess(toe['maximum_near_ground_episode_displacement_cm'], .001)
                     toe_ids = report['toe_vertex_indices'][name]
                     self.assertTrue(toe_ids)
                     self.assertLess(len(toe_ids), len(report['sole_vertex_indices'][name]))

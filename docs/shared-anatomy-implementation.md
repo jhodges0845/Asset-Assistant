@@ -1156,10 +1156,52 @@ baseline values. Evidence: `toe-contact-{default,contrasting,short-wide}.json`,
 `toe-contact-core.log` and `toe-contact-tests.log` in `artifacts/shared-anatomy/`.
 
 
+## Recipe 15: distal hind-paw weighting correction
+
+The hind sole retained lower-leg influence under the inverse-distance weighting
+rule. That blended rotation sheared the paw even while its pastern orientation
+was level. Recipe 15 smoothly removes parent influence between 65% and 90%
+of the distance along the pastern segment, leaving the proximal hock blend intact and binding the
+sole fully to its existing pastern bone. The rule applies only when the nearest
+candidate is the authored hind pastern; limb ownership and attachment collars
+retain their existing boundaries. Saved artist weights are not silently replaced;
+use the explicit generation/rig workflow to obtain the correction.
+
+The surface, topology and 17-bone rest rig are unchanged. Six provider/sample
+fingerprints match the prior body-response baseline except Quadruped weights
+and clips. The forepaw's two-bone chain still lacks independent paw orientation;
+its toe-region proximity result remains unresolved by this hind-paw correction.
+
+Fresh 127-interval Blender 5.2.1 sweeps show maximum hind-toe near-ground episode
+displacement (cm):
+
+| Shape | Walk | Run |
+| --- | ---: | ---: |
+| Default | 0.000030 | 0.000058 |
+| Contrasting | 0.000021 | 0.000038 |
+| Short-wide | 0.000008 | 0.000016 |
+
+All six cycles retain positive minimum clearance above 0.01991 cm and zero
+sampled loop error. Default Walk improves from 0.15110 cm and Run from
+0.12984 cm. This remains canonical generated-surface, sampled evidence.
+The Blender regression now requires hind-toe proximity samples and displacement
+below 0.001 cm; the core regression checks sole ownership on all three shapes.
+
+The 247-test Blender suite, two focused contact regressions and rebuilt isolated
+package pass. The full 437-test core run had one outdated assertion requiring
+level paws throughout swing, predating the earlier swing-curl feature; all other
+436 tests passed. That assertion now enforces level stance and bounded swing,
+and its four-test module passes on rerun. Three focused weight tests and seven gait
+tests also pass. Compilation and whitespace checks pass. Evidence uses
+`paw-rigid-*` under `artifacts/shared-anatomy/`, including all three contact
+reports, provider fingerprints, test logs and the three-cycle Run scene/video.
+Run frame 8 was inspected without obvious paw-transition separation; full visual
+animation acceptance remains open.
+
 ## Next work
 
-First inspect forepaw landing and reduce hind-toe near-ground drift using the
-schema 4 baseline. Then complete lateral weight shift, stance toe-off and
+First correct forepaw landing with explicit forepaw articulation; retain the
+recipe 15 hind-toe drift limit and schema 4 contact reports. Then complete lateral weight shift, stance toe-off and
 forepaw articulation, and inspect
 at least three cycles from front/side/three-quarter views and verify destination
 playback. Preserve the declared stance/travel contract and sampled contact/drift

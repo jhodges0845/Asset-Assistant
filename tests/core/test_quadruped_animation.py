@@ -35,10 +35,18 @@ class QuadrupedAnimationTests(unittest.TestCase):
             self.assertEqual(track.keys[0][1], track.keys[-1][1])
         self.assertEqual(clip.translations[0].bone, 'root')
         self.assertLess(clip.translations[0].keys[0][1][2], 0)
+        from object_core.providers.quadruped_gait import contact_schedule
+        schedules = contact_schedule(clip.duration, 1., 55.)
         for side in ('left', 'right'):
             rows = [tracks[name + '.' + side].keys for name in ('hind_upper', 'hind_lower', 'hind_pastern')]
             for sample in zip(*rows):
-                self.assertAlmostEqual(sum(angle for _, angle in sample), 0)
+                pitch = sum(angle for _, angle in sample)
+                phase = sample[0][0] / clip.duration
+                if schedules['leg.hind.' + side].target(phase).in_stance:
+                    self.assertAlmostEqual(pitch, 0)
+                else:
+                    self.assertGreaterEqual(pitch, -1e-10)
+                    self.assertLessEqual(pitch, .12 + 1e-10)
 
     def test_animation_validation_matches_shared_provider_ranges(self):
         for method in (self.provider.idle, self.provider.locomotion, self.provider.run):

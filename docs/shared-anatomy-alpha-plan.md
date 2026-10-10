@@ -1,7 +1,7 @@
 # Shared anatomy and animation: alpha plan
 
 Status: in progress, October 9, 2026. Human and Quadruped use shared anatomy
-contracts. Canine recipe 14 completes the stylized anatomy finishing pass:
+contracts. Canine recipe 15 retains the stylized anatomy finishing pass:
 connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
 transitions. Contact-driven Walk/Run include bounded vertical body compression and a
 three-cycle review generator. Hind-paw swing curl is implemented; lateral weight shift, stance toe-off,
@@ -9,8 +9,8 @@ forepaw articulation, complete visual
 playback review and destination acceptance remain open. Avian recipe
 migration, cross-provider acceptance and release hardening follow. See the
 [implementation checkpoint](shared-anatomy-implementation.md) for evidence.
-The schema 4 contact review identifies foretoe landing and hind-toe near-ground
-drift as the next motion corrections before toe-off tuning.
+Recipe 15 removes the measured hind-sole shear through distal paw weighting.
+Foretoe landing remains the next motion correction before toe-off tuning.
 
 ## Alpha promise
 
