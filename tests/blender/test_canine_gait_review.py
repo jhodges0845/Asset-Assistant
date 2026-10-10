@@ -53,6 +53,18 @@ class CanineGaitReviewTests(unittest.TestCase):
                     self.assertEqual(summary['reference_material_stance_samples'],
                                      summary['reference_stance_samples'])
                     self.assertGreaterEqual(summary['maximum_reference_vertex_displacement_cm'], 0.)
+                    toe_ids = report['toe_vertex_indices'][name]
+                    self.assertTrue(toe_ids)
+                    self.assertLess(len(toe_ids), len(report['sole_vertex_indices'][name]))
+                    self.assertTrue(set(toe_ids).issubset(report['sole_vertex_indices'][name]))
+                    for metric in (summary, summary['toe_material_motion']):
+                        self.assertEqual(metric['near_ground_tolerance_cm'], .1)
+                        self.assertGreaterEqual(metric['near_ground_vertex_comparisons'], 0)
+                        displacement = metric['maximum_near_ground_episode_displacement_cm']
+                        if metric['near_ground_vertex_comparisons']:
+                            self.assertGreaterEqual(displacement, 0.)
+                        else:
+                            self.assertIsNone(displacement)
                 self.assert_caller_preserved()
 
     def test_failure_and_invalid_input_leave_caller_data_intact(self):

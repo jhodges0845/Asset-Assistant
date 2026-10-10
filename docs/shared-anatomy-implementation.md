@@ -1114,9 +1114,53 @@ baseline, not acceptance thresholds or proof of actual ground slip. Before
 adding toe-off, identify the planted toe patch and measure its motion separately
 from lifted sole points; do not treat the old centroid limit as sufficient.
 
+## Toe-region and near-ground episode review
+
+Gait report schema 4 keeps the existing whole-stance material metric and adds
+`maximum_near_ground_episode_displacement_cm`. A fixed vertex starts an episode
+when its sampled Z enters 0..0.1 cm; leaving that band, including penetration,
+resets its reference. XY displacement is measured against the first sample in
+that episode after reference +Y travel compensation. This excludes measured
+flight motion without switching vertex identity. Fewer than two samples in any
+episode report null, not zero. Counts and tolerance accompany the measurement.
+
+Each limb also reports `toe_material_motion` using the foremost +Y quarter of
+its neutral sole extent. `toe_vertex_indices` records this fixed geometric
+proxy. It is not an anatomical label or a force/contact model. Sparse samples
+can miss intermediate lifting, and proximity within the tolerance does not
+establish physical contact. Penetration must still be checked separately.
+
+Thirteen core metric tests pass, covering lift/penetration resets, tolerance,
+isolated proximity, wrapped stance and the previous centroid/material checks.
+The change is confined to review diagnostics and their tests; generated clips,
+meshes and rigs retain the preceding checkpoint behavior.
+Two Blender regressions also pass, including fixed toe-index subset checks and
+caller-scene preservation. Compilation and whitespace checks pass.
+
+Six 127-interval sweeps in Blender 5.2.1 establish the following maximum hind-toe
+near-ground episode displacement (cm):
+
+| Shape | Walk | Run |
+| --- | ---: | ---: |
+| Default | 0.15110 | 0.12984 |
+| Contrasting | 0.09992 | 0.08690 |
+| Short-wide | 0.04999 | 0.04328 |
+
+Every foretoe proxy reports zero repeated near-ground comparisons and null
+displacement at this tolerance. The broader fore-sole has near-ground samples,
+so this identifies a forepaw landing/contact-distribution question rather than
+proof that the whole foot floats. Hind-toe movement is not solely lifted-sole
+motion. Inspect forepaw landing and hind-toe skinning/pivot behavior before
+adding a toe-off waveform. No new acceptance threshold is inferred from these
+baseline values. Evidence: `toe-contact-{default,contrasting,short-wide}.json`,
+`toe-contact-core.log` and `toe-contact-tests.log` in `artifacts/shared-anatomy/`.
+
+
 ## Next work
 
-Complete the motion pass: lateral weight shift, stance toe-off and forepaw articulation, then inspect
+First inspect forepaw landing and reduce hind-toe near-ground drift using the
+schema 4 baseline. Then complete lateral weight shift, stance toe-off and
+forepaw articulation, and inspect
 at least three cycles from front/side/three-quarter views and verify destination
 playback. Preserve the declared stance/travel contract and sampled contact/drift
 checks while tuning. Use the new material-point baseline when choosing toe-off

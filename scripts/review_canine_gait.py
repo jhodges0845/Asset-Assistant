@@ -55,6 +55,13 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
                     for r in anatomy.regions if r.name.startswith('leg.')}
     if not all(sole_indices.values()):
         raise ValueError('Gait review requires neutral sole vertices in Z=0..0.1 cm')
+    # +Y is reference forward. A fixed foremost quarter of the neutral sole
+    # provides a toe-region proxy without changing material identity per frame.
+    toe_offsets = {}
+    for name, indices in sole_indices.items():
+        ys = [mesh.parts[0].vertices[i][1] for i in indices]
+        cutoff = max(ys) - .25 * (max(ys) - min(ys))
+        toe_offsets[name] = tuple(j for j, y in enumerate(ys) if y >= cutoff)
     schedules = contact_schedule(duration, strength, values['shoulder_height_cm'], clip == 'run')
     neutral_y = {name: sum(mesh.parts[0].vertices[i][1] for i in indices) / len(indices)
                  for name, indices in sole_indices.items()}
@@ -129,6 +136,10 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
             summary[name] = dict(
                 **stance_material_motion([r['phase'] for r in frames[:-1]],
                                          material_patches[name][:-1], schedule),
+                toe_material_motion=stance_material_motion(
+                    [r['phase'] for r in frames[:-1]],
+                    [tuple(patch[j] for j in toe_offsets[name])
+                     for patch in material_patches[name][:-1]], schedule),
                 reference_stance_samples=len(stance), reference_stance_drift_cm=drift,
                 maximum_forward_target_error_cm=max(abs(row['sole_centroid_cm'][name][1] - neutral_y[name]
                     - row['contact_targets'][name]['forward_cm']) for row in frames),
@@ -147,6 +158,9 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
                                        for name, schedule in schedules.items()},
                     intervals=intervals, fps=24, ground_plane_z_cm=0.0,
                     material_motion_reference='Maximum XY displacement of any fixed neutral sole vertex from its first sampled stance position, with reference +Y travel; lifted vertices included, not contact slip.',
+                    toe_region_reference='Foremost +Y quarter of the fixed neutral sole extent; geometric proxy, not a physical contact label.',
+                    toe_vertex_indices={name: tuple(sole_indices[name][j] for j in offsets)
+                                        for name, offsets in toe_offsets.items()},
                     sole_selection_band_cm=[0.0, .1], sole_vertex_indices=sole_indices,
                     vertices=mesh.vertex_count, faces=mesh.face_count,
                     maximum_vertex_motion_cm=maximum_motion,
@@ -176,7 +190,7 @@ def main():
     elif args.sample == 'short-wide':
         values.update(body_length_cm=25, shoulder_height_cm=15, body_width_cm=55,
                       head_length_cm=8, tail_length_cm=5)
-    report = dict(schema_version=3, sample=args.sample,
+    report = dict(schema_version=4, sample=args.sample,
         interpretation='In-place sampled diagnostics with declared stance and reference travel; drift is measured after reference +Y travel, not generated root motion or physical contact area.',
         commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         working_tree_changes=subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).splitlines(),

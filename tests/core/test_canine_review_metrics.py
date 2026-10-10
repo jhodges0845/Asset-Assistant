@@ -109,6 +109,8 @@ class CanineMaterialMotionTests(unittest.TestCase):
         result = stance_material_motion(phases, patches, schedule)
         self.assertEqual(result['reference_material_stance_samples'], 3)
         self.assertAlmostEqual(result['maximum_reference_vertex_displacement_cm'], 0)
+        self.assertAlmostEqual(result['maximum_near_ground_episode_displacement_cm'], 0)
+        self.assertEqual(result['near_ground_vertex_comparisons'], 2)
 
     def test_rejects_invalid_samples(self):
         from scripts.canine_review_metrics import stance_material_motion
@@ -127,3 +129,33 @@ class CanineMaterialMotionTests(unittest.TestCase):
         result = stance_material_motion((0.,), (((0, 0, 0),),), ContactCycle(1, 4, .6, 1))
         self.assertEqual(result['reference_material_stance_samples'], 1)
         self.assertIsNone(result['maximum_reference_vertex_displacement_cm'])
+
+    def test_near_ground_episodes_exclude_air_travel_and_reset_on_lift(self):
+        from scripts.canine_review_metrics import stance_material_motion
+        from object_core.animation.contact import ContactCycle
+        phases = (0., .1, .2, .3, .4, .5)
+        patches = tuple(((x, 0, z),) for x, z in ((0, .02), (1, .02),
+                        (50, 1), (100, .02), (100.5, .02), (200, -.01)))
+        result = stance_material_motion(phases, patches, ContactCycle(1, 0, .9, 1))
+        self.assertEqual(result['maximum_reference_vertex_displacement_cm'], 200)
+        self.assertEqual(result['maximum_near_ground_episode_displacement_cm'], 1)
+        self.assertEqual(result['near_ground_vertex_comparisons'], 2)
+
+    def test_airborne_and_isolated_proximity_report_unknown(self):
+        from scripts.canine_review_metrics import stance_material_motion
+        from object_core.animation.contact import ContactCycle
+        for heights in ((1, 1, 1), (.02, 1, .02)):
+            result = stance_material_motion((0., .1, .2),
+                     tuple(((0, 0, z),) for z in heights), ContactCycle(1, 0, .9, 1))
+            self.assertIsNone(result['maximum_near_ground_episode_displacement_cm'])
+            self.assertEqual(result['near_ground_vertex_comparisons'], 0)
+
+    def test_near_ground_tolerance_is_explicit_and_validated(self):
+        from scripts.canine_review_metrics import stance_material_motion
+        from object_core.animation.contact import ContactCycle
+        args = ((0., .1), (((0, 0, .15),), ((1, 0, .15),)), ContactCycle(1, 0, .9, 1))
+        self.assertIsNone(stance_material_motion(*args)['maximum_near_ground_episode_displacement_cm'])
+        self.assertEqual(stance_material_motion(*args, tolerance_cm=.2)['maximum_near_ground_episode_displacement_cm'], 1)
+        for tolerance in (0, -1, float('nan'), float('inf')):
+            with self.assertRaises(ValueError):
+                stance_material_motion(*args, tolerance_cm=tolerance)

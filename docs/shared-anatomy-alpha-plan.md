@@ -9,6 +9,8 @@ forepaw articulation, complete visual
 playback review and destination acceptance remain open. Avian recipe
 migration, cross-provider acceptance and release hardening follow. See the
 [implementation checkpoint](shared-anatomy-implementation.md) for evidence.
+The schema 4 contact review identifies foretoe landing and hind-toe near-ground
+drift as the next motion corrections before toe-off tuning.
 
 ## Alpha promise
 

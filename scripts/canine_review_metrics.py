@@ -92,7 +92,7 @@ def limb_support_footprint(vertices, faces, regions, tolerance_cm=0.1):
     return result
 
 
-def stance_material_motion(phases, patches, schedule):
+def stance_material_motion(phases, patches, schedule, tolerance_cm=0.1):
     """Maximum XY displacement of a fixed sole vertex from first stance sample.
 
     Patches contain the same material vertices in the same order, in cm.
@@ -100,7 +100,11 @@ def stance_material_motion(phases, patches, schedule):
     Reference +Y travel compensates the in-place motion. This is not contact
     detection: every neutral sole vertex is tracked, including lifted vertices.
     Fewer than two stance samples report an unknown displacement (None).
+    Near-ground displacement resets whenever a vertex leaves Z=0..tolerance;
+    sampled proximity is not proof of continuous or physical contact.
     """
+    if not isfinite(tolerance_cm) or tolerance_cm <= 0:
+        raise ValueError('Material review requires positive finite ground tolerance')
     phases, patches = tuple(phases), tuple(patches)
     if len(phases) != len(patches) or not phases:
         raise ValueError('Material review requires matching nonempty samples')
@@ -119,11 +123,29 @@ def stance_material_motion(phases, patches, schedule):
         for phase, patch in zip(phases, patches):
             t = turn + phase
             if schedule.touchdown_phase <= t < schedule.touchdown_phase + schedule.duty_factor:
-                samples.append(tuple((p[0], p[1] + t * schedule.stride_cm) for p in patch))
+                samples.append(tuple((p[0], p[1] + t * schedule.stride_cm, p[2]) for p in patch))
+    # Track each vertex only within contiguous sampled near-ground episodes.
+    # Reset on lift/penetration: never bridge air travel or switch material IDs.
+    anchors = [None] * count
+    paired_samples = 0
+    near_displacement = None
+    for sample in samples:
+        for i, point in enumerate(sample):
+            if not 0 <= point[2] <= tolerance_cm:
+                anchors[i] = None
+            elif anchors[i] is None:
+                anchors[i] = point
+            else:
+                paired_samples += 1
+                distance = sum((point[k]-anchors[i][k])**2 for k in (0, 1))**.5
+                near_displacement = max(near_displacement or 0., distance)
+    near = dict(near_ground_tolerance_cm=tolerance_cm,
+                near_ground_vertex_comparisons=paired_samples,
+                maximum_near_ground_episode_displacement_cm=near_displacement)
     if len(samples) < 2:
-        return dict(reference_material_stance_samples=len(samples),
+        return dict(**near, reference_material_stance_samples=len(samples),
                     maximum_reference_vertex_displacement_cm=None)
     displacement = max(((p[0]-q[0])**2 + (p[1]-q[1])**2)**.5
                        for sample in samples for p, q in zip(sample, samples[0]))
-    return dict(reference_material_stance_samples=len(samples),
+    return dict(**near, reference_material_stance_samples=len(samples),
                 maximum_reference_vertex_displacement_cm=displacement)
