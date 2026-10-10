@@ -69,3 +69,27 @@ class CanineContactGaitTests(unittest.TestCase):
             if running:
                 # The body is lower mid-stance than midway through flight.
                 self.assertLess(heights[26], heights[58])
+
+    def test_hind_paw_pitch_returns_to_level_during_stance(self):
+        provider = get_provider('quadruped')
+        from object_core.providers.quadruped import _construction
+        values = {p.key: p.default for p in provider.parameters}
+        _, anatomy = _construction(provider.dimensions(values))
+        for running, method in ((False, provider.locomotion), (True, provider.run)):
+            clip = method(1.2, 1)
+            tracks = {track.bone: track for track in clip.tracks}
+            schedules = contact_schedule(1.2, 1, 55, running)
+            checked = 0
+            for chain in anatomy.chains:
+                if chain.name not in schedules or len(chain.bones) != 3:
+                    continue
+                checked += 1
+                pitches = [sum(tracks[name].keys[i][1] for name in chain.bones)
+                           for i in range(129)]
+                self.assertGreater(max(pitches), .11)
+                for i, pitch in enumerate(pitches):
+                    if schedules[chain.name].target(i / 128).in_stance:
+                        self.assertAlmostEqual(pitch, 0., places=10)
+                    self.assertGreaterEqual(pitch, -1e-10)
+                    self.assertLessEqual(pitch, .12 + 1e-10)
+            self.assertEqual(checked, 2)

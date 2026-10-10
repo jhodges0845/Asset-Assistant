@@ -45,11 +45,21 @@ def _body_crouch(height, strength, running, phase):
     return height * strength * (.07 + amplitude * compression)
 
 
+def _swing_paw_pitch(schedule, phase, strength):
+    """Hind-paw curl in flight, with zero pitch and slope at both contacts."""
+    local = (phase - schedule.touchdown_phase) % 1.
+    if local <= schedule.duty_factor:
+        return 0.
+    u = (local - schedule.duty_factor) / (1. - schedule.duty_factor)
+    return .12 * strength * sin(pi * u) ** 2
+
+
 class _LimbSurface:
     """Exact planar linear-blend skinning for this limb's contact solve."""
     def __init__(self, mesh, weights, region, bones, crouch):
         self.heads = tuple(b.head[1:] for b in bones)
         self.crouch = crouch
+        self.paw_pitch = 0.
         names = {b.name: i for i, b in enumerate(bones)}
         vertices = mesh.parts[0].vertices
         indices = tuple(region.vertex_indices)
@@ -72,7 +82,7 @@ class _LimbSurface:
         self.centroid = tuple(sums)
 
     def transforms(self, angles):
-        angles = tuple(angles) + ((-sum(angles),) if len(self.heads) == 3 else ())
+        angles = tuple(angles) + ((self.paw_pitch-sum(angles),) if len(self.heads) == 3 else ())
         transforms = []
         c, s, ty, tz, total = 1., 0., 0., -self.crouch, 0.
         for (hy, hz), angle in zip(self.heads, angles):
@@ -144,9 +154,10 @@ def generate_contact_clip(duration, strength, running, parameters, recipe_identi
         keys = [[] for _ in chain.bones]
         for i in range(samples):
             surface.crouch = _body_crouch(height, strength, running, i / samples)
+            surface.paw_pitch = _swing_paw_pitch(schedule, i / samples, strength) if len(chain.bones) == 3 else 0.
             target = schedule.target(i / samples)
             seed = surface.solve(surface.neutral_y + target.forward_cm, target.lift_cm + .02, seed)
-            angles = seed + ((-sum(seed),) if len(chain.bones) == 3 else ())
+            angles = seed + ((surface.paw_pitch-sum(seed),) if len(chain.bones) == 3 else ())
             for row, angle in zip(keys, angles):
                 row.append((duration * i / samples, angle))
         for name, row in zip(chain.bones, keys):

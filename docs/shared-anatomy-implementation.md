@@ -1059,9 +1059,34 @@ Run and contrasting Walk MP4s and scenes were generated. Representative Run
 frames 1, 4 and 8 were inspected; faceting and attachment creases remain visible.
 This does not constitute a complete video review or final visual acceptance.
 
+## Hind-paw swing curl (October 9, 2026)
+
+The third hind-limb joint now adds a restrained swing pitch (0.12 radians at
+strength 1), with zero pitch and zero slope at liftoff and touchdown. Stance
+retains the existing level-paw orientation. The weighted-surface solver includes
+this pitch when solving the two upstream joints, so forward position and the
+lowest surface point remain the contact targets. The existing 17-bone rig,
+geometry and front-limb motion are unchanged. This is swing articulation;
+stance toe-off and independent forepaw roll remain unfinished.
+
+Seven focused core gait tests and three Blender animation/GLB regressions pass.
+The new regression requires both hind chains, checks nonzero swing articulation
+and verifies level stance. Existing maximum-strength and branch-continuity tests
+also pass. A three-cycle Run scene/video is saved as `paw-curl-run.blend/.mp4` in
+`artifacts/shared-anatomy/`; rendering is not final visual acceptance. Test logs
+use `paw-curl-core.log` and `paw-curl-blender.log`. The previous full-suite results
+belong to the preceding body-response checkpoint; this slice uses focused tests.
+
+All six 127-interval Walk/Run sweeps across default, contrasting and short-wide
+shapes retain positive minimum clearance (above 0.01991 cm), zero evaluated loop
+error and reference stance-centroid drift below 0.00157 cm. Maximum clearance
+error remains below 0.00612 cm. Reports are `paw-curl-{sample}.json`. Run frame 8
+was visually inspected; no obvious limb separation was observed, but complete
+animation review remains open. Compilation and whitespace checks pass.
+
 ## Next work
 
-Complete the motion pass: lateral weight shift and paw roll, then inspect
+Complete the motion pass: lateral weight shift, stance toe-off and forepaw articulation, then inspect
 at least three cycles from front/side/three-quarter views and verify destination
 playback. Preserve the declared stance/travel contract and sampled contact/drift
 checks while tuning. Arbitrary edited shapes/weights and dense-time contact
