@@ -57,10 +57,19 @@ class CanineContactGaitTests(unittest.TestCase):
             keys = clip.translations[0].keys
             self.assertEqual(len(keys), 129)
             self.assertEqual(keys[0][1], keys[-1][1])
+            self.assertEqual(len(clip.translations), 5)
+            for track in clip.translations[1:]:
+                self.assertEqual(track.keys, tuple((t, (-v[0], 0., 0.)) for t, v in keys))
+            if not running:
+                self.assertGreater(max(v[0] for _, v in keys), .05)
+                self.assertLess(min(v[0] for _, v in keys), -.05)
             heights = [offset[2] for _, offset in keys]
             self.assertGreater(max(heights)-min(heights), .3)
             for _, offset in keys:
-                self.assertEqual(offset[:2], (0., 0.))
+                self.assertEqual(offset[1], 0.)
+                self.assertLessEqual(abs(offset[0]), .24 + 1e-10)
+                if running:
+                    self.assertEqual(offset[0], 0.)
                 self.assertGreaterEqual(offset[2], -55*(.084 if running else .076)-1e-10)
                 self.assertLessEqual(offset[2], -55*.07+1e-10)
             for track in clip.tracks:
@@ -69,6 +78,20 @@ class CanineContactGaitTests(unittest.TestCase):
             if running:
                 # The body is lower mid-stance than midway through flight.
                 self.assertLess(heights[26], heights[58])
+
+    def test_lateral_support_is_symmetric_scaled_and_idle_resets_offsets(self):
+        from object_core.providers.quadruped_gait import _body_sway
+        schedules = contact_schedule(1.2, 1, 55)
+        for i in range(128):
+            phase = i / 128
+            sway = _body_sway(schedules, 24, 55, 1, phase)
+            self.assertAlmostEqual(sway, -_body_sway(schedules, 24, 55, 1, phase + .5))
+            self.assertAlmostEqual(2 * sway, _body_sway(schedules, 24, 55, 2, phase))
+            self.assertLessEqual(abs(_body_sway(schedules, 55, 15, 2, phase)), .3 + 1e-10)
+        idle = get_provider('quadruped').idle(4., 1.)
+        self.assertEqual(len(idle.translations), 5)
+        self.assertTrue(all(offset == (0., 0., 0.) for track in idle.translations
+                            for _, offset in track.keys))
 
     def test_all_paws_roll_only_late_in_stance_and_curl_in_swing(self):
         provider = get_provider('quadruped')

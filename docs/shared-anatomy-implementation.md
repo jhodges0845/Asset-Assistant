@@ -1284,10 +1284,35 @@ separation; the small heel lift still requires complete video review for final
 animation acceptance.
 
 
+## Compensated lateral Walk response (October 10)
+
+Walk shifts the root toward the weighted stance side using smooth stance
+weights, bounded by 1% of the smaller of body width and shoulder height times
+motion strength. This is stylized body response, not a physical balance model.
+The four upper limbs receive equal opposite X translations at the same sample
+times. With the current X-axis limb rotations, this preserves distal lateral
+positions while the attachment collars blend into the moving torso. The
+symmetric diagonal Run remains centered. Idle and Run key all compensation
+channels explicitly so Walk offsets cannot leak when switching clips.
+
+Blender 5.2.1 passes the two dense default-shape contact/scene-preservation tests
+and four animation/GLB tests. Coverage includes centimeter scene units, torso
+movement with fixed upper-limb X positions, and clearing all offsets on Idle.
+Dense 127-interval reports also pass for contrasting and short-wide shapes:
+no penetration, exact sampled loop closure, and maximum fixed-toe drift below
+0.00114 cm and 0.00043 cm respectively. The three-cycle, four-view scene and
+video are `lateral-walk.blend/.mp4` under
+`artifacts/shared-anatomy/`; validation logs use the `lateral-` prefix.
+Frame 4 was inspected with no obvious attachment gaps. These checks do not
+constitute full playback visual acceptance or destination approval.
+
+The full portable suite passes 440 tests. The full Blender suite and rebuilt
+isolated add-on package pass; compilation and whitespace checks also pass.
+
 ## Next work
 
-Retain the fixed-toe limits and schema 5 reports while completing lateral
-weight shift. Inspect at least three cycles from front/side/three-quarter views and verify destination
+Retain the fixed-toe limits and schema 5 reports while reviewing lateral
+weight shift across the contrasting and short-wide shapes. Inspect at least three cycles from front/side/three-quarter views and verify destination
 playback. Preserve the declared stance/travel contract and sampled contact/drift
 checks while tuning. Use the new material-point baseline when choosing toe-off
 pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact remain outside the canonical generated-asset checkpoint.

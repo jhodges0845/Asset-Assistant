@@ -89,10 +89,20 @@ class QuadrupedAnimationBlenderTests(unittest.TestCase):
         delta = rig.pose.bones['root'].matrix.translation - rig.data.bones['root'].head_local
         self.assertAlmostEqual(delta.z, -55 * .07, places=4)
         curves = action_curves(walk, rig.animation_data.action_slot)
-        self.assertEqual(sum(c.data_path.endswith('.location') for c in curves), 3)
+        self.assertEqual(sum(c.data_path.endswith('.location') for c in curves), 15)
+        # At a nonzero sway phase the torso moves, but each limb retains its
+        # rest X position even with its articulated contact rotations.
+        self.scene.frame_set(self.scene.frame_start + 3)
+        bpy.context.view_layer.update()
+        self.assertGreater(abs(rig.pose.bones['root'].matrix.translation.x), .01)
+        for name in ('fore_upper.left', 'fore_upper.right', 'hind_upper.left', 'hind_upper.right'):
+            self.assertAlmostEqual(rig.pose.bones[name].matrix.translation.x,
+                                   rig.data.bones[name].head_local.x, places=5)
         _activate_action(root, generated_action(root, 'Idle'), self.scene)
         bpy.context.view_layer.update()
-        self.assertLess(rig.pose.bones['root'].location.length, 1e-7)
+        for name in ('root', 'fore_upper.left', 'fore_upper.right', 'hind_upper.left', 'hind_upper.right'):
+            self.assertLess(rig.pose.bones[name].location.length, 1e-7)
+        self.scene.frame_set(self.scene.frame_start)
         activate_generated_action(root, 'Walk')
         bpy.context.view_layer.update()
         delta = rig.pose.bones['root'].matrix.translation - rig.data.bones['root'].head_local

@@ -34,6 +34,21 @@ def contact_schedule(duration, strength, height, running=False):
                               phase) for name, phase in zip(names, phases)}
 
 
+LATERAL_COMPENSATION_BONES = ('fore_upper.left', 'fore_upper.right',
+                              'hind_upper.left', 'hind_upper.right')
+
+
+def _body_sway(schedules, width, height, strength, phase):
+    """Small authored sway toward stance support; not a balance simulation."""
+    support = []
+    for name, schedule in schedules.items():
+        local = (phase - schedule.touchdown_phase) % 1.
+        weight = sin(pi * local / schedule.duty_factor)**2 if local < schedule.duty_factor else 0.
+        support.append((-1. if name.endswith('.left') else 1., weight))
+    total = sum(weight for _, weight in support)
+    return .01 * min(width, height) * strength * sum(side * weight for side, weight in support) / max(total, 1e-12)
+
+
 def _body_crouch(height, strength, running, phase):
     """Bounded stylized compression, in centimeters below the neutral root.
 
@@ -190,7 +205,12 @@ def generate_contact_clip(duration, strength, running, parameters, recipe_identi
         wave = wave[:-1] + ((duration, wave[0][1]),)
         tracks.append(RotationTrack(name, (1., 0., 0.) if name == 'neck' else (0., 0., 1.), wave))
     root_keys = tuple((duration * i / samples,
-                       (0., 0., -_body_crouch(height, strength, running, i / samples)))
+                       (0. if running else _body_sway(schedules, dict(parameters)['body_width_cm'], height, strength, i / samples),
+                        0., -_body_crouch(height, strength, running, i / samples)))
                       for i in range(samples))
     translation = TranslationTrack('root', root_keys + ((duration, root_keys[0][1]),))
-    return (ContactRunClip if running else ContactWalkClip)(duration, tuple(tracks), (translation,))
+    # All limb rotations are about X. Equal opposite upper-limb translations
+    # therefore preserve distal contact through linear interpolation as well.
+    compensation = tuple(TranslationTrack(name, tuple((t, (-offset[0], 0., 0.))
+                         for t, offset in translation.keys)) for name in LATERAL_COMPENSATION_BONES)
+    return (ContactRunClip if running else ContactWalkClip)(duration, tuple(tracks), (translation,) + compensation)

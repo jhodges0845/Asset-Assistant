@@ -38,13 +38,14 @@ def generate_quadruped_idle(duration=4.0, strength=1.0):
         RotationTrack("tail.2", (0.0, 0.0, 1.0), _closed_wave(duration, 6.0, strength, phase=pi)),
         RotationTrack("tail.3", (0.0, 0.0, 1.0), _closed_wave(duration, 8.0, strength, phase=3 * pi / 2)),
     )
-    # Explicit zero height prevents crouch leaking when Blender's native action
+    # Explicit zero translations prevent crouch and lateral offsets leaking when Blender's native action
     # selector (or the clip list) switches from a contact gait back to Idle.
-    from .quadruped_gait import ContactIdleClip
+    from .quadruped_gait import ContactIdleClip, LATERAL_COMPENSATION_BONES
     from ..animation.idle import TranslationTrack
     return ContactIdleClip(float(duration), tracks,
-                           (TranslationTrack('root', ((0., (0., 0., 0.)),
-                                                      (float(duration), (0., 0., 0.)))),))
+                           tuple(TranslationTrack(name, ((0., (0., 0., 0.)),
+                                 (float(duration), (0., 0., 0.))))
+                                 for name in ('root',) + LATERAL_COMPENSATION_BONES))
 
 
 def _contact_clip(duration, strength, running, values):

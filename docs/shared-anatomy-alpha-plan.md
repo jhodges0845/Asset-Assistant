@@ -5,7 +5,7 @@ contracts. Canine recipe 16 retains the stylized anatomy finishing pass:
 connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
 transitions. Contact-driven Walk/Run include bounded vertical body compression and a
 three-cycle review generator. Four-paw swing articulation and bounded stance toe-off are implemented;
-lateral weight shift, complete visual playback review and
+compensated lateral Walk sway is implemented. Complete visual playback review and
 destination acceptance remain open. Avian recipe
 migration, cross-provider acceptance and release hardening follow. See the
 [implementation checkpoint](shared-anatomy-implementation.md) for evidence.
