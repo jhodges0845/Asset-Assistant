@@ -99,5 +99,25 @@ class QuadrupedAnimationBlenderTests(unittest.TestCase):
         self.assertAlmostEqual(delta.z, -55 * .07, places=4)
 
 
+    def test_older_rig_rejects_forepaw_clip_without_replacing_existing_idle(self):
+        root = self._quadruped()
+        rig = next(obj for obj in root.children if obj.type == 'ARMATURE')
+        idle, _ = add_idle(root, self.scene, 4., 1.)
+        bpy.context.view_layer.objects.active = rig
+        rig.select_set(True)
+        bpy.ops.object.mode_set(mode='EDIT')
+        for side in ('left', 'right'):
+            rig.data.edit_bones.remove(rig.data.edit_bones['fore_pastern.' + side])
+        bpy.ops.object.mode_set(mode='OBJECT')
+        actions = set(bpy.data.actions)
+        frame = self.scene.frame_current
+        with self.assertRaisesRegex(ValueError, 'missing bones'):
+            add_locomotion(root, self.scene, 1.2, 1.)
+        self.assertEqual(actions, set(bpy.data.actions))
+        self.assertIs(rig.animation_data.action, idle)
+        self.assertEqual(self.scene.frame_current, frame)
+        self.assertIsNone(generated_action(root, 'Walk'))
+
+
 if __name__ == "__main__":
     unittest.main()

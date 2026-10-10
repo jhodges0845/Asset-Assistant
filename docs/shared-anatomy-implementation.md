@@ -1198,16 +1198,50 @@ reports, provider fingerprints, test logs and the three-cycle Run scene/video.
 Run frame 8 was inspected without obvious paw-transition separation; full visual
 animation acceptance remains open.
 
+## Recipe 16: independent forepaw articulation (October 10, 2026)
+
+Each front chain now resolves shoulder -> elbow -> ankle -> ground, adding
+`fore_pastern.left/right` and shortening each `fore_lower` to the existing ankle
+landmark. The resulting 19-bone rig gives the contact solver a third forelimb
+rotation to keep the paw level in stance and curl it during swing. The existing
+three-joint solve is reused. Distal pastern weighting now applies to all four
+paws so sole vertices follow their paw bone without upstream shear.
+
+This is an explicit rig migration. The surface is retained, but old 17-bone
+rigs and their existing actions are not silently converted. Rebuild through the
+explicit generation/rig workflow for the new clips. The migration regression
+removes the forepaw bones, attempts Walk generation and requires the existing
+Idle action and frame to remain intact with no new action created.
+
+All six 127-interval Walk/Run sweeps across default, contrasting and short-wide
+shapes now have repeated near-ground toe samples on all four paws. Maximum
+foretoe episode displacement is 0.001563 cm (Walk) and 0.000037 cm (Run);
+hind-toe displacement remains below 0.000058 cm. All cycles retain minimum
+clearance above 0.01991 cm and zero sampled loop error. The regression uses
+127 intervals, with limits of 0.002 cm for foretoes and 0.001 cm for hind toes;
+the denser sampling catches small stance-transition deviations missed by the
+previous 17-interval review. These are sampled canonical-asset limits, not
+continuous contact guarantees.
+
+All 437 core tests and 248 Blender tests pass, including old-rig preservation,
+GLB round trips and independent joint/Modify checks. The rebuilt isolated add-on
+package passes. After increasing the contact regression to 127 intervals, its
+two-test module also passes (`forepaw-dense-tests.log`). Provider fingerprints
+show only Quadruped skeleton, weights
+and clips changed; its mesh and all Human/Avian results match recipe 15.
+Evidence uses `forepaw-*` in `artifacts/shared-anatomy/`. A three-cycle Walk
+scene/video was generated and frame 8 inspected; the forepaws are visibly
+articulated without obvious detached surfaces, but complete video acceptance
+remains open. Compilation and whitespace checks pass.
+
+
 ## Next work
 
-First correct forepaw landing with explicit forepaw articulation; retain the
-recipe 15 hind-toe drift limit and schema 4 contact reports. Then complete lateral weight shift, stance toe-off and
-forepaw articulation, and inspect
-at least three cycles from front/side/three-quarter views and verify destination
+Retain the four-paw contact limits and schema 4 reports while completing lateral
+weight shift and stance toe-off. Inspect at least three cycles from front/side/three-quarter views and verify destination
 playback. Preserve the declared stance/travel contract and sampled contact/drift
 checks while tuning. Use the new material-point baseline when choosing toe-off
-pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact
-remain outside the canonical generated-asset checkpoint.
+pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact remain outside the canonical generated-asset checkpoint.
 
 After the canine motion/visual sign-off, migrate Avian through the shared layer
 using bird-specific rules, then complete cross-provider Modify acceptance and

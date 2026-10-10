@@ -65,7 +65,13 @@ class QuadrupedProviderTests(unittest.TestCase):
                      "tail.1", "tail.2", "tail.3"):
             self.assertIn(name, names)
         by_name = {bone.name: bone for bone in skeleton.bones}
+        self.assertEqual(len(skeleton.bones), 19)
         self.assertEqual(by_name["fore_lower.left"].parent, "fore_upper.left")
+        for side in ('left', 'right'):
+            paw, lower = by_name['fore_pastern.' + side], by_name['fore_lower.' + side]
+            self.assertEqual(paw.parent, lower.name)
+            self.assertEqual(paw.head, lower.tail)
+            self.assertGreater(paw.head[2], paw.tail[2])
         self.assertEqual(by_name["hind_upper.left"].parent, "spine")
         self.assertEqual(by_name["hind_lower.right"].parent, "hind_upper.right")
         self.assertEqual(by_name["tail.1"].parent, "spine")

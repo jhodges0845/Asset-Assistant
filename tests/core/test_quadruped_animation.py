@@ -28,7 +28,7 @@ class QuadrupedAnimationTests(unittest.TestCase):
     def test_walk_solves_all_limb_joints_and_closes_with_body_crouch(self):
         clip = self.provider.locomotion(1.2, 1.0)
         tracks = {track.bone: track for track in clip.tracks}
-        for family in ('fore_upper', 'fore_lower', 'hind_upper', 'hind_lower', 'hind_pastern'):
+        for family in ('fore_upper', 'fore_lower', 'fore_pastern', 'hind_upper', 'hind_lower', 'hind_pastern'):
             for side in ('left', 'right'):
                 self.assertIn(family + '.' + side, tracks)
         for track in tracks.values():

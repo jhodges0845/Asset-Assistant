@@ -58,9 +58,9 @@ def _weights_for_vertex(vertex, candidates, max_influences=4):
     local_names.update(bone.name for bone in candidates if bone.parent == nearest.name)
     local = [(distance, bone) for distance, bone in ranked if bone.name in local_names][:max_influences]
     raw = [(bone.name, 1.0 / ((distance + 1e-3) ** 2)) for distance, bone in local]
-    if nearest.name.startswith('hind_pastern.'):
-        # A level pastern cannot plant a sole that still shears under the hock.
-        # Fade parent influence along the distal segment, retaining the hock blend.
+    if nearest.name.startswith(('hind_pastern.', 'fore_pastern.')):
+        # A level pastern cannot plant a sole that still shears under the upstream joint.
+        # Fade parent influence along the distal segment, retaining the proximal joint blend.
         axis = tuple(nearest.tail[i] - nearest.head[i] for i in range(3))
         along = sum((vertex[i] - nearest.head[i]) * axis[i] for i in range(3)) / sum(a*a for a in axis)
         t = max(0., min(1., (along - .65) / .25))

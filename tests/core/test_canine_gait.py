@@ -70,7 +70,7 @@ class CanineContactGaitTests(unittest.TestCase):
                 # The body is lower mid-stance than midway through flight.
                 self.assertLess(heights[26], heights[58])
 
-    def test_hind_paw_pitch_returns_to_level_during_stance(self):
+    def test_all_paw_pitch_returns_to_level_during_stance(self):
         provider = get_provider('quadruped')
         from object_core.providers.quadruped import _construction
         values = {p.key: p.default for p in provider.parameters}
@@ -92,4 +92,4 @@ class CanineContactGaitTests(unittest.TestCase):
                         self.assertAlmostEqual(pitch, 0., places=10)
                     self.assertGreaterEqual(pitch, -1e-10)
                     self.assertLessEqual(pitch, .12 + 1e-10)
-            self.assertEqual(checked, 2)
+            self.assertEqual(checked, 4)

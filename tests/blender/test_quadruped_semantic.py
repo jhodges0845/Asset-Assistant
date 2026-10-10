@@ -98,7 +98,7 @@ class QuadrupedSemanticTests(unittest.TestCase):
         values = {p.key: p.default for p in provider.parameters}
         _, anatomy = _construction(provider.dimensions(values))
         rig = next(o for o in self.root.children if o.type == 'ARMATURE')
-        self.assertEqual(17, len(rig.pose.bones))
+        self.assertEqual(19, len(rig.pose.bones))
         for clip in (provider.idle(2, 1), provider.locomotion(2, 1), provider.run(1, 1)):
             self.assertTrue(all(t.bone in rig.pose.bones for t in clip.tracks))
         before = evaluated_points(self.body)

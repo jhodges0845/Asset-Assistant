@@ -46,7 +46,7 @@ def _body_crouch(height, strength, running, phase):
 
 
 def _swing_paw_pitch(schedule, phase, strength):
-    """Hind-paw curl in flight, with zero pitch and slope at both contacts."""
+    """Paw curl in flight, with zero pitch and slope at both contacts."""
     local = (phase - schedule.touchdown_phase) % 1.
     if local <= schedule.duty_factor:
         return 0.

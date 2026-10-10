@@ -31,8 +31,8 @@ class CanineGaitReviewTests(unittest.TestCase):
     def test_real_walk_and_run_have_motion_closed_cycles_and_consistent_reports(self):
         for clip, duration in (('walk', 1.2), ('run', .64)):
             with self.subTest(clip=clip):
-                report = review_cycle(self.values, clip, intervals=17)
-                self.assertEqual(len(report['frames']), 18)
+                report = review_cycle(self.values, clip, intervals=127)
+                self.assertEqual(len(report['frames']), 128)
                 self.assertGreater(report['maximum_vertex_motion_cm'], 1)
                 self.assertLess(report['loop_closure_error_cm'], .0001)
                 self.assertEqual(report['frames'][0]['phase'], 0)
@@ -53,10 +53,11 @@ class CanineGaitReviewTests(unittest.TestCase):
                     self.assertEqual(summary['reference_material_stance_samples'],
                                      summary['reference_stance_samples'])
                     self.assertGreaterEqual(summary['maximum_reference_vertex_displacement_cm'], 0.)
-                    if name.startswith('leg.hind.'):
+                    if name.startswith('leg.'):
                         toe = summary['toe_material_motion']
                         self.assertGreater(toe['near_ground_vertex_comparisons'], 0)
-                        self.assertLess(toe['maximum_near_ground_episode_displacement_cm'], .001)
+                        limit = .002 if '.front.' in name else .001
+                        self.assertLess(toe['maximum_near_ground_episode_displacement_cm'], limit)
                     toe_ids = report['toe_vertex_indices'][name]
                     self.assertTrue(toe_ids)
                     self.assertLess(len(toe_ids), len(report['sole_vertex_indices'][name]))

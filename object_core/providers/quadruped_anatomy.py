@@ -85,7 +85,7 @@ class ResolvedCanineAnatomy(ResolvedAnatomy):
 
 class CanineRecipe:
     recipe_id = 'canine'
-    recipe_version = '15'
+    recipe_version = '16'
 
     def resolve(self, dimensions):
         length = dimensions['body_length_cm']
@@ -166,8 +166,10 @@ class CanineRecipe:
                         ('paw.' + suffix, (x, y + paw_forward, paw_z)),
                         ('ground.' + suffix, (x, y, 0)),
                     ))
-                    path = (upper + '.' + suffix, joint + '.' + suffix, 'ground.' + suffix)
-                    bones = (bone_prefix + '_upper.' + side, bone_prefix + '_lower.' + side)
+                    path = (upper + '.' + suffix, joint + '.' + suffix,
+                            'ankle.' + suffix, 'ground.' + suffix)
+                    bones = (bone_prefix + '_upper.' + side, bone_prefix + '_lower.' + side,
+                             'fore_pastern.' + side)
                 paw_surface = next(position for name, position in points if name == 'paw.' + suffix)
                 points.append(('toe.' + suffix, (x,
                     paw_surface[1] + min(width * (.05 if family == 'front' else .18),

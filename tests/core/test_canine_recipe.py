@@ -24,7 +24,7 @@ class CanineRecipeTests(unittest.TestCase):
         cached = _construction(dict(reversed(tuple(self.provider.dimensions(self.values).items()))))
         self.assertIs(cached[1], self.anatomy)
         self.assertEqual('canine', self.anatomy.recipe_id)
-        self.assertEqual(17, sum(len(c.bones) for c in self.anatomy.chains))
+        self.assertEqual(19, sum(len(c.bones) for c in self.anatomy.chains))
         bones = {b.name: b for b in self.provider.skeleton(self.values).bones}
         points = {p.name: p.position for p in self.anatomy.landmarks}
         for chain in self.anatomy.chains:

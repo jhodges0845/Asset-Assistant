@@ -71,7 +71,7 @@ class CanineAttachmentCollarTests(unittest.TestCase):
                     after = next((w.weight for w in row if w.bone_name == 'spine'), 0)
                     self.assertAlmostEqual(before, after)
 
-    def test_hind_soles_follow_pastern_without_lower_leg_shear(self):
+    def test_all_soles_follow_pastern_without_lower_leg_shear(self):
         provider = get_provider('quadruped')
         defaults = {p.key: p.default for p in provider.parameters}
         for values in (defaults, dict(defaults, body_length_cm=95, shoulder_height_cm=40,
@@ -81,10 +81,11 @@ class CanineAttachmentCollarTests(unittest.TestCase):
             mesh, anatomy = _construction(provider.dimensions(values))
             weights = provider.skin_weights(mesh, values)[0].vertices
             for region in anatomy.regions:
-                if not region.name.startswith('leg.hind.'):
+                if not region.name.startswith('leg.'):
                     continue
                 sole = [i for i in region.vertex_indices if 0 <= mesh.parts[0].vertices[i][2] <= .1]
                 self.assertTrue(sole)
-                expected = 'hind_pastern.' + region.name.rsplit('.', 1)[1]
+                prefix = 'fore' if '.front.' in region.name else 'hind'
+                expected = prefix + '_pastern.' + region.name.rsplit('.', 1)[1]
                 for i in sole:
                     self.assertEqual([(w.bone_name, w.weight) for w in weights[i]], [(expected, 1.)])
