@@ -26,7 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--gait', choices=('walk', 'run'), default='walk')
-    parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
+    parser.add_argument('--sample', choices=('default', 'contrasting', 'short-wide'), default='default')
     parser.add_argument('--render', action='store_true')
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     if args.output.suffix.lower() != '.blend':
@@ -36,6 +36,9 @@ def main():
     if args.sample == 'contrasting':
         values.update(body_length_cm=95, shoulder_height_cm=40, body_width_cm=28,
                       head_length_cm=30, tail_length_cm=50)
+    elif args.sample == 'short-wide':
+        values.update(body_length_cm=25, shoulder_height_cm=15, body_width_cm=55,
+                      head_length_cm=8, tail_length_cm=5)
     mesh = provider.mesh(values)
     part = mesh.parts[0]
     meters = MeshPart(part.name, tuple(tuple(c*.01 for c in v) for v in part.vertices), part.faces)
@@ -75,6 +78,7 @@ def main():
     scene.display.shading.show_shadows = True
     scene.display.shading.show_cavity = True
     scene['review_gait'] = args.gait
+    scene['review_sample'] = args.sample
     scene['review_cycles'] = 3
     scene['review_note'] = 'In-place playback; reference travel is not applied.'
     if hasattr(scene.render.image_settings, 'media_type'):

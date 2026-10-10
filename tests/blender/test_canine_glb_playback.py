@@ -10,7 +10,8 @@ except ModuleNotFoundError:
     bpy = None
 
 from blender_adapter.adapter import create_character
-from blender_adapter.animation import add_idle, add_locomotion, add_run, set_clip_export_name
+from blender_adapter.animation import (add_idle, add_locomotion, add_run,
+                                       set_clip_export_name, activate_generated_action)
 from blender_adapter.materials import prepare_materials
 from blender_adapter.targets import get_adapter
 from object_core.objects import get_provider
@@ -74,26 +75,53 @@ class CanineGLBPlaybackTests(unittest.TestCase):
         self.assertEqual(len(bodies), 1)
         actions = set(bpy.data.actions) - before_actions
         self.assertEqual(len(actions), 3)
-        for label, duration in (('CanineStep', 1.2), ('Run', .64)):
+        source_body = next(o for o in root.children if o.type == 'MESH')
+        # Revisit Idle after each gait to expose translation channels that fail
+        # to reset when switching the imported action library.
+        for label, source_label, duration in (('CanineStep', 'Walk', 1.2),
+                                              ('Idle', 'Idle', 4.),
+                                              ('Run', 'Run', .64),
+                                              ('Idle', 'Idle', 4.)):
             with self.subTest(clip=label):
                 action = next(a for a in actions if a.name.startswith(label))
                 self.assertAlmostEqual((action.frame_range[1] - action.frame_range[0]) / 24,
                                        duration, places=6)
+                activate_generated_action(root, source_label)
                 rig.animation_data.action = action
                 rig.animation_data.action_slot = action.slots[0]
                 first = None
                 movement = 0.
                 minimum = float('inf')
-                for step in range(18):
-                    frame = action.frame_range[0] + duration * 24 * step / 17
+                correspondence = None
+                maximum_pose_error_cm = 0.
+                for step in range(34):
+                    frame = action.frame_range[0] + duration * 24 * step / 33
                     self.scene.frame_set(math.floor(frame), subframe=frame % 1)
                     bpy.context.view_layer.update()
                     body = bodies[0].evaluated_get(bpy.context.evaluated_depsgraph_get())
                     points = [body.matrix_world @ v.co for v in body.data.vertices]
+                    source = source_body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                    source_points = [source.matrix_world @ v.co for v in source.data.vertices]
+                    if correspondence is None:
+                        # GLB splits/reorders vertices at UV and normal seams.
+                        # Establish identity once, then retain it through motion;
+                        # rematching every frame could conceal sliding vertices.
+                        from mathutils.kdtree import KDTree
+                        tree = KDTree(len(source_points))
+                        for index, point in enumerate(source_points):
+                            tree.insert(point, index)
+                        tree.balance()
+                        correspondence = [tree.find(point)[1] for point in points]
+                    maximum_pose_error_cm = max(maximum_pose_error_cm,
+                        max((point-source_points[index]).length * 100
+                            for point, index in zip(points, correspondence)))
                     minimum = min(minimum, min(p.z * 100 for p in points))
                     if first is None:
                         first = points
                     movement = max(movement, max((a-b).length for a,b in zip(first, points)))
                 self.assertGreater(movement, .001)
-                self.assertGreater(minimum, 0)
+                self.assertLess(maximum_pose_error_cm, .002,
+                                'Exported surface differs from the source clip')
+                if source_label != 'Idle':
+                    self.assertGreater(minimum, 0)
                 self.assertLess(max((a-b).length for a,b in zip(first, points)) * 100, .001)

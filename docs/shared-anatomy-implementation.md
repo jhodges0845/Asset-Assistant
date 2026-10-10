@@ -1309,6 +1309,33 @@ constitute full playback visual acceptance or destination approval.
 The full portable suite passes 440 tests. The full Blender suite and rebuilt
 isolated add-on package pass; compilation and whitespace checks also pass.
 
+## Export playback parity and proportion review (October 10)
+
+The GLB regression now compares the reimported evaluated mesh with the source
+mesh at 34 samples per clip in Walk -> Idle -> Run -> Idle order. Vertex
+correspondence is established once per clip to accommodate GLB seam splitting
+and retained across all samples, so per-frame rematching cannot hide sliding.
+The default-shape surface stays within 0.002 cm of the source; existing clip
+ownership, fractional endpoint, contact and loop checks also pass. All four
+focused animation/GLB tests pass in Blender 5.2.1 (`playback-parity.log`).
+Compilation and whitespace checks pass. Production animation/export code is
+unchanged in this checkpoint.
+
+The motion-review helper now supports `--sample short-wide` and records the
+sample in the saved scene. Three-cycle four-view videos and editable scenes
+are saved as `playback-short-wide-walk` and `playback-contrasting-run` under
+`artifacts/shared-anatomy/`. Saved sample metadata and 90/48-frame durations
+were verified. Short-wide frame 4 and contrasting Run frame 8 were inspected.
+The short-wide stress proportions produce a conspicuously flattened, disk-like
+torso despite passing contact checks; this is not a visually accepted canine.
+The contrasting sampled pose has no obvious detached limb attachments.
+These stills do not establish complete video acceptance.
+
+No Godot executable was found on PATH or in the checked installation/download
+locations; the earlier `codex-godot-4.7.2` temporary directory is empty. Therefore
+this checkpoint establishes Blender GLB round-trip fidelity only. Actual
+Godot runtime playback remains unverified.
+
 ## Next work
 
 Retain the fixed-toe limits and schema 5 reports while reviewing lateral

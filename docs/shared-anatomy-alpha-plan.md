@@ -6,7 +6,9 @@ connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
 transitions. Contact-driven Walk/Run include bounded vertical body compression and a
 three-cycle review generator. Four-paw swing articulation and bounded stance toe-off are implemented;
 compensated lateral Walk sway is implemented. Complete visual playback review and
-destination acceptance remain open. Avian recipe
+destination acceptance remain open. Default GLB source/reimport surface parity
+now passes through gait/Idle switches; the short-wide stress shape is not
+visually accepted. Avian recipe
 migration, cross-provider acceptance and release hardening follow. See the
 [implementation checkpoint](shared-anatomy-implementation.md) for evidence.
 Recipe 16 extends the rig to 19 bones for independent forepaw landing, building
