@@ -87,3 +87,43 @@ class CanineSupportFootprintTests(unittest.TestCase):
             self.assertEqual(lifted['leg.front.left']['near_ground_hull_area_cm2'], 0)
             for name in report.keys() - {'leg.front.left'}:
                 self.assertEqual(report[name], lifted[name])
+
+
+class CanineMaterialMotionTests(unittest.TestCase):
+    def test_detects_opposing_vertex_slip_hidden_by_centroid(self):
+        from scripts.canine_review_metrics import stance_material_motion
+        from object_core.animation.contact import ContactCycle
+        schedule = ContactCycle(1, 4, .75, 1)
+        phases = (0., .25, .5, .75)
+        patches = tuple(((-1-t, -4*t, 0), (1+t, -4*t, 0)) for t in phases)
+        result = stance_material_motion(phases, patches, schedule)
+        self.assertEqual(result['reference_material_stance_samples'], 3)
+        self.assertAlmostEqual(result['maximum_reference_vertex_displacement_cm'], .5)
+
+    def test_wraps_stance_and_compensates_reference_travel(self):
+        from scripts.canine_review_metrics import stance_material_motion
+        from object_core.animation.contact import ContactCycle
+        schedule = ContactCycle(1, 4, .6, 1, .75)
+        phases = (0., .25, .5, .75)
+        patches = tuple(((2, -4*((t-.75) % 1), 0),) for t in phases)
+        result = stance_material_motion(phases, patches, schedule)
+        self.assertEqual(result['reference_material_stance_samples'], 3)
+        self.assertAlmostEqual(result['maximum_reference_vertex_displacement_cm'], 0)
+
+    def test_rejects_invalid_samples(self):
+        from scripts.canine_review_metrics import stance_material_motion
+        from object_core.animation.contact import ContactCycle
+        schedule = ContactCycle(1, 4, .6, 1)
+        for phases, patches in (((), ()),
+                                ((0., .2), (((0, 0, 0),), ())),
+                                ((.2, .1), (((0, 0, 0),), ((0, 0, 0),))),
+                                ((0., .2), (((0, 0, 0),), ((0, float('nan'), 0),)))):
+            with self.subTest(phases=phases), self.assertRaises(ValueError):
+                stance_material_motion(phases, patches, schedule)
+
+    def test_insufficient_stance_samples_report_unknown_not_zero(self):
+        from scripts.canine_review_metrics import stance_material_motion
+        from object_core.animation.contact import ContactCycle
+        result = stance_material_motion((0.,), (((0, 0, 0),),), ContactCycle(1, 4, .6, 1))
+        self.assertEqual(result['reference_material_stance_samples'], 1)
+        self.assertIsNone(result['maximum_reference_vertex_displacement_cm'])

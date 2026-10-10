@@ -1084,12 +1084,43 @@ error remains below 0.00612 cm. Reports are `paw-curl-{sample}.json`. Run frame 
 was visually inspected; no obvious limb separation was observed, but complete
 animation review remains open. Compilation and whitespace checks pass.
 
+## Material-point stance diagnostics
+
+Before stance toe-off tuning, gait report schema 3 adds
+`maximum_reference_vertex_displacement_cm`: the largest XY displacement of any
+fixed neutral sole vertex from that vertex's first sampled stance position,
+after applying declared reference +Y travel. This supplements the existing
+centroid diameter metric; opposing vertex motion cannot cancel out. The sample
+count is recorded separately, and fewer than two stance samples produce null,
+not an unsupported zero. Wrapped stance intervals retain vertex identity.
+
+The metric includes all neutral sole vertices even when lifted. It measures
+material-patch motion, not actual contact slip or a toe pivot. In particular,
+centroid drift and per-vertex displacement use different reference definitions;
+they are complementary diagnostics rather than interchangeable thresholds.
+Generated motion, geometry and rigging are unchanged in this checkpoint.
+
+Ten portable metric tests pass, including opposing slip hidden by a fixed
+centroid, a wrapped stationary stance, invalid input and insufficient samples.
+Two Blender review regressions also pass, covering report fields, caller scene
+preservation and failure cleanup. Compilation and whitespace checks pass.
+
+The default 127-interval Blender sweep records maximum per-vertex displacement
+of 0.02743 cm (front) / 0.22378 cm (hind) for Walk, and 0.03458 / 0.19254 cm for
+Run. Walk hind-centroid drift stays below 0.00005 cm despite that material
+motion. Evidence: `material-contact-default.json` and
+`material-contact-tests.log` in `artifacts/shared-anatomy/`. These values are a
+baseline, not acceptance thresholds or proof of actual ground slip. Before
+adding toe-off, identify the planted toe patch and measure its motion separately
+from lifted sole points; do not treat the old centroid limit as sufficient.
+
 ## Next work
 
 Complete the motion pass: lateral weight shift, stance toe-off and forepaw articulation, then inspect
 at least three cycles from front/side/three-quarter views and verify destination
 playback. Preserve the declared stance/travel contract and sampled contact/drift
-checks while tuning. Arbitrary edited shapes/weights and dense-time contact
+checks while tuning. Use the new material-point baseline when choosing toe-off
+pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact
 remain outside the canonical generated-asset checkpoint.
 
 After the canine motion/visual sign-off, migrate Avian through the shared layer

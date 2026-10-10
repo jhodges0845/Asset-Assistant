@@ -25,7 +25,7 @@ if str(ROOT) not in sys.path:
 from object_core.objects import get_provider
 from object_core.providers.quadruped import _construction
 from object_core.providers.quadruped_gait import contact_schedule
-from scripts.canine_review_metrics import limb_ground_clearance, limb_support_footprint
+from scripts.canine_review_metrics import limb_ground_clearance, limb_support_footprint, stance_material_motion
 
 
 def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32):
@@ -33,6 +33,8 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
 
     A fixed set of neutral sole vertices supplies a material-patch centroid;
     tracking the lowest posed vertex instead would switch points during a bend.
+    Each fixed sole vertex is also tracked from the first sampled stance pose
+    so opposing slips cannot cancel in the centroid measurement.
     All positions are evaluated in world centimeters, including rig deformation.
     """
     import bpy
@@ -74,6 +76,7 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
         body = next(obj for obj in root.children if obj.type == 'MESH')
         (add_locomotion if clip == 'walk' else add_run)(root, scene, duration, strength)
         frames = []
+        material_patches = {name: [] for name in sole_indices}
         first_points = None
         maximum_motion = 0.0
         for index in range(intervals + 1):
@@ -98,6 +101,8 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
             centroids = {name: tuple(sum(points[i][axis] for i in indices) / len(indices)
                                      for axis in range(3))
                          for name, indices in sole_indices.items()}
+            for name, indices in sole_indices.items():
+                material_patches[name].append(tuple(points[i] for i in indices))
             frames.append(dict(phase=index / intervals, seconds=seconds, frame=frame,
                                ground_clearance=limb_ground_clearance(points, anatomy.regions),
                                support_footprint=limb_support_footprint(
@@ -122,6 +127,8 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
                         stance.append((point[0], point[1] + phase * schedule.stride_cm))
             drift = max((hypot(a[0]-b[0], a[1]-b[1]) for a in stance for b in stance), default=0.)
             summary[name] = dict(
+                **stance_material_motion([r['phase'] for r in frames[:-1]],
+                                         material_patches[name][:-1], schedule),
                 reference_stance_samples=len(stance), reference_stance_drift_cm=drift,
                 maximum_forward_target_error_cm=max(abs(row['sole_centroid_cm'][name][1] - neutral_y[name]
                     - row['contact_targets'][name]['forward_cm']) for row in frames),
@@ -139,6 +146,7 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
                     contact_reference={name: dict(asdict(schedule), reference_speed_cm_s=schedule.reference_speed_cm_s)
                                        for name, schedule in schedules.items()},
                     intervals=intervals, fps=24, ground_plane_z_cm=0.0,
+                    material_motion_reference='Maximum XY displacement of any fixed neutral sole vertex from its first sampled stance position, with reference +Y travel; lifted vertices included, not contact slip.',
                     sole_selection_band_cm=[0.0, .1], sole_vertex_indices=sole_indices,
                     vertices=mesh.vertex_count, faces=mesh.face_count,
                     maximum_vertex_motion_cm=maximum_motion,
@@ -168,7 +176,7 @@ def main():
     elif args.sample == 'short-wide':
         values.update(body_length_cm=25, shoulder_height_cm=15, body_width_cm=55,
                       head_length_cm=8, tail_length_cm=5)
-    report = dict(schema_version=2, sample=args.sample,
+    report = dict(schema_version=3, sample=args.sample,
         interpretation='In-place sampled diagnostics with declared stance and reference travel; drift is measured after reference +Y travel, not generated root motion or physical contact area.',
         commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         working_tree_changes=subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).splitlines(),

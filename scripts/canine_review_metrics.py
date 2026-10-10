@@ -90,3 +90,40 @@ def limb_support_footprint(vertices, faces, regions, tolerance_cm=0.1):
             'length_cm': max(p[1] for p in hull) - min(p[1] for p in hull) if hull else 0.0,
         }
     return result
+
+
+def stance_material_motion(phases, patches, schedule):
+    """Maximum XY displacement of a fixed sole vertex from first stance sample.
+
+    Patches contain the same material vertices in the same order, in cm.
+    Phases describe one sampled cycle in [0, 1); the closing duplicate is omitted.
+    Reference +Y travel compensates the in-place motion. This is not contact
+    detection: every neutral sole vertex is tracked, including lifted vertices.
+    Fewer than two stance samples report an unknown displacement (None).
+    """
+    phases, patches = tuple(phases), tuple(patches)
+    if len(phases) != len(patches) or not phases:
+        raise ValueError('Material review requires matching nonempty samples')
+    if any(not isfinite(p) or not 0 <= p < 1 for p in phases):
+        raise ValueError('Material review requires phases in [0, 1)')
+    if any(a >= b for a, b in zip(phases, phases[1:])):
+        raise ValueError('Material review requires increasing unique phases')
+    count = len(patches[0])
+    if not count or any(len(patch) != count for patch in patches):
+        raise ValueError('Material review requires fixed nonempty vertex patches')
+    if any(len(point) != 3 or not all(isfinite(c) for c in point)
+           for patch in patches for point in patch):
+        raise ValueError('Material review requires finite XYZ coordinates')
+    samples = []
+    for turn in (0, 1):
+        for phase, patch in zip(phases, patches):
+            t = turn + phase
+            if schedule.touchdown_phase <= t < schedule.touchdown_phase + schedule.duty_factor:
+                samples.append(tuple((p[0], p[1] + t * schedule.stride_cm) for p in patch))
+    if len(samples) < 2:
+        return dict(reference_material_stance_samples=len(samples),
+                    maximum_reference_vertex_displacement_cm=None)
+    displacement = max(((p[0]-q[0])**2 + (p[1]-q[1])**2)**.5
+                       for sample in samples for p, q in zip(sample, samples[0]))
+    return dict(reference_material_stance_samples=len(samples),
+                maximum_reference_vertex_displacement_cm=displacement)

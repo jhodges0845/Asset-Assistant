@@ -50,6 +50,9 @@ class CanineGaitReviewTests(unittest.TestCase):
                     self.assertLess(summary['maximum_forward_target_error_cm'], .03)
                     self.assertLess(summary['reference_stance_drift_cm'], .03)
                     self.assertGreater(summary['reference_stance_samples'], 2)
+                    self.assertEqual(summary['reference_material_stance_samples'],
+                                     summary['reference_stance_samples'])
+                    self.assertGreaterEqual(summary['maximum_reference_vertex_displacement_cm'], 0.)
                 self.assert_caller_preserved()
 
     def test_failure_and_invalid_input_leave_caller_data_intact(self):
