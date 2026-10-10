@@ -1336,11 +1336,30 @@ locations; the earlier `codex-godot-4.7.2` temporary directory is empty. Therefo
 this checkpoint establishes Blender GLB round-trip fidelity only. Actual
 Godot runtime playback remains unverified.
 
+## Godot runtime timing and skeletal parity (October 10)
+
+Godot 4.7.2 is now available as a checksum-verified portable runtime under
+`artifacts/installers/godot/runtime`. The earlier missing-runtime limitation
+is resolved. The runtime probe exposed and fixed an absolute GLB start-time
+offset: generated authored clips now use temporary zero-based Action copies,
+with source Actions and export cleanup protected by regression tests.
+
+All three shapes pass the headless Walk/Idle/Run/Idle bone-head comparison at
+34 phases over three cycle offsets with 800 fps diagnostic import sampling
+and constant tracks retained. Maximum errors are below 0.00106 cm. Default
+30 fps resampling and constant-track removal have separate recorded failures;
+this is not an unconditional acceptance of default engine import settings.
+See [Godot playback probe](canine-godot-playback.md) for commands, measurements,
+configuration and limits. All 249 Blender tests, five focused portable target
+tests, and the rebuilt isolated add-on package pass. Compilation and whitespace
+checks pass. Rendered skin, visual acceptance and a practical shipping import
+preset remain open.
+
 ## Next work
 
 Retain the fixed-toe limits and schema 5 reports while reviewing lateral
-weight shift across the contrasting and short-wide shapes. Inspect at least three cycles from front/side/three-quarter views and verify destination
-playback. Preserve the declared stance/travel contract and sampled contact/drift
+weight shift across the contrasting and short-wide shapes. Inspect at least three cycles from front/side/three-quarter views and complete rendered destination
+playback plus shipping-import evaluation. Preserve the declared stance/travel contract and sampled contact/drift
 checks while tuning. Use the new material-point baseline when choosing toe-off
 pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact remain outside the canonical generated-asset checkpoint.
 

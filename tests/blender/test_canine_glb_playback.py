@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Fractional gait endpoints and contact survive the real GLB export path."""
 import math
+import json
+import struct
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -27,7 +29,7 @@ class CanineGLBPlaybackTests(unittest.TestCase):
         bpy.context.window.scene = self.scene
         self.scene.render.fps = 24
         self.scene.render.fps_base = 1
-        self.scene.frame_start = 1
+        self.scene.frame_start = 37
 
     def tearDown(self):
         bpy.context.window.scene = self.previous
@@ -66,6 +68,18 @@ class CanineGLBPlaybackTests(unittest.TestCase):
             self.assertTrue(result.success, result.issues)
             self.assertIs(source_rig.animation_data.action, active_action)
             self.assertEqual(len(source_rig.animation_data.nla_tracks), 0)
+            self.assertEqual(set(bpy.data.actions), before_actions)
+            self.assertEqual(active_action.frame_range[0], 37)
+            data = path.read_bytes()
+            size, kind = struct.unpack_from('<II', data, 12)
+            self.assertEqual(kind, 0x4E4F534A)
+            document = json.loads(data[20:20 + size].decode('utf8'))
+            durations = {'Idle': 4., 'CanineStep': 1.2, 'Run': .64}
+            for animation in document['animations']:
+                inputs = [document['accessors'][s['input']] for s in animation['samplers']]
+                self.assertAlmostEqual(min(a['min'][0] for a in inputs), 0., places=6)
+                self.assertAlmostEqual(max(a['max'][0] for a in inputs),
+                                       durations[animation['name']], places=6)
             bpy.ops.import_scene.gltf(filepath=str(path))
         imported = set(bpy.data.objects) - before_objects
         rig = next(o for o in imported if o.type == 'ARMATURE')
@@ -86,7 +100,7 @@ class CanineGLBPlaybackTests(unittest.TestCase):
                 action = next(a for a in actions if a.name.startswith(label))
                 self.assertAlmostEqual((action.frame_range[1] - action.frame_range[0]) / 24,
                                        duration, places=6)
-                activate_generated_action(root, source_label)
+                source_action = activate_generated_action(root, source_label)
                 rig.animation_data.action = action
                 rig.animation_data.action_slot = action.slots[0]
                 first = None
@@ -100,6 +114,9 @@ class CanineGLBPlaybackTests(unittest.TestCase):
                     bpy.context.view_layer.update()
                     body = bodies[0].evaluated_get(bpy.context.evaluated_depsgraph_get())
                     points = [body.matrix_world @ v.co for v in body.data.vertices]
+                    source_frame = source_action.frame_range[0] + duration * 24 * step / 33
+                    self.scene.frame_set(math.floor(source_frame), subframe=source_frame % 1)
+                    bpy.context.view_layer.update()
                     source = source_body.evaluated_get(bpy.context.evaluated_depsgraph_get())
                     source_points = [source.matrix_world @ v.co for v in source.data.vertices]
                     if correspondence is None:

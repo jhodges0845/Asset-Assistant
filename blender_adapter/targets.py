@@ -46,7 +46,7 @@ def _is_generated_texture(image):
 
 
 @contextmanager
-def _stage_generated_animation_tracks(root):
+def _stage_generated_animation_tracks(root, *, zero_start=False):
     """Temporarily stash generated clips as one NLA track each for engine export.
 
     Blender keeps one action active for editing/preview. Engine files need a clip
@@ -54,7 +54,8 @@ def _stage_generated_animation_tracks(root):
     single-strip NLA tracks only while the exporter runs. Existing artist NLA or
     drivers remain a preservation boundary and are never modified.
     """
-    from .animation import clip_export_name, generated_actions
+    from .animation import action_curves, clip_export_name, generated_actions
+    import bpy
 
     rig = base_asset_rig(root)
     if rig is None:
@@ -72,10 +73,26 @@ def _stage_generated_animation_tracks(root):
     previous_action = data.action
     previous_slot = getattr(data, 'action_slot', None)
     tracks = []
+    copies = []
     try:
         data.action = None
         for action in actions:
             clip_name = clip_export_name(action)
+            if zero_start:
+                action = action.copy()
+                copies.append(action)
+                offset = action.frame_range[0]
+                slots = tuple(action.slots) if hasattr(action, 'slots') else (None,)
+                for slot in slots:
+                    for curve in action_curves(action, slot):
+                        for key in curve.keyframe_points:
+                            key.co.x -= offset
+                            key.handle_left.x -= offset
+                            key.handle_right.x -= offset
+                        curve.update()
+                if action.use_frame_range:
+                    action.frame_start -= offset
+                    action.frame_end -= offset
             track = data.nla_tracks.new()
             track.name = clip_name
             track.strips.new(clip_name, int(round(action.frame_range[0])), action)
@@ -84,6 +101,8 @@ def _stage_generated_animation_tracks(root):
     finally:
         for track in reversed(tracks):
             data.nla_tracks.remove(track)
+        for action in copies:
+            bpy.data.actions.remove(action)
         data.action = previous_action
         if previous_action is not None and previous_slot is not None and hasattr(data, 'action_slot'):
             data.action_slot = previous_slot
@@ -95,16 +114,16 @@ def _export_gltf(options, root):
     properties = bpy.ops.export_scene.gltf.get_rna_type().properties
     if 'use_active_scene' not in properties:
         options.pop('use_active_scene', None)
-    with _stage_generated_animation_tracks(root) as staged:
+    # Pure keyed generated clips retain dense keys and fractional endpoints.
+    # Blender's unsampled exporter does not apply its slide-to-zero option,
+    # so stage zero-based copies without touching the editable source Actions.
+    can_author = 'export_animation_mode' in properties and 'export_merge_animation' in properties and not any(
+        obj.constraints or (obj.animation_data and obj.animation_data.drivers)
+        or (obj.type == 'ARMATURE' and any(b.constraints for b in obj.pose.bones))
+        for obj in asset_objects(root))
+    with _stage_generated_animation_tracks(root, zero_start=can_author) as staged:
         if 'export_animation_mode' in properties:
-            # Integer-frame NLA baking truncates fractional clip endpoints and
-            # discards dense contact keys. Pure keyed generated actions can be
-            # exported directly through their temporary single-strip tracks.
-            # Constrained/driven assets retain evaluated baking.
-            authored = staged and 'export_merge_animation' in properties and not any(
-                obj.constraints or (obj.animation_data and obj.animation_data.drivers)
-                or (obj.type == 'ARMATURE' and any(b.constraints for b in obj.pose.bones))
-                for obj in asset_objects(root))
+            authored = staged and can_author
             options['export_animation_mode'] = 'ACTIONS' if authored or not staged else 'NLA_TRACKS'
             if authored:
                 options['export_force_sampling'] = False

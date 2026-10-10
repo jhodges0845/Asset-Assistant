@@ -21,7 +21,7 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
 - `modification.py`, `model_json_*`, `modify_ui.py` — model inspection/round-trip/preview/apply.
 - `animation_*` — animation lifecycle, records, tuning, JSON round-trip, naming.
 - `components.py` and component UI modules — component creation/adoption/modify/persistence.
-- `targets.py`, `validation.py`, `printing.py` — destination/export/validation behavior. Generated unconstrained GLB/glTF clips use authored keys and explicit track names to retain fractional endpoints; constrained/driven exports retain baking. `tests/blender/test_canine_glb_playback.py` covers clip ownership, timing, loop closure, sampled contact and fixed-vertex source/reimport surface parity through Walk/Idle/Run/Idle switching. This is Blender round-trip evidence, not destination-runtime acceptance.
+- `targets.py`, `validation.py`, `printing.py` — destination/export/validation behavior. Generated unconstrained GLB/glTF clips use temporary zero-based Action copies, authored keys and explicit track names to retain fractional endpoints; constrained/driven exports retain baking. `tests/blender/test_canine_glb_playback.py` covers clip ownership, timing, loop closure, sampled contact and fixed-vertex source/reimport surface parity through Walk/Idle/Run/Idle switching. The separate headless Godot probe passes with explicit diagnostic import settings; rendered destination acceptance remains open. See `docs/canine-godot-playback.md`.
 
 ## Presentation rule
 

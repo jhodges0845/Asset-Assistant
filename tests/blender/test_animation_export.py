@@ -137,6 +137,31 @@ class AnimationExportTests(unittest.TestCase):
         self.assertEqual(0, len(self.rig.animation_data.nla_tracks))
         self.assertIs(component_rig.animation_data.action, component_action)
 
+    def test_zero_based_staging_restores_actions_when_export_fails(self):
+        self.scene.frame_start = 37
+        active = self._generate_library()
+        before = set(bpy.data.actions)
+        slot = self.rig.animation_data.action_slot
+        def snapshot(action):
+            return tuple((tuple(key.co), tuple(key.handle_left), tuple(key.handle_right))
+                         for curve in action_curves(action, action.slots[0])
+                         for key in curve.keyframe_points)
+        originals = {action: snapshot(action) for action in generated_actions(self.root)}
+        with self.assertRaisesRegex(RuntimeError, 'simulated exporter failure'):
+            with _stage_generated_animation_tracks(self.root, zero_start=True) as staged:
+                self.assertTrue(staged)
+                for track in self.rig.animation_data.nla_tracks:
+                    copied = track.strips[0].action
+                    self.assertNotIn(copied, before)
+                    self.assertAlmostEqual(copied.frame_range[0], 0.)
+                raise RuntimeError('simulated exporter failure')
+        self.assertEqual(set(bpy.data.actions), before)
+        self.assertIs(self.rig.animation_data.action, active)
+        self.assertEqual(self.rig.animation_data.action_slot, slot)
+        self.assertEqual(len(self.rig.animation_data.nla_tracks), 0)
+        for action, keys in originals.items():
+            self.assertEqual(snapshot(action), keys)
+
     def test_all_generated_clips_are_exported_to_glb(self):
         active = self._generate_library()
         adapter = get_adapter('GODOT', asset_use='ANIMATED')
