@@ -43,8 +43,29 @@ class CanineContactGaitTests(unittest.TestCase):
         values = {p.key: p.default for p in provider.parameters}
         values.update(body_length_cm=25, shoulder_height_cm=100, body_width_cm=8)
         clip = provider.run(.64, 2, values=values)
-        self.assertAlmostEqual(clip.translations[0].keys[0][1][2], -14)
+        self.assertTrue(all(-16.8 <= offset[2] <= -14 for _, offset in clip.translations[0].keys))
         for track in clip.tracks:
             self.assertEqual(track.keys[0][1], track.keys[-1][1])
             if track.bone.startswith(('fore_', 'hind_')):
                 self.assertLess(max(abs(a[1]-b[1]) for a,b in zip(track.keys, track.keys[1:])), .2)
+
+
+    def test_body_response_is_bounded_looped_and_compensated_at_joint_keys(self):
+        provider = get_provider('quadruped')
+        for running, method in ((False, provider.locomotion), (True, provider.run)):
+            clip = method(1.2, 1)
+            keys = clip.translations[0].keys
+            self.assertEqual(len(keys), 129)
+            self.assertEqual(keys[0][1], keys[-1][1])
+            heights = [offset[2] for _, offset in keys]
+            self.assertGreater(max(heights)-min(heights), .3)
+            for _, offset in keys:
+                self.assertEqual(offset[:2], (0., 0.))
+                self.assertGreaterEqual(offset[2], -55*(.084 if running else .076)-1e-10)
+                self.assertLessEqual(offset[2], -55*.07+1e-10)
+            for track in clip.tracks:
+                if track.bone.startswith(('fore_', 'hind_')):
+                    self.assertEqual([t for t,_ in keys], [t for t,_ in track.keys])
+            if running:
+                # The body is lower mid-stance than midway through flight.
+                self.assertLess(heights[26], heights[58])

@@ -1022,9 +1022,46 @@ as do compilation and whitespace checks. Logs use `anatomy14-resume-*` and
 remains applicable; this continuation changes only export behavior, its regression
 and checkpoint documentation.
 
+## Vertical body response (October 9, 2026)
+
+Walk now adds a small compression pulse between footfalls; the diagonal Run
+compresses mid-stance and rises during flight. Root translation and solved limb
+rotations share 128 intervals and an exact closing key. Each solve includes the
+current root height, preserving the sole contact target while the body moves.
+The additional vertical range is 0.006 times shoulder height for Walk and 0.014
+for Run, scaled by strength (0.33/0.77 cm at the default 55 cm height and strength
+1). This is authored stylized response, not a dynamics simulation. There is no
+horizontal root travel; the declared reference-travel contract remains in use.
+
+All 428 core tests and 247 Blender integration tests pass, including the GLB
+round-trip regression. The rebuilt isolated add-on package, compilation and
+whitespace checks also pass (`body-response-package.log`). Fresh provider
+fingerprints change only Quadruped clips;
+all meshes, rest rigs, weights and Human/Avian results match the prior checkpoint.
+The six default/contrasting/short-wide contact reports at 127 intervals retain
+minimum clearance above 0.01991 cm, maximum reference stance-centroid drift below
+0.00157 cm and maximum clearance-target error below 0.00612 cm. These remain
+sampled canonical-asset checks. Evidence is `body-response-core.log`,
+`body-response-blender.log`, `body-response-baseline.json` and
+`body-response-{default,contrasting,short-wide}.json` in `artifacts/shared-anatomy/`.
+
+`scripts/create_canine_motion_review.py` saves real editable rig/action scenes
+and optionally renders three cycles from front, side, three-quarter and back
+views. At 25 fps, both canonical durations have exact whole-frame periods.
+For example:
+
+```sh
+blender --background --factory-startup --python-exit-code 1 --python scripts/create_canine_motion_review.py -- --gait run --output artifacts/shared-anatomy/body-response-run.blend --render
+```
+
+Use `--gait walk --sample contrasting` for the contrasting walk review. Default
+Run and contrasting Walk MP4s and scenes were generated. Representative Run
+frames 1, 4 and 8 were inspected; faceting and attachment creases remain visible.
+This does not constitute a complete video review or final visual acceptance.
+
 ## Next work
 
-Complete the motion pass: body response, weight shift and paw roll, then inspect
+Complete the motion pass: lateral weight shift and paw roll, then inspect
 at least three cycles from front/side/three-quarter views and verify destination
 playback. Preserve the declared stance/travel contract and sampled contact/drift
 checks while tuning. Arbitrary edited shapes/weights and dense-time contact

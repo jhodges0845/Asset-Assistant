@@ -34,6 +34,17 @@ def contact_schedule(duration, strength, height, running=False):
                               phase) for name, phase in zip(names, phases)}
 
 
+def _body_crouch(height, strength, running, phase):
+    """Bounded stylized compression, in centimeters below the neutral root.
+
+    Walk has a small pulse between each footfall. Trot compresses mid-stance
+    and rises in flight. This is authored body response, not a dynamics model.
+    """
+    beats, center, amplitude = (2, .2, .014) if running else (4, .125, .006)
+    compression = .5 + .5 * cos(2 * pi * beats * ((phase % 1.) - center))
+    return height * strength * (.07 + amplitude * compression)
+
+
 class _LimbSurface:
     """Exact planar linear-blend skinning for this limb's contact solve."""
     def __init__(self, mesh, weights, region, bones, crouch):
@@ -115,7 +126,7 @@ def generate_contact_clip(duration, strength, running, parameters, recipe_identi
     skeleton = _build_quadruped_skeleton(anatomy)
     weights = generate_quadruped_skin_weights(mesh, skeleton, anatomy=anatomy)[0]
     height = dict(parameters)['shoulder_height_cm']
-    crouch = height * .07 * strength
+    crouch = _body_crouch(height, strength, running, 0.)
     schedules = contact_schedule(duration, strength, height, running)
     bones = {b.name: b for b in skeleton.bones}
     regions = {r.name: r for r in anatomy.regions}
@@ -132,6 +143,7 @@ def generate_contact_clip(duration, strength, running, parameters, recipe_identi
         seed = (-.3, .6) if '.front.' in chain.name else (.2, -.4)
         keys = [[] for _ in chain.bones]
         for i in range(samples):
+            surface.crouch = _body_crouch(height, strength, running, i / samples)
             target = schedule.target(i / samples)
             seed = surface.solve(surface.neutral_y + target.forward_cm, target.lift_cm + .02, seed)
             angles = seed + ((-sum(seed),) if len(chain.bones) == 3 else ())
@@ -146,5 +158,8 @@ def generate_contact_clip(duration, strength, running, parameters, recipe_identi
         wave = _closed_wave(duration, degrees, strength, phase=phase)
         wave = wave[:-1] + ((duration, wave[0][1]),)
         tracks.append(RotationTrack(name, (1., 0., 0.) if name == 'neck' else (0., 0., 1.), wave))
-    translation = TranslationTrack('root', ((0., (0., 0., -crouch)), (duration, (0., 0., -crouch))))
+    root_keys = tuple((duration * i / samples,
+                       (0., 0., -_body_crouch(height, strength, running, i / samples)))
+                      for i in range(samples))
+    translation = TranslationTrack('root', root_keys + ((duration, root_keys[0][1]),))
     return (ContactRunClip if running else ContactWalkClip)(duration, tuple(tracks), (translation,))
