@@ -1235,10 +1235,59 @@ articulated without obvious detached surfaces, but complete video acceptance
 remains open. Compilation and whitespace checks pass.
 
 
+## Bounded stance toe-off
+
+All four paws now lift the heel during the last quarter of stance, reaching
+-0.06 radians at strength 1. A cubic blend gives zero slope at onset and
+liftoff, then releases the roll over the first 30% of swing into the existing
+0.12-radian swing curl. The profile scales with strength and closes smoothly.
+The 19-bone recipe 16 rig and weights remain in use.
+
+The solver offsets the sole's forward target for rotation about a fixed
+foremost point within 0.02 cm of the lowest neutral sole height (lowest Z
+breaks forward-coordinate ties). This
+preserves that material point's reference +Y travel while permitting the sole
+centroid to move during roll. The existing whole-surface clearance solve still
+sets height; this is authored motion, not a force or collision simulation.
+
+Report schema 5 records `sole_forward_cm`, `paw_pitch_radians`, fixed pivot
+vertex IDs and `pivot_material_motion`. Forward-target error uses the planned
+rolling-sole path. Raw centroid drift remains available but is no longer a
+zero-drift acceptance target. The dense regression retains 0.002 cm forepivot
+and 0.001 cm hindpivot limits, allows up to 0.01 cm for nearby rolling toe-region
+points, and checks the fixed point stays within Z=0..0.1 cm throughout sampled
+stance, rather than accepting only a brief near-ground episode.
+
+Six 127-interval sweeps across default, contrasting and short-wide shapes retain
+positive minimum clearance above 0.01994 cm in Walk and 0.01992 cm in Run, with
+zero sampled loop error. Maximum fixed-point drift is below 0.00156 cm for
+forepaws and 0.00006 cm for hind paws. Nearby toe-region motion remains below
+0.005 cm, and rolling-sole forward-target error below 0.0041 cm. The fixed-point
+and toe-region limits measure different behavior; this does not establish
+continuous-time contact on arbitrary edited surfaces.
+The corrected low-sole pivot stays below 0.039 cm in all sampled stances across
+the three shapes, inside the unchanged 0..0.1 cm proximity band.
+
+The full 438-test core run and 248-test Blender run passed during this slice.
+After refining the pivot
+selection, nine focused gait tests (including the new grounded-pivot regression)
+and four animation tests pass. The two dense contact/scene-preservation tests,
+four final animation/GLB tests and rebuilt isolated package also pass. Provider
+fingerprints show only Quadruped clips change; mesh, rig and weights remain
+unchanged across providers. Compilation and whitespace checks pass.
+
+Final contact evidence is `toeoff-grounded-{default,contrasting,short-wide}.json`;
+final targeted logs use `toeoff-final-*` and `toeoff-pivot-final-tests.log` in
+`artifacts/shared-anatomy/`. A corrected three-cycle Walk scene/video is saved as
+`toeoff-grounded-walk.blend/.mp4`. Frame 19 was inspected without obvious paw
+separation; the small heel lift still requires complete video review for final
+animation acceptance.
+
+
 ## Next work
 
-Retain the four-paw contact limits and schema 4 reports while completing lateral
-weight shift and stance toe-off. Inspect at least three cycles from front/side/three-quarter views and verify destination
+Retain the fixed-toe limits and schema 5 reports while completing lateral
+weight shift. Inspect at least three cycles from front/side/three-quarter views and verify destination
 playback. Preserve the declared stance/travel contract and sampled contact/drift
 checks while tuning. Use the new material-point baseline when choosing toe-off
 pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact remain outside the canonical generated-asset checkpoint.

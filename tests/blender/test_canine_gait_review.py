@@ -56,10 +56,17 @@ class CanineGaitReviewTests(unittest.TestCase):
                     if name.startswith('leg.'):
                         toe = summary['toe_material_motion']
                         self.assertGreater(toe['near_ground_vertex_comparisons'], 0)
+                        self.assertLess(toe['maximum_near_ground_episode_displacement_cm'], .01)
+                        pivot = summary['pivot_material_motion']
+                        self.assertGreater(pivot['near_ground_vertex_comparisons'], 0)
                         limit = .002 if '.front.' in name else .001
-                        self.assertLess(toe['maximum_near_ground_episode_displacement_cm'], limit)
+                        self.assertLess(pivot['maximum_near_ground_episode_displacement_cm'], limit)
+                        self.assertLess(pivot['maximum_reference_vertex_displacement_cm'], limit)
+                        self.assertGreaterEqual(pivot['minimum_stance_z_cm'], 0.)
+                        self.assertLessEqual(pivot['maximum_stance_z_cm'], .1)
                     toe_ids = report['toe_vertex_indices'][name]
                     self.assertTrue(toe_ids)
+                    self.assertIn(report['roll_pivot_vertex_indices'][name], toe_ids)
                     self.assertLess(len(toe_ids), len(report['sole_vertex_indices'][name]))
                     self.assertTrue(set(toe_ids).issubset(report['sole_vertex_indices'][name]))
                     for metric in (summary, summary['toe_material_motion']):

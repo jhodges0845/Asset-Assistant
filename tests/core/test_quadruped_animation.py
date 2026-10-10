@@ -42,10 +42,12 @@ class QuadrupedAnimationTests(unittest.TestCase):
             for sample in zip(*rows):
                 pitch = sum(angle for _, angle in sample)
                 phase = sample[0][0] / clip.duration
-                if schedules['leg.hind.' + side].target(phase).in_stance:
+                schedule = schedules['leg.hind.' + side]
+                local = (phase - schedule.touchdown_phase) % 1.
+                if local <= .75 * schedule.duty_factor:
                     self.assertAlmostEqual(pitch, 0)
                 else:
-                    self.assertGreaterEqual(pitch, -1e-10)
+                    self.assertGreaterEqual(pitch, -.06 - 1e-10)
                     self.assertLessEqual(pitch, .12 + 1e-10)
 
     def test_animation_validation_matches_shared_provider_ranges(self):

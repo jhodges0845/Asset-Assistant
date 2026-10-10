@@ -70,7 +70,7 @@ class CanineContactGaitTests(unittest.TestCase):
                 # The body is lower mid-stance than midway through flight.
                 self.assertLess(heights[26], heights[58])
 
-    def test_all_paw_pitch_returns_to_level_during_stance(self):
+    def test_all_paws_roll_only_late_in_stance_and_curl_in_swing(self):
         provider = get_provider('quadruped')
         from object_core.providers.quadruped import _construction
         values = {p.key: p.default for p in provider.parameters}
@@ -87,9 +87,51 @@ class CanineContactGaitTests(unittest.TestCase):
                 pitches = [sum(tracks[name].keys[i][1] for name in chain.bones)
                            for i in range(129)]
                 self.assertGreater(max(pitches), .11)
+                self.assertLess(min(pitches), -.055)
                 for i, pitch in enumerate(pitches):
-                    if schedules[chain.name].target(i / 128).in_stance:
+                    schedule = schedules[chain.name]
+                    local = (i / 128 - schedule.touchdown_phase) % 1.
+                    if local <= .75 * schedule.duty_factor:
                         self.assertAlmostEqual(pitch, 0., places=10)
-                    self.assertGreaterEqual(pitch, -1e-10)
+                    self.assertGreaterEqual(pitch, -.06 - 1e-10)
                     self.assertLessEqual(pitch, .12 + 1e-10)
+            self.assertEqual(checked, 4)
+
+    def test_toeoff_pitch_is_periodic_and_smooth_at_contact_boundaries(self):
+        from object_core.providers.quadruped_gait import _paw_pitch
+        for running in (False, True):
+            schedule = contact_schedule(1, 1, 55, running)['leg.front.left']
+            for local in (0., .75*schedule.duty_factor, schedule.duty_factor,
+                          schedule.duty_factor + .3*(1-schedule.duty_factor), 1.):
+                phase = schedule.touchdown_phase + local
+                eps = 1e-6
+                center = _paw_pitch(schedule, phase, 1.)
+                self.assertAlmostEqual(center, _paw_pitch(schedule, phase+1, 1.), places=10)
+                left = (center-_paw_pitch(schedule, phase-eps, 1.))/eps
+                right = (_paw_pitch(schedule, phase+eps, 1.)-center)/eps
+                self.assertAlmostEqual(left, right, delta=.001)
+
+    def test_roll_pivots_are_selected_from_grounded_sole_points(self):
+        from object_core.providers.quadruped import _construction
+        from object_core.providers.quadruped_gait import _LimbSurface
+        provider = get_provider('quadruped')
+        defaults = {p.key: p.default for p in provider.parameters}
+        for values in (defaults, dict(defaults, body_length_cm=95, shoulder_height_cm=40,
+                                     body_width_cm=28, head_length_cm=30, tail_length_cm=50),
+                       dict(defaults, body_length_cm=25, shoulder_height_cm=15, body_width_cm=55,
+                            head_length_cm=8, tail_length_cm=5)):
+            mesh, anatomy = _construction(provider.dimensions(values))
+            weights = provider.skin_weights(mesh, values)[0]
+            bones = {b.name: b for b in provider.skeleton(values).bones}
+            regions = {r.name: r for r in anatomy.regions}
+            checked = 0
+            for chain in anatomy.chains:
+                if not chain.name.startswith('leg.'):
+                    continue
+                surface = _LimbSurface(mesh, weights, regions[chain.name],
+                                       tuple(bones[n] for n in chain.bones), 0.)
+                self.assertGreaterEqual(surface.toe_z, 0.)
+                self.assertLessEqual(surface.toe_z, .02)
+                self.assertGreater(surface.toe_y, surface.neutral_y)
+                checked += 1
             self.assertEqual(checked, 4)

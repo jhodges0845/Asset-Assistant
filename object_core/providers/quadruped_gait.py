@@ -45,13 +45,22 @@ def _body_crouch(height, strength, running, phase):
     return height * strength * (.07 + amplitude * compression)
 
 
-def _swing_paw_pitch(schedule, phase, strength):
-    """Paw curl in flight, with zero pitch and slope at both contacts."""
+def _paw_pitch(schedule, phase, strength):
+    """Late-stance heel lift, smoothly released into swing curl."""
     local = (phase - schedule.touchdown_phase) % 1.
+    def smooth(value):
+        t = max(0., min(1., value))
+        return t*t*(3 - 2*t)
     if local <= schedule.duty_factor:
-        return 0.
+        return -.06 * strength * smooth((local / schedule.duty_factor - .75) / .25)
     u = (local - schedule.duty_factor) / (1. - schedule.duty_factor)
-    return .12 * strength * sin(pi * u) ** 2
+    return strength * (.12 * sin(pi * u) ** 2 - .06 * (1 - smooth(u / .3)))
+
+
+def paw_roll_forward_offset(sole_yz, toe_yz, pitch):
+    """Sole-centroid forward offset for rotation about a fixed material toe."""
+    return ((cos(pitch) - 1) * (sole_yz[0] - toe_yz[0])
+            - sin(pitch) * (sole_yz[1] - toe_yz[1]))
 
 
 class _LimbSurface:
@@ -72,6 +81,11 @@ class _LimbSurface:
         if not sole:
             raise ValueError('Contact gait requires a grounded neutral sole')
         self.neutral_y = sum(vertices[i][1] for i in sole) / len(sole)
+        self.neutral_z = sum(vertices[i][2] for i in sole) / len(sole)
+        floor = min(vertices[i][2] for i in sole)
+        grounded = tuple(i for i in sole if vertices[i][2] <= floor + .02)
+        toe = max(grounded, key=lambda i: (vertices[i][1], -vertices[i][2]))
+        self.toe_y, self.toe_z = vertices[toe][1:]
         sums = [[0., 0., 0.] for _ in range(len(bones) + 1)]
         for i in sole:
             for w in weights.vertices[i]:
@@ -80,6 +94,12 @@ class _LimbSurface:
                 row[1] += w.weight * vertices[i][1] / len(sole)
                 row[2] += w.weight * vertices[i][2] / len(sole)
         self.centroid = tuple(sums)
+
+    def roll_forward_offset(self):
+        # Preserve the fixed foremost sole point's reference travel while rolling.
+        # All canonical sole vertices belong fully to the distal paw bone.
+        return paw_roll_forward_offset((self.neutral_y, self.neutral_z),
+                                       (self.toe_y, self.toe_z), self.paw_pitch)
 
     def transforms(self, angles):
         angles = tuple(angles) + ((self.paw_pitch-sum(angles),) if len(self.heads) == 3 else ())
@@ -154,9 +174,9 @@ def generate_contact_clip(duration, strength, running, parameters, recipe_identi
         keys = [[] for _ in chain.bones]
         for i in range(samples):
             surface.crouch = _body_crouch(height, strength, running, i / samples)
-            surface.paw_pitch = _swing_paw_pitch(schedule, i / samples, strength) if len(chain.bones) == 3 else 0.
+            surface.paw_pitch = _paw_pitch(schedule, i / samples, strength) if len(chain.bones) == 3 else 0.
             target = schedule.target(i / samples)
-            seed = surface.solve(surface.neutral_y + target.forward_cm, target.lift_cm + .02, seed)
+            seed = surface.solve(surface.neutral_y + target.forward_cm + surface.roll_forward_offset(), target.lift_cm + .02, seed)
             angles = seed + ((surface.paw_pitch-sum(seed),) if len(chain.bones) == 3 else ())
             for row, angle in zip(keys, angles):
                 row.append((duration * i / samples, angle))

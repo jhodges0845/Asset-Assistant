@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
 
 from object_core.objects import get_provider
 from object_core.providers.quadruped import _construction
-from object_core.providers.quadruped_gait import contact_schedule
+from object_core.providers.quadruped_gait import contact_schedule, _paw_pitch, paw_roll_forward_offset
 from scripts.canine_review_metrics import limb_ground_clearance, limb_support_footprint, stance_material_motion
 
 
@@ -58,10 +58,16 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
     # +Y is reference forward. A fixed foremost quarter of the neutral sole
     # provides a toe-region proxy without changing material identity per frame.
     toe_offsets = {}
+    pivot_offsets = {}
+    sole_yz = {}
     for name, indices in sole_indices.items():
         ys = [mesh.parts[0].vertices[i][1] for i in indices]
         cutoff = max(ys) - .25 * (max(ys) - min(ys))
         toe_offsets[name] = tuple(j for j, y in enumerate(ys) if y >= cutoff)
+        sole_floor = min(mesh.parts[0].vertices[i][2] for i in indices)
+        grounded = [j for j, i in enumerate(indices) if mesh.parts[0].vertices[i][2] <= sole_floor + .02]
+        pivot_offsets[name] = max(grounded, key=lambda j: (ys[j], -mesh.parts[0].vertices[indices[j]][2]))
+        sole_yz[name] = tuple(sum(mesh.parts[0].vertices[i][axis] for i in indices) / len(indices) for axis in (1, 2))
     schedules = contact_schedule(duration, strength, values['shoulder_height_cm'], clip == 'run')
     neutral_y = {name: sum(mesh.parts[0].vertices[i][1] for i in indices) / len(indices)
                  for name, indices in sole_indices.items()}
@@ -110,13 +116,20 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
                          for name, indices in sole_indices.items()}
             for name, indices in sole_indices.items():
                 material_patches[name].append(tuple(points[i] for i in indices))
+            targets = {}
+            for name, schedule in schedules.items():
+                target = asdict(schedule.target(index / intervals))
+                pitch = _paw_pitch(schedule, index / intervals, strength)
+                pivot = mesh.parts[0].vertices[sole_indices[name][pivot_offsets[name]]][1:]
+                target['sole_forward_cm'] = target['forward_cm'] + paw_roll_forward_offset(sole_yz[name], pivot, pitch)
+                target['paw_pitch_radians'] = pitch
+                targets[name] = target
             frames.append(dict(phase=index / intervals, seconds=seconds, frame=frame,
                                ground_clearance=limb_ground_clearance(points, anatomy.regions),
                                support_footprint=limb_support_footprint(
                                    points, mesh.parts[0].faces, anatomy.regions),
                                sole_centroid_cm=centroids,
-                               contact_targets={name: asdict(schedule.target(index / intervals))
-                                                for name, schedule in schedules.items()}))
+                               contact_targets=targets))
         summary = {}
         for name in sole_indices:
             heights = [r['ground_clearance'][name]['minimum_z_cm'] for r in frames]
@@ -140,9 +153,18 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
                     [r['phase'] for r in frames[:-1]],
                     [tuple(patch[j] for j in toe_offsets[name])
                      for patch in material_patches[name][:-1]], schedule),
+                pivot_material_motion=dict(
+                    **stance_material_motion([r['phase'] for r in frames[:-1]],
+                        [(patch[pivot_offsets[name]],) for patch in material_patches[name][:-1]], schedule),
+                    maximum_stance_z_cm=max(patch[pivot_offsets[name]][2]
+                        for row, patch in zip(frames[:-1], material_patches[name][:-1])
+                        if row['contact_targets'][name]['in_stance']),
+                    minimum_stance_z_cm=min(patch[pivot_offsets[name]][2]
+                        for row, patch in zip(frames[:-1], material_patches[name][:-1])
+                        if row['contact_targets'][name]['in_stance'])),
                 reference_stance_samples=len(stance), reference_stance_drift_cm=drift,
                 maximum_forward_target_error_cm=max(abs(row['sole_centroid_cm'][name][1] - neutral_y[name]
-                    - row['contact_targets'][name]['forward_cm']) for row in frames),
+                    - row['contact_targets'][name]['sole_forward_cm']) for row in frames),
                 maximum_clearance_target_error_cm=max(abs(row['ground_clearance'][name]['minimum_z_cm']
                     - row['contact_targets'][name]['lift_cm'] - .02) for row in frames),
                 minimum_z_cm=min(heights), maximum_z_cm=max(heights),
@@ -159,6 +181,7 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
                     intervals=intervals, fps=24, ground_plane_z_cm=0.0,
                     material_motion_reference='Maximum XY displacement of any fixed neutral sole vertex from its first sampled stance position, with reference +Y travel; lifted vertices included, not contact slip.',
                     toe_region_reference='Foremost +Y quarter of the fixed neutral sole extent; geometric proxy, not a physical contact label.',
+                    roll_pivot_vertex_indices={name: sole_indices[name][j] for name, j in pivot_offsets.items()},
                     toe_vertex_indices={name: tuple(sole_indices[name][j] for j in offsets)
                                         for name, offsets in toe_offsets.items()},
                     sole_selection_band_cm=[0.0, .1], sole_vertex_indices=sole_indices,
@@ -190,7 +213,7 @@ def main():
     elif args.sample == 'short-wide':
         values.update(body_length_cm=25, shoulder_height_cm=15, body_width_cm=55,
                       head_length_cm=8, tail_length_cm=5)
-    report = dict(schema_version=4, sample=args.sample,
+    report = dict(schema_version=5, sample=args.sample,
         interpretation='In-place sampled diagnostics with declared stance and reference travel; drift is measured after reference +Y travel, not generated root motion or physical contact area.',
         commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         working_tree_changes=subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).splitlines(),
