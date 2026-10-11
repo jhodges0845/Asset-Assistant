@@ -1581,9 +1581,35 @@ transitions. It does not establish collision clearance or a finished perched
 silhouette. A compact fold, shoulder refinement, contrasting visual review and
 intersection diagnostics remain open; grounded stance is still unfinished.
 
+## Avian compact-fold intersection checkpoint
+
+`--pose wing-fold-compact` is a separate diagnostic preset, preserving the earlier
+fold for comparison. It sweeps both wings back alongside the tail. Default span
+is 28.52460 cm (neutral 90.16258); contrasting span is 40.33019 cm (neutral
+140.17737). The inspected default overhead render shows a compact outline but
+visible overlap around the body; this pose is not accepted for production clips.
+
+`scripts/avian_review_metrics.py` tessellates polygons and uses Blender BVH triangle
+intersection queries, reporting unique non-adjacent face pairs. Reports include
+evaluated neutral pairs, posed pairs and newly appearing pairs. Faces sharing any
+vertex are excluded. These are surface-crossing diagnostics, not volumetric
+penetration or clearance measurements: containment, coplanar contact and
+within-polygon problems are outside their scope, and near-contact counts can be
+sensitive to floating-point evaluation.
+
+In Blender 5.2.1 the default evaluated neutral/compact counts are 100/126 with
+37 new pairs; contrasting counts are 105/125 with 32 new pairs. Thus neutral
+construction itself needs investigation before folding can pass an intersection
+gate. Artifacts: `avian4-compact-top.png` and `avian4-compact-{default,contrasting}.json`
+under `artifacts/shared-anatomy/`. The measured JSON files use evaluated-neutral
+baselines; the initial render JSON preceded that baseline precision correction.
+Synthetic crossing, separated and adjacent-face checks pass along with all 15
+Avian Blender tests. Recipe, generated geometry and production clips are unchanged.
+
 ## Next work
 
-For Avian, refine the coordinated fold diagnostic into compact folding/perched poses on the broader wing
+For Avian, diagnose and repair neutral non-adjacent surface crossings and the compact-fold
+body overlap, then refine folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint
 landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,

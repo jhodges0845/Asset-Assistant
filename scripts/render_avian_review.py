@@ -19,6 +19,7 @@ from object_core.models import MeshPart
 from blender_adapter.adapter import create_character
 from scripts import render_human_review as sheets
 from scripts.anatomy_baseline import SAMPLES
+from scripts.avian_review_metrics import surface_crossings
 
 ISOLATED_POSES = {'wing-root': ('wing.upper.left', 'x', .4),
          'wing-elbow': ('wing.lower.left', 'z', .7),
@@ -34,6 +35,14 @@ POSES['wing-fold'] = (
     ('wing.upper.right', 'z', -1.15),
     ('wing.lower.right', 'z', 2.0),
 )
+
+POSES['wing-fold-compact'] = (
+    ('wing.upper.left', 'z', 1.35),
+    ('wing.lower.left', 'z', .2),
+    ('wing.upper.right', 'z', -1.35),
+    ('wing.lower.right', 'z', -.2),
+)
+
 
 
 
@@ -55,12 +64,14 @@ def review_part(values, pose):
               'pose': pose, 'vertices': mesh.vertex_count, 'faces': mesh.face_count,
               'bones': len(skeleton.bones), 'scope': 'Diagnostic pose, not a flight or perched acceptance test.'}
     points = mesh.parts[0].vertices
+    baseline_crossings = surface_crossings(points, mesh.parts[0].faces)
     if pose != 'neutral':
         root = create_character(mesh, scene=bpy.context.scene, skeleton=skeleton,
                                 skin_weights=provider.skin_weights(mesh, values))
         body = next(o for o in root.children if o.type == 'MESH')
         rig = next(o for o in root.children if o.type == 'ARMATURE')
         before = evaluated_points(body)
+        baseline_crossings = surface_crossings(before, mesh.parts[0].faces)
         for name, axis, angle in POSES[pose]:
             bone = rig.pose.bones[name]
             bone.rotation_mode = 'XYZ'
@@ -79,6 +90,10 @@ def review_part(values, pose):
         report['region_max_displacement_cm'] = {
             r.name: max(sum((points[i][a] - before[i][a]) ** 2 for a in range(3)) ** .5
                         for i in r.vertex_indices) for r in anatomy.regions}
+    report['nonadjacent_surface_crossings'] = surface_crossings(points, mesh.parts[0].faces)
+    report['neutral_surface_crossings'] = baseline_crossings
+    report['new_surface_crossings'] = sorted(set(report['nonadjacent_surface_crossings']) - set(baseline_crossings))
+    report['intersection_scope'] = 'Non-adjacent triangle surface crossings; excludes shared-vertex faces, containment and coplanar contact.'
     report['minimum_surface_z_cm'] = min(p[2] for p in points)
     return MeshPart('avian', points, mesh.parts[0].faces), report
 

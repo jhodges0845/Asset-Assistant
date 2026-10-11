@@ -149,6 +149,15 @@ class AvianDeformationTests(unittest.TestCase):
                         bone.rotation_euler = (0, 0, 0)
                         bpy.context.view_layer.update()
 
+    def test_surface_crossing_diagnostic_detects_crossing_and_ignores_adjacency(self):
+        from scripts.avian_review_metrics import surface_crossings
+        vertices = ((-1, -1, 0), (1, -1, 0), (0, 1, 0),
+                    (0, 0, -1), (0, 0, 1), (.5, 0, 0))
+        self.assertEqual(surface_crossings(vertices, ((0, 1, 2), (3, 4, 5))), [(0, 1)])
+        self.assertEqual(surface_crossings(vertices, ((0, 1, 2), (0, 3, 4))), [])
+        separated = vertices[:3] + tuple((x + 5, y, z) for x, y, z in vertices[3:])
+        self.assertEqual(surface_crossings(separated, ((0, 1, 2), (3, 4, 5))), [])
+
     def test_coordinated_fold_reduces_span_without_moving_body_or_legs(self):
         from scripts.render_avian_review import review_part
         provider = get_provider('avian')

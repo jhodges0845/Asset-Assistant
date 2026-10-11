@@ -20,7 +20,7 @@ Canine contact gait: `object_core/animation/contact.py` supplies stance/swing ta
 
 ## Active Avian work
 
-Avian recipe 4 adds broad tapered wing profiles while retaining shared wing landmarks and authored weight ownership. Isolated wing poses keep non-wing vertices stationary; top-view diagnostics expose the outline. A mirrored four-bone fold diagnostic reduces span without moving body/legs, but tips still flare and shoulders remain angular. Next: compact folding, intersection checks and grounded leg/foot refinement. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
+Avian recipe 4 adds broad tapered wing profiles while retaining shared wing landmarks and authored weight ownership. Isolated wing poses keep non-wing vertices stationary; top-view diagnostics expose the outline. A mirrored four-bone fold diagnostic reduces span without moving body/legs, but tips still flare and shoulders remain angular. Compact-fold diagnostics now expose neutral and additional posed surface crossings. Next: repair construction/posed overlaps before accepting folding, then grounded leg/foot refinement. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
 
 ## Current Human V2 integration (2026-09-20)
 
