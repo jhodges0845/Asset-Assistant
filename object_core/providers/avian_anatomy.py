@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 2: bind wing joints directly to authored surface centerlines.
+"""Avian recipe 3: shared wing centerlines and authored wing weight ownership.
 
 Wing surface centerlines and rest chains share landmark identities. Other rest
 offsets remain explicit until their own anatomy refinement checkpoints.
@@ -218,7 +218,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '2'
+    recipe_version = '3'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.

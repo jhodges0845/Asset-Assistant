@@ -1505,10 +1505,36 @@ accepting wing folding. Joint alignment alone is not deformation acceptance.
 All 26 Avian core tests and 12 Blender integration tests pass, plus Python
 compilation and whitespace checks. No Human or canine production code changed.
 
+## Avian wing-weight locality checkpoint (recipe 3)
+
+Avian weights now use authored wing membership instead of coordinate proximity
+for wing influence. Non-wing vertices cannot acquire wing-bone weights. The body
+attachment loop remains on the spine; the first wing ring blends 25% spine / 75%
+upper wing, fading to 10% / 90% over the next topology interval. Distal vertices
+use only their own upper/lower wing chain. The collar remains attached without
+allowing a distal wing bend to pull the torso or opposite limbs.
+
+Membership survives topology-preserving edits across the body and centerline.
+The provider rejects mismatched part names, face topology or vertex counts before
+using ownership; users must explicitly regenerate incompatible assets. No saved
+artist weights are automatically replaced. Neutral mesh/UVs, rest rig and clip
+keys remain unchanged from recipe 2; generated weights intentionally change.
+
+All 31 Avian core tests and 13 Blender tests pass. The new evaluated Blender
+regression bends upper and lower wings independently on both sides of default
+and contrasting birds: each intended wing moves while all other vertices remain
+within 0.00001 cm of their neutral positions. Core regressions cover cross-center
+edited wings, normalized influence limits, collar blending and topology rejection.
+Python compilation and whitespace checks pass. Review artifacts are
+`artifacts/shared-anatomy/avian3-{sample}-wing-elbow.png` with JSON measurements.
+Rendered elbow reports confirm body displacement drops from 0.792 cm to zero
+for default and 0.986 cm to zero for contrasting, with intended wing displacement
+unchanged. These isolated poses establish locality, not final folding or flight quality.
+
 ## Next work
 
-For Avian, investigate wing-to-body weight leakage, add useful wing close-up/top
-review views, and improve wing volume/folding. Align remaining surface/rest-joint
+For Avian, add useful wing close-up/top review views and improve wing
+volume/folding while retaining the new non-wing displacement gate. Align remaining surface/rest-joint
 landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,
 neck/head/beak, wing roots/folding, legs/feet and tail fan with default and
 contrasting silhouettes and pose checks. Preserve Idle/Walk/Flight identities,

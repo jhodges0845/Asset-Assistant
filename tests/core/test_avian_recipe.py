@@ -33,7 +33,7 @@ class AvianRecipeTests(unittest.TestCase):
         self.values = {p.key: p.default for p in self.provider.parameters}
         self.anatomy = AvianRecipe().resolve(self.provider.dimensions(self.values))
 
-    def test_recipe2_preserves_mesh_clips_and_nonwing_rest_bones(self):
+    def test_preserves_mesh_clips_and_nonwing_rest_bones(self):
         baseline = json.loads((Path(__file__).parents[1] / 'fixtures/avian_recipe1_baseline.json').read_text())
         for sample in baseline['samples']:
             with self.subTest(sample=sample['sample']):

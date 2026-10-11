@@ -123,6 +123,32 @@ class AvianDeformationTests(unittest.TestCase):
         self.assertGreater(target_move, 0.003)
         self.assertLess(opposite_move, target_move * 0.20)
 
+    def test_isolated_wing_bends_leave_all_nonwing_vertices_stationary(self):
+        provider = get_provider('avian')
+        defaults = {f.key: f.default for f in provider.parameters}
+        for values in (defaults, dict(defaults, body_length_cm=55, body_width_cm=22,
+                                      body_height_cm=28, wingspan_cm=140, tail_length_cm=35)):
+            mesh = provider.mesh(values)
+            anatomy = provider.anatomy(values)
+            root = create_character(mesh, scene=self.scene, skeleton=provider.skeleton(values),
+                                    skin_weights=provider.skin_weights(mesh, values))
+            self.rig = next(o for o in root.children if o.type == 'ARMATURE')
+            self.avian = next(o for o in root.children if o.type == 'MESH')
+            for side in ('left', 'right'):
+                owned = set(next(r.vertex_indices for r in anatomy.regions if r.name == 'wing.' + side))
+                for segment, axis in (('upper', 'x'), ('lower', 'z')):
+                    with self.subTest(values=values, side=side, segment=segment):
+                        before = self._evaluated_points()
+                        bone = self.rig.pose.bones['wing.' + segment + '.' + side]
+                        bone.rotation_mode = 'XYZ'
+                        setattr(bone.rotation_euler, axis, .7)
+                        after = self._evaluated_points()
+                        self.assertGreater(max((after[i] - before[i]).length for i in owned), .003)
+                        self.assertLess(max((after[i] - before[i]).length for i in range(len(before))
+                                            if i not in owned), 1e-7)
+                        bone.rotation_euler = (0, 0, 0)
+                        bpy.context.view_layer.update()
+
     def test_wing_root_blends_with_spine_instead_of_hinging_as_a_rigid_seam(self):
         wing_group = self.avian.vertex_groups.get("wing.upper.left")
         spine_group = self.avian.vertex_groups.get("spine")

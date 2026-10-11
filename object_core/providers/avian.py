@@ -3,7 +3,7 @@
 
 from math import isfinite
 
-from ..models import ImageTextureSpec, MaterialSpec
+from ..models import ImageTextureSpec, MaterialSpec, ObjectMesh
 from .base import Parameter
 from .semantic import SemanticTarget
 from .avian_animation import generate_avian_flight, generate_avian_idle, generate_avian_walk
@@ -91,8 +91,14 @@ class AvianProvider:
         return _build_avian_skeleton(AvianRecipe().resolve(self.dimensions(values)))
 
     def skin_weights(self, mesh, values):
-        skeleton = self.skeleton(values)
-        return generate_avian_skin_weights(mesh, skeleton)
+        base, anatomy = _build_avian_mesh(AvianRecipe().resolve(self.dimensions(values)))
+        if not isinstance(mesh, ObjectMesh):
+            raise TypeError('Avian ownership requires an ObjectMesh')
+        if (len(mesh.parts) != 1 or mesh.parts[0].name != base.parts[0].name
+                or mesh.parts[0].faces != base.parts[0].faces
+                or len(mesh.parts[0].vertices) != len(base.parts[0].vertices)):
+            raise ValueError('Avian ownership requires authored topology; explicitly regenerate this asset')
+        return generate_avian_skin_weights(mesh, _build_avian_skeleton(anatomy), anatomy=anatomy)
 
     def idle(self, duration, strength):
         return generate_avian_idle(duration, strength)
