@@ -1423,6 +1423,25 @@ See the Godot playback guide for reproducible commands and report locations.
 This validates resource packing with the installed runtime, not editor export
 presets or standalone game deployment. Visual acceptance remains open.
 
+## Main integration review (2026-10-11)
+
+Local merge checks pass: 440 core tests, 249 Blender 5.2.1 integration tests,
+isolated packaged add-on installation/export, and canine/Human/component real
+save/reopen. The canine reopen smoke test had retained a stale 17-bone assertion;
+it now verifies 19 bones, both forepaw bones, and front/hind paw weights after
+reopening. This corrects test coverage; production rig behavior is unchanged.
+
+Godot Walk and Run renders cover three cycles for default and contrasting
+proportions from front, three-quarter, side and back. Twelve sampled frames per
+clip/shape were inspected in `artifacts/shared-anatomy/merge-{shape}-{clip}.png`.
+The sampled poses show connected limbs, consistent joint directions and repeated
+cycle poses without gross collapse or visible ground penetration. Faceted torso
+shading and simplified rigid head/tail presentation remain visible. This is a
+pre-alpha integration review, not full-speed artistic sign-off or proof of all
+intermediate frames. Dense skin/contact and loop checks provide separate numeric
+evidence. Final visual refinement and the documented short-wide stress limitation
+remain open after this integration checkpoint.
+
 ## Next work
 
 Retain the fixed-toe limits and schema 5 reports while reviewing lateral
