@@ -14,10 +14,13 @@ func review():
     # sampling rate is for parity measurement, not a shipping-memory preset.
     var bake_fps = 800.0
     var remove_immutable = false
+    var source_aligned = false
     var arguments = OS.get_cmdline_user_args()
     for argument in arguments:
         if argument.begins_with("--bake-fps="):
             bake_fps = float(argument.get_slice("=", 1))
+        elif argument == "--source-aligned":
+            source_aligned = true
         elif argument == "--remove-immutable":
             remove_immutable = true
         else:
@@ -32,13 +35,11 @@ func review():
     if expected == null:
         fail("Missing pose oracle")
         return
-    var document = GLTFDocument.new()
-    var state = GLTFState.new()
-    var error = document.append_from_file("res://canine.glb", state)
-    if error != OK:
-        fail("GLB import failed: " + str(error))
+    var importer = load("res://canine_import.gd")
+    var asset = importer.load_asset(expected, source_aligned, bake_fps, remove_immutable)
+    if asset == null:
+        fail("Canine import failed")
         return
-    var asset = document.generate_scene(state, bake_fps, false, remove_immutable)
     root.add_child(asset)
     var players = asset.find_children("*", "AnimationPlayer", true, false)
     var skeletons = asset.find_children("*", "Skeleton3D", true, false)
@@ -58,6 +59,9 @@ func review():
         if abs(animation.length - clip.duration) > 0.00001:
             fail("Changed duration for " + label + ": " + str(animation.length) + " expected " + str(clip.duration))
             return
+        var key_count = 0
+        for track in range(animation.get_track_count()):
+            key_count += animation.track_get_key_count(track)
         var imported_loop_mode = animation.loop_mode
         # Looping is an explicit destination setting, not a GLB guarantee.
         animation.loop_mode = Animation.LOOP_LINEAR
@@ -86,14 +90,15 @@ func review():
                         worst = {"bone": bone_name, "seconds": sample.seconds, "cycle": cycle,
                             "actual": str(actual), "reference": str(reference)}
         results.append({"clip": label, "maximum_bone_head_error_cm": maximum,
-            "worst": worst, "imported_loop_mode": imported_loop_mode, "cycles": 3, "samples_per_cycle": 34})
+            "effective_bake_fps": clip.import_bake_fps if source_aligned else bake_fps,
+            "key_count": key_count, "worst": worst, "imported_loop_mode": imported_loop_mode, "cycles": 3, "samples_per_cycle": 34})
         if maximum > expected.tolerance_cm:
             passed = false
             push_error(label + " pose mismatch in cm: " + str(maximum) + " " + str(worst))
     var report = {"schema_version": 1, "godot_version": Engine.get_version_info(),
         "sample": expected.sample, "source_commit": expected.commit,
         "tolerance_cm": expected.tolerance_cm, "clips": results, "passed": passed,
-        "bake_fps": bake_fps, "remove_immutable_tracks": remove_immutable,
+        "source_aligned": source_aligned, "bake_fps": bake_fps, "remove_immutable_tracks": remove_immutable,
         "scope": "Headless skeletal playback; loop mode explicitly enabled; not rendered skin or visual acceptance."}
     var output = FileAccess.open("res://godot-report.json", FileAccess.WRITE)
     output.store_string(JSON.stringify(report, "  ") + "\n")

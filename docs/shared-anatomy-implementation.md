@@ -1355,11 +1355,32 @@ tests, and the rebuilt isolated add-on package pass. Compilation and whitespace
 checks pass. Rendered skin, visual acceptance and a practical shipping import
 preset remain open.
 
+## Source-grid Godot import and rendered playback (October 10)
+
+The review-only importer now samples each generated clip on its verified
+source key grid and combines the clips into a single library while retaining
+reset tracks. All three documented shapes pass the same skeletal parity
+probe, with maximum bone-head error below 0.000037 cm. The library has 6,600
+keys instead of 112,200 at the 800 fps diagnostic setting (94.1% fewer).
+This is a candidate workflow; key counts do not prove runtime performance.
+
+Godot's Compatibility renderer successfully captured three cycles of default
+Walk and contrasting Run in four views with the imported skin and coat.
+Frame 7 from each final sequence was inspected with no apparent detached
+limbs. Frame sequences, reports and encoded MP4s use the `godot-grid-` prefix
+under `artifacts/shared-anatomy/`. Full video acceptance and quantitative
+skinned-surface contact remain open. See [the probe guide](canine-godot-playback.md)
+for the source-grid and render commands. Production animation/export code is
+unchanged in this checkpoint; validation used the actual Blender fixture
+builder and Godot comparison/render tools, an expected failure for missing
+source-grid metadata, verified 90/48-frame MP4s, Python compilation and
+whitespace checks.
+
 ## Next work
 
 Retain the fixed-toe limits and schema 5 reports while reviewing lateral
-weight shift across the contrasting and short-wide shapes. Inspect at least three cycles from front/side/three-quarter views and complete rendered destination
-playback plus shipping-import evaluation. Preserve the declared stance/travel contract and sampled contact/drift
+weight shift across the contrasting and short-wide shapes. Inspect at least three cycles from front/side/three-quarter views and complete visual destination
+playback review, skinned-surface contact measurement and shipping-import evaluation. Preserve the declared stance/travel contract and sampled contact/drift
 checks while tuning. Use the new material-point baseline when choosing toe-off
 pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact remain outside the canonical generated-asset checkpoint.
 

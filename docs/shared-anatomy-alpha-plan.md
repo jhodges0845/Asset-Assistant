@@ -6,9 +6,9 @@ connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
 transitions. Contact-driven Walk/Run include bounded vertical body compression and a
 three-cycle review generator. Four-paw swing articulation and bounded stance toe-off are implemented;
 compensated lateral Walk sway is implemented. Complete visual playback review and
-rendered destination acceptance remain open. Headless Godot skeletal parity
-passes with explicit diagnostic import settings; a shipping import preset is
-still unvalidated. Default GLB source/reimport surface parity
+destination visual acceptance remain open. Source-grid Godot import passes
+skeletal parity with 94.1% fewer keys than the diagnostic baseline; four-view
+Godot renders are available. Shipping integration/performance remain unvalidated. Default GLB source/reimport surface parity
 now passes through gait/Idle switches; the short-wide stress shape is not
 visually accepted. Avian recipe
 migration, cross-provider acceptance and release hardening follow. See the
