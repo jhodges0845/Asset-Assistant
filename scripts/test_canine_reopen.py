@@ -34,7 +34,8 @@ try:
         assert root["object_type"] == "quadruped"
         rig = next(obj for obj in root.children if obj.type == "ARMATURE")
         body = next(obj for obj in root.children if obj.type == "MESH")
-        assert len(rig.data.bones) == 17
+        assert len(rig.data.bones) == 19
+        assert all("fore_pastern." + side in rig.data.bones for side in ("left", "right"))
         assert rig.animation_data.action.name == action_name
         assert abs(rig.pose.bones["hind_pastern.left"].rotation_euler.x - .3) < 1e-6
         assert any(mod.type == "ARMATURE" and mod.object == rig for mod in body.modifiers)
@@ -44,9 +45,10 @@ try:
         assert tuple(tuple(face.vertices) for face in body.data.polygons) == mesh.parts[0].faces
         assert len(body.data.vertices) == mesh.vertex_count
         for side in ("left", "right"):
-            group = body.vertex_groups["hind_pastern." + side]
-            assert any(item.group == group.index and item.weight > 0
-                       for vertex in body.data.vertices for item in vertex.groups)
+            for segment in ("fore_pastern", "hind_pastern"):
+                group = body.vertex_groups[segment + "." + side]
+                assert any(item.group == group.index and item.weight > 0
+                           for vertex in body.data.vertices for item in vertex.groups)
         assert inspect_generated_asset(root).owns_geometry
         print("CANINE_PLUGIN_REOPEN_OK")
 finally:
