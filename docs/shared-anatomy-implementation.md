@@ -1469,10 +1469,47 @@ architecture/provider-boundary tests also pass; compilation and whitespace check
 pass. Portable golden checks round to nine decimal places to avoid insignificant
 platform math differences; the local raw before/after fingerprints match exactly.
 
+## Avian wing-centerline checkpoint (recipe 2)
+
+Wing chains now reference the same landmark identities as the wing tube roots,
+elbows and tips. Recipe 1's default offsets were 0.512/0.866/0.600 cm; the
+contrasting offsets were 0.712/1.323/0.840 cm. All three offsets are now zero by
+construction. No separate wing-joint formulas remain. Other body-plan offsets
+are preserved for their own refinement passes.
+
+Neutral mesh/UV/topology, the 16 bone names/parents, non-wing rest bones and
+Idle/Walk/Flight key data are unchanged. Wing rest geometry and recomputed weights
+change, so existing saved rigs are not equivalent to newly generated recipe 2
+rigs. Apply through explicit rig regeneration; never overwrite artist-owned rigs
+or weights silently. The historical recipe 1 fixture continues to protect
+unchanged output, and joint/surface mutation tests prove the shared authority.
+
+`scripts/render_avian_review.py` renders neutral or isolated wing-root, wing-elbow,
+hip and ankle diagnostics on default/contrasting samples, with JSON provenance
+and displacement by authored region. Run it in a fresh Blender background process:
+
+```powershell
+& <blender.exe> --background --factory-startup --python-exit-code 1 --python scripts/render_avian_review.py -- --output artifacts/shared-anatomy/avian-wing.png --pose wing-elbow --sample default
+```
+
+The initial default neutral sheet and recipe 1/2 elbow comparisons are under
+`artifacts/shared-anatomy/avian1-*.png` and `avian2-*-wing-elbow.png`. The broad
+four-view framing exposes the thin wing profile and poorly readable legs; it
+is not a finished bird silhouette. The default neutral minimum Z is about
+0.827 cm, so grounded stance remains unfinished. In the recipe 2 default isolated
+elbow pose (local Z, 0.7 rad), the left wing moves up to 14.30 cm while the
+opposite wing and both legs remain stationary. Body vertices still move up to
+0.792 cm (recipe 1: 0.736 cm); investigate distance-based weight leakage before
+accepting wing folding. Joint alignment alone is not deformation acceptance.
+
+All 26 Avian core tests and 12 Blender integration tests pass, plus Python
+compilation and whitespace checks. No Human or canine production code changed.
+
 ## Next work
 
-For Avian, capture neutral/perched and extended-wing review views, then align
-surface and rest-joint landmarks using bird-specific rules. Refine breast/back,
+For Avian, investigate wing-to-body weight leakage, add useful wing close-up/top
+review views, and improve wing volume/folding. Align remaining surface/rest-joint
+landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,
 neck/head/beak, wing roots/folding, legs/feet and tail fan with default and
 contrasting silhouettes and pose checks. Preserve Idle/Walk/Flight identities,
 semantic Modify, weights and artist ownership. Recipe 1 is a behavior-preserving

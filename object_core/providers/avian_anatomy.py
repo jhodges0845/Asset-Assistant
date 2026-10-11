@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 1: preserve the existing surface and rig before shape refinement.
+"""Avian recipe 2: bind wing joints directly to authored surface centerlines.
 
-Surface centerlines and rest joints are explicitly distinct in this baseline;
-legacy offsets are retained, rather than silently changing saved rig behavior.
+Wing surface centerlines and rest chains share landmark identities. Other rest
+offsets remain explicit until their own anatomy refinement checkpoints.
 Only this recipe owns their dimensional formulas. Construction owns topology.
 """
 from dataclasses import dataclass
@@ -157,11 +157,10 @@ def _segment(name, head, tail, parent=None):
     return name, head, tail, parent
 
 
-def _rest_segments(dimensions):
+def _rest_segments(dimensions, landmarks, tubes):
     length = dimensions["body_length_cm"]
     width = dimensions["body_width_cm"]
     height = dimensions["body_height_cm"]
-    wingspan = dimensions["wingspan_cm"]
     tail_length = dimensions["tail_length_cm"]
 
     body_z = height * 0.56
@@ -169,10 +168,6 @@ def _rest_segments(dimensions):
     chest_y = length * 0.28
     neck_y = length * 0.48
     head_y = length * 0.66
-    half_span = wingspan * 0.5
-    shoulder_x = width * 0.34
-    shoulder_y = length * 0.08
-    shoulder_z = body_z + height * 0.12
     tail_base_y = -length * 0.48
 
     bones = [
@@ -182,10 +177,10 @@ def _rest_segments(dimensions):
         _segment("head", (0, neck_y, body_z + height * 0.22), (0, head_y, body_z + height * 0.30), "neck"),
     ]
 
-    for side, sign in (("left", -1.0), ("right", 1.0)):
-        shoulder = (sign * shoulder_x, shoulder_y, shoulder_z)
-        elbow = (sign * (shoulder_x + (half_span - shoulder_x) * 0.50), shoulder_y - length * 0.06, shoulder_z - height * 0.07)
-        tip = (sign * half_span, shoulder_y - length * 0.16, shoulder_z - height * 0.12)
+    points = {p.name: p.position for p in landmarks}
+    for side in ('left', 'right'):
+        wing = next(t for t in tubes if t.name == 'wing.' + side)
+        shoulder, elbow, tip = (points[wing.landmarks[i]] for i in (0, 2, 4))
         bones.extend((
             _segment("wing.upper." + side, shoulder, elbow, "spine"),
             _segment("wing.lower." + side, elbow, tip, "wing.upper." + side),
@@ -223,12 +218,12 @@ def _rest_segments(dimensions):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '1'
+    recipe_version = '2'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.
         landmarks, tubes = _surface_profiles(dimensions)
-        segments = _rest_segments(dimensions)
+        segments = _rest_segments(dimensions, landmarks, tubes)
         chains = []
         groups = ((0, 1, 'root', None), (1, 2, 'spine', None),
                   (2, 3, 'neck', None), (3, 4, 'head', None),
@@ -238,8 +233,12 @@ class AvianRecipe:
         for start, end, name, role in groups:
             group = segments[start:end]
             points = [group[0][1]] + [segment[2] for segment in group]
-            names = tuple('joint.' + name + '.' + str(i) for i in range(len(points)))
-            landmarks.extend(Landmark(n, p) for n, p in zip(names, points))
+            if role == 'flight':
+                wing = next(t for t in tubes if t.name == name)
+                names = tuple(wing.landmarks[i] for i in (0, 2, 4))
+            else:
+                names = tuple('joint.' + name + '.' + str(i) for i in range(len(points)))
+                landmarks.extend(Landmark(n, p) for n, p in zip(names, points))
             chains.append(JointChain(name, names, tuple(s[0] for s in group), group[0][3],
                                      motion_role=role))
         regions = tuple(AnatomyRegion(t.name, 'avian', ()) for t in tubes)

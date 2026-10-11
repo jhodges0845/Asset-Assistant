@@ -33,19 +33,22 @@ class AvianRecipeTests(unittest.TestCase):
         self.values = {p.key: p.default for p in self.provider.parameters}
         self.anatomy = AvianRecipe().resolve(self.provider.dimensions(self.values))
 
-    def test_pre_migration_mesh_rig_weights_and_clips_match(self):
+    def test_recipe2_preserves_mesh_clips_and_nonwing_rest_bones(self):
         baseline = json.loads((Path(__file__).parents[1] / 'fixtures/avian_recipe1_baseline.json').read_text())
         for sample in baseline['samples']:
             with self.subTest(sample=sample['sample']):
                 values = sample['parameters']
                 mesh = self.provider.mesh(values)
                 skeleton = self.provider.skeleton(values)
-                data = {'mesh': mesh, 'skeleton': skeleton,
-                        'weights': self.provider.skin_weights(mesh, values)}
+                data = {'mesh': mesh}
                 data.update({name: getattr(self.provider, name)(2.0, 1.0)
                              for name in ('idle', 'locomotion', 'flight')})
-                self.assertEqual(sample['portable_fingerprints'],
+                self.assertEqual({k: sample['portable_fingerprints'][k] for k in data},
                                  {k: portable_fingerprint(v) for k, v in data.items()})
+                for bone in skeleton.bones:
+                    if not bone.name.startswith('wing.'):
+                        self.assertEqual(sample['nonwing_bones'][bone.name],
+                                         json.loads(json.dumps(asdict(bone))))
                 self.assertEqual(sample['bones'], len(skeleton.bones))
 
     def test_resolution_is_immutable_deterministic_and_parameter_complete(self):
@@ -85,6 +88,9 @@ class AvianRecipeTests(unittest.TestCase):
         for a, b in zip(center, expected):
             self.assertAlmostEqual(a, b)
         self.assertEqual(mesh.parts[0].faces, self.provider.mesh(self.values).parts[0].faces)
+        bones = {b.name: b for b in _build_avian_skeleton(moved).bones}
+        self.assertEqual(bones['wing.upper.left'].tail, expected)
+        self.assertEqual(bones['wing.lower.left'].head, expected)
 
     def test_resolved_joint_drives_both_adjacent_bones(self):
         chain = next(c for c in self.anatomy.chains if c.name == 'wing.left')
@@ -97,6 +103,16 @@ class AvianRecipeTests(unittest.TestCase):
         self.assertEqual(bones['wing.upper.left'].tail, expected)
         self.assertEqual(bones['wing.lower.left'].head, expected)
         self.assertEqual(chain.motion_role, 'flight')
+
+    def test_wing_joint_paths_share_surface_landmarks_across_shapes(self):
+        for width, span, height in ((16, 90, 20), (22, 140, 28), (5, 20, 6), (60, 320, 70)):
+            values = dict(self.values, body_width_cm=width, wingspan_cm=span, body_height_cm=height)
+            anatomy = self.provider.anatomy(values)
+            for side in ('left', 'right'):
+                name = 'wing.' + side
+                tube = next(t for t in anatomy.tubes if t.name == name)
+                chain = next(c for c in anatomy.chains if c.name == name)
+                self.assertEqual(chain.landmarks, tuple(tube.landmarks[i] for i in (0, 2, 4)))
 
     def test_invalid_surface_profiles_and_landmark_references_are_rejected(self):
         tube = self.anatomy.tubes[0]

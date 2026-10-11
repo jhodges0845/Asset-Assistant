@@ -36,6 +36,188 @@
         "idle": "c0961c9bd1e1e3f0cba9b95674398509616e9d22cf56929fa033e2bf8da19d36",
         "locomotion": "3d1cbc390cf674b6c4489b596f5f9906f34080f2610e661b0aa69fa6fbe097a6",
         "flight": "fe9affdd17ec7b3afe4fade548bd0fcb65f72faf83fa7ce0f0dae8f3bc64be98"
+      },
+      "nonwing_bones": {
+        "root": {
+          "name": "root",
+          "head": [
+            0.0,
+            0.0,
+            4.4
+          ],
+          "tail": [
+            0.0,
+            0.0,
+            11.200000000000001
+          ],
+          "parent": null,
+          "part_name": null
+        },
+        "spine": {
+          "name": "spine",
+          "head": [
+            0.0,
+            -14.280000000000001,
+            11.200000000000001
+          ],
+          "tail": [
+            0.0,
+            11.760000000000002,
+            12.4
+          ],
+          "parent": "root",
+          "part_name": null
+        },
+        "neck": {
+          "name": "neck",
+          "head": [
+            0.0,
+            11.760000000000002,
+            12.4
+          ],
+          "tail": [
+            0.0,
+            20.16,
+            15.600000000000001
+          ],
+          "parent": "spine",
+          "part_name": null
+        },
+        "head": {
+          "name": "head",
+          "head": [
+            0.0,
+            20.16,
+            15.600000000000001
+          ],
+          "tail": [
+            0.0,
+            27.720000000000002,
+            17.200000000000003
+          ],
+          "parent": "neck",
+          "part_name": null
+        },
+        "leg.upper.left": {
+          "name": "leg.upper.left",
+          "head": [
+            -3.84,
+            -1.68,
+            5.6000000000000005
+          ],
+          "tail": [
+            -4.1472,
+            -0.6299999999999999,
+            5.6000000000000005
+          ],
+          "parent": "spine",
+          "part_name": null
+        },
+        "leg.lower.left": {
+          "name": "leg.lower.left",
+          "head": [
+            -4.1472,
+            -0.6299999999999999,
+            5.6000000000000005
+          ],
+          "tail": [
+            -3.9168,
+            0.6300000000000001,
+            1.6
+          ],
+          "parent": "leg.upper.left",
+          "part_name": null
+        },
+        "foot.left": {
+          "name": "foot.left",
+          "head": [
+            -3.9168,
+            0.6300000000000001,
+            1.6
+          ],
+          "tail": [
+            -3.84,
+            5.04,
+            1.152
+          ],
+          "parent": "leg.lower.left",
+          "part_name": null
+        },
+        "leg.upper.right": {
+          "name": "leg.upper.right",
+          "head": [
+            3.84,
+            -1.68,
+            5.6000000000000005
+          ],
+          "tail": [
+            4.1472,
+            -0.6299999999999999,
+            5.6000000000000005
+          ],
+          "parent": "spine",
+          "part_name": null
+        },
+        "leg.lower.right": {
+          "name": "leg.lower.right",
+          "head": [
+            4.1472,
+            -0.6299999999999999,
+            5.6000000000000005
+          ],
+          "tail": [
+            3.9168,
+            0.6300000000000001,
+            1.6
+          ],
+          "parent": "leg.upper.right",
+          "part_name": null
+        },
+        "foot.right": {
+          "name": "foot.right",
+          "head": [
+            3.9168,
+            0.6300000000000001,
+            1.6
+          ],
+          "tail": [
+            3.84,
+            5.04,
+            1.152
+          ],
+          "parent": "leg.lower.right",
+          "part_name": null
+        },
+        "tail.1": {
+          "name": "tail.1",
+          "head": [
+            0.0,
+            -20.16,
+            11.200000000000001
+          ],
+          "tail": [
+            0.0,
+            -31.16,
+            12.000000000000002
+          ],
+          "parent": "spine",
+          "part_name": null
+        },
+        "tail.2": {
+          "name": "tail.2",
+          "head": [
+            0.0,
+            -31.16,
+            12.000000000000002
+          ],
+          "tail": [
+            0.0,
+            -42.16,
+            11.600000000000001
+          ],
+          "parent": "tail.1",
+          "part_name": null
+        }
       }
     },
     {
@@ -73,6 +255,188 @@
         "idle": "c0961c9bd1e1e3f0cba9b95674398509616e9d22cf56929fa033e2bf8da19d36",
         "locomotion": "3d1cbc390cf674b6c4489b596f5f9906f34080f2610e661b0aa69fa6fbe097a6",
         "flight": "fe9affdd17ec7b3afe4fade548bd0fcb65f72faf83fa7ce0f0dae8f3bc64be98"
+      },
+      "nonwing_bones": {
+        "root": {
+          "name": "root",
+          "head": [
+            0.0,
+            0.0,
+            6.16
+          ],
+          "tail": [
+            0.0,
+            0.0,
+            15.680000000000001
+          ],
+          "parent": null,
+          "part_name": null
+        },
+        "spine": {
+          "name": "spine",
+          "head": [
+            0.0,
+            -18.700000000000003,
+            15.680000000000001
+          ],
+          "tail": [
+            0.0,
+            15.400000000000002,
+            17.360000000000003
+          ],
+          "parent": "root",
+          "part_name": null
+        },
+        "neck": {
+          "name": "neck",
+          "head": [
+            0.0,
+            15.400000000000002,
+            17.360000000000003
+          ],
+          "tail": [
+            0.0,
+            26.4,
+            21.840000000000003
+          ],
+          "parent": "spine",
+          "part_name": null
+        },
+        "head": {
+          "name": "head",
+          "head": [
+            0.0,
+            26.4,
+            21.840000000000003
+          ],
+          "tail": [
+            0.0,
+            36.300000000000004,
+            24.080000000000002
+          ],
+          "parent": "neck",
+          "part_name": null
+        },
+        "leg.upper.left": {
+          "name": "leg.upper.left",
+          "head": [
+            -5.279999999999999,
+            -2.2,
+            7.840000000000001
+          ],
+          "tail": [
+            -5.7024,
+            -0.8250000000000002,
+            7.840000000000001
+          ],
+          "parent": "spine",
+          "part_name": null
+        },
+        "leg.lower.left": {
+          "name": "leg.lower.left",
+          "head": [
+            -5.7024,
+            -0.8250000000000002,
+            7.840000000000001
+          ],
+          "tail": [
+            -5.385599999999999,
+            0.8249999999999997,
+            2.24
+          ],
+          "parent": "leg.upper.left",
+          "part_name": null
+        },
+        "foot.left": {
+          "name": "foot.left",
+          "head": [
+            -5.385599999999999,
+            0.8249999999999997,
+            2.24
+          ],
+          "tail": [
+            -5.279999999999999,
+            6.6000000000000005,
+            1.6128
+          ],
+          "parent": "leg.lower.left",
+          "part_name": null
+        },
+        "leg.upper.right": {
+          "name": "leg.upper.right",
+          "head": [
+            5.279999999999999,
+            -2.2,
+            7.840000000000001
+          ],
+          "tail": [
+            5.7024,
+            -0.8250000000000002,
+            7.840000000000001
+          ],
+          "parent": "spine",
+          "part_name": null
+        },
+        "leg.lower.right": {
+          "name": "leg.lower.right",
+          "head": [
+            5.7024,
+            -0.8250000000000002,
+            7.840000000000001
+          ],
+          "tail": [
+            5.385599999999999,
+            0.8249999999999997,
+            2.24
+          ],
+          "parent": "leg.upper.right",
+          "part_name": null
+        },
+        "foot.right": {
+          "name": "foot.right",
+          "head": [
+            5.385599999999999,
+            0.8249999999999997,
+            2.24
+          ],
+          "tail": [
+            5.279999999999999,
+            6.6000000000000005,
+            1.6128
+          ],
+          "parent": "leg.lower.right",
+          "part_name": null
+        },
+        "tail.1": {
+          "name": "tail.1",
+          "head": [
+            0.0,
+            -26.4,
+            15.680000000000001
+          ],
+          "tail": [
+            0.0,
+            -43.9,
+            16.8
+          ],
+          "parent": "spine",
+          "part_name": null
+        },
+        "tail.2": {
+          "name": "tail.2",
+          "head": [
+            0.0,
+            -43.9,
+            16.8
+          ],
+          "tail": [
+            0.0,
+            -61.4,
+            16.240000000000002
+          ],
+          "parent": "tail.1",
+          "part_name": null
+        }
       }
     }
   ]

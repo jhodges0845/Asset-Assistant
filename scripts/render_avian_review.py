@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Render Avian neutral and isolated joint review sheets in a fresh Blender process.
+
+blender --background --factory-startup --python scripts/render_avian_review.py -- \
+    --output artifacts/shared-anatomy/avian.png --pose neutral
+"""
+import argparse
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+import bpy
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from object_core.objects import get_provider
+from object_core.models import MeshPart
+from blender_adapter.adapter import create_character
+from scripts import render_human_review as sheets
+from scripts.anatomy_baseline import SAMPLES
+
+POSES = {'wing-root': ('wing.upper.left', 'x', .4),
+         'wing-elbow': ('wing.lower.left', 'z', .7),
+         'hip': ('leg.upper.left', 'x', .4),
+         'ankle': ('foot.left', 'x', .4)}
+
+
+def evaluated_points(body):
+    bpy.context.view_layer.update()
+    evaluated = body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    mesh = evaluated.to_mesh()
+    try:
+        return tuple(tuple(float(c) * 100 for c in body.matrix_world @ v.co) for v in mesh.vertices)
+    finally:
+        evaluated.to_mesh_clear()
+
+
+def review_part(values, pose):
+    provider = get_provider('avian')
+    mesh, anatomy = provider.mesh(values), provider.anatomy(values)
+    skeleton = provider.skeleton(values)
+    report = {'parameters': values, 'recipe_version': anatomy.recipe_version,
+              'pose': pose, 'vertices': mesh.vertex_count, 'faces': mesh.face_count,
+              'bones': len(skeleton.bones), 'scope': 'Isolated diagnostic pose, not a flight or perched acceptance test.'}
+    points = mesh.parts[0].vertices
+    if pose != 'neutral':
+        root = create_character(mesh, scene=bpy.context.scene, skeleton=skeleton,
+                                skin_weights=provider.skin_weights(mesh, values))
+        body = next(o for o in root.children if o.type == 'MESH')
+        rig = next(o for o in root.children if o.type == 'ARMATURE')
+        before = evaluated_points(body)
+        name, axis, angle = POSES[pose]
+        bone = rig.pose.bones[name]
+        bone.rotation_mode = 'XYZ'
+        setattr(bone.rotation_euler, axis, angle)
+        points = evaluated_points(body)
+        report['bone'] = name
+        report['rotation_axis'] = axis
+        report['rotation_radians'] = angle
+        report['region_max_displacement_cm'] = {
+            r.name: max(sum((points[i][a] - before[i][a]) ** 2 for a in range(3)) ** .5
+                        for i in r.vertex_indices) for r in anatomy.regions}
+    report['minimum_surface_z_cm'] = min(p[2] for p in points)
+    return MeshPart('avian', points, mesh.parts[0].faces), report
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
+    parser.add_argument('--pose', choices=('neutral',) + tuple(POSES), default='neutral')
+    parser.add_argument('--samples', type=int, default=8)
+    parser.add_argument('--resolution-x', type=int, default=1600)
+    parser.add_argument('--resolution-y', type=int, default=600)
+    parser.add_argument('--modes', nargs='+', choices=sheets.REVIEW_MODES, default=['clay'])
+    args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else [])
+    args.output = args.output.resolve()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    provider = get_provider('avian')
+    values = {p.key: p.default for p in provider.parameters}
+    if args.sample == 'contrasting':
+        values.update(SAMPLES['avian'])
+    sheets._clear_scene()
+    part, report = review_part(values, args.pose)
+    sheets._clear_scene()
+    material = sheets._configure_scene(args, part)
+    for mode in args.modes:
+        sheets._configure_material(material, mode)
+        bpy.context.scene.render.filepath = str(sheets._mode_output(args.output, mode))
+        bpy.ops.render.render(write_still=True)
+    report['commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    report['working_tree_changes'] = subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).splitlines()
+    args.output.with_suffix('.json').write_text(json.dumps(report, indent=2) + '\n')
+
+
+if __name__ == '__main__':
+    main()
