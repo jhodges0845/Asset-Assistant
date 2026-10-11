@@ -83,8 +83,10 @@ def _ellipse(cx,cy,z,rx,ry,n):
     return [(cx+rx*cos(2*pi*j/n),cy+ry*sin(2*pi*j/n),z) for j in range(n)]
 
 
-def generate_surface_human(spec=SurfaceHumanSpec(), *, include_arm_indices=False):
+def generate_surface_human(spec=SurfaceHumanSpec(), *, include_arm_indices=False, include_limb_indices=False):
     if not isinstance(spec,SurfaceHumanSpec):raise TypeError('expected SurfaceHumanSpec')
+    if include_arm_indices and include_limb_indices:
+        raise ValueError('choose arm or full limb metadata, not both')
     b=_Surface();n=64
     # z, half breadth, front depth, back depth, sagittal center offset.
     profile=[(.99,.172,.093,.113,.012),(1.035,.178,.096,.112,.008),(1.09,.155,.086,.091,.004),(1.16,.127,.078,.072,.002),(1.23,.138,.087,.083,0),(1.30,.161,.092,.09,0),(1.36,.173,.096,.088,0),(1.40,.171,.085,.077,0),(1.435,.145,.063,.06,0),(1.465,.072,.046,.05,-.003),(1.50,.047,.042,.048,-.004),(1.53,.046,.043,.049,0),(1.548,.038,.057,.057,.009),(1.566,.051,.060,.064,.002),(1.59,.063,.064,.071,0),(1.622,.071,.068,.082,-.003),(1.654,.072,.069,.084,-.004),(1.687,.072,.070,.081,-.004),(1.716,.064,.064,.073,-.005),(1.739,.042,.046,.053,-.006),(1.750,.003,.004,.004,-.006)]
@@ -147,8 +149,10 @@ def generate_surface_human(spec=SurfaceHumanSpec(), *, include_arm_indices=False
             pts.append((x,y,z))
         roots[sign]=b.ring(pts)
     first_leg_rows={}
+    leg_indices = {}
     leg_profile=[(.09,.022,.026,.187,.005),(.17,.024,.029,.183,.004),(.28,.036,.043,.176,-.008),(.36,.048,.054,.168,-.016),(.43,.047,.051,.162,-.01),(.50,.037,.037,.155,.008),(.55,.042,.043,.149,.011),(.65,.057,.06,.135,.005),(.76,.071,.075,.115,0),(.86,.078,.084,.098,0),(.94,.083,.092,.089,0)]
     for sign in (1,-1):
+        leg_start = len(b.v)
         previous=roots[sign]
         for k in range(1,91):
             t=k/90;z=.928*(1-t)+.09*t;rx,ry,cx,cy=_sample(leg_profile,z)
@@ -174,6 +178,7 @@ def generate_surface_human(spec=SurfaceHumanSpec(), *, include_arm_indices=False
             pts=[(center[0]+rx*cos(2*pi*j/n),center[1]+ry*sin(2*pi*j/n)*cos(angle),center[2]+ry*sin(2*pi*j/n)*sin(angle)) for j in range(n)]
             current=b.ring(pts);b.band(previous,current);previous=current
         b.cap(previous)
+        leg_indices['leg.left' if sign == 1 else 'leg.right'] = tuple(roots[sign]) + tuple(range(leg_start, len(b.v)))
     b.split(rings[0],roots[1],roots[-1],saddle=True,upper_adjacent=rings[1],lower_adjacent=(first_leg_rows[1],first_leg_rows[-1]))
     arm_ranges = {}
     # Arms use the perimeter of a real torso opening. No independent limb shells.
@@ -264,8 +269,12 @@ def generate_surface_human(spec=SurfaceHumanSpec(), *, include_arm_indices=False
             volume+=a[0]*(c[1]*d[2]-c[2]*d[1])+a[1]*(c[2]*d[0]-c[0]*d[2])+a[2]*(c[0]*d[1]-c[1]*d[0])
     if volume<0:faces=tuple(tuple(reversed(f)) for f in faces)
     mesh = ObjectMesh((MeshPart('human_surface',vertices,faces),))
-    if include_arm_indices:
+    if include_arm_indices or include_limb_indices:
         arms = tuple((side, tuple(remap[i] for i in range(start, end) if i in remap))
                      for side, (start, end) in arm_ranges.items())
+        if include_limb_indices:
+            legs = tuple((name, tuple(remap[i] for i in indices if i in remap))
+                         for name, indices in leg_indices.items())
+            return mesh, tuple(('arm.' + side, indices) for side, indices in arms) + legs
         return mesh, arms
     return mesh

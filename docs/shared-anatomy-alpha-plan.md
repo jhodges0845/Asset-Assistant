@@ -1,6 +1,21 @@
 # Shared anatomy and animation: alpha plan
 
-Status: planned; approved product direction, September 21, 2026. This changes the alpha scope, not the implemented feature set.
+Status: in progress, October 10, 2026. Human and Quadruped use shared anatomy
+contracts. Canine recipe 16 retains the stylized anatomy finishing pass:
+connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
+transitions. Contact-driven Walk/Run include bounded vertical body compression and a
+three-cycle review generator. Four-paw swing articulation and bounded stance toe-off are implemented;
+compensated lateral Walk sway is implemented. Complete visual playback review and
+destination visual acceptance remain open. Source-grid Godot import passes
+skeletal parity with 94.1% fewer keys than the diagnostic baseline; four-view
+Godot renders are available, and sampled skin-contact checks pass on all three
+canonical shapes. Shipping integration/performance remain unvalidated. Default GLB source/reimport surface parity
+now passes through gait/Idle switches; the short-wide stress shape is not
+visually accepted. Avian recipe
+migration, cross-provider acceptance and release hardening follow. See the
+[implementation checkpoint](shared-anatomy-implementation.md) for evidence.
+Recipe 16 extends the rig to 19 bones for independent forepaw landing, building
+on recipe 15 distal sole weighting. Old rigs require explicit rebuilding.
 
 ## Alpha promise
 
@@ -8,7 +23,7 @@ Human, Quadruped and Avian should feel like one coherent character system. Each 
 
 This milestone precedes release hardening. Existing production-readiness checklists remain evidence inventories; they do not require every future production feature for alpha.
 
-## Starting point
+## Starting point (historical, September 21, 2026)
 
 Human composes a mathematical surface builder and surface-aligned rig. Quadruped and Avian currently have separate geometry, rigging and animation modules behind the same provider interface. Human and Avian have executable semantic geometry operations; Quadruped semantic declarations do not yet provide equivalent execution. Existing animation identity, preview/apply, ownership and export contracts remain the integration boundary.
 
@@ -16,7 +31,7 @@ Read `human-workflow.md`, `object_core/providers/quadruped.py`, `object_core/pro
 
 ## Shared construction with anatomy recipes
 
-Proposed flow:
+Target flow (implemented for Human and Quadruped through anatomy, surface, rig and Modify; shared motion work remains ahead):
 
 `provider controls -> validated anatomy recipe -> resolved anatomy -> surface + rig + region metadata -> weights / semantic Modify -> provider motion recipe -> existing Blender workflow`
 

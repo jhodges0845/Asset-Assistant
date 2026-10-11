@@ -8,15 +8,15 @@ The next alpha requires a shared anatomy construction system with Human, Quadrup
 
 Implementation plan and acceptance criteria: [Shared anatomy and animation alpha plan](shared-anatomy-alpha-plan.md).
 
-1. [ ] Capture current visual/performance baselines; prove the shared recipe contract with Human and a Quadruped slice.
-2. [ ] Migrate Human without losing current geometry, rigging, semantic Modify or component behavior.
-3. [ ] Build and visually accept a Quadruped anatomy recipe with executable semantic shaping.
+1. [ ] Finish all-provider visual baseline acceptance. Numeric baselines and the Human/Quadruped shared-contract proofs are implemented.
+2. [x] Migrate Human while preserving geometry, rigging, semantic Modify and component behavior (`36cd967`).
+3. [ ] Complete canine visual acceptance. Recipe version 6, executable shaping, ears, muzzle, hind joints and localized weights are implemented (`79c855b`); facial detail, paws and deformation/motion quality remain.
 4. [ ] Build and visually accept an Avian anatomy recipe with articulated wing and leg structure.
 5. [ ] Close cross-provider deformation, semantic variation and artist-preservation proofs.
 6. [ ] Complete Human Idle/Walk/Run, Quadruped Idle/Walk/Run and Avian Idle/Walk/Flight quality passes.
 7. [ ] Verify the packaged candidate, destination output, documentation and release metadata; publish alpha only after approval.
 
-This sequence supersedes the older Human-only near-term milestone and release-hardening-only scope below. Earlier checkpoints describe evidence and history, not additional prerequisites for this alpha. No shared recipe system is implemented yet.
+This sequence supersedes the older Human-only near-term milestone and release-hardening-only scope below. Earlier checkpoints describe evidence and history, not additional prerequisites for this alpha. Current branch status and validation: [shared anatomy implementation](shared-anatomy-implementation.md). Human and Quadruped use the shared contracts; Avian migration remains pending.
 
 ## Product vision
 
@@ -46,7 +46,7 @@ Main is protected and changes go through branches/PRs. Required CI covers Python
 
 - [x] Human, Quadruped, Avian and Box provider foundations.
 - [x] Host-independent core + Blender adapter boundary.
-- [x] Human/Avian semantic Modify and external model exchange.
+- [x] Human/Quadruped/Avian semantic Modify and external model exchange.
 - [x] Component records, rigid/bone attachment and parent-rig skinning.
 - [x] Imported rigid and parent-skinned component adoption with artist material preservation.
 - [x] Safe component remove/replace and Modify component state.

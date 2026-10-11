@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Connected quadruped surface generation."""
 
+from dataclasses import replace
 from math import cos, pi, sin, sqrt
 
 from ..models import MeshPart, ObjectMesh
+from ..anatomy import AnatomyRegion
+from .quadruped_anatomy import CanineRecipe
 
 
 _RING_SIDES = 8
@@ -32,12 +35,14 @@ def _lerp(a, b, amount):
     return tuple(a[i] + (b[i] - a[i]) * amount for i in range(3))
 
 
-def _ring(center, width, depth, tangent):
+def _ring(center, width, depth, tangent, *, sagittal=False):
     tangent = _normalize(tangent)
     reference = (0.0, 0.0, 1.0)
     if abs(sum(tangent[i] * reference[i] for i in range(3))) > 0.95:
         reference = (0.0, 1.0, 0.0)
-    width_axis = _normalize(_cross(reference, tangent))
+    # Sagittal bends can change the Y sign of the tangent. A fixed lateral axis
+    # prevents a 180-degree frame flip between knee and hock rings.
+    width_axis = (-1.0, 0.0, 0.0) if sagittal else _normalize(_cross(reference, tangent))
     depth_axis = _normalize(_cross(tangent, width_axis))
     return tuple(
         tuple(
@@ -50,17 +55,28 @@ def _ring(center, width, depth, tangent):
     )
 
 
-def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True):
+def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True, sagittal=False, upright_from=None):
     rings = []
     for index, center in enumerate(centers):
-        if index == 0:
+        if upright_from is not None and index >= upright_from:
+            # Facial profiles are vertical cross sections. Following the steep
+            # neck bend can roll a short head's underside back through itself.
+            tangent = (0.0, 1.0, 0.0)
+        elif index == 0:
             tangent = _subtract(centers[1], center)
         elif index == len(centers) - 1:
             tangent = _subtract(center, centers[index - 1])
+        elif sagittal:
+            # Bisect the two segment directions rather than weighting by their
+            # unequal lengths. A long incoming segment otherwise tilts the hock
+            # ring back across its short outgoing support section.
+            incoming = _normalize(_subtract(center, centers[index - 1]))
+            outgoing = _normalize(_subtract(centers[index + 1], center))
+            tangent = tuple(a + b for a, b in zip(incoming, outgoing))
         else:
             tangent = _subtract(centers[index + 1], centers[index - 1])
         start = len(vertices)
-        vertices.extend(_ring(center, widths[index], depths[index], tangent))
+        vertices.extend(_ring(center, widths[index], depths[index], tangent, sagittal=sagittal))
         rings.append(tuple(range(start, start + _RING_SIDES)))
 
     if cap_start:
@@ -75,11 +91,17 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
     return rings
 
 
-def _append_branch(vertices, faces, root, centers, widths, depths):
-    """Replace one torso quad with an eight-sided deformable limb chain."""
+def _append_branch(vertices, faces, root, centers, widths, depths, *, sagittal=False, forward_tip=False):
+    """Bridge one body quad to an eight-sided branch with symmetric triangles."""
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
-    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True)
+    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True, sagittal=sagittal,
+                         upright_from=len(centers)-1 if forward_tip else None)
+    # Match the cyclic boundary phase without changing winding or ownership.
+    offset = min(range(_RING_SIDES), key=lambda shift: sum(
+        sum((vertices[root[j]][k] - vertices[rings[0][(2*j+shift) % _RING_SIDES]][k])**2
+            for k in range(3)) for j in range(4)))
+    rings = tuple(tuple(ring[(i+offset) % _RING_SIDES] for i in range(_RING_SIDES)) for ring in rings)
     first = rings[0]
     for index in range(4):
         root_start = root[index]
@@ -87,8 +109,10 @@ def _append_branch(vertices, faces, root, centers, widths, depths):
         ring_start = first[(2 * index) % _RING_SIDES]
         ring_mid = first[(2 * index + 1) % _RING_SIDES]
         ring_end = first[(2 * index + 2) % _RING_SIDES]
-        faces.append((root_start, root_end, ring_end))
-        faces.append((root_start, ring_end, ring_mid, ring_start))
+        faces.append((root_start, root_end, ring_mid))
+        faces.append((root_end, ring_end, ring_mid))
+        faces.append((root_start, ring_mid, ring_start))
+    return rings
 
 
 def _project_uvs(vertices, faces):
@@ -120,79 +144,246 @@ def _project_uvs(vertices, faces):
 
 def generate_quadruped_deformable_mesh(dimensions):
     """Return one connected quadruped mesh shaped by validated dimensions."""
-    length = dimensions["body_length_cm"]
-    shoulder = dimensions["shoulder_height_cm"]
+    anatomy = CanineRecipe().resolve(dimensions)
+    return _build_quadruped_mesh(anatomy)[0]
+
+
+def _build_quadruped_cage(anatomy):
+    """Construct once from resolved anatomy, binding authored region indices."""
+    landmarks = {landmark.name: landmark.position for landmark in anatomy.landmarks}
+    dimensions = dict(anatomy.parameters)
     width = dimensions["body_width_cm"]
-    head_length = dimensions["head_length_cm"]
-    tail_length = dimensions["tail_length_cm"]
-
-    torso_height = shoulder * 0.42
-    back_z = shoulder - torso_height * 0.30
-    belly_z = shoulder - torso_height * 0.72
-    body_z = (back_z + belly_z) * 0.5
-    fore_y = length * 0.32
-    hind_y = -length * 0.32
-    leg_height = shoulder - torso_height * 0.45
-    side_x = width * 0.34
-    knee_z = leg_height * 0.48
-
-    tail_tip = (0.0, -length * 0.5 - tail_length, back_z + torso_height * 0.36)
-    tail_mid = (0.0, -length * 0.5 - tail_length * 0.48, back_z + torso_height * 0.22)
-    tail_base = (0.0, -length * 0.5, back_z)
-    rear = (0.0, -length * 0.42, body_z)
-    hind = (0.0, hind_y, body_z)
-    mid = (0.0, 0.0, body_z)
-    fore = (0.0, fore_y, body_z + torso_height * 0.06)
-    chest = (0.0, length * 0.43, body_z + torso_height * 0.16)
-    neck = (0.0, length * 0.52, shoulder + torso_height * 0.05)
-    head = (0.0, length * 0.5 + head_length * 0.34, shoulder + torso_height * 0.13)
-    muzzle = (0.0, length * 0.5 + head_length * 0.82, shoulder + torso_height * 0.06)
-
-    centers = (tail_tip, tail_mid, tail_base, rear, hind, mid, fore, chest, neck, head, muzzle)
-    widths = (
-        width * 0.08, width * 0.12, width * 0.18,
-        width * 0.82, width * 0.96, width, width,
-        width * 0.90, width * 0.58, width * 0.72, width * 0.48,
-    )
-    depths = (
-        width * 0.08, width * 0.12, width * 0.18,
-        torso_height * 0.82, torso_height, torso_height, torso_height * 1.04,
-        torso_height * 0.94, torso_height * 0.62, torso_height * 0.72, torso_height * 0.42,
-    )
+    centers = tuple(landmarks[section.landmark] for section in anatomy.body_sections)
+    widths = tuple(section.width_cm for section in anatomy.body_sections)
+    depths = tuple(section.depth_cm for section in anatomy.body_sections)
 
     vertices, faces = [], []
-    _append_tube(vertices, faces, centers, widths, depths)
+    body_rings = _append_tube(vertices, faces, centers, widths, depths, sagittal=True, upright_from=8)
+    limb_rings = {}
 
     openings = {}
-    level_by_pair = {"hind": 3, "fore": 5}
+    level_by_pair = {"hind": 3, "fore": 6}
     for region, level in level_by_pair.items():
-        for side, segment in (("left", 3), ("right", 7)):
+        for side, segment in (("left", 7), ("right", 4)):
             index = 1 + level * _RING_SIDES + segment
             openings[(region, side)] = faces[index]
-    removed = {face for face in openings.values()}
+    ear_openings = {side: faces[1 + 8 * _RING_SIDES + segment]
+                    for side, segment in (("left", 0), ("right", 3))}
+    removed = set(openings.values()) | set(ear_openings.values())
     faces = [face for face in faces if face not in removed]
 
-    for side, x in (("left", -side_x), ("right", side_x)):
-        for region, y, top_z in (
-            ("fore", fore_y, shoulder),
-            ("hind", hind_y, shoulder * 0.86),
+    for side in ("left", "right"):
+        for region, family, upper_name, joint_name in (
+            ("fore", "front", "shoulder", "elbow"), ("hind", "hind", "hip", "knee"),
         ):
-            upper = (x, y, top_z)
-            knee = (x, y, knee_z)
-            ankle = (x, y, max(width * 0.12, 1.5))
-            paw = (x, y + width * 0.10, max(width * 0.07, 1.0))
-            centers_leg = (
-                upper,
-                _lerp(upper, knee, 0.18),
-                knee,
-                _lerp(knee, ankle, 0.18),
-                ankle,
-                paw,
-            )
-            base = max(width * 0.18, 2.0)
-            widths_leg = (base * 1.12, base, base * 0.88, base * 0.78, base * 0.70, base * 0.94)
-            depths_leg = (base * 1.12, base, base * 0.88, base * 0.78, base * 0.70, base * 0.58)
-            _append_branch(vertices, faces, openings[(region, side)], centers_leg, widths_leg, depths_leg)
+            suffix = family + "." + side
+            upper = landmarks[upper_name + "." + suffix]
+            # The surface starts at the body opening; the rig shoulder/hip
+            # remains its anatomical pivot above that opening.
+            root = openings[(region, side)]
+            upper = (upper[0], upper[1], sum(vertices[i][2] for i in root) / len(root))
+            knee = landmarks[joint_name + "." + suffix]
+            paw = landmarks["paw." + suffix]
+            base = max(width * 0.24, 2.0)
+            if family == "hind":
+                hock = landmarks["hock." + suffix]
+                base = min(base, dimensions["shoulder_height_cm"] * .13)
+                centers_leg = (upper, _lerp(upper, knee, .35), knee,
+                               _lerp(knee, hock, .25), hock,
+                               _lerp(hock, paw, .25), _lerp(hock, paw, .80), paw)
+                widths_leg = tuple(base * v for v in (1.65, 1.48, 1.02, .92, .70, .66, 1.05, 1.48))
+                depths_leg = tuple(base * v for v in (1.52, 1.30, .96, .84, .68, .64)) + (
+                    min(base * .82, centers_leg[-2][2] * .85), min(base * 1.05, paw[2] * 1.4))
+            else:
+                # Bound front-limb thickness by the available vertical span.
+                base = min(base, dimensions["shoulder_height_cm"] * .18)
+                ankle = landmarks["ankle." + suffix]
+                centers_leg = (upper, _lerp(upper, knee, .32), knee,
+                               _lerp(knee, ankle, .18), ankle, paw)
+                widths_leg = tuple(base * v for v in (1.55, 1.25, .96, .88, .90, 1.35))
+                depths_leg = tuple(base * v for v in (1.48, 1.22, .96, .88)) + (
+                    min(base * .74, ankle[2] * .70), min(base * .90, paw[2] * .90))
+            # A short fore-facing toe segment rounds the turn from pastern to
+            # paw; rotating the old terminal cap alone folds its inner quads.
+            centers_leg += (landmarks['toe.' + suffix],)
+            widths_leg += (base * (1.20 if family == 'hind' else 1.10),)
+            depths_leg += (base * (.60 if family == 'hind' else .30),)
+            rings = _append_branch(vertices, faces, openings[(region, side)], centers_leg,
+                                   widths_leg, depths_leg, sagittal=True, forward_tip=True)
+            limb_rings["leg." + suffix] = rings
+
+    ear_rings = {}
+    for side in ("left", "right"):
+        base = landmarks["ear.base." + side]
+        tip = landmarks["ear.tip." + side]
+        size = dimensions["head_length_cm"]
+        ear_rings["ear." + side] = _append_branch(
+            vertices, faces, ear_openings[side],
+            (base, _lerp(base, tip, .55), _lerp(base, tip, .90), tip),
+            (size*.25, size*.20, size*.07, size*.02),
+            (size*.12, size*.07, size*.035, size*.015))
+
+    # Four quads give each paw a regular center instead of the eight-way
+    # subdivision pole created by a single octagonal end cap. Keep the original
+    # boundary and explicitly assign the new center to the authored limb.
+    limb_caps = {}
+    for name, rings in limb_rings.items():
+        boundary = set(rings[-1])
+        face_index = next(i for i, face in enumerate(faces) if set(face) == boundary)
+        cap = faces[face_index]
+        center = len(vertices)
+        vertices.append(tuple(sum(vertices[i][axis] for i in cap) / len(cap) for axis in range(3)))
+        limb_caps[name] = (center,)
+        faces[face_index:face_index + 1] = [
+            (cap[i], cap[(i + 1) % 8], cap[(i + 2) % 8], center)
+            for i in range(0, 8, 2)]
 
     vertices, faces = tuple(vertices), tuple(faces)
-    return ObjectMesh((MeshPart("quadruped", vertices, faces, _project_uvs(vertices, faces)),))
+    mesh = ObjectMesh((MeshPart("quadruped", vertices, faces, _project_uvs(vertices, faces)),))
+    def indices(rings):
+        return tuple(i for ring in rings for i in ring)
+
+    memberships = {
+        "body": tuple(range(len(vertices))), "torso": indices(body_rings[3:8]),
+        "chest": indices(body_rings[6:8]), "waist": indices(body_rings[4:6]),
+        "head": indices(body_rings[8:]), "muzzle": indices(body_rings[10:]),
+        "tail": indices(body_rings[:3]),
+    }
+    memberships.update({name: indices(rings) + limb_caps[name] for name, rings in limb_rings.items()})
+    memberships.update({name: indices(rings) for name, rings in ear_rings.items()})
+    memberships["head"] += tuple(i for rings in ear_rings.values() for ring in rings for i in ring)
+    connections = []
+    for connection in anatomy.connections:
+        name = connection.regions[1]
+        if name.startswith("ear."):
+            side = name.split(".")[1]
+            connections.append(replace(connection, boundaries=(ear_openings[side], ear_rings[name][0])))
+            continue
+        _, family, side = name.split(".")
+        region = "fore" if family == "front" else "hind"
+        connections.append(replace(connection, boundaries=(openings[(region, side)], limb_rings[name][0])))
+    resolved = replace(anatomy,
+                       regions=tuple(AnatomyRegion(r.name, r.mesh_part, memberships[r.name]) for r in anatomy.regions),
+                       connections=tuple(connections))
+    resolved.validate_mesh(mesh)
+    return mesh, resolved
+
+
+def _ground_paw_surfaces(vertices, anatomy):
+    """Resolve refined soles to recipe ground below fixed ankle/hock heights.
+
+    Subdivision lifts the capped paw ends. A monotone height map below the
+    ankle/hock restores contact, with unit slope at that fixed transition.
+    A cubic sole profile broadens the near-ground underside without flattening
+    faces: its derivative is positive above the sole and one at the transition.
+    Only authored limb vertices participate; this runs during construction,
+    never on an artist-edited surface or during semantic Modify.
+    """
+    result = list(vertices)
+    points = {point.name: point.position for point in anatomy.landmarks}
+    for region in anatomy.regions:
+        if not region.name.startswith('leg.'):
+            continue
+        suffix = region.name[4:]
+        ground = points['ground.' + suffix][2]
+        upper = points[('ankle.' if suffix.startswith('front.') else 'hock.') + suffix][2]
+        if suffix.startswith('hind.'):
+            upper = min(upper, max(anatomy.paw_profile.height_cm * 1.6,
+                                   points['paw.' + suffix][2] * 2))
+        lowest = min(vertices[i][2] for i in region.vertex_indices)
+        if not lowest < upper or not ground < upper:
+            raise ValueError('Paw contact requires a sole below the ankle/hock')
+        if lowest == ground:
+            continue
+        span = upper - lowest
+        ratio = span / (upper - ground)
+        for index in region.vertex_indices:
+            x, y, z = vertices[index]
+            if z >= upper:
+                continue
+            t = (z - lowest) / span
+            # Positive denominator and derivative preserve vertical ordering.
+            # Unlike clamping, this does not collapse sole faces to a plane.
+            height = ground + (upper - ground) * t / (ratio + (1 - ratio) * t)
+            sole = (height - ground) / (upper - ground)
+            height = ground + (upper - ground) * sole * sole * (2 - sole)
+            result[index] = (x, y, height)
+    return tuple(result)
+
+
+def _shape_paw_surfaces(vertices, anatomy):
+    """Add low-paw volume/toe projection without altering grounded heights.
+
+    Positive horizontal scales and a smooth height falloff retain cross-section
+    ordering. Only construction calls this map; semantic edits are never rebased.
+    """
+    result = list(vertices)
+    points = {point.name: point.position for point in anatomy.landmarks}
+    profile = anatomy.paw_profile
+    for region in anatomy.regions:
+        if not region.name.startswith('leg.'):
+            continue
+        suffix = region.name[4:]
+        cx, cy, ground = points['ground.' + suffix]
+        upper = points[('ankle.' if suffix.startswith('front.') else 'hock.') + suffix][2]
+        height = min(profile.height_cm, upper - ground)
+        # Expand around the actual low sole, not the rest-joint projection:
+        # an oblique hind cap can sit behind its joint before grounding.
+        low_y = [vertices[i][1] for i in region.vertex_indices if vertices[i][2] < ground + height]
+        cy = (min(low_y) + max(low_y)) * .5
+        forward = profile.forward_cm * (profile.front_forward_scale if suffix.startswith('front.') else 1)
+        if height <= 0:
+            raise ValueError('Paw shape requires a transition above ground')
+        for index in region.vertex_indices:
+            x, y, z = vertices[index]
+            if z >= ground + height:
+                continue
+            t = max(0.0, (z - ground) / height)
+            influence = (1 - t) ** 2 * (1 + 2 * t)
+            result[index] = (
+                cx + (x - cx) * (1 + (profile.width_scale - 1) * influence),
+                cy + (y - cy) * (1 + (profile.length_scale - 1) * influence)
+                + forward * influence,
+                z,
+            )
+        if profile.toe_indent_scale:
+            # Three shallow webs suggest four toes without cutting the sole or
+            # adding disconnected digits. Work in this limb's local low-paw
+            # bounds; every map leaves X/Z fixed and is monotone in forward Y.
+            low = [i for i in region.vertex_indices if result[i][2] < ground + height]
+            radius = max(abs(result[i][0] - cx) for i in low)
+            rear = min(result[i][1] for i in low)
+            length = max(result[i][1] for i in low) - rear
+            if radius <= 0 or length <= 0:
+                raise ValueError('Toe contours require a nonzero paw footprint')
+            for index in low:
+                x, y, z = result[index]
+                u = (x - cx) / radius
+                grooves = 0.0
+                for center in (-.5, 0.0, .5):
+                    distance = (u - center) / .24
+                    if abs(distance) < 1:
+                        grooves += (1 - distance * distance) ** 2
+                forward = max(0.0, ((y - rear) / length - .45) / .55)
+                forward = forward * forward * (3 - 2 * forward)
+                t = max(0.0, (z - ground) / height)
+                fade = (1 - t) ** 2 * (1 + 2 * t)
+                # At the validated maximum depth, dY'/dY stays above .45.
+                result[index] = (x, y - length * profile.toe_indent_scale * grooves * forward * fade, z)
+    return tuple(result)
+
+
+def _build_quadruped_mesh(anatomy):
+    """Build and refine the one canonical canine surface, retaining ownership."""
+    from .quadruped_refinement import refine_canine_surface
+    cage, resolved = _build_quadruped_cage(anatomy)
+    mesh, resolved = refine_canine_surface(cage, resolved)
+    part = mesh.parts[0]
+    vertices = _shape_paw_surfaces(_ground_paw_surfaces(part.vertices, resolved), resolved)
+    from .quadruped_detail import shape_canine_face, shape_canine_paw_detail
+    vertices = shape_canine_paw_detail(vertices, resolved)
+    vertices = shape_canine_face(vertices, resolved)
+    result = ObjectMesh((MeshPart(part.name, vertices, part.faces,
+                                  _project_uvs(vertices, part.faces)),))
+    resolved.validate_mesh(result)
+    return result, resolved

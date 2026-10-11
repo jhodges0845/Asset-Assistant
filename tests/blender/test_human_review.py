@@ -31,6 +31,25 @@ class HumanReviewCameraTests(unittest.TestCase):
                 self.assertEqual(len([obj for obj in scene.objects if obj.type == "MESH"]), 4)
                 self.assertEqual(len([obj for obj in scene.objects if obj.type == "FONT"]), 4)
 
+    def test_canine_lights_stay_in_front_of_all_review_surfaces(self):
+        from object_core.objects import get_provider
+        provider = get_provider('quadruped')
+        defaults = {p.key: p.default for p in provider.parameters}
+        for overrides in ({}, dict(body_length_cm=95, shoulder_height_cm=40,
+                                   body_width_cm=28, head_length_cm=30, tail_length_cm=50)):
+            with self.subTest(overrides=overrides):
+                self.review._clear_scene()
+                values = dict(defaults, **overrides)
+                args = SimpleNamespace(resolution_x=1200, resolution_y=500, samples=1)
+                self.review._configure_scene(args, provider.mesh(values).parts[0])
+                scene = bpy.context.scene
+                nearest_y = min((obj.matrix_world @ vertex.co).y
+                                for obj in scene.objects if obj.type == 'MESH'
+                                for vertex in obj.data.vertices)
+                for name in ('Key', 'Fill'):
+                    self.assertLess(scene.objects[name].location.y, nearest_y,
+                                    'Review lights must not cut through long body views')
+
     def test_rejects_old_half_width_camera_frame(self):
         scene = self.configure()
         scene.camera.data.ortho_scale *= 0.5

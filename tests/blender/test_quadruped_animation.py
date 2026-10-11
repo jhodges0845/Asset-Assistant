@@ -76,5 +76,58 @@ class QuadrupedAnimationBlenderTests(unittest.TestCase):
         self.assertIn("tail.3", rig.pose.bones)
 
 
+    def test_contact_crouch_respects_units_and_idle_switch_clears_translation(self):
+        from blender_adapter.animation import activate_generated_action, action_curves
+        from blender_adapter.animation_names_ui import _activate_action
+        self.scene.unit_settings.scale_length = .01
+        root = self._quadruped()
+        rig = next(obj for obj in root.children if obj.type == 'ARMATURE')
+        add_idle(root, self.scene, 4., 1.)
+        walk, _ = add_locomotion(root, self.scene, 1.2, 1.)
+        self.scene.frame_set(self.scene.frame_start)
+        bpy.context.view_layer.update()
+        delta = rig.pose.bones['root'].matrix.translation - rig.data.bones['root'].head_local
+        self.assertAlmostEqual(delta.z, -55 * .07, places=4)
+        curves = action_curves(walk, rig.animation_data.action_slot)
+        self.assertEqual(sum(c.data_path.endswith('.location') for c in curves), 15)
+        # At a nonzero sway phase the torso moves, but each limb retains its
+        # rest X position even with its articulated contact rotations.
+        self.scene.frame_set(self.scene.frame_start + 3)
+        bpy.context.view_layer.update()
+        self.assertGreater(abs(rig.pose.bones['root'].matrix.translation.x), .01)
+        for name in ('fore_upper.left', 'fore_upper.right', 'hind_upper.left', 'hind_upper.right'):
+            self.assertAlmostEqual(rig.pose.bones[name].matrix.translation.x,
+                                   rig.data.bones[name].head_local.x, places=5)
+        _activate_action(root, generated_action(root, 'Idle'), self.scene)
+        bpy.context.view_layer.update()
+        for name in ('root', 'fore_upper.left', 'fore_upper.right', 'hind_upper.left', 'hind_upper.right'):
+            self.assertLess(rig.pose.bones[name].location.length, 1e-7)
+        self.scene.frame_set(self.scene.frame_start)
+        activate_generated_action(root, 'Walk')
+        bpy.context.view_layer.update()
+        delta = rig.pose.bones['root'].matrix.translation - rig.data.bones['root'].head_local
+        self.assertAlmostEqual(delta.z, -55 * .07, places=4)
+
+
+    def test_older_rig_rejects_forepaw_clip_without_replacing_existing_idle(self):
+        root = self._quadruped()
+        rig = next(obj for obj in root.children if obj.type == 'ARMATURE')
+        idle, _ = add_idle(root, self.scene, 4., 1.)
+        bpy.context.view_layer.objects.active = rig
+        rig.select_set(True)
+        bpy.ops.object.mode_set(mode='EDIT')
+        for side in ('left', 'right'):
+            rig.data.edit_bones.remove(rig.data.edit_bones['fore_pastern.' + side])
+        bpy.ops.object.mode_set(mode='OBJECT')
+        actions = set(bpy.data.actions)
+        frame = self.scene.frame_current
+        with self.assertRaisesRegex(ValueError, 'missing bones'):
+            add_locomotion(root, self.scene, 1.2, 1.)
+        self.assertEqual(actions, set(bpy.data.actions))
+        self.assertIs(rig.animation_data.action, idle)
+        self.assertEqual(self.scene.frame_current, frame)
+        self.assertIsNone(generated_action(root, 'Walk'))
+
+
 if __name__ == "__main__":
     unittest.main()

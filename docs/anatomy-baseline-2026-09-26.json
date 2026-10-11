@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "commit": "74766bcd27720648b01ba9b70bc6baa8ddd9a246",
+  "working_tree_changes": [
+    "?? anatomy-core-tests.log",
+    "?? object_core/anatomy/",
+    "?? scripts/anatomy_baseline.py",
+    "?? tests/core/test_anatomy_contracts.py"
+  ],
+  "python": "3.9.13 (tags/v3.9.13:6de2ca5, May 17 2022, 16:36:42) [MSC v.1929 64 bit (AMD64)]",
+  "platform": "Windows-10-10.0.19045-SP0",
+  "timing_policy": "Each sample uses a fresh process; seconds are observations, not thresholds.",
+  "animation_parameters": {
+    "duration": 2.0,
+    "strength": 1.0
+  },
+  "visual_review": "Not captured: clay, silhouette, wireframe, bend poses and Blender playback remain required before migration acceptance.",
+  "samples": [
+    {
+      "provider": "human",
+      "sample": "default",
+      "parameters": {
+        "height_cm": 180,
+        "weight_kg": 95,
+        "body_type": "average"
+      },
+      "parts": [
+        {
+          "name": "human",
+          "vertices": 42186,
+          "faces": 42530
+        }
+      ],
+      "bones": 16,
+      "fingerprints": {
+        "mesh": "ac35879436339945ac59dd79d94ce34a24e7eb39e81514a21f116caa649d875b",
+        "skeleton": "01d329525afe63e4f539ce5adc1afd386121c2aa4f237e6f0d0faf57d2584559",
+        "weights": "8e78d6dc5f59f5b226cd6c9c0b29b89e8cb6b69a5be81447753f7f8f3aeca34c",
+        "clips": {
+          "idle": "9c92a6f12ba72c72f54749f5fb7d2364452712fda4f443e0d04fe2bda537bc0b",
+          "locomotion": "bc5a4e4afc2628fafcf9f7f3cbaefc4d2c21db289735408d47347ee85875ea8d",
+          "run": "e16c226b93dad0903599f17172cedabd79801de11628756d7a358809729eccf2"
+        }
+      },
+      "seconds": {
+        "mesh": 7.5388828,
+        "skeleton": 0.0007212000000000884,
+        "weights": 4.6698464,
+        "mesh_warm": 1.2299999999854094e-05,
+        "idle": 0.0001762000000002928,
+        "locomotion": 4.020000000082291e-05,
+        "run": 4.3200000000354066e-05
+      }
+    },
+    {
+      "provider": "human",
+      "sample": "contrasting",
+      "parameters": {
+        "height_cm": 155,
+        "weight_kg": 65,
+        "body_type": "average"
+      },
+      "parts": [
+        {
+          "name": "human",
+          "vertices": 42186,
+          "faces": 42530
+        }
+      ],
+      "bones": 16,
+      "fingerprints": {
+        "mesh": "46b708fd3ccbcc851e7bb37bd454630b0689b5059b67fbeecb5f4d4089252fcd",
+        "skeleton": "85df609ad933574ed23cc7447e666a1e17546cb35e969632d6c44100b3264ee8",
+        "weights": "2652ee237eb1ae6b7d5932736980cafadb80c4248eee46a387dd9041371b2f13",
+        "clips": {
+          "idle": "9c92a6f12ba72c72f54749f5fb7d2364452712fda4f443e0d04fe2bda537bc0b",
+          "locomotion": "bc5a4e4afc2628fafcf9f7f3cbaefc4d2c21db289735408d47347ee85875ea8d",
+          "run": "e16c226b93dad0903599f17172cedabd79801de11628756d7a358809729eccf2"
+        }
+      },
+      "seconds": {
+        "mesh": 8.9400584,
+        "skeleton": 0.0006624000000012842,
+        "weights": 5.494871199999999,
+        "mesh_warm": 1.4999999999432134e-05,
+        "idle": 0.00016540000000020427,
+        "locomotion": 4.6400000000446084e-05,
+        "run": 5.15999999990413e-05
+      }
+    },
+    {
+      "provider": "quadruped",
+      "sample": "default",
+      "parameters": {
+        "body_length_cm": 70,
+        "shoulder_height_cm": 55,
+        "body_width_cm": 24,
+        "head_length_cm": 24,
+        "tail_length_cm": 35
+      },
+      "parts": [
+        {
+          "name": "quadruped",
+          "vertices": 280,
+          "faces": 274
+        }
+      ],
+      "bones": 15,
+      "fingerprints": {
+        "mesh": "4ca1a175508b43eae1c9b3dce521ea571cd423ccd412621e9c468abe0b0dc517",
+        "skeleton": "9190a80a91451effc6e1651587c92fad1bd26e1e5fba40f9df4a19e8627c2ef5",
+        "weights": "d39b636a516c57e7381812830ec09c110ca0638c43c9a2d14e0ae9850337b9fb",
+        "clips": {
+          "idle": "e596816021b906ea89d1711c024f5a17cff858a686c498c859ce591f576cc074",
+          "locomotion": "8ad82f89d04312c5cb6f13ab8c4abd0f1eedafb5e70b9127a37c1aa5b8039376",
+          "run": "9fa7ef26d3b6ebb906652e38751f278b4e3c3b2a860f706d7c23492541f2da54"
+        }
+      },
+      "seconds": {
+        "mesh": 0.009446800000000033,
+        "skeleton": 0.00020739999999996872,
+        "weights": 0.03790270000000001,
+        "mesh_warm": 0.00835180000000002,
+        "idle": 9.920000000002149e-05,
+        "locomotion": 0.0001902999999999766,
+        "run": 0.00017899999999998473
+      }
+    },
+    {
+      "provider": "quadruped",
+      "sample": "contrasting",
+      "parameters": {
+        "body_length_cm": 95,
+        "shoulder_height_cm": 40,
+        "body_width_cm": 28,
+        "head_length_cm": 30,
+        "tail_length_cm": 50
+      },
+      "parts": [
+        {
+          "name": "quadruped",
+          "vertices": 280,
+          "faces": 274
+        }
+      ],
+      "bones": 15,
+      "fingerprints": {
+        "mesh": "efc889a5cf3d1259a309c073b2be5a84970a746edb4de8dcaaec24abf47342bf",
+        "skeleton": "308aae6a53b31fecfc879384b084d117cc29fea14bdd04757197d7526706bb42",
+        "weights": "d69826510652d618c133a48aced4303857ff70cfbfe77242b434a1ab4f141deb",
+        "clips": {
+          "idle": "e596816021b906ea89d1711c024f5a17cff858a686c498c859ce591f576cc074",
+          "locomotion": "8ad82f89d04312c5cb6f13ab8c4abd0f1eedafb5e70b9127a37c1aa5b8039376",
+          "run": "9fa7ef26d3b6ebb906652e38751f278b4e3c3b2a860f706d7c23492541f2da54"
+        }
+      },
+      "seconds": {
+        "mesh": 0.011197499999999971,
+        "skeleton": 0.0002590000000000092,
+        "weights": 0.04249069999999999,
+        "mesh_warm": 0.011128400000000038,
+        "idle": 0.00012119999999998798,
+        "locomotion": 0.00020729999999996584,
+        "run": 0.0004484999999999628
+      }
+    },
+    {
+      "provider": "avian",
+      "sample": "default",
+      "parameters": {
+        "body_length_cm": 42,
+        "body_width_cm": 16,
+        "body_height_cm": 20,
+        "wingspan_cm": 90,
+        "tail_length_cm": 22
+      },
+      "parts": [
+        {
+          "name": "avian",
+          "vertices": 232,
+          "faces": 226
+        }
+      ],
+      "bones": 16,
+      "fingerprints": {
+        "mesh": "9c6c26c13df3b468fc943dbb039305ad58f7d310adf8dd3f0a722ac0e1f668a9",
+        "skeleton": "83cdde7fead350f331e7a63627f250869e830448642898c63c193c6e81ec3f7a",
+        "weights": "b1e2efe12c74372d9d0a4c17ab66b41150424c1c50d8c590d92b11bd7c0f453c",
+        "clips": {
+          "idle": "1abb88a727bd4ebd6dea7a728f8cadebcd75ab3a4c81f905dd1b4e41acf8c53c",
+          "locomotion": "d61f3e1f3a779d5b7d6bce936a301adc39895e84803c95f9bd8630988f174070",
+          "flight": "16d9cfedc2757f23acc4d8f9b76af320ad05789fa11a4bf169a0fcd8b2a93a4c"
+        }
+      },
+      "seconds": {
+        "mesh": 0.0072429999999999994,
+        "skeleton": 0.00021419999999999773,
+        "weights": 0.032601099999999994,
+        "mesh_warm": 0.007791099999999995,
+        "idle": 0.00012570000000000636,
+        "locomotion": 0.00019520000000000648,
+        "flight": 0.0001406999999999936
+      }
+    },
+    {
+      "provider": "avian",
+      "sample": "contrasting",
+      "parameters": {
+        "body_length_cm": 55,
+        "body_width_cm": 22,
+        "body_height_cm": 28,
+        "wingspan_cm": 140,
+        "tail_length_cm": 35
+      },
+      "parts": [
+        {
+          "name": "avian",
+          "vertices": 232,
+          "faces": 226
+        }
+      ],
+      "bones": 16,
+      "fingerprints": {
+        "mesh": "9dcbfb55c2a8a2a91c0cbc11f0af4a5fc73a5671ba30fecd9de40b648895c4df",
+        "skeleton": "70a6157f8814d5936535d0293c153e7c2837bc167bef4bcd9349337bb0bb732e",
+        "weights": "e3b8027ae2f9d26ec9e899c22bd7c22aacbe7700e882bccaa46498ae35406cee",
+        "clips": {
+          "idle": "1abb88a727bd4ebd6dea7a728f8cadebcd75ab3a4c81f905dd1b4e41acf8c53c",
+          "locomotion": "d61f3e1f3a779d5b7d6bce936a301adc39895e84803c95f9bd8630988f174070",
+          "flight": "16d9cfedc2757f23acc4d8f9b76af320ad05789fa11a4bf169a0fcd8b2a93a4c"
+        }
+      },
+      "seconds": {
+        "mesh": 0.008770400000000012,
+        "skeleton": 0.00026919999999996946,
+        "weights": 0.0317827,
+        "mesh_warm": 0.00626690000000002,
+        "idle": 0.00010070000000000912,
+        "locomotion": 0.0001623000000000041,
+        "flight": 0.0001256000000000035
+      }
+    }
+  ]
+}
