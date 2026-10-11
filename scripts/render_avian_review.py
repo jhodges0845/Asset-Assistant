@@ -70,6 +70,7 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
     parser.add_argument('--pose', choices=('neutral',) + tuple(POSES), default='neutral')
+    parser.add_argument('--view', choices=('four-view', 'top'), default='four-view')
     parser.add_argument('--samples', type=int, default=8)
     parser.add_argument('--resolution-x', type=int, default=1600)
     parser.add_argument('--resolution-y', type=int, default=600)
@@ -85,6 +86,27 @@ def main():
     part, report = review_part(values, args.pose)
     sheets._clear_scene()
     material = sheets._configure_scene(args, part)
+    if args.view == 'top':
+        # Reuse the review material/render setup, then frame one overhead bird.
+        scene = bpy.context.scene
+        body = next(o for o in scene.objects if o.type == 'MESH')
+        for obj in list(scene.objects):
+            if obj != body and obj.type in ('MESH', 'FONT', 'LIGHT'):
+                bpy.data.objects.remove(obj, do_unlink=True)
+        body.location = (0, 0, 0)
+        body.rotation_euler = (0, 0, 0)
+        low, high = sheets._bounds(part.vertices)
+        width, depth = high[0] - low[0], high[1] - low[1]
+        center = tuple((a + b) / 2 for a, b in zip(low, high))
+        camera = scene.camera
+        camera.location = (center[0], center[1], high[2] + max(width, depth) * 2)
+        camera.rotation_euler = (0, 0, 0)
+        camera.data.ortho_scale = max(width, depth * args.resolution_x / args.resolution_y) * 1.12
+        camera.data.clip_end = max(width, depth) * 5
+        sheets._add_lighting(center[2], width, high[2] - low[2])
+        bpy.context.view_layer.update()
+        sheets._validate_camera_frame(camera, [body], scene)
+    report['view'] = args.view
     for mode in args.modes:
         sheets._configure_material(material, mode)
         bpy.context.scene.render.filepath = str(sheets._mode_output(args.output, mode))

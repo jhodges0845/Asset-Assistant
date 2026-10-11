@@ -1531,10 +1531,41 @@ Rendered elbow reports confirm body displacement drops from 0.792 cm to zero
 for default and 0.986 cm to zero for contrasting, with intended wing displacement
 unchanged. These isolated poses establish locality, not final folding or flight quality.
 
+## Avian broad-wing checkpoint (recipe 4)
+
+The wing tube now has a broader fore/aft chord through its middle with a tapered
+tip, retaining its compact root and thin depth. Default elbow chord increases
+from 3.36 to 13.44 cm while elbow thickness remains 2.16 cm; the chord is bounded
+by body length and available wing span. Both sides use the same profile.
+This is a low-poly continuous surface, not individual feather construction.
+
+The 232-vertex/226-face topology, all non-wing vertex positions, complete recipe 3
+rest rig, authored ownership and animation keys are preserved. Wing positions,
+projected UVs and recomputed weights change. The existing isolated wing tests
+still require non-wing vertices to remain stationary. Prior generated meshes and
+artist weights are not silently rebuilt; changes use explicit regeneration.
+
+The review helper accepts `--view top` for a single overhead bird with camera
+framing validation. Use square output to inspect the wing outline:
+
+```powershell
+& <blender.exe> --background --factory-startup --python-exit-code 1 --python scripts/render_avian_review.py -- --output artifacts/shared-anatomy/avian-top.png --view top --resolution-x 1000 --resolution-y 1000 --pose neutral
+```
+
+The before sheet is `artifacts/shared-anatomy/avian3-top.png`; recipe 4 neutral
+and isolated elbow sheets use `avian4-top-{pose}.png`. JSON records the view,
+recipe version, parameters and pose displacement. These views distinguish wing
+outline from the edge-on four-view sheets. The neutral overhead render shows the
+broader tapered silhouette but also a coarse shoulder transition; a full
+folded/perched posture remains unfinished. All 33 Avian core and 13 Blender tests pass, including bilateral
+profile symmetry, unchanged surrounding geometry/rig and deformation locality.
+Compilation and whitespace checks pass.
+
 ## Next work
 
-For Avian, add useful wing close-up/top review views and improve wing
-volume/folding while retaining the new non-wing displacement gate. Align remaining surface/rest-joint
+For Avian, develop coordinated wing folding/perched poses on the broader wing
+surface, retaining the non-wing displacement gate. Review the contrasting shape
+and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint
 landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,
 neck/head/beak, wing roots/folding, legs/feet and tail fan with default and
 contrasting silhouettes and pose checks. Preserve Idle/Walk/Flight identities,

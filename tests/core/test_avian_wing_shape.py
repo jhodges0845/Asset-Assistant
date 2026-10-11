@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Wing profile changes preserve the surrounding bird and rest rig."""
+from dataclasses import asdict
+import json
+from math import isfinite
+from pathlib import Path
+import unittest
+
+from object_core.objects import get_provider
+
+
+class AvianWingShapeTests(unittest.TestCase):
+    def test_wing_refinement_preserves_topology_nonwing_vertices_and_rig(self):
+        samples = json.loads((Path(__file__).parents[1] / 'fixtures/avian_wing_shape_baseline.json').read_text())
+        provider = get_provider('avian')
+        for name, sample in samples.items():
+            with self.subTest(sample=name):
+                mesh = provider.mesh(sample['parameters'])
+                anatomy = provider.anatomy(sample['parameters'])
+                indices = [i for r in anatomy.regions if not r.name.startswith('wing.') for i in r.vertex_indices]
+                self.assertEqual(len(indices), len(sample['nonwing_vertices']))
+                for actual, expected in zip((mesh.parts[0].vertices[i] for i in indices), sample['nonwing_vertices']):
+                    for a, b in zip(actual, expected):
+                        self.assertAlmostEqual(a, b, places=9)
+                self.assertEqual([list(f) for f in mesh.parts[0].faces], sample['faces'])
+                self.assertEqual(json.loads(json.dumps(asdict(provider.skeleton(sample['parameters'])))), sample['skeleton'])
+
+    def test_wing_middle_is_broad_thin_and_tapers_to_tip(self):
+        provider = get_provider('avian')
+        defaults = {p.key: p.default for p in provider.parameters}
+        for values in (defaults, dict(defaults, body_length_cm=55, body_width_cm=22,
+                                     body_height_cm=28, wingspan_cm=140, tail_length_cm=35)):
+            anatomy = provider.anatomy(values)
+            wings = [t for t in anatomy.tubes if t.name.startswith('wing.')]
+            self.assertEqual(wings[0].widths, wings[1].widths)
+            self.assertEqual(wings[0].depths, wings[1].depths)
+            for wing in wings:
+                self.assertGreater(wing.widths[2], wing.depths[2] * 3)
+                self.assertGreater(wing.widths[2], wing.widths[1])
+                self.assertGreater(wing.widths[2], wing.widths[3])
+                self.assertLess(wing.widths[-1], wing.widths[2] * .15)
+            mesh = provider.mesh(values)
+            self.assertTrue(all(isfinite(c) for v in mesh.parts[0].vertices for c in v))
+            regions = {r.name: r.vertex_indices for r in anatomy.regions}
+            left = sorted(tuple(round(c, 6) for c in v) for i, v in enumerate(mesh.parts[0].vertices)
+                          if i in regions['wing.left'])
+            right = sorted((round(-v[0], 6), round(v[1], 6), round(v[2], 6))
+                           for i, v in enumerate(mesh.parts[0].vertices) if i in regions['wing.right'])
+            self.assertEqual(left, right)

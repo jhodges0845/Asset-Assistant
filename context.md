@@ -20,7 +20,7 @@ Canine contact gait: `object_core/animation/contact.py` supplies stance/swing ta
 
 ## Active Avian work
 
-Avian recipe 3 shares wing surface/rest-joint landmarks and confines wing weights to authored ownership with a shoulder collar. Isolated wing poses keep non-wing vertices stationary. Next: wing volume/folding and grounded leg/foot refinement. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
+Avian recipe 4 adds broad tapered wing profiles while retaining shared wing landmarks and authored weight ownership. Isolated wing poses keep non-wing vertices stationary; top-view diagnostics expose the outline. Next: coordinated folding/perched poses and grounded leg/foot refinement. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
 
 ## Current Human V2 integration (2026-09-20)
 

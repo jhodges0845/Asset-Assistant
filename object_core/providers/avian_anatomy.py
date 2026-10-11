@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 3: shared wing centerlines and authored wing weight ownership.
+"""Avian recipe 4: broad tapered wing profiles on shared authored centerlines.
 
 Wing surface centerlines and rest chains share landmark identities. Other rest
 offsets remain explicit until their own anatomy refinement checkpoints.
@@ -115,7 +115,10 @@ def _surface_profiles(dimensions):
             tip,
         )
         base = max(height * 0.20, 1.0)
-        widths_wing = (base * 1.12, base, base * 0.84, base * 0.55, base * 0.18)
+        # Chord runs fore/aft across the wing; retain a compact shoulder and
+        # thin depth while giving the middle a broad, tapered lifting outline.
+        chord = max(1.0, min(length * .32, (half_span - root_x) * .65))
+        widths_wing = (base * 1.12, chord * .80, chord, chord * .72, chord * .06)
         depths_wing = (base * 0.78, base * 0.66, base * 0.54, base * 0.34, base * 0.12)
         tubes.append(tube("wing." + side, centers_wing, widths_wing, depths_wing))
 
@@ -218,7 +221,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '3'
+    recipe_version = '4'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.
