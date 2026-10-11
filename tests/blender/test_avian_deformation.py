@@ -149,7 +149,7 @@ class AvianDeformationTests(unittest.TestCase):
                         bone.rotation_euler = (0, 0, 0)
                         bpy.context.view_layer.update()
 
-    def test_neutral_wings_and_their_bridges_have_no_nonadjacent_crossings(self):
+    def test_neutral_surface_has_no_nonadjacent_crossings(self):
         from scripts.avian_review_metrics import surface_crossings
         provider = get_provider('avian')
         defaults = {f.key: f.default for f in provider.parameters}
@@ -157,11 +157,7 @@ class AvianDeformationTests(unittest.TestCase):
                                       body_height_cm=28, wingspan_cm=140, tail_length_cm=35)):
             with self.subTest(values=values):
                 part = provider.mesh(values).parts[0]
-                anatomy = provider.anatomy(values)
-                wing = {i for r in anatomy.regions if r.name.startswith('wing.') for i in r.vertex_indices}
-                crossings = surface_crossings(part.vertices, part.faces)
-                self.assertFalse([(a, b) for a, b in crossings
-                                  if wing.intersection(part.faces[a]) or wing.intersection(part.faces[b])])
+                self.assertEqual(surface_crossings(part.vertices, part.faces), [])
 
     def test_surface_crossing_diagnostic_detects_crossing_and_ignores_adjacency(self):
         from scripts.avian_review_metrics import surface_crossings

@@ -1632,12 +1632,36 @@ radians to retain its span-reduction gate with exterior shoulders; the compact
 preset remains unchanged. All 34 focused core, 455 full core and 16 Avian Blender
 tests pass. Changed Python files compile and whitespace checks pass.
 
+## Avian leg construction repair (recipe 6)
+
+The leg surface now descends from hip through knee and ankle to toe, with its
+collar positioned beneath the underside opening. Upper-leg thickness is bounded
+by body height. A lateral section frame keeps neighboring leg rings from changing
+reference axes near vertical tangents. The leg rest bones now consume the same
+surface landmarks (rings 0, 2, 3, 4), removing the inherited surface/rig offset.
+Wing construction and the axial body/tail rest rig are unchanged.
+
+Default and contrasting source and evaluated neutral meshes have zero detected
+non-adjacent surface crossings in Blender 5.2.1. This replaces the prior wing-only
+regression with a whole-neutral-mesh check for those two shapes. It remains a
+surface-crossing diagnostic, not proof of volumetric clearance for all parameters.
+Compact-fold diagnostics still report 20 and 24 crossings respectively; that pose
+is not accepted. Reports are `artifacts/shared-anatomy/avian6-compact-{default,contrasting}.json`.
+
+The mesh retains 232 vertices and 226 faces. Leg geometry, attachment phase,
+leg/foot rest bones, UVs and computed weights change; explicit regeneration and
+rig rebuilding are required for older assets. Production Idle/Walk/Flight keys
+are unchanged, but their appearance needs review against the new support chain.
+The inspected four-view render `artifacts/shared-anatomy/avian6-neutral.png`
+shows short legs tucked beneath the body; foot detail is too small for visual
+acceptance at this framing. Foot grounding, readable toe anatomy and gait contact
+remain unfinished.
+All 35 focused Avian core and 16 Blender tests pass; changed files compile.
+The full 455-test core pass belongs to recipe 5 and was not repeated here.
+
 ## Next work
 
-For Avian, repair the remaining leg/bridge neutral crossings and establish grounded
-leg/foot anatomy. The inherited surface hip-to-knee path first rises (default
-Z 5.2 to 5.6 cm) before descending to the ankle, with thick, closely spaced
-upper-leg rings; investigate that reversal and the broad underside bridges.
+For Avian, establish grounded leg/foot anatomy and review support-chain motion.
 Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint

@@ -33,12 +33,16 @@ def _subtract(a, b):
     return tuple(a[i] - b[i] for i in range(3))
 
 
-def _ring(center, width, depth, tangent):
+def _ring(center, width, depth, tangent, *, stable_width=False):
     tangent = _normalize(tangent)
     reference = (0.0, 0.0, 1.0)
     if abs(sum(tangent[i] * reference[i] for i in range(3))) > 0.95:
         reference = (0.0, 1.0, 0.0)
     width_axis = _normalize(_cross(reference, tangent))
+    if stable_width:
+        # Project lateral X onto the section plane so near-vertical legs do not
+        # switch reference axes between neighboring rings.
+        width_axis = _normalize(tuple((1.0 if i == 0 else 0.0) - tangent[0] * tangent[i] for i in range(3)))
     depth_axis = _normalize(_cross(tangent, width_axis))
     return tuple(
         tuple(
@@ -51,7 +55,7 @@ def _ring(center, width, depth, tangent):
     )
 
 
-def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True):
+def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True, stable_width=False):
     rings = []
     for index, center in enumerate(centers):
         if index == 0:
@@ -61,7 +65,7 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
         else:
             tangent = _subtract(centers[index + 1], centers[index - 1])
         start = len(vertices)
-        vertices.extend(_ring(center, widths[index], depths[index], tangent))
+        vertices.extend(_ring(center, widths[index], depths[index], tangent, stable_width=stable_width))
         rings.append(tuple(range(start, start + _RING_SIDES)))
 
     if cap_start:
@@ -76,10 +80,10 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
     return rings
 
 
-def _append_branch(vertices, faces, root, centers, widths, depths):
+def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False):
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
-    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True)
+    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True, stable_width=stable_width)
     first = rings[0]
     # Match perimeter phase without reversing the tube's outward winding.
     phase = min(range(_RING_SIDES), key=lambda offset: sum(
@@ -147,7 +151,8 @@ def _build_avian_mesh(anatomy):
     for tube in anatomy.tubes[1:]:
         start = len(vertices)
         _append_branch(vertices, faces, openings[tube.name],
-                       tuple(points[n] for n in tube.landmarks), tube.widths, tube.depths)
+                       tuple(points[n] for n in tube.landmarks), tube.widths, tube.depths,
+                       stable_width=tube.name.startswith('leg.'))
         regions.append(AnatomyRegion(tube.name, 'avian', tuple(range(start, len(vertices)))))
         connections.append(AnatomyConnection('body.' + tube.name, ('body', tube.name), 'connected',
                            (openings[tube.name], tuple(range(start, start + _RING_SIDES)))))

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 5: exterior wing roots with corrected branch attachments.
+"""Avian recipe 6: descending leg surfaces and shared support chains.
 
-Wing surface centerlines and rest chains share landmark identities. Other rest
-offsets remain explicit until their own anatomy refinement checkpoints.
+Wing and leg surface centerlines and rest chains share landmark identities.
+Body and tail rest offsets remain explicit.
 Only this recipe owns their dimensional formulas. Construction owns topology.
 """
 from dataclasses import dataclass
@@ -123,20 +123,20 @@ def _surface_profiles(dimensions):
         depths_wing = (base * 0.78, base * 0.66, base * 0.54, base * 0.34, base * 0.12)
         tubes.append(tube("wing." + side, centers_wing, widths_wing, depths_wing))
 
-    # Ground-contact anatomy. The leg bends slightly forward and the foot projects
-    # along +Y so the generated bird has a readable stance before animation.
-    hip_x = width * 0.25
-    hip_y = -length * 0.04
-    hip_z = body_z - height * 0.26
-    knee_z = height * 0.28
-    ankle_z = height * 0.08
+    # Keep the support path descending and beneath the underside opening.
+    # Foot contact and toe anatomy remain a separate refinement step.
+    hip_x = width * 0.15
+    hip_y = -length * 0.20
+    hip_z = height * 0.12
+    knee_z = height * 0.09
+    ankle_z = height * 0.04
     toe_y = hip_y + length * 0.17
-    leg_thickness = max(width * 0.12, 0.8)
+    leg_thickness = min(max(width * 0.12, 0.8), height * 0.07)
     for side, sign in (("left", -1.0), ("right", 1.0)):
         hip = (sign * hip_x, hip_y, hip_z)
         knee = (sign * hip_x * 1.08, hip_y + length * 0.025, knee_z)
         ankle = (sign * hip_x * 1.02, hip_y + length * 0.055, ankle_z)
-        toe = (sign * hip_x, toe_y, ankle_z * 0.72)
+        toe = (sign * hip_x, toe_y, height * 0.025)
         centers_leg = (hip, _lerp(hip, knee, 0.45), knee, ankle, toe)
         widths_leg = (
             leg_thickness * 1.15,
@@ -190,19 +190,10 @@ def _rest_segments(dimensions, landmarks, tubes):
             _segment("wing.lower." + side, elbow, tip, "wing.upper." + side),
         ))
 
-    # Birds need a ground-contact chain as well as wings. Keep the leg anatomy
-    # provider-specific so shared Blender rigging stays body-plan agnostic.
-    hip_x = width * 0.24
-    hip_y = -length * 0.04
-    hip_z = body_z - height * 0.28
-    knee_z = height * 0.28
-    ankle_z = height * 0.08
-    toe_y = hip_y + length * 0.16
-    for side, sign in (("left", -1.0), ("right", 1.0)):
-        hip = (sign * hip_x, hip_y, hip_z)
-        knee = (sign * hip_x * 1.08, hip_y + length * 0.025, knee_z)
-        ankle = (sign * hip_x * 1.02, hip_y + length * 0.055, ankle_z)
-        toe = (sign * hip_x, toe_y, ankle_z * 0.72)
+    # Surface and rest rig share one authored support chain.
+    for side in ('left', 'right'):
+        leg = next(t for t in tubes if t.name == 'leg.' + side)
+        hip, knee, ankle, toe = (points[leg.landmarks[i]] for i in (0, 2, 3, 4))
         bones.extend((
             _segment("leg.upper." + side, hip, knee, "spine"),
             _segment("leg.lower." + side, knee, ankle, "leg.upper." + side),
@@ -222,7 +213,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '5'
+    recipe_version = '6'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.
@@ -237,9 +228,9 @@ class AvianRecipe:
         for start, end, name, role in groups:
             group = segments[start:end]
             points = [group[0][1]] + [segment[2] for segment in group]
-            if role == 'flight':
-                wing = next(t for t in tubes if t.name == name)
-                names = tuple(wing.landmarks[i] for i in (0, 2, 4))
+            if role in ('flight', 'leg_support'):
+                tube = next(t for t in tubes if t.name == name)
+                names = tuple(tube.landmarks[i] for i in ((0, 2, 4) if role == 'flight' else (0, 2, 3, 4)))
             else:
                 names = tuple('joint.' + name + '.' + str(i) for i in range(len(points)))
                 landmarks.extend(Landmark(n, p) for n, p in zip(names, points))

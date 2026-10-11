@@ -33,7 +33,7 @@ class AvianRecipeTests(unittest.TestCase):
         self.values = {p.key: p.default for p in self.provider.parameters}
         self.anatomy = AvianRecipe().resolve(self.provider.dimensions(self.values))
 
-    def test_preserves_clips_and_nonwing_rest_bones(self):
+    def test_preserves_clips_and_axial_rest_bones(self):
         baseline = json.loads((Path(__file__).parents[1] / 'fixtures/avian_recipe1_baseline.json').read_text())
         for sample in baseline['samples']:
             with self.subTest(sample=sample['sample']):
@@ -46,7 +46,7 @@ class AvianRecipeTests(unittest.TestCase):
                 self.assertEqual({k: sample['portable_fingerprints'][k] for k in data},
                                  {k: portable_fingerprint(v) for k, v in data.items()})
                 for bone in skeleton.bones:
-                    if not bone.name.startswith('wing.'):
+                    if not bone.name.startswith(('wing.', 'leg.', 'foot.')):
                         self.assertEqual(sample['nonwing_bones'][bone.name],
                                          json.loads(json.dumps(asdict(bone))))
                 self.assertEqual(sample['bones'], len(skeleton.bones))
@@ -129,6 +129,19 @@ class AvianRecipeTests(unittest.TestCase):
                 tube = next(t for t in anatomy.tubes if t.name == name)
                 chain = next(c for c in anatomy.chains if c.name == name)
                 self.assertEqual(chain.landmarks, tuple(tube.landmarks[i] for i in (0, 2, 4)))
+
+    def test_leg_surface_and_rig_share_descending_landmarks(self):
+        for side in ('left', 'right'):
+            tube = next(t for t in self.anatomy.tubes if t.name == 'leg.' + side)
+            chain = next(c for c in self.anatomy.chains if c.name == tube.name)
+            self.assertEqual(chain.landmarks, tuple(tube.landmarks[i] for i in (0, 2, 3, 4)))
+            points = {p.name: p.position for p in self.anatomy.landmarks}
+            heights = [points[n][2] for n in chain.landmarks]
+            self.assertTrue(all(a > b for a, b in zip(heights, heights[1:])))
+            bones = {b.name: b for b in _build_avian_skeleton(self.anatomy).bones}
+            for i, name in enumerate(chain.bones):
+                self.assertEqual(bones[name].head, points[chain.landmarks[i]])
+                self.assertEqual(bones[name].tail, points[chain.landmarks[i + 1]])
 
     def test_invalid_surface_profiles_and_landmark_references_are_rejected(self):
         tube = self.anatomy.tubes[0]

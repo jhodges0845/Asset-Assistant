@@ -20,7 +20,7 @@ Canine contact gait: `object_core/animation/contact.py` supplies stance/swing ta
 
 ## Active Avian work
 
-Avian recipe 5 repairs branch attachment sides/perimeter alignment and moves shared wing roots outside the torso. Neutral wing/bridge crossing checks pass for both reference shapes; leg/bridge crossings and compact-fold overlap remain. Topology changes require explicit regeneration. Next: leg construction/grounded stance and folded-pose clearance. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
+Avian recipe 6 repairs descending leg construction and aligns leg/foot rest bones to shared surface landmarks. Both reference neutral meshes have zero detected non-adjacent surface crossings. Compact-fold overlap, foot grounding/toe anatomy and support-chain motion review remain. Geometry/rig changes require explicit regeneration. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
 
 ## Current Human V2 integration (2026-09-20)
 

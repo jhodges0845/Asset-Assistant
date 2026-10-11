@@ -11,27 +11,27 @@ from object_core.models import ObjectMesh
 
 
 class AvianWingShapeTests(unittest.TestCase):
-    def test_attachment_refinement_preserves_nonwing_vertices_and_rest_bones(self):
+    def test_attachment_refinement_preserves_body_vertices_and_axial_rest_bones(self):
         samples = json.loads((Path(__file__).parents[1] / 'fixtures/avian_wing_shape_baseline.json').read_text())
         provider = get_provider('avian')
         for name, sample in samples.items():
             with self.subTest(sample=name):
                 mesh = provider.mesh(sample['parameters'])
                 anatomy = provider.anatomy(sample['parameters'])
-                indices = [i for r in anatomy.regions if not r.name.startswith('wing.') for i in r.vertex_indices]
-                self.assertEqual(len(indices), len(sample['nonwing_vertices']))
-                for actual, expected in zip((mesh.parts[0].vertices[i] for i in indices), sample['nonwing_vertices']):
+                indices = [i for r in anatomy.regions if r.name == 'body' for i in r.vertex_indices]
+                self.assertEqual(len(indices), 72)
+                for actual, expected in zip((mesh.parts[0].vertices[i] for i in indices), sample['nonwing_vertices'][:72]):
                     for a, b in zip(actual, expected):
                         self.assertAlmostEqual(a, b, places=9)
                 self.assertEqual(mesh.vertex_count, 232)
                 self.assertEqual(mesh.face_count, 226)
-                # An older generated cage must not receive recipe-5 weights.
+                # An older generated cage must not receive current-recipe weights.
                 old_part = replace(mesh.parts[0], faces=tuple(tuple(f) for f in sample['faces']))
                 with self.assertRaisesRegex(ValueError, 'authored topology'):
                     provider.skin_weights(ObjectMesh((old_part,)), sample['parameters'])
                 bones = json.loads(json.dumps(asdict(provider.skeleton(sample['parameters']))))['bones']
-                self.assertEqual([b for b in bones if not b['name'].startswith('wing.')],
-                                 [b for b in sample['skeleton']['bones'] if not b['name'].startswith('wing.')])
+                self.assertEqual([b for b in bones if not b['name'].startswith(('wing.', 'leg.', 'foot.'))],
+                                 [b for b in sample['skeleton']['bones'] if not b['name'].startswith(('wing.', 'leg.', 'foot.'))])
 
     def test_wing_middle_is_broad_thin_and_tapers_to_tip(self):
         provider = get_provider('avian')
