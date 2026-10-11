@@ -129,6 +129,8 @@ def review_cycle(values, clip='walk', duration=None, strength=1.0, intervals=32)
                                support_footprint=limb_support_footprint(
                                    points, mesh.parts[0].faces, anatomy.regions),
                                sole_centroid_cm=centroids,
+                               fixed_toe_positions_cm={name: points[sole_indices[name][offset]]
+                                                       for name, offset in pivot_offsets.items()},
                                contact_targets=targets))
         summary = {}
         for name in sole_indices:

@@ -1,9 +1,9 @@
 # Canine Godot playback probe
 
 Validated October 10, 2026 with Blender 5.2.1 and Godot 4.7.2.
-Evidence now includes headless skeletal comparisons and four-view rendered
-Godot frame sequences. Full visual acceptance, quantitative skinned-surface
-contact, collision and production performance remain open.
+Evidence includes headless skeletal comparisons, four-view Godot renders, and
+sampled baked-skin clearance/fixed-toe checks. Complete visual acceptance,
+continuous-time contact, collision and production performance remain open.
 
 ## Reproduce
 
@@ -103,6 +103,55 @@ Local MP4 previews encoded from the frames with Blender's sequencer are
 `artifacts/shared-anatomy/`. The renderer and helper remain review tools,
 not a production Godot project or importer integration.
 
+## Skinned-surface contact probe
+
+Generate a fresh fixture with dense Blender skin references, then run Godot
+with a rendering-capable driver (no `--headless`):
+
+```powershell
+& <blender.exe> --background --factory-startup --python-exit-code 1 --python scripts/export_canine_godot_review.py -- --surface --sample default --output artifacts/shared-anatomy/godot-surface-default
+& <godot_console.exe> --path artifacts/shared-anatomy/godot-surface-default --script surface.gd --rendering-method gl_compatibility --resolution 320x240
+```
+
+Repeat for `contrasting` and `short-wide` at fresh paths. The optional reference
+reuses `review_canine_gait.py`, including its grounded fixed-toe selections and
+stance/travel schedules. Gait frames now include `fixed_toe_positions_cm`.
+The Godot helper uses
+[`bake_mesh_from_current_skeleton_pose`](https://docs.godotengine.org/en/stable/classes/class_meshinstance3d.html#class-meshinstance3d-method-bake-mesh-from-current-skeleton-pose)
+after rendering updates. It maps each neutral toe once to an imported surface
+and vertex index, then keeps that identity through both clips. It measures
+all baked vertices for ground clearance and loop closure, compares the four
+toe positions against Blender, and measures fixed-toe drift after declared
+reference travel. Matching moving points again each frame is prohibited.
+
+Walk and Run pass at 127 intervals (128 poses) on all three shapes, with the
+source-grid import and constant reset tracks retained:
+
+| Shape | Lowest surface clearance | Largest fixed-toe drift | Largest toe/source error |
+| --- | --- | --- | --- |
+| Default | 0.019927 cm | 0.001549 cm | 0.000041 cm |
+| Contrasting | 0.019940 cm | 0.001141 cm | 0.000023 cm |
+| Short-wide | 0.019974 cm | 0.000422 cm | 0.000008 cm |
+
+Figures are conservative rounded bounds across both clips. Loop discrepancy
+is below 0.000019 cm. Fixed toes remain within the unchanged 0..0.1 cm stance
+proximity band; maximum height is below 0.03835 cm. The existing drift limits
+remain 0.002 cm for forepaws and 0.001 cm for hind paws. A deliberate 1 cm
+downward asset translation was correctly rejected, measuring about -0.98 cm
+minimum clearance in both clips.
+
+Reports are `godot-surface-report.json` inside each
+`artifacts/shared-anatomy/godot-surface-{sample}/` fixture. The penetration
+control is saved separately as `godot-surface-penetration-report.json` in the
+parent directory. All 13 portable contact-metric tests and two focused Blender
+gait-report tests pass; the latter verify the new toe trajectories agree with
+the existing stance-height summaries and loop endpoints.
+
+These are sampled canonical-asset checks. They do not prove continuous contact,
+full-paw slip, arbitrary edited-weight behavior, or complete visual acceptance.
+Godot's baked-skin API ignores blendshapes; the reviewed canine has no animated
+blendshape deformation. No production animation/export behavior changed here.
+
 ## Export timing correction
 
 The probe exposed nonzero GLB start timestamps: a Walk authored at frame 1
@@ -115,8 +164,9 @@ Constrained exports retain their existing baking path.
 
 ## Still open
 
-Quantitative skinned-surface contact, complete visual playback review, and
-production import/performance acceptance remain open. The source-grid mode is
+Continuous-time/full-paw contact, complete visual playback review, and
+production import/performance acceptance remain open. Sampled fixed-toe and
+whole-surface clearance checks now pass for the three canonical shapes. The source-grid mode is
 a tested candidate, not yet a shipping importer integration. Bone-head parity
 does not prove distal orientation, skinned-surface contact, or visual quality.
 The short-wide shape is a stress case with a flattened torso, not an accepted

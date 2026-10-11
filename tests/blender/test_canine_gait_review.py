@@ -64,6 +64,13 @@ class CanineGaitReviewTests(unittest.TestCase):
                         self.assertLess(pivot['maximum_reference_vertex_displacement_cm'], limit)
                         self.assertGreaterEqual(pivot['minimum_stance_z_cm'], 0.)
                         self.assertLessEqual(pivot['maximum_stance_z_cm'], .1)
+                        samples = [f['fixed_toe_positions_cm'][name] for f in report['frames']]
+                        self.assertEqual(samples[0], samples[-1])
+                        stance_heights = [f['fixed_toe_positions_cm'][name][2]
+                                          for f in report['frames'][:-1]
+                                          if f['contact_targets'][name]['in_stance']]
+                        self.assertEqual(min(stance_heights), pivot['minimum_stance_z_cm'])
+                        self.assertEqual(max(stance_heights), pivot['maximum_stance_z_cm'])
                     toe_ids = report['toe_vertex_indices'][name]
                     self.assertTrue(toe_ids)
                     self.assertIn(report['roll_pivot_vertex_indices'][name], toe_ids)

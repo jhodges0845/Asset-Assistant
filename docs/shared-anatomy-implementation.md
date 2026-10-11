@@ -1376,11 +1376,31 @@ builder and Godot comparison/render tools, an expected failure for missing
 source-grid metadata, verified 90/48-frame MP4s, Python compilation and
 whitespace checks.
 
+## Godot skinned-surface contact (October 10)
+
+The surface probe now samples Godot's baked skinned mesh against the Blender
+gait oracle over 127 intervals for Walk and Run. All three documented shapes
+pass whole-surface clearance, fixed-toe source agreement, stance drift/height
+and loop checks under the source-grid import. Minimum clearance exceeds
+0.01992 cm, fixed-toe drift stays below 0.00155 cm, toe/source error below
+0.000041 cm, and loop error below 0.000019 cm. Existing contact limits were
+retained. A deliberately lowered asset failed with about 0.98 cm penetration.
+
+The oracle reuses existing grounded toe selection and stance schedules, with
+new `fixed_toe_positions_cm` frame data. Thirteen portable metric tests and
+two focused Blender report tests pass. The Godot runs use its Compatibility
+renderer through ANGLE. Python compilation and whitespace checks pass.
+See [the probe guide](canine-godot-playback.md) for the `--surface` workflow,
+reports and limits. Production providers, animation and export are unchanged.
+This closes the sampled canonical skin-contact check, not continuous-time
+contact, full-paw slip, edited-asset or final visual acceptance.
+
 ## Next work
 
 Retain the fixed-toe limits and schema 5 reports while reviewing lateral
 weight shift across the contrasting and short-wide shapes. Inspect at least three cycles from front/side/three-quarter views and complete visual destination
-playback review, skinned-surface contact measurement and shipping-import evaluation. Preserve the declared stance/travel contract and sampled contact/drift
+playback review and shipping-import evaluation. Preserve the now-passing sampled
+skin-contact gates while tuning. Preserve the declared stance/travel contract and sampled contact/drift
 checks while tuning. Use the new material-point baseline when choosing toe-off
 pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact remain outside the canonical generated-asset checkpoint.
 

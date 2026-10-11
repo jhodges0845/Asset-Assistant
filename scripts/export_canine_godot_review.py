@@ -24,6 +24,7 @@ from blender_adapter.targets import get_adapter
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--surface', action='store_true', help='Also sample 127-interval Blender skin-contact oracles')
     parser.add_argument('--sample', choices=('default', 'contrasting', 'short-wide'), default='default')
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
     if (args.output / 'canine.glb').exists():
@@ -88,6 +89,15 @@ def main():
     shutil.copyfile(ROOT / 'scripts/review_canine_godot.gd', args.output / 'review.gd')
     shutil.copyfile(ROOT / 'scripts/canine_godot_import.gd', args.output / 'canine_import.gd')
     shutil.copyfile(ROOT / 'scripts/render_canine_godot.gd', args.output / 'render.gd')
+    shutil.copyfile(ROOT / 'scripts/review_canine_godot_surface.gd', args.output / 'surface.gd')
+    if args.surface:
+        from scripts.review_canine_gait import review_cycle
+        cycles = [review_cycle(values, clip, intervals=127) for clip in ('walk', 'run')]
+        neutral = {name: mesh.parts[0].vertices[index]
+                   for name, index in cycles[0]['roll_pivot_vertex_indices'].items()}
+        surface = dict(schema_version=1, sample=args.sample, neutral_pivots_cm=neutral,
+                       cycles=cycles, tolerance_cm=.002)
+        (args.output / 'surface-expected.json').write_text(json.dumps(surface) + '\n')
     print('CANINE_GODOT_FIXTURE_OK', args.output)
 
 
