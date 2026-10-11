@@ -1395,6 +1395,19 @@ reports and limits. Production providers, animation and export are unchanged.
 This closes the sampled canonical skin-contact check, not continuous-time
 contact, full-paw slip, edited-asset or final visual acceptance.
 
+## Prepared Godot scene checkpoint
+
+The source-grid fixture can now save a reusable PackedScene with retained reset
+tracks. Fresh-process skeletal reload checks pass for all three shapes, including
+Walk/Idle/Run/Idle transitions and three cycles. A separate default fixture passes
+without the GLB; overwrite rejection preserves the saved scene hash. Maximum
+bone-head error remains below 0.000039 cm. Python compilation and whitespace
+checks pass. See the Godot playback guide for commands and report locations.
+
+Next integration checks are rendered skin after serialization and exported-project
+resource packaging. Editor import hooks and production performance remain open;
+the existing oracle-dependent preparation is still a review helper.
+
 ## Next work
 
 Retain the fixed-toe limits and schema 5 reports while reviewing lateral

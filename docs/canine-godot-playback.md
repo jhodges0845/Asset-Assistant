@@ -162,6 +162,36 @@ unchanged, including when export fails. The nonzero-start regression uses
 frame 37 and checks the actual GLB time-accessor bounds, not only key span.
 Constrained exports retain their existing baking path.
 
+## Prepared scene round trip
+
+The fixture exporter also copies `prepare_scene.gd`. Prepare once, then run
+skeletal checks against the saved scene in a separate Godot process:
+
+```powershell
+& <godot_console.exe> --headless --path <fixture> --script prepare_scene.gd
+& <godot_console.exe> --headless --path <fixture> --script review.gd -- --packed-scene
+```
+
+Preparation retains constant reset tracks and saves `canine-source-grid.scn`.
+It refuses to overwrite an existing scene, preserving local edits; regenerate
+into a fresh fixture directory. The scene contains the imported resources and
+animations, so normal loading uses `load(path).instantiate()` without rebuilding
+the per-clip imports. Preparation still requires verified grid metadata from
+`expected.json`; the skeletal validation also needs that oracle.
+
+Fresh-process reloads pass Walk/Idle/Run/Idle over three cycles for all three
+canonical shapes. Maximum bone-head errors are below 0.000039 cm (default),
+0.000029 cm (contrasting), and 0.000007 cm (short-wide). The default scene also
+passes from a separate fixture containing no original GLB. A repeated preparation
+returns failure and leaves the existing scene hash unchanged. Reports are
+`godot-packed-report.json` in the three surface fixtures, plus `godot-report.json`
+in `artifacts/shared-anatomy/godot-packed-standalone/`.
+
+This validates skeletal serialization and resource independence from the GLB.
+It does not yet validate rendered skin after serialization, editor import hooks,
+exported Godot project packaging, or production load performance. The helper is
+an integration candidate, not a shipping importer.
+
 ## Still open
 
 Continuous-time/full-paw contact, complete visual playback review, and

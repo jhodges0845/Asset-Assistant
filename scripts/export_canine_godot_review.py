@@ -88,6 +88,7 @@ def main():
     (args.output / 'project.godot').write_text('config_version=5\n[application]\nconfig/name="Canine playback probe"\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n')
     shutil.copyfile(ROOT / 'scripts/review_canine_godot.gd', args.output / 'review.gd')
     shutil.copyfile(ROOT / 'scripts/canine_godot_import.gd', args.output / 'canine_import.gd')
+    shutil.copyfile(ROOT / 'scripts/prepare_canine_godot_scene.gd', args.output / 'prepare_scene.gd')
     shutil.copyfile(ROOT / 'scripts/render_canine_godot.gd', args.output / 'render.gd')
     shutil.copyfile(ROOT / 'scripts/review_canine_godot_surface.gd', args.output / 'surface.gd')
     if args.surface:

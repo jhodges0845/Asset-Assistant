@@ -15,10 +15,14 @@ func review():
     var bake_fps = 800.0
     var remove_immutable = false
     var source_aligned = false
+    var packed_scene = false
     var arguments = OS.get_cmdline_user_args()
     for argument in arguments:
         if argument.begins_with("--bake-fps="):
             bake_fps = float(argument.get_slice("=", 1))
+        elif argument == "--packed-scene":
+            packed_scene = true
+            source_aligned = true
         elif argument == "--source-aligned":
             source_aligned = true
         elif argument == "--remove-immutable":
@@ -36,7 +40,18 @@ func review():
         fail("Missing pose oracle")
         return
     var importer = load("res://canine_import.gd")
-    var asset = importer.load_asset(expected, source_aligned, bake_fps, remove_immutable)
+    var asset
+    if packed_scene:
+        if remove_immutable:
+            fail("Packed scene has retained reset tracks; remove-immutable is incompatible")
+            return
+        var saved = load("res://canine-source-grid.scn")
+        if not saved is PackedScene:
+            fail("Missing prepared canine scene")
+            return
+        asset = saved.instantiate()
+    else:
+        asset = importer.load_asset(expected, source_aligned, bake_fps, remove_immutable)
     if asset == null:
         fail("Canine import failed")
         return
@@ -98,7 +113,7 @@ func review():
     var report = {"schema_version": 1, "godot_version": Engine.get_version_info(),
         "sample": expected.sample, "source_commit": expected.commit,
         "tolerance_cm": expected.tolerance_cm, "clips": results, "passed": passed,
-        "source_aligned": source_aligned, "bake_fps": bake_fps, "remove_immutable_tracks": remove_immutable,
+        "packed_scene": packed_scene, "source_aligned": source_aligned, "bake_fps": bake_fps, "remove_immutable_tracks": remove_immutable,
         "scope": "Headless skeletal playback; loop mode explicitly enabled; not rendered skin or visual acceptance."}
     var output = FileAccess.open("res://godot-report.json", FileAccess.WRITE)
     output.store_string(JSON.stringify(report, "  ") + "\n")
