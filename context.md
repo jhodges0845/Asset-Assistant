@@ -8,15 +8,19 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 ## Active pre-alpha direction (2026-09-21)
 
-Plan: [docs/shared-anatomy-alpha-plan.md](docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human and Quadruped now resolve shared anatomy contracts; canine motion acceptance and Avian migration remain in progress. The plan supersedes older Human-only milestone sequencing.
+Plan: [docs/shared-anatomy-alpha-plan.md](docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now resolve shared anatomy contracts; Avian shape refinement is active and final canine visual acceptance remains open. The plan supersedes older Human-only milestone sequencing.
 
 ## Shared anatomy implementation checkpoint
 
-Human and Quadruped use resolved recipes. Canine recipe 16 retains the recipe 14 surface and extends the rest rig to 19 bones with independent forepaw articulation. Distal sole weights follow each paw bone. Existing 17-bone rigs require explicit rebuilding; artist-owned data is preserved. Final motion/visual sign-off and Avian migration remain ahead. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for ownership, evidence and next work.
+Human and Quadruped use resolved recipes. Canine recipe 16 retains the recipe 14 surface and extends the rest rig to 19 bones with independent forepaw articulation. Distal sole weights follow each paw bone. Existing 17-bone rigs require explicit rebuilding; artist-owned data is preserved. Final canine motion/visual sign-off remains open; Avian recipe migration is integrated on the active work branch, with shape refinement next. See [docs/shared-anatomy-implementation.md](docs/shared-anatomy-implementation.md) for ownership, evidence and next work.
 
 Paw-review baseline: `scripts/canine_review_metrics.py` measures per-limb ground clearance and near-ground footprint hulls; `scripts/render_canine_review.py` records neutral and evaluated pose results and supports pose-stable `front-paw` / `hind-paw` close-ups. `scripts/review_canine_gait.py` samples actual walk/run actions in an isolated scene; the original baseline exposed gait penetration; contact-solved clips now pass the documented sampled checks. See the implementation checkpoint for values, limits and next priorities.
 
 Canine contact gait: `object_core/animation/contact.py` supplies stance/swing targets; `object_core/providers/quadruped_gait.py` solves joint rotations against the weighted sole, with editable root crouch and bounded vertical compression synchronized to the footfalls. Walk uses four footfalls; Run is a diagonal trot. The three documented shapes have no penetration in Blender samples over 127 intervals, with fixed-toe drift below 0.00156 cm for forepaws and 0.00006 cm for hind paws in the toe-off checkpoint. Gait reports track fixed sole/toe vertices and contiguous near-ground episodes (schema 5), separating lifted-point movement from sampled ground proximity; these remain diagnostics rather than physical contact-slip proof. The three-cycle review helper is `scripts/create_canine_motion_review.py`. All four paws add late-stance heel lift about a fixed forward toe target, then curl during swing. Reports distinguish expected sole roll from fixed-toe drift. Walk now adds bounded lateral sway toward stance support, counter-translated at the upper limbs to preserve paw contact; Idle and Run explicitly reset those offsets. Godot skeletal playback passes with diagnostic and source-grid imports; four-view renders and sampled canonical skin-contact checks pass; saved-scene skin checks and isolated resource-pack playback also pass; see `docs/canine-godot-playback.md`. Final multi-shape motion/visual acceptance remains open.
+
+## Active Avian work
+
+Avian recipe 1 preserves the existing mesh, rig, weights and clips while moving construction profiles and joint chains into the shared contract. Next: bird-specific silhouettes, wing folding and leg/foot refinement. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
 
 ## Current Human V2 integration (2026-09-20)
 
@@ -56,6 +60,7 @@ surface, surface-aligned skeleton, cached skin weights and semantic controls.
 The mathematical surface builder is internal; Human is the only Human UI option.
 
 Read next:
+- `docs/human-review-notes.md` � user feedback on glute fullness, foot shape and neck/glute deformation.
 - `object_core/context.md`
 - `docs/visual-testing-integration.md` — current behavior, defects repaired, CI timing and limits.
 - `scripts/inspect_human_deformation.py` — projected, independently verified pose cards.

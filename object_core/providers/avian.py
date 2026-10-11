@@ -7,8 +7,9 @@ from ..models import ImageTextureSpec, MaterialSpec
 from .base import Parameter
 from .semantic import SemanticTarget
 from .avian_animation import generate_avian_flight, generate_avian_idle, generate_avian_walk
-from .avian_geometry import generate_avian_deformable_mesh
-from .avian_rigging import generate_avian_skeleton, generate_avian_skin_weights
+from .avian_anatomy import AvianRecipe
+from .avian_geometry import _build_avian_mesh
+from .avian_rigging import _build_avian_skeleton, generate_avian_skin_weights
 from .avian_semantic import apply_avian_semantic_operations
 
 
@@ -77,13 +78,17 @@ class AvianProvider:
         return _dimensions(self.parameters, values)
 
     def mesh(self, values):
-        return generate_avian_deformable_mesh(self.dimensions(values))
+        return _build_avian_mesh(AvianRecipe().resolve(self.dimensions(values)))[0]
+
+    def anatomy(self, values):
+        """Return resolved anatomy with constructor-authored topology ownership."""
+        return _build_avian_mesh(AvianRecipe().resolve(self.dimensions(values)))[1]
 
     def semantic_mesh(self, mesh, values, operations):
         return apply_avian_semantic_operations(mesh, self.dimensions(values), operations)
 
     def skeleton(self, values):
-        return generate_avian_skeleton(self.dimensions(values))
+        return _build_avian_skeleton(AvianRecipe().resolve(self.dimensions(values)))
 
     def skin_weights(self, mesh, values):
         skeleton = self.skeleton(values)

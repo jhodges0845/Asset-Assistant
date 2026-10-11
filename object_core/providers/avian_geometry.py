@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Connected Avian surface generation."""
 
+from dataclasses import replace
+
+from ..anatomy import AnatomyConnection, AnatomyRegion
+from .avian_anatomy import AvianRecipe
+
 from math import cos, pi, sin, sqrt
 
 from ..models import MeshPart, ObjectMesh
@@ -26,10 +31,6 @@ def _cross(a, b):
 
 def _subtract(a, b):
     return tuple(a[i] - b[i] for i in range(3))
-
-
-def _lerp(a, b, amount):
-    return tuple(a[i] + (b[i] - a[i]) * amount for i in range(3))
 
 
 def _ring(center, width, depth, tangent):
@@ -118,107 +119,35 @@ def _project_uvs(vertices, faces):
 
 
 def generate_avian_deformable_mesh(dimensions):
-    """Return one connected low-poly Avian surface with wings, legs, feet and tail."""
-    length = dimensions["body_length_cm"]
-    width = dimensions["body_width_cm"]
-    height = dimensions["body_height_cm"]
-    wingspan = dimensions["wingspan_cm"]
-    tail_length = dimensions["tail_length_cm"]
+    """Compatibility entry point using the single Avian recipe constructor."""
+    return _build_avian_mesh(AvianRecipe().resolve(dimensions))[0]
 
-    body_z = height * 0.52
-    rear_y = -length * 0.42
-    chest_y = length * 0.30
-    neck_y = length * 0.48
-    head_y = length * 0.63
-    beak_y = length * 0.78
-    tail_base_y = -length * 0.48
-    tail_mid_y = tail_base_y - tail_length * 0.46
-    tail_tip_y = tail_base_y - tail_length
 
-    centers = (
-        (0.0, tail_tip_y, body_z + height * 0.02),
-        (0.0, tail_mid_y, body_z + height * 0.05),
-        (0.0, tail_base_y, body_z),
-        (0.0, rear_y, body_z),
-        (0.0, 0.0, body_z + height * 0.04),
-        (0.0, chest_y, body_z + height * 0.08),
-        (0.0, neck_y, body_z + height * 0.22),
-        (0.0, head_y, body_z + height * 0.31),
-        (0.0, beak_y, body_z + height * 0.26),
-    )
-    widths = (
-        width * 0.10, width * 0.18, width * 0.38, width * 0.82,
-        width, width * 0.92, width * 0.48, width * 0.60, width * 0.18,
-    )
-    depths = (
-        height * 0.10, height * 0.16, height * 0.28, height * 0.76,
-        height, height * 0.88, height * 0.46, height * 0.56, height * 0.20,
-    )
-
+def _build_avian_mesh(anatomy):
+    """Bind authored surface ownership and attachment boundaries to the recipe."""
+    points = {p.name: p.position for p in anatomy.landmarks}
     vertices, faces = [], []
-    _append_tube(vertices, faces, centers, widths, depths)
-
-    wing_level = 4
-    leg_level = 3
+    body = anatomy.tubes[0]
+    _append_tube(vertices, faces, tuple(points[n] for n in body.landmarks), body.widths, body.depths)
+    regions = [AnatomyRegion('body', 'avian', tuple(range(len(vertices))))]
     openings = {
-        "wing.left": faces[1 + wing_level * _RING_SIDES + 3],
-        "wing.right": faces[1 + wing_level * _RING_SIDES + 7],
-        "leg.left": faces[1 + leg_level * _RING_SIDES + 7],
-        "leg.right": faces[1 + leg_level * _RING_SIDES + 4],
+        "wing.left": faces[1 + 4 * _RING_SIDES + 3],
+        "wing.right": faces[1 + 4 * _RING_SIDES + 7],
+        "leg.left": faces[1 + 3 * _RING_SIDES + 7],
+        "leg.right": faces[1 + 3 * _RING_SIDES + 4],
     }
-    removed = {face for face in openings.values()}
+    removed = set(openings.values())
     faces = [face for face in faces if face not in removed]
-
-    half_span = wingspan * 0.5
-    root_x = width * 0.36
-    root_y = length * 0.08
-    root_z = body_z + height * 0.14
-    for side, sign in (("left", -1.0), ("right", 1.0)):
-        shoulder = (sign * root_x, root_y, root_z)
-        elbow = (sign * (root_x + (half_span - root_x) * 0.48), root_y - length * 0.06, root_z - height * 0.08)
-        tip = (sign * half_span, root_y - length * 0.16, root_z - height * 0.13)
-        centers_wing = (
-            shoulder,
-            _lerp(shoulder, elbow, 0.22),
-            elbow,
-            _lerp(elbow, tip, 0.20),
-            tip,
-        )
-        base = max(height * 0.20, 1.0)
-        widths_wing = (base * 1.12, base, base * 0.84, base * 0.55, base * 0.18)
-        depths_wing = (base * 0.78, base * 0.66, base * 0.54, base * 0.34, base * 0.12)
-        _append_branch(vertices, faces, openings["wing." + side], centers_wing, widths_wing, depths_wing)
-
-    # Ground-contact anatomy. The leg bends slightly forward and the foot projects
-    # along +Y so the generated bird has a readable stance before animation.
-    hip_x = width * 0.25
-    hip_y = -length * 0.04
-    hip_z = body_z - height * 0.26
-    knee_z = height * 0.28
-    ankle_z = height * 0.08
-    toe_y = hip_y + length * 0.17
-    leg_thickness = max(width * 0.12, 0.8)
-    for side, sign in (("left", -1.0), ("right", 1.0)):
-        hip = (sign * hip_x, hip_y, hip_z)
-        knee = (sign * hip_x * 1.08, hip_y + length * 0.025, knee_z)
-        ankle = (sign * hip_x * 1.02, hip_y + length * 0.055, ankle_z)
-        toe = (sign * hip_x, toe_y, ankle_z * 0.72)
-        centers_leg = (hip, _lerp(hip, knee, 0.45), knee, ankle, toe)
-        widths_leg = (
-            leg_thickness * 1.15,
-            leg_thickness,
-            leg_thickness * 0.82,
-            leg_thickness * 0.68,
-            leg_thickness * 0.42,
-        )
-        depths_leg = (
-            leg_thickness * 1.10,
-            leg_thickness * 0.92,
-            leg_thickness * 0.72,
-            leg_thickness * 0.56,
-            leg_thickness * 0.34,
-        )
-        _append_branch(vertices, faces, openings["leg." + side], centers_leg, widths_leg, depths_leg)
-
+    connections = []
+    for tube in anatomy.tubes[1:]:
+        start = len(vertices)
+        _append_branch(vertices, faces, openings[tube.name],
+                       tuple(points[n] for n in tube.landmarks), tube.widths, tube.depths)
+        regions.append(AnatomyRegion(tube.name, 'avian', tuple(range(start, len(vertices)))))
+        connections.append(AnatomyConnection('body.' + tube.name, ('body', tube.name), 'connected',
+                           (openings[tube.name], tuple(range(start, start + _RING_SIDES)))))
     vertices, faces = tuple(vertices), tuple(faces)
-    return ObjectMesh((MeshPart("avian", vertices, faces, _project_uvs(vertices, faces)),))
+    mesh = ObjectMesh((MeshPart('avian', vertices, faces, _project_uvs(vertices, faces)),))
+    bound = replace(anatomy, regions=regions, connections=connections)
+    bound.validate_mesh(mesh)
+    return mesh, bound

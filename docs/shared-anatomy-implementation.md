@@ -1442,16 +1442,43 @@ intermediate frames. Dense skin/contact and loop checks provide separate numeric
 evidence. Final visual refinement and the documented short-wide stress limitation
 remain open after this integration checkpoint.
 
+## Avian shared-recipe checkpoint (2026-10-11)
+
+At the user's direction, Avian work now proceeds before the remaining canine
+artistic sign-off. Human review feedback stays deferred in `human-review-notes.md`.
+
+`providers/avian_anatomy.py` owns Avian recipe 1: immutable surface profiles,
+rest landmarks, wing/leg/tail chains and motion roles. Geometry consumes the
+resolved profiles and binds five authored regions plus four actual 4-to-8 vertex
+attachment boundaries. Rigging consumes the resolved chains. Provider validation
+still runs before resolution; no Blender dependency or alternate provider path
+was introduced. `AvianProvider.anatomy(values)` exposes the topology-bound result.
+
+This first migration preserves the existing surface/rest-joint offsets explicitly.
+It does not imply those offsets, leg bend directions, wing shapes or stance are
+anatomically accepted. Existing semantic selection and distance-based weights are
+unchanged; later ownership-aware refinement must preserve edited-asset behavior.
+
+Default and contrasting mesh, skeleton, weights and Idle/Walk/Flight fingerprints
+match the pre-migration `76780c7` baseline exactly. The reference is committed in
+`tests/fixtures/avian_recipe1_baseline.json`. All 25 Avian core tests and 12 Avian
+Blender tests pass. New tests protect recipe immutability, complete parameter
+identity, region partitioning, real bridge faces, profile validation, and landmark
+authority over surface and adjacent bones. Ten shared-contract tests and 15
+architecture/provider-boundary tests also pass; compilation and whitespace checks
+pass. Portable golden checks round to nine decimal places to avoid insignificant
+platform math differences; the local raw before/after fingerprints match exactly.
+
 ## Next work
 
-Retain the fixed-toe limits and schema 5 reports while reviewing lateral
-weight shift across the contrasting and short-wide shapes. Inspect at least three cycles from front/side/three-quarter views and complete visual destination
-playback review and shipping-import evaluation. Preserve the now-passing sampled
-skin-contact gates while tuning. Preserve the declared stance/travel contract and sampled contact/drift
-checks while tuning. Use the new material-point baseline when choosing toe-off
-pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact remain outside the canonical generated-asset checkpoint.
+For Avian, capture neutral/perched and extended-wing review views, then align
+surface and rest-joint landmarks using bird-specific rules. Refine breast/back,
+neck/head/beak, wing roots/folding, legs/feet and tail fan with default and
+contrasting silhouettes and pose checks. Preserve Idle/Walk/Flight identities,
+semantic Modify, weights and artist ownership. Recipe 1 is a behavior-preserving
+migration baseline, not completion of the Avian anatomy milestone.
 
-After the canine motion/visual sign-off, migrate Avian through the shared layer
-using bird-specific rules, then complete cross-provider Modify acceptance and
-release hardening in the alpha plan. Do not reopen canine anatomy for additional
-species, fur or facial animation unless a concrete release blocker requires it.
+Canine final artistic review, arbitrary edited-shape/weight coverage and dense-time
+contact remain tracked follow-ups. Human fullness/foot-shape and neck/glute notes
+remain deferred at the user's request. After provider anatomy work, complete
+cross-provider Modify acceptance and alpha release hardening.

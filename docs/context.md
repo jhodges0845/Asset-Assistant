@@ -8,12 +8,12 @@ Read `human-workflow.md` for the user workflow and code ownership map.
 
 ## Active pre-alpha direction (2026-09-21)
 
-Plan: [shared-anatomy-alpha-plan.md](shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human and Quadruped now use shared resolved-anatomy contracts; canine recipe version 13 adds local front-paw toe contours, with visual refinement and Avian migration remaining. The plan supersedes older Human-only milestone sequencing.
+Plan: [shared-anatomy-alpha-plan.md](shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now use shared resolved-anatomy contracts; canine contact gait and Godot playback checks are integrated, with final canine visual acceptance open and Avian anatomy refinement active. The plan supersedes older Human-only milestone sequencing.
 
 ## Shared anatomy implementation
 
 - `anatomy-recipe-contract.md` — recipe seam and staged proof requirements.
-- `shared-anatomy-implementation.md` — current version 13 behavior and contact-driven gait integration, Blender upgrade steps, checkpoint commits, validation/review commands and remaining work.
+- `shared-anatomy-implementation.md` — current shared-anatomy behavior and contact-driven gait integration, Blender upgrade steps, checkpoint commits, validation/review commands and remaining work.
 
 ## Current Human V2 integration (2026-09-20)
 
@@ -32,6 +32,8 @@ See `human-workflow.md` for the workflow and code ownership map.
 Architecture remains frozen during Human V2 unless implementation exposes a concrete boundary problem.
 
 ## Current Human quality milestone
+
+- `human-review-notes.md` � current user feedback: glute fullness, flat/long feet, and reported neck-to-glute deformation coupling.
 
 - `human-v2-topology-plan.md` — Human V2 quality gates, semantic-control requirements and historical construction sequencing.
 - `deformation-quality.md` — deformation quality expectations; deeper rig/weight work follows topology evidence.

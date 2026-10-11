@@ -43,6 +43,10 @@ Shared machinery owns parameter validation, deterministic construction orchestra
 
 Start with typed Python contracts in a focused host-independent anatomy package; do not invent an external recipe language or plugin registry before two cross-body-plan proofs justify the anatomy seam. This anatomy work sits beneath the broader Asset Recipe direction: the eventual scalable catalog can discover recipes such as Rock, Human or Canine, while each recipe composes only the construction capabilities it needs. Static/rigid recipes do not need anatomy. Providers remain the current tested compatibility/workflow boundary during this milestone rather than becoming a one-class-per-recipe content catalog. Blender continues to consume existing mesh/skeleton/animation contracts.
 
+## Current sequencing update (2026-10-11)
+
+The user has moved Avian work ahead of final canine artistic sign-off. Avian recipe 1 now preserves existing geometry, rig, weights and clips through the shared contract; bird-specific shape and pose refinement is next. Human review feedback remains deferred. This changes work order, not the final quality gates below.
+
 ## Milestones and acceptance gates
 
 ### 1. Record the baseline and prove the shared seam

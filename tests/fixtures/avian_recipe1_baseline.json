@@ -1,0 +1,79 @@
+{
+  "source_commit": "76780c798562ef63786bc75debe3ec084d1025f2",
+  "samples": [
+    {
+      "provider": "avian",
+      "sample": "default",
+      "parameters": {
+        "body_length_cm": 42,
+        "body_width_cm": 16,
+        "body_height_cm": 20,
+        "wingspan_cm": 90,
+        "tail_length_cm": 22
+      },
+      "parts": [
+        {
+          "name": "avian",
+          "vertices": 232,
+          "faces": 226
+        }
+      ],
+      "bones": 16,
+      "fingerprints": {
+        "mesh": "9c6c26c13df3b468fc943dbb039305ad58f7d310adf8dd3f0a722ac0e1f668a9",
+        "skeleton": "83cdde7fead350f331e7a63627f250869e830448642898c63c193c6e81ec3f7a",
+        "weights": "b1e2efe12c74372d9d0a4c17ab66b41150424c1c50d8c590d92b11bd7c0f453c",
+        "clips": {
+          "idle": "1abb88a727bd4ebd6dea7a728f8cadebcd75ab3a4c81f905dd1b4e41acf8c53c",
+          "locomotion": "d61f3e1f3a779d5b7d6bce936a301adc39895e84803c95f9bd8630988f174070",
+          "flight": "16d9cfedc2757f23acc4d8f9b76af320ad05789fa11a4bf169a0fcd8b2a93a4c"
+        }
+      },
+      "portable_fingerprints": {
+        "mesh": "09cfda9432da2a0e7960a5fa7ea52a104c2fb9869cfde1bf9ba2622726fec2c0",
+        "skeleton": "0da1986c2ccee86e8384c95c45386124b18c1c1167125750c10dd24b376fd19e",
+        "weights": "2351ef0f8c145ffa20c78c0d5dd0c7c741d0846c45e288be1ec77bb91dee51ef",
+        "idle": "c0961c9bd1e1e3f0cba9b95674398509616e9d22cf56929fa033e2bf8da19d36",
+        "locomotion": "3d1cbc390cf674b6c4489b596f5f9906f34080f2610e661b0aa69fa6fbe097a6",
+        "flight": "fe9affdd17ec7b3afe4fade548bd0fcb65f72faf83fa7ce0f0dae8f3bc64be98"
+      }
+    },
+    {
+      "provider": "avian",
+      "sample": "contrasting",
+      "parameters": {
+        "body_length_cm": 55,
+        "body_width_cm": 22,
+        "body_height_cm": 28,
+        "wingspan_cm": 140,
+        "tail_length_cm": 35
+      },
+      "parts": [
+        {
+          "name": "avian",
+          "vertices": 232,
+          "faces": 226
+        }
+      ],
+      "bones": 16,
+      "fingerprints": {
+        "mesh": "9dcbfb55c2a8a2a91c0cbc11f0af4a5fc73a5671ba30fecd9de40b648895c4df",
+        "skeleton": "70a6157f8814d5936535d0293c153e7c2837bc167bef4bcd9349337bb0bb732e",
+        "weights": "e3b8027ae2f9d26ec9e899c22bd7c22aacbe7700e882bccaa46498ae35406cee",
+        "clips": {
+          "idle": "1abb88a727bd4ebd6dea7a728f8cadebcd75ab3a4c81f905dd1b4e41acf8c53c",
+          "locomotion": "d61f3e1f3a779d5b7d6bce936a301adc39895e84803c95f9bd8630988f174070",
+          "flight": "16d9cfedc2757f23acc4d8f9b76af320ad05789fa11a4bf169a0fcd8b2a93a4c"
+        }
+      },
+      "portable_fingerprints": {
+        "mesh": "2233ccedb4ccf8ac63e65489d7b7c8576a171e09c192319df75422fa86424bec",
+        "skeleton": "3c49a53a9cb03a38dd456eda0e9b59362ec75ed4e60cf7ed780db997ddcdd412",
+        "weights": "f5872c722d8043f1dcafb7de999da412f7fe54011d544e05d24fdc56312c20a4",
+        "idle": "c0961c9bd1e1e3f0cba9b95674398509616e9d22cf56929fa033e2bf8da19d36",
+        "locomotion": "3d1cbc390cf674b6c4489b596f5f9906f34080f2610e661b0aa69fa6fbe097a6",
+        "flight": "fe9affdd17ec7b3afe4fade548bd0fcb65f72faf83fa7ce0f0dae8f3bc64be98"
+      }
+    }
+  ]
+}
