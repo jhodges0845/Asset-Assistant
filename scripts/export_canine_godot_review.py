@@ -89,6 +89,7 @@ def main():
     shutil.copyfile(ROOT / 'scripts/review_canine_godot.gd', args.output / 'review.gd')
     shutil.copyfile(ROOT / 'scripts/canine_godot_import.gd', args.output / 'canine_import.gd')
     shutil.copyfile(ROOT / 'scripts/prepare_canine_godot_scene.gd', args.output / 'prepare_scene.gd')
+    shutil.copyfile(ROOT / 'scripts/package_canine_godot_review.gd', args.output / 'package_review.gd')
     shutil.copyfile(ROOT / 'scripts/render_canine_godot.gd', args.output / 'render.gd')
     shutil.copyfile(ROOT / 'scripts/review_canine_godot_surface.gd', args.output / 'surface.gd')
     if args.surface:

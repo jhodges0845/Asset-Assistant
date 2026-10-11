@@ -1404,9 +1404,24 @@ without the GLB; overwrite rejection preserves the saved scene hash. Maximum
 bone-head error remains below 0.000039 cm. Python compilation and whitespace
 checks pass. See the Godot playback guide for commands and report locations.
 
-Next integration checks are rendered skin after serialization and exported-project
-resource packaging. Editor import hooks and production performance remain open;
+Saved-scene skin and isolated PCK resource checks now pass (see the next checkpoint).
+Exported game executable checks remain open. Editor import hooks and production performance remain open;
 the existing oracle-dependent preparation is still a review helper.
+
+## Saved-scene skin and PCK checkpoint
+
+All three serialized canine scenes pass the existing Walk/Run skin-contact
+checks at 127 intervals. Minimum clearance exceeds 0.01992 cm; maximum fixed-toe
+drift is below 0.00153 cm, source toe error below 0.000044 cm and loop error below
+0.000019 cm. The default scene also passes skeletal and renderer-backed skin
+checks from an isolated PCK containing no GLB or importer scripts.
+
+The fixture exporter includes `package_review.gd`; the surface probe accepts
+`--packed-scene` and an explicit report path. Pack overwrite protection and
+unknown-option rejection pass; Python compilation and whitespace checks pass.
+See the Godot playback guide for reproducible commands and report locations.
+This validates resource packing with the installed runtime, not editor export
+presets or standalone game deployment. Visual acceptance remains open.
 
 ## Next work
 

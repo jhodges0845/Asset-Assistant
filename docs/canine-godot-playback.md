@@ -188,9 +188,45 @@ returns failure and leaves the existing scene hash unchanged. Reports are
 in `artifacts/shared-anatomy/godot-packed-standalone/`.
 
 This validates skeletal serialization and resource independence from the GLB.
-It does not yet validate rendered skin after serialization, editor import hooks,
-exported Godot project packaging, or production load performance. The helper is
+Saved-scene skin and isolated resource-pack checks are described below. Editor
+import hooks, exported game executables and production load performance remain open. The helper is
 an integration candidate, not a shipping importer.
+
+## Saved-scene skin and resource packs
+
+Run the existing skin probe against the prepared scene, with an explicit writable
+report path when desired:
+
+```powershell
+& <godot_console.exe> --path <fixture> --script surface.gd --rendering-method gl_compatibility -- --packed-scene --report-path=<absolute-report.json>
+```
+
+Walk and Run pass all existing 127-interval contact gates after serialization on
+all three shapes. Minimum whole-surface clearance exceeds 0.01992 cm, fixed-toe
+drift stays below 0.00153 cm, source toe error stays below 0.000044 cm, and loop
+error stays below 0.000019 cm. Reports are `godot-packed-surface-report.json` in
+`artifacts/shared-anatomy/godot-surface-{sample}/`. These are renderer-backed skin
+measurements, not a completed visual motion review.
+
+For a resource-pack isolation check, prepare a fixture with `--surface`, then:
+
+```powershell
+& <godot_console.exe> --headless --path <fixture> --script package_review.gd
+# Copy only canine-review.pck into an otherwise empty directory.
+& <godot_console.exe> --headless --path <empty-directory> --main-pack <absolute-pack.pck> --script res://review.gd -- --packed-scene
+& <godot_console.exe> --path <empty-directory> --main-pack <absolute-pack.pck> --script res://surface.gd --rendering-method gl_compatibility -- --packed-scene --report-path=<absolute-report.json>
+```
+
+The pack contains the prepared scene, project settings, two probes and their
+reference JSON files. It excludes the GLB and importer scripts. Packaging refuses
+to overwrite an existing pack; this failure path preserves its hash. Unknown
+surface-probe options also fail. The default pack passes skeletal playback and all skin-contact gates from
+`artifacts/shared-anatomy/godot-pck-isolated/`; its skin report is
+`godot-pck-surface-report.json`.
+
+This is a `PCKPacker` resource test using the installed Godot runtime. It does not
+exercise editor export presets, export templates, executable deployment, or
+production import performance. Those remain separate integration work.
 
 ## Still open
 

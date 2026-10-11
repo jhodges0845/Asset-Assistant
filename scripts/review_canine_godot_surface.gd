@@ -13,14 +13,32 @@ func godot_point(point):
     return Vector3(point[0], point[2], -point[1]) / 100.0
 
 func review():
-    if FileAccess.file_exists("res://godot-surface-report.json"):
-        DirAccess.remove_absolute("res://godot-surface-report.json")
+    var packed_scene = false
+    var report_path = "res://godot-surface-report.json"
+    for argument in OS.get_cmdline_user_args():
+        if argument == "--packed-scene":
+            packed_scene = true
+        elif argument.begins_with("--report-path="):
+            report_path = argument.trim_prefix("--report-path=")
+        else:
+            fail("Unknown surface probe option: " + argument)
+            return
+    if FileAccess.file_exists(report_path):
+        DirAccess.remove_absolute(report_path)
     var oracle = JSON.parse_string(FileAccess.get_file_as_string("res://surface-expected.json"))
     var expected = JSON.parse_string(FileAccess.get_file_as_string("res://expected.json"))
     if oracle == null or expected == null:
         fail("Generate a fixture with --surface first")
         return
-    var asset = load("res://canine_import.gd").load_asset(expected, true)
+    var asset
+    if packed_scene:
+        var saved = load("res://canine-source-grid.scn")
+        if not saved is PackedScene:
+            fail("Missing prepared canine scene")
+            return
+        asset = saved.instantiate()
+    else:
+        asset = load("res://canine_import.gd").load_asset(expected, true)
     if asset == null:
         fail("Surface import failed")
         return
@@ -133,11 +151,14 @@ func review():
         passed = passed and maximum_error < oracle.tolerance_cm and minimum_height >= -.001 and loop_error < .001
         cycles.append({"clip": label, "frames": frames.size(), "minimum_surface_height_cm": minimum_height,
             "maximum_toe_source_error_cm": maximum_error, "loop_error_cm": loop_error, "contacts": contacts})
-    var report = {"schema_version": 1, "passed": passed, "sample": oracle.sample,
+    var report = {"schema_version": 1, "packed_scene": packed_scene, "passed": passed, "sample": oracle.sample,
         "godot_version": Engine.get_version_info(), "renderer": RenderingServer.get_current_rendering_method(),
         "neutral_mapping_error_cm": mapping_error, "cycles": cycles,
         "scope": "Godot baked skin snapshots; four fixed toe vertices and whole-surface clearance at 127 intervals. Not continuous contact or visual acceptance."}
-    var file = FileAccess.open("res://godot-surface-report.json", FileAccess.WRITE)
+    var file = FileAccess.open(report_path, FileAccess.WRITE)
+    if file == null:
+        fail("Cannot write surface report: " + report_path)
+        return
     file.store_string(JSON.stringify(report, "  ") + "\n")
     file.close()
     print("CANINE_GODOT_SURFACE_OK " if passed else "CANINE_GODOT_SURFACE_FAILED ", oracle.sample)

@@ -39,7 +39,6 @@ func review():
     if expected == null:
         fail("Missing pose oracle")
         return
-    var importer = load("res://canine_import.gd")
     var asset
     if packed_scene:
         if remove_immutable:
@@ -51,7 +50,7 @@ func review():
             return
         asset = saved.instantiate()
     else:
-        asset = importer.load_asset(expected, source_aligned, bake_fps, remove_immutable)
+        asset = load("res://canine_import.gd").load_asset(expected, source_aligned, bake_fps, remove_immutable)
     if asset == null:
         fail("Canine import failed")
         return
