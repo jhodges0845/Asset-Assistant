@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Render Avian neutral and isolated joint review sheets in a fresh Blender process.
+"""Render Avian neutral and coordinated joint review sheets in a fresh Blender process.
 
 blender --background --factory-startup --python scripts/render_avian_review.py -- \
     --output artifacts/shared-anatomy/avian.png --pose neutral
@@ -20,10 +20,21 @@ from blender_adapter.adapter import create_character
 from scripts import render_human_review as sheets
 from scripts.anatomy_baseline import SAMPLES
 
-POSES = {'wing-root': ('wing.upper.left', 'x', .4),
+ISOLATED_POSES = {'wing-root': ('wing.upper.left', 'x', .4),
          'wing-elbow': ('wing.lower.left', 'z', .7),
          'hip': ('leg.upper.left', 'x', .4),
          'ankle': ('foot.left', 'x', .4)}
+
+POSES = {name: (rotation,) for name, rotation in ISOLATED_POSES.items()}
+# Diagnostic local-Z sweep: upper wings sweep back; elbows return the tips.
+# This is not yet a production perched posture or an animation offset.
+POSES['wing-fold'] = (
+    ('wing.upper.left', 'z', 1.15),
+    ('wing.lower.left', 'z', -2.0),
+    ('wing.upper.right', 'z', -1.15),
+    ('wing.lower.right', 'z', 2.0),
+)
+
 
 
 def evaluated_points(body):
@@ -42,7 +53,7 @@ def review_part(values, pose):
     skeleton = provider.skeleton(values)
     report = {'parameters': values, 'recipe_version': anatomy.recipe_version,
               'pose': pose, 'vertices': mesh.vertex_count, 'faces': mesh.face_count,
-              'bones': len(skeleton.bones), 'scope': 'Isolated diagnostic pose, not a flight or perched acceptance test.'}
+              'bones': len(skeleton.bones), 'scope': 'Diagnostic pose, not a flight or perched acceptance test.'}
     points = mesh.parts[0].vertices
     if pose != 'neutral':
         root = create_character(mesh, scene=bpy.context.scene, skeleton=skeleton,
@@ -50,14 +61,21 @@ def review_part(values, pose):
         body = next(o for o in root.children if o.type == 'MESH')
         rig = next(o for o in root.children if o.type == 'ARMATURE')
         before = evaluated_points(body)
-        name, axis, angle = POSES[pose]
-        bone = rig.pose.bones[name]
-        bone.rotation_mode = 'XYZ'
-        setattr(bone.rotation_euler, axis, angle)
+        for name, axis, angle in POSES[pose]:
+            bone = rig.pose.bones[name]
+            bone.rotation_mode = 'XYZ'
+            setattr(bone.rotation_euler, axis, angle)
         points = evaluated_points(body)
-        report['bone'] = name
-        report['rotation_axis'] = axis
-        report['rotation_radians'] = angle
+        report['rotations'] = [dict(bone=name, axis=axis, radians=angle)
+                               for name, axis, angle in POSES[pose]]
+        if pose in ISOLATED_POSES:
+            name, axis, angle = ISOLATED_POSES[pose]
+            report.update(bone=name, rotation_axis=axis, rotation_radians=angle)
+        wing_indices = [i for r in anatomy.regions if r.name.startswith('wing.')
+                        for i in r.vertex_indices]
+        report['wing_span_cm'] = {
+            label: max(vertices[i][0] for i in wing_indices) - min(vertices[i][0] for i in wing_indices)
+            for label, vertices in (('neutral', before), ('posed', points))}
         report['region_max_displacement_cm'] = {
             r.name: max(sum((points[i][a] - before[i][a]) ** 2 for a in range(3)) ** .5
                         for i in r.vertex_indices) for r in anatomy.regions}

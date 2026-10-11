@@ -1561,9 +1561,29 @@ folded/perched posture remains unfinished. All 33 Avian core and 13 Blender test
 profile symmetry, unchanged surrounding geometry/rig and deformation locality.
 Compilation and whitespace checks pass.
 
+## Avian coordinated-fold diagnostic checkpoint
+
+The review helper now accepts `--pose wing-fold`, applying mirrored local-Z
+rotations to both upper and lower wing bones. Pose reports list all four rotations
+and neutral/posed wing spans; existing single-joint report fields remain supported.
+This is a diagnostic preset only: recipe 4 and production Idle/Walk/Flight are unchanged.
+
+Blender 5.2.1 evaluation reduces default span from 90.16258 to 56.13675 cm and
+contrasting span from 140.17737 to 85.81793 cm. Both shapes have symmetric wing
+displacement and zero measured body/leg movement. The regression requires span
+below 65% of neutral and non-wing displacement below 0.00001 cm. All 33 Avian core
+and 14 Blender tests pass, including animation and export checks.
+
+The inspected overhead render is `artifacts/shared-anatomy/avian4-fold-top.png`
+(with adjacent JSON); reproduce using the earlier top-view command with
+`--pose wing-fold`. It reveals outward-flaring tips and angular shoulder/elbow
+transitions. It does not establish collision clearance or a finished perched
+silhouette. A compact fold, shoulder refinement, contrasting visual review and
+intersection diagnostics remain open; grounded stance is still unfinished.
+
 ## Next work
 
-For Avian, develop coordinated wing folding/perched poses on the broader wing
+For Avian, refine the coordinated fold diagnostic into compact folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint
 landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,

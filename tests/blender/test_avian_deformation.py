@@ -149,6 +149,22 @@ class AvianDeformationTests(unittest.TestCase):
                         bone.rotation_euler = (0, 0, 0)
                         bpy.context.view_layer.update()
 
+    def test_coordinated_fold_reduces_span_without_moving_body_or_legs(self):
+        from scripts.render_avian_review import review_part
+        provider = get_provider('avian')
+        defaults = {f.key: f.default for f in provider.parameters}
+        for values in (defaults, dict(defaults, body_length_cm=55, body_width_cm=22,
+                                      body_height_cm=28, wingspan_cm=140, tail_length_cm=35)):
+            with self.subTest(values=values):
+                part, report = review_part(values, 'wing-fold')
+                spans = report['wing_span_cm']
+                self.assertLess(spans['posed'], spans['neutral'] * .65)
+                movement = report['region_max_displacement_cm']
+                for region in ('body', 'leg.left', 'leg.right'):
+                    self.assertLess(movement[region], .00001)
+                self.assertAlmostEqual(movement['wing.left'], movement['wing.right'], places=5)
+                self.assertEqual(len(report['rotations']), 4)
+
     def test_wing_root_blends_with_spine_instead_of_hinging_as_a_rigid_seam(self):
         wing_group = self.avian.vertex_groups.get("wing.upper.left")
         spine_group = self.avian.vertex_groups.get("spine")
