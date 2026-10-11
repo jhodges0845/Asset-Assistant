@@ -1,16 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Wing profile changes preserve the surrounding bird and rest rig."""
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 from math import isfinite
 from pathlib import Path
 import unittest
 
 from object_core.objects import get_provider
+from object_core.models import ObjectMesh
 
 
 class AvianWingShapeTests(unittest.TestCase):
-    def test_wing_refinement_preserves_topology_nonwing_vertices_and_rig(self):
+    def test_attachment_refinement_preserves_nonwing_vertices_and_rest_bones(self):
         samples = json.loads((Path(__file__).parents[1] / 'fixtures/avian_wing_shape_baseline.json').read_text())
         provider = get_provider('avian')
         for name, sample in samples.items():
@@ -22,8 +23,15 @@ class AvianWingShapeTests(unittest.TestCase):
                 for actual, expected in zip((mesh.parts[0].vertices[i] for i in indices), sample['nonwing_vertices']):
                     for a, b in zip(actual, expected):
                         self.assertAlmostEqual(a, b, places=9)
-                self.assertEqual([list(f) for f in mesh.parts[0].faces], sample['faces'])
-                self.assertEqual(json.loads(json.dumps(asdict(provider.skeleton(sample['parameters'])))), sample['skeleton'])
+                self.assertEqual(mesh.vertex_count, 232)
+                self.assertEqual(mesh.face_count, 226)
+                # An older generated cage must not receive recipe-5 weights.
+                old_part = replace(mesh.parts[0], faces=tuple(tuple(f) for f in sample['faces']))
+                with self.assertRaisesRegex(ValueError, 'authored topology'):
+                    provider.skin_weights(ObjectMesh((old_part,)), sample['parameters'])
+                bones = json.loads(json.dumps(asdict(provider.skeleton(sample['parameters']))))['bones']
+                self.assertEqual([b for b in bones if not b['name'].startswith('wing.')],
+                                 [b for b in sample['skeleton']['bones'] if not b['name'].startswith('wing.')])
 
     def test_wing_middle_is_broad_thin_and_tapers_to_tip(self):
         provider = get_provider('avian')

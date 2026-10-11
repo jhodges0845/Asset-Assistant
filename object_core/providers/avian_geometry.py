@@ -81,6 +81,11 @@ def _append_branch(vertices, faces, root, centers, widths, depths):
         raise ValueError("branch root must contain four vertices")
     rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True)
     first = rings[0]
+    # Match perimeter phase without reversing the tube's outward winding.
+    phase = min(range(_RING_SIDES), key=lambda offset: sum(
+        sum((vertices[root[i]][axis] - vertices[first[(2 * i + offset) % _RING_SIDES]][axis]) ** 2
+            for axis in range(3)) for i in range(4)))
+    first = first[phase:] + first[:phase]
     for index in range(4):
         root_start = root[index]
         root_end = root[(index + 1) % 4]
@@ -131,10 +136,10 @@ def _build_avian_mesh(anatomy):
     _append_tube(vertices, faces, tuple(points[n] for n in body.landmarks), body.widths, body.depths)
     regions = [AnatomyRegion('body', 'avian', tuple(range(len(vertices))))]
     openings = {
-        "wing.left": faces[1 + 4 * _RING_SIDES + 3],
-        "wing.right": faces[1 + 4 * _RING_SIDES + 7],
-        "leg.left": faces[1 + 3 * _RING_SIDES + 7],
-        "leg.right": faces[1 + 3 * _RING_SIDES + 4],
+        "wing.left": faces[1 + 4 * _RING_SIDES + 0],
+        "wing.right": faces[1 + 4 * _RING_SIDES + 3],
+        "leg.left": faces[1 + 3 * _RING_SIDES + 6],
+        "leg.right": faces[1 + 3 * _RING_SIDES + 5],
     }
     removed = set(openings.values())
     faces = [face for face in faces if face not in removed]

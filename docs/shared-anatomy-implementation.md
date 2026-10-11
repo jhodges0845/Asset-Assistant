@@ -1606,10 +1606,39 @@ baselines; the initial render JSON preceded that baseline precision correction.
 Synthetic crossing, separated and adjacent-face checks pass along with all 15
 Avian Blender tests. Recipe, generated geometry and production clips are unchanged.
 
+## Avian attachment repair (recipe 5)
+
+The crossing investigation found opposite-side wing openings and asymmetric leg
+openings in the inherited constructor. Recipe 5 connects each branch to its own
+side of the torso and aligns the bridge perimeter phase without reversing winding.
+Wing shoulders now sit outside the torso (bounded inside the available wing span),
+with surface and rig still consuming the same landmarks. This removes detected
+neutral wing/bridge crossings for both default and contrasting reference shapes.
+
+Vertex/face counts remain 232/226; non-wing vertices, non-wing rest bones and
+production clips are preserved. Face connectivity, wing geometry/rest bones,
+UVs and computed weights change. Older topology is explicitly rejected by the
+weight generator; existing assets require explicit regeneration/rebuilding rather
+than silent migration. Closed, consistently oriented topology and side-local
+attachment tests supplement the preservation and ownership checks.
+
+Default source-neutral crossings drop from 101 to 46; all remaining pairs involve
+leg geometry or leg bridges. The contrasting compact pose still has 70 pairs
+versus 46 in evaluated neutral, including 24 new pairs. It is not accepted.
+The inspected `avian5-neutral-top.png` and contrasting `avian5-compact-top.png`
+under `artifacts/shared-anatomy/` show the repaired shoulders and remaining folded
+overlap. The original broad fold diagnostic now uses elbow angles of +/-2.1
+radians to retain its span-reduction gate with exterior shoulders; the compact
+preset remains unchanged. All 34 focused core, 455 full core and 16 Avian Blender
+tests pass. Changed Python files compile and whitespace checks pass.
+
 ## Next work
 
-For Avian, diagnose and repair neutral non-adjacent surface crossings and the compact-fold
-body overlap, then refine folding/perched poses on the broader wing
+For Avian, repair the remaining leg/bridge neutral crossings and establish grounded
+leg/foot anatomy. The inherited surface hip-to-knee path first rises (default
+Z 5.2 to 5.6 cm) before descending to the ankle, with thick, closely spaced
+upper-leg rings; investigate that reversal and the broad underside bridges.
+Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint
 landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,

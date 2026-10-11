@@ -31,9 +31,9 @@ POSES = {name: (rotation,) for name, rotation in ISOLATED_POSES.items()}
 # This is not yet a production perched posture or an animation offset.
 POSES['wing-fold'] = (
     ('wing.upper.left', 'z', 1.15),
-    ('wing.lower.left', 'z', -2.0),
+    ('wing.lower.left', 'z', -2.1),
     ('wing.upper.right', 'z', -1.15),
-    ('wing.lower.right', 'z', 2.0),
+    ('wing.lower.right', 'z', 2.1),
 )
 
 POSES['wing-fold-compact'] = (

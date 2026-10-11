@@ -76,6 +76,22 @@ class AvianRecipeTests(unittest.TestCase):
             bridges = [f for f in mesh.parts[0].faces if root.intersection(f) and ring.intersection(f)]
             self.assertEqual(len(bridges), 8)
 
+    def test_attachments_stay_on_their_side_and_mesh_is_closed_and_oriented(self):
+        from collections import Counter
+        for values in (self.values, dict(self.values, body_width_cm=22, wingspan_cm=140,
+                                         body_length_cm=55, body_height_cm=28, tail_length_cm=35)):
+            mesh = self.provider.mesh(values)
+            anatomy = self.provider.anatomy(values)
+            part = mesh.parts[0]
+            for connection in anatomy.connections:
+                sign = -1 if connection.regions[1].endswith('.left') else 1
+                self.assertTrue(all(sign * part.vertices[i][0] >= -1e-10
+                                    for i in connection.boundaries[0]))
+            edges = Counter((a, b) for face in part.faces
+                            for a, b in zip(face, face[1:] + face[:1]))
+            self.assertTrue(all(count == 1 and edges[b, a] == 1
+                                for (a, b), count in edges.items()))
+
     def test_resolved_surface_landmark_drives_constructor(self):
         name = self.anatomy.tubes[1].landmarks[2]
         moved = replace(self.anatomy, landmarks=tuple(
