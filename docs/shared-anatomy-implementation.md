@@ -1752,10 +1752,35 @@ and export. Changed source files compile and whitespace checks pass. Older
 assets require explicit regeneration for the new topology. Full-suite testing
 has not been repeated at this checkpoint.
 
+## Avian stance proportions (recipe 11)
+
+A recipe-owned support lift raises the torso, wings, tail and axial rest rig by
+22% of body height (4.4 cm default; 6.16 cm contrasting), preserving their local
+shapes. Hips and knees rise while ankle/ball placement remains fixed, giving the
+support chain more room beneath the body. Default hip/knee heights are now
+6.4/4.0 cm versus 2.4/1.8 cm; ankle height remains 0.8 cm. The leg collar uses the
+opposite bridge diagonal to prevent the broad attachment from cutting across
+the extended upper leg. No global Human or shared primitive settings change.
+
+Both reference neutral meshes retain zero detected non-adjacent crossings and
+15 ground-contact vertices per foot within 0.00001 cm of Z=0. Contact extents
+remain approximately 1.7255/6.7410 cm default and 2.4157/8.8275 cm contrasting.
+Vertex/face counts remain 312/326, but leg bridge connectivity, geometry, UVs,
+rest skeleton and regenerated weights change. Explicit regeneration/rebuilding
+is required for older assets. Production animation keys remain unchanged;
+stance geometry does not establish animated foot contact.
+
+The review helper now supports `--view side` with camera framing validation.
+Artifacts: `artifacts/shared-anatomy/avian11-side.png` and evaluated reports
+`avian11-feet-{default,contrasting}.json`. All 40 focused core and 16 Avian Blender
+tests pass, including body/axial shape preservation under translation, support
+clearance, contact, crossings, topology, deformation and export. The full suite
+has not been rerun at this checkpoint.
+
 ## Next work
 
-For Avian, refine leg proportions and review support-chain
-motion and solve gait contact against the new soles.
+For Avian, review support-chain motion and solve gait contact against the new
+soles; retain visual review of the taller stance across additional shapes.
 Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint

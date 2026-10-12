@@ -11,7 +11,7 @@ from object_core.models import ObjectMesh
 
 
 class AvianWingShapeTests(unittest.TestCase):
-    def test_attachment_refinement_preserves_body_vertices_and_axial_rest_bones(self):
+    def test_attachment_refinement_preserves_body_shape_and_axial_rig_under_vertical_lift(self):
         samples = json.loads((Path(__file__).parents[1] / 'fixtures/avian_wing_shape_baseline.json').read_text())
         provider = get_provider('avian')
         for name, sample in samples.items():
@@ -20,7 +20,10 @@ class AvianWingShapeTests(unittest.TestCase):
                 anatomy = provider.anatomy(sample['parameters'])
                 indices = [i for r in anatomy.regions if r.name == 'body' for i in r.vertex_indices]
                 self.assertEqual(len(indices), 72)
+                lift = mesh.parts[0].vertices[0][2] - sample['nonwing_vertices'][0][2]
+                self.assertGreater(lift, 0)
                 for actual, expected in zip((mesh.parts[0].vertices[i] for i in indices), sample['nonwing_vertices'][:72]):
+                    expected = (expected[0], expected[1], expected[2] + lift)
                     for a, b in zip(actual, expected):
                         self.assertAlmostEqual(a, b, places=9)
                 self.assertEqual(mesh.vertex_count, 312)
@@ -30,8 +33,14 @@ class AvianWingShapeTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'authored topology'):
                     provider.skin_weights(ObjectMesh((old_part,)), sample['parameters'])
                 bones = json.loads(json.dumps(asdict(provider.skeleton(sample['parameters']))))['bones']
-                self.assertEqual([b for b in bones if not b['name'].startswith(('wing.', 'leg.', 'foot.'))],
-                                 [b for b in sample['skeleton']['bones'] if not b['name'].startswith(('wing.', 'leg.', 'foot.'))])
+                expected_bones = [b for b in sample['skeleton']['bones'] if not b['name'].startswith(('wing.', 'leg.', 'foot.'))]
+                for actual, expected in zip([b for b in bones if not b['name'].startswith(('wing.', 'leg.', 'foot.'))], expected_bones):
+                    self.assertEqual(actual['name'], expected['name'])
+                    self.assertEqual(actual['parent'], expected['parent'])
+                    for endpoint in ('head', 'tail'):
+                        for axis in range(3):
+                            self.assertAlmostEqual(actual[endpoint][axis], expected[endpoint][axis] + (lift if axis == 2 else 0))
+
 
     def test_wing_middle_is_broad_thin_and_tapers_to_tip(self):
         provider = get_provider('avian')

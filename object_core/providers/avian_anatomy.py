@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 10: tapered claws on connected grounded toes.
+"""Avian recipe 11: taller support chains beneath a raised torso.
 
 Wing and leg surface centerlines and rest chains share landmark identities.
 Body and tail rest offsets remain explicit.
@@ -62,6 +62,11 @@ def _lerp(a, b, amount):
     return tuple(a[i] + (b[i] - a[i]) * amount for i in range(3))
 
 
+def _support_lift(height):
+    """Give the grounded support chain room beneath the unchanged torso profile."""
+    return height * .22
+
+
 def _surface_profiles(dimensions):
     landmarks = []
 
@@ -76,7 +81,8 @@ def _surface_profiles(dimensions):
     wingspan = dimensions["wingspan_cm"]
     tail_length = dimensions["tail_length_cm"]
 
-    body_z = height * 0.52
+    support_lift = _support_lift(height)
+    body_z = height * 0.52 + support_lift
     rear_y = -length * 0.42
     chest_y = length * 0.30
     neck_y = length * 0.48
@@ -136,8 +142,8 @@ def _surface_profiles(dimensions):
     # Construction flattens the plantar arc of the ankle/toe rings to ground.
     hip_x = width * 0.15
     hip_y = -length * 0.20
-    hip_z = height * 0.12
-    knee_z = height * 0.09
+    hip_z = height * 0.10 + support_lift
+    knee_z = height * 0.09 + support_lift * .5
     ankle_z = height * 0.04
     ball_y = hip_y + length * 0.10
     leg_thickness = min(max(width * 0.12, 0.8), height * 0.07)
@@ -176,7 +182,8 @@ def _rest_segments(dimensions, landmarks, tubes):
     height = dimensions["body_height_cm"]
     tail_length = dimensions["tail_length_cm"]
 
-    body_z = height * 0.56
+    support_lift = _support_lift(height)
+    body_z = height * 0.56 + support_lift
     rear_y = -length * 0.34
     chest_y = length * 0.28
     neck_y = length * 0.48
@@ -184,7 +191,7 @@ def _rest_segments(dimensions, landmarks, tubes):
     tail_base_y = -length * 0.48
 
     bones = [
-        _segment("root", (0, 0, height * 0.22), (0, 0, body_z)),
+        _segment("root", (0, 0, height * 0.22 + support_lift), (0, 0, body_z)),
         _segment("spine", (0, rear_y, body_z), (0, chest_y, body_z + height * 0.06), "root"),
         _segment("neck", (0, chest_y, body_z + height * 0.06), (0, neck_y, body_z + height * 0.22), "spine"),
         _segment("head", (0, neck_y, body_z + height * 0.22), (0, head_y, body_z + height * 0.30), "neck"),
@@ -222,7 +229,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '10'
+    recipe_version = '11'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.

@@ -33,7 +33,7 @@ class AvianRecipeTests(unittest.TestCase):
         self.values = {p.key: p.default for p in self.provider.parameters}
         self.anatomy = AvianRecipe().resolve(self.provider.dimensions(self.values))
 
-    def test_preserves_clips_and_axial_rest_bones(self):
+    def test_preserves_clips_and_axial_rest_shape(self):
         baseline = json.loads((Path(__file__).parents[1] / 'fixtures/avian_recipe1_baseline.json').read_text())
         for sample in baseline['samples']:
             with self.subTest(sample=sample['sample']):
@@ -45,10 +45,15 @@ class AvianRecipeTests(unittest.TestCase):
                              for name in ('idle', 'locomotion', 'flight')})
                 self.assertEqual({k: sample['portable_fingerprints'][k] for k in data},
                                  {k: portable_fingerprint(v) for k, v in data.items()})
+                lift = skeleton.bones[0].head[2] - sample['nonwing_bones']['root']['head'][2]
                 for bone in skeleton.bones:
                     if not bone.name.startswith(('wing.', 'leg.', 'foot.')):
-                        self.assertEqual(sample['nonwing_bones'][bone.name],
-                                         json.loads(json.dumps(asdict(bone))))
+                        expected = sample['nonwing_bones'][bone.name]
+                        self.assertEqual(bone.parent, expected['parent'])
+                        for endpoint in ('head', 'tail'):
+                            for axis in range(3):
+                                self.assertAlmostEqual(getattr(bone, endpoint)[axis],
+                                    expected[endpoint][axis] + (lift if axis == 2 else 0))
                 self.assertEqual(sample['bones'], len(skeleton.bones))
 
     def test_resolution_is_immutable_deterministic_and_parameter_complete(self):
@@ -142,6 +147,15 @@ class AvianRecipeTests(unittest.TestCase):
             for i, name in enumerate(chain.bones):
                 self.assertEqual(bones[name].head, points[chain.landmarks[i]])
                 self.assertEqual(bones[name].tail, points[chain.landmarks[i + 1]])
+
+    def test_support_chain_has_room_below_raised_torso(self):
+        points = {p.name: p.position for p in self.anatomy.landmarks}
+        for side in ('left', 'right'):
+            tube = next(t for t in self.anatomy.tubes if t.name == 'leg.' + side)
+            hip, knee, ankle = (points[tube.landmarks[i]] for i in (0, 2, 3))
+            self.assertGreater(hip[2], self.values['body_height_cm'] * .30)
+            self.assertGreater(knee[2] - ankle[2], self.values['body_height_cm'] * .15)
+            self.assertLess(ankle[2], self.values['body_height_cm'] * .05)
 
     def test_feet_have_finite_grounded_soles_without_penetration(self):
         for values in (self.values, dict(self.values, body_length_cm=55, body_width_cm=22,

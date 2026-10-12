@@ -192,8 +192,14 @@ def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_wid
         ring_start = first[(2 * index) % _RING_SIDES]
         ring_mid = first[(2 * index + 1) % _RING_SIDES]
         ring_end = first[(2 * index + 2) % _RING_SIDES]
-        faces.append((root_start, root_end, ring_end))
-        faces.append((root_start, ring_end, ring_mid, ring_start))
+        if stable_width:
+            # Put the diagonal on the ring-side half of the broad leg collar;
+            # the opposite diagonal can cut through a descending upper leg.
+            faces.append((root_start, root_end, ring_end, ring_mid))
+            faces.append((root_start, ring_mid, ring_start))
+        else:
+            faces.append((root_start, root_end, ring_end))
+            faces.append((root_start, ring_end, ring_mid, ring_start))
 
 
 def _project_uvs(vertices, faces):

@@ -116,7 +116,7 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
     parser.add_argument('--pose', choices=('neutral',) + tuple(POSES), default='neutral')
-    parser.add_argument('--view', choices=('four-view', 'top', 'feet'), default='four-view')
+    parser.add_argument('--view', choices=('four-view', 'top', 'feet', 'side'), default='four-view')
     parser.add_argument('--samples', type=int, default=8)
     parser.add_argument('--resolution-x', type=int, default=1600)
     parser.add_argument('--resolution-y', type=int, default=600)
@@ -137,7 +137,7 @@ def main():
         part = MeshPart('avian-feet', part.vertices,
                         tuple(face for face in part.faces if set(face) <= leg_indices))
     material = sheets._configure_scene(args, part)
-    if args.view in ('top', 'feet'):
+    if args.view in ('top', 'feet', 'side'):
         # Reuse the review material/render setup, then frame one overhead bird.
         scene = bpy.context.scene
         body = next(o for o in scene.objects if o.type == 'MESH')
@@ -165,6 +165,13 @@ def main():
             camera.rotation_euler = (Vector(center) - camera.location).to_track_quat('-Z', 'Y').to_euler()
             camera.data.ortho_scale = span * 1.7
             report['framing'] = 'Isolated leg surfaces; torso, wings and attachment bridges hidden for foot inspection.'
+        elif args.view == 'side':
+            from mathutils import Vector
+            camera.location = (high[0] + max(width, depth) * 2, center[1], center[2])
+            camera.rotation_euler = (Vector(center) - camera.location).to_track_quat('-Z', 'Y').to_euler()
+            camera.data.ortho_scale = max(depth, (high[2] - low[2]) * args.resolution_x / args.resolution_y) * 1.12
+            bpy.context.view_layer.update()
+            sheets._validate_camera_frame(camera, [body], scene)
         else:
             sheets._validate_camera_frame(camera, [body], scene)
     report['view'] = args.view
