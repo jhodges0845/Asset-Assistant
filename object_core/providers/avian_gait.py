@@ -30,7 +30,9 @@ def generate_contact_walk(duration, strength, parameters):
     bones = {bone.name: bone for bone in provider.skeleton(values).bones}
     regions = {region.name: region for region in anatomy.regions}
     height = values['body_height_cm']
-    crouch = height * .04 * strength
+    # Larger steps need clearance, not proportionally deeper hip compression.
+    # Saturating crouch avoids folding the upper leg into its body attachment.
+    crouch = height * .04 * min(strength, 1.)
     schedules = contact_schedule(duration, strength, height)
     tracks = []
     samples = 128

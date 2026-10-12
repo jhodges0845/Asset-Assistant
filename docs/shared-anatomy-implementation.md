@@ -1874,6 +1874,38 @@ Validation: 42 Avian core tests, 13 shared stance/review metric tests and 19 Avi
 Blender integration tests pass, including both shapes and three strengths,
 coordinate-edited foot ownership, action switching and GLB/FBX export coverage.
 
+## Avian full-cycle deformation checkpoint (2026-10-12)
+
+Schema 3 of `review_avian_gait.py` records non-adjacent surface crossings at every
+sample, with neutral pairs and newly introduced pairs distinguished. This exposed
+an upper-leg/body-attachment crossing missed by the earlier swing snapshot:
+strength 2 produced 37 affected samples on the default bird and 34 on the
+contrasting bird (127 intervals). Lower strengths were clear.
+
+Walk now caps crouch at its strength-1 depth (4% of body height). Stride and swing
+lift still scale with strength. This removes excessive hip compression without
+reducing the larger step. Both shapes at strengths 0.1, 1 and 2 have zero detected
+crossing pairs over all 128 samples. At strength 2, minimum foot clearance is
+0.019943 cm default / 0.019926 cm contrasting; maximum reference stance drift is
+0.000419 / 0.000596 cm. Normal-strength behavior is unchanged. Regenerate Walk
+to adopt this change; no further geometry, rig or weight migration is required.
+Reports: `artifacts/shared-anatomy/avian12-full-{default,contrasting}-{0.1,1.0,2.0}.json`.
+
+`scripts/create_avian_motion_review.py` reuses the existing canine scene builder
+to save editable four-view, three-cycle Walk scenes at 25 fps. `--stills` writes
+phases 0, 0.325, 0.5 and 0.825; `--render` writes an MP4. Default and contrasting
+scenes and phase sheets are under `artifacts/shared-anatomy/avian12-cycle-*`;
+a contrasting video is also available. Inspected full-body phase sheets retain
+intact silhouettes but expose the intentionally stationary upper body and extended
+wings. These overview sheets are not sufficient for fine joint inspection or final
+motion acceptance. Compact folding and later body follow-through remain ahead.
+
+Validation: 42 Avian core and 19 Avian Blender tests pass, including the six-case
+crossing/contact gate, action switching and GLB/FBX export. Both Avian review
+scenes generate; the original canine review builder also passes its scene-generation
+smoke check. Surface crossing detection excludes shared-vertex faces, containment,
+coplanar contact and between-sample extremes; it is not a collision-free proof.
+
 ## Next work
 
 For Avian, visually review the contact-solved Walk and taller stance across additional

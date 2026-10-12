@@ -22,27 +22,29 @@ from blender_adapter.animation import add_locomotion, add_run
 from scripts import render_human_review as sheets
 
 
-def main():
+def main(provider_key="quadruped"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--gait', choices=('walk', 'run'), default='walk')
-    parser.add_argument('--sample', choices=('default', 'contrasting', 'short-wide'), default='default')
+    parser.add_argument('--gait', choices=('walk', 'run') if provider_key == 'quadruped' else ('walk',), default='walk')
+    parser.add_argument('--sample', choices=('default', 'contrasting', 'short-wide') if provider_key == 'quadruped' else ('default', 'contrasting'), default='default')
     parser.add_argument('--render', action='store_true')
+    parser.add_argument('--stills', action='store_true', help='Render four cycle phase PNGs')
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     if args.output.suffix.lower() != '.blend':
         parser.error('--output must end in .blend')
-    provider = get_provider('quadruped')
+    provider = get_provider(provider_key)
+    label = 'Canine' if provider_key == 'quadruped' else 'Avian'
     values = {p.key:p.default for p in provider.parameters}
     if args.sample == 'contrasting':
-        values.update(body_length_cm=95, shoulder_height_cm=40, body_width_cm=28,
-                      head_length_cm=30, tail_length_cm=50)
+        from scripts.anatomy_baseline import SAMPLES
+        values.update(SAMPLES[provider_key])
     elif args.sample == 'short-wide':
         values.update(body_length_cm=25, shoulder_height_cm=15, body_width_cm=55,
                       head_length_cm=8, tail_length_cm=5)
     mesh = provider.mesh(values)
     part = mesh.parts[0]
     meters = MeshPart(part.name, tuple(tuple(c*.01 for c in v) for v in part.vertices), part.faces)
-    scene = bpy.data.scenes.new('Canine three-cycle review')
+    scene = bpy.data.scenes.new(label+' three-cycle review')
     bpy.context.window.scene = scene
     material = sheets._configure_scene(SimpleNamespace(resolution_x=1200, resolution_y=500, samples=4), meters)
     placeholders = [o for o in scene.objects if o.type == 'MESH']
@@ -52,10 +54,10 @@ def main():
     scene.frame_start = 1
     # 25 fps represents both canonical cycle lengths in whole frames.
     for placeholder in placeholders:
-        root = create_character(mesh, name='Canine '+placeholder.name.removeprefix('Human '),
+        root = create_character(mesh, name=label+' '+placeholder.name.removeprefix('Human '),
                                 scene=scene, skeleton=provider.skeleton(values),
                                 skin_weights=provider.skin_weights(mesh, values))
-        root['object_type'] = 'quadruped'
+        root['object_type'] = provider_key
         for key,value in values.items():
             root[key] = value
         (add_locomotion if args.gait == 'walk' else add_run)(root, scene, duration, 1.)
@@ -91,7 +93,17 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=str(args.output.resolve()))
     if args.render:
         bpy.ops.render.render(animation=True)
-    print('CANINE_MOTION_REVIEW_OK', args.output)
+    if args.stills:
+        if hasattr(scene.render.image_settings, 'media_type'):
+            scene.render.image_settings.media_type = 'IMAGE'
+        scene.render.image_settings.file_format = 'PNG'
+        for index, phase in enumerate((0., .325, .5, .825)):
+            from math import floor
+            frame = 1 + duration * scene.render.fps * phase
+            scene.frame_set(floor(frame), subframe=frame-floor(frame))
+            scene.render.filepath = str(args.output.with_name(args.output.stem+f'-phase-{index}.png').resolve())
+            bpy.ops.render.render(write_still=True)
+    print(label.upper()+'_MOTION_REVIEW_OK', args.output)
 
 
 if __name__ == '__main__':

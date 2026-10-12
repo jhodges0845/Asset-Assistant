@@ -40,6 +40,9 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
     from object_core.providers.avian_gait import contact_schedule
     from scripts.canine_review_metrics import stance_material_motion
     schedules = contact_schedule(duration, strength, values['body_height_cm']) if clip == 'walk' else {}
+    from scripts.avian_review_metrics import surface_crossings
+    neutral_crossings = surface_crossings(mesh.parts[0].vertices, mesh.parts[0].faces)
+    neutral_pairs = set(neutral_crossings)
     previous = bpy.context.window.scene
     kinds = ('objects', 'meshes', 'armatures', 'collections', 'actions', 'materials')
     before = {kind: set(getattr(bpy.data, kind)) for kind in kinds}
@@ -74,7 +77,10 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
                 first = points
             displacement = max(sum((a-b)**2 for a,b in zip(p,q))**.5 for p,q in zip(first,points))
             maximum_motion = max(maximum_motion, displacement)
+            crossings = surface_crossings(points, mesh.parts[0].faces)
             rows.append(dict(phase=sample/intervals, frame=frame,
+                surface_crossings=crossings,
+                new_surface_crossings=sorted(set(crossings)-neutral_pairs),
                 feet={name: dict(minimum_z_cm=min(points[i][2] for i in indices),
                     fixed_sole_positions_cm=[points[i] for i in soles[name]]) for name,indices in feet.items()}))
         summary = {}
@@ -103,6 +109,10 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
         return dict(clip=clip, parameters=values, recipe_version=anatomy.recipe_version,
                     duration=duration, strength=strength, intervals=intervals, ground_tolerance_cm=.02,
                     fixed_sole_indices=soles, maximum_surface_motion_cm=maximum_motion,
+                    neutral_surface_crossings=neutral_crossings,
+                    crossing_samples=sum(bool(row['surface_crossings']) for row in rows),
+                    maximum_crossing_pairs=max(len(row['surface_crossings']) for row in rows),
+                    intersection_scope='Non-adjacent surface crossings only; excludes shared-vertex faces, containment and coplanar contact.',
                     loop_closure_error_cm=displacement, summary=summary, samples=rows)
     finally:
         bpy.context.window.scene = previous
@@ -124,7 +134,7 @@ def main():
     values = {p.key:p.default for p in provider.parameters}
     if args.sample == 'contrasting':
         values.update(SAMPLES['avian'])
-    report = dict(schema_version=2, sample=args.sample,
+    report = dict(schema_version=3, sample=args.sample,
         interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. Walk stance uses the authored schedule and reference +Y travel; it is not physical slip proof. Between-sample extremes are not bounded.',
         commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         working_tree_changes=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).splitlines(),
