@@ -112,12 +112,45 @@ def _append_toes(vertices, faces, ring, center, width, depth, length):
         faces.append(tuple(end))
 
 
-def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False, ground_end=False, toe_length=0.0):
+def _append_rear_toe(vertices, faces, rings, centers, widths, length):
+    """Extrude a rear-facing lower-leg quad into one connected support digit."""
+    knee, ankle = rings[2], rings[3]
+    sector = 1 if centers[3][0] < 0 else 2
+    root = (knee[sector], knee[sector + 1], ankle[sector + 1], ankle[sector])
+    faces.remove(root)
+    # Inset the opening near the ankle so the whole shin does not become a web.
+    inner = []
+    for across, down in ((.25, .65), (.75, .65), (.75, .95), (.25, .95)):
+        inner.append(len(vertices))
+        vertices.append(tuple(
+            (1 - down) * ((1 - across) * vertices[root[0]][axis] + across * vertices[root[1]][axis])
+            + down * ((1 - across) * vertices[root[3]][axis] + across * vertices[root[2]][axis])
+            for axis in range(3)))
+    for j in range(4):
+        nxt = (j + 1) % 4
+        faces.append((root[j], root[nxt], inner[nxt], inner[j]))
+    root = tuple(inner)
+    x, y, z = centers[3]
+    half_width = widths[3] * .18
+    end = tuple(range(len(vertices), len(vertices) + 4))
+    vertices.extend(((x + half_width, y - length, z * .40),
+                     (x - half_width, y - length, z * .40),
+                     (x - half_width, y - length, 0.0),
+                     (x + half_width, y - length, 0.0)))
+    for j in range(4):
+        nxt = (j + 1) % 4
+        faces.append((root[j], root[nxt], end[nxt], end[j]))
+    faces.append(end)
+
+
+def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False, ground_end=False, toe_length=0.0, rear_toe_length=0.0):
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
     rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=not toe_length, stable_width=stable_width, ground_end=ground_end)
     if toe_length:
         _append_toes(vertices, faces, rings[-1], centers[-1], widths[-1], depths[-1], toe_length)
+    if rear_toe_length:
+        _append_rear_toe(vertices, faces, rings, centers, widths, rear_toe_length)
     first = rings[0]
     # Match perimeter phase without reversing the tube's outward winding.
     phase = min(range(_RING_SIDES), key=lambda offset: sum(
@@ -186,7 +219,7 @@ def _build_avian_mesh(anatomy):
         start = len(vertices)
         _append_branch(vertices, faces, openings[tube.name],
                        tuple(points[n] for n in tube.landmarks), tube.widths, tube.depths,
-                       stable_width=tube.name.startswith('leg.'), ground_end=tube.name.startswith('leg.'), toe_length=tube.toe_length)
+                       stable_width=tube.name.startswith('leg.'), ground_end=tube.name.startswith('leg.'), toe_length=tube.toe_length, rear_toe_length=tube.rear_toe_length)
         regions.append(AnatomyRegion(tube.name, 'avian', tuple(range(start, len(vertices)))))
         connections.append(AnatomyConnection('body.' + tube.name, ('body', tube.name), 'connected',
                            (openings[tube.name], tuple(range(start, start + _RING_SIDES)))))

@@ -185,7 +185,7 @@ class AvianDeformationTests(unittest.TestCase):
                 self.assertEqual(len(report['rotations']), 4)
                 for foot in report['feet'].values():
                     self.assertLess(abs(foot['minimum_z_cm']), 1e-5)
-                    self.assertEqual(foot['ground_vertex_count'], 13)
+                    self.assertEqual(foot['ground_vertex_count'], 15)
                     self.assertGreater(foot['contact_width_cm'], .5)
                     self.assertGreater(foot['contact_length_cm'], 1)
 

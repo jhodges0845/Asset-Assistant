@@ -153,7 +153,7 @@ class AvianRecipeTests(unittest.TestCase):
                 if region.name.startswith('leg.'):
                     sole = [mesh.parts[0].vertices[i] for i in region.vertex_indices[24:]
                             if abs(mesh.parts[0].vertices[i][2]) < 1e-9]
-                    self.assertEqual(len(sole), 13)
+                    self.assertEqual(len(sole), 15)
                     self.assertGreater(max(v[0] for v in sole) - min(v[0] for v in sole), .5)
                     self.assertGreater(max(v[1] for v in sole) - min(v[1] for v in sole), 1)
 
@@ -171,6 +171,26 @@ class AvianRecipeTests(unittest.TestCase):
             self.assertGreater(ends[1][0][1], ends[0][0][1])
             self.assertAlmostEqual(ends[0][0][1], ends[2][0][1])
             self.assertTrue(all(min(p[2] for p in end) == 0 for end in ends))
+
+    def test_rear_toes_extend_behind_ankles_with_ground_contact(self):
+        mesh = self.provider.mesh(self.values)
+        anatomy = self.provider.anatomy(self.values)
+        points = {p.name: p.position for p in anatomy.landmarks}
+        for region in anatomy.regions:
+            if not region.name.startswith('leg.'):
+                continue
+            tube = next(t for t in anatomy.tubes if t.name == region.name)
+            ankle = points[tube.landmarks[3]]
+            tip = [mesh.parts[0].vertices[i] for i in region.vertex_indices[-4:]]
+            self.assertTrue(all(p[1] < ankle[1] for p in tip))
+            self.assertEqual(sum(p[2] == 0 for p in tip), 2)
+            self.assertAlmostEqual(ankle[1] - tip[0][1], tube.rear_toe_length)
+            self.assertGreater(max(p[0] for p in tip) - min(p[0] for p in tip), 0)
+        for bad in (-1, float('nan'), float('inf')):
+            with self.assertRaises(ValueError):
+                replace(tube, rear_toe_length=bad)
+        with self.assertRaises(TypeError):
+            replace(tube, rear_toe_length=True)
 
     def test_invalid_surface_profiles_and_landmark_references_are_rejected(self):
         tube = self.anatomy.tubes[0]

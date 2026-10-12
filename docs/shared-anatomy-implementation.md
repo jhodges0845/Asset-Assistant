@@ -1707,9 +1707,32 @@ require explicit regeneration/rebuilding for the new topology and foot rest bone
 Rear toes, claws, independent toe articulation, leg proportions and gait contact
 remain unfinished; the existing compact-wing fold is still not accepted.
 
+## Avian rear-toe construction (recipe 9)
+
+Each foot now includes one connected rear-facing toe extruded from a mirrored
+lower-leg surface opening inset near the ankle to avoid a broad shin flange.
+Rear-toe length belongs to the validated recipe,
+while construction owns the four-vertex tapered end and bridge topology. The
+rest skeleton and forward-toe geometry are unchanged. Rear toes use existing
+support-chain weights; independent toe articulation is not implemented.
+
+The mesh now has 272 vertices and 270 faces and remains closed with consistent
+winding. Both reference neutral meshes have zero detected non-adjacent surface
+crossings. Each foot has 15 evaluated ground vertices within 0.00001 cm of Z=0.
+Contact width/length is approximately 1.7255/6.7410 cm for default and
+2.4157/8.8275 cm for contrasting. Extents include gaps between toes and are not
+solid contact areas or proof of motion contact.
+
+Artifacts: `artifacts/shared-anatomy/avian9-feet.png` and evaluated reports
+`avian9-feet-{default,contrasting}.json`. All 38 focused core and 16 Avian Blender
+tests pass, including rearward extension, contact, manifold winding, neutral
+crossings, deformation and export. Older assets require explicit regeneration
+for the changed topology. Claws, leg proportions, gait contact and compact-wing
+fold clearance remain open; no full-suite rerun is claimed for this checkpoint.
+
 ## Next work
 
-For Avian, refine rear-toe/claw anatomy and leg proportions, then review support-chain
+For Avian, refine claws and leg proportions, then review support-chain
 motion and solve gait contact against the new soles.
 Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape

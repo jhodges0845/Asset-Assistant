@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 8: connected forward toes with grounded undersides.
+"""Avian recipe 9: connected forward and rear grounded toes.
 
 Wing and leg surface centerlines and rest chains share landmark identities.
 Body and tail rest offsets remain explicit.
@@ -18,14 +18,17 @@ class AvianTube:
     widths: tuple
     depths: tuple
     toe_length: float = 0.0
+    rear_toe_length: float = 0.0
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name:
             raise ValueError('Avian tube needs a name')
-        if isinstance(self.toe_length, bool) or not isinstance(self.toe_length, (int, float)):
-            raise TypeError('toe length must be a number')
-        if not isfinite(self.toe_length) or self.toe_length < 0:
-            raise ValueError('toe length must be finite and nonnegative')
+        for name in ('toe_length', 'rear_toe_length'):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise TypeError(name + ' must be a number')
+            if not isfinite(value) or value < 0:
+                raise ValueError(name + ' must be finite and nonnegative')
         for field in ('landmarks', 'widths', 'depths'):
             object.__setattr__(self, field, tuple(getattr(self, field)))
         if len(self.landmarks) < 2 or len(self.widths) != len(self.landmarks) or len(self.depths) != len(self.landmarks):
@@ -61,10 +64,10 @@ def _lerp(a, b, amount):
 def _surface_profiles(dimensions):
     landmarks = []
 
-    def tube(name, centers, widths, depths, toe_length=0.0):
+    def tube(name, centers, widths, depths, toe_length=0.0, rear_toe_length=0.0):
         names = tuple('surface.' + name + '.' + str(i) for i in range(len(centers)))
         landmarks.extend(Landmark(n, p) for n, p in zip(names, centers))
-        return AvianTube(name, names, widths, depths, toe_length)
+        return AvianTube(name, names, widths, depths, toe_length, rear_toe_length)
 
     length = dimensions["body_length_cm"]
     width = dimensions["body_width_cm"]
@@ -157,7 +160,7 @@ def _surface_profiles(dimensions):
             leg_thickness * 0.56,
             leg_thickness * 0.34,
         )
-        tubes.append(tube("leg." + side, centers_leg, widths_leg, depths_leg, toe_length=length * .07))
+        tubes.append(tube("leg." + side, centers_leg, widths_leg, depths_leg, toe_length=length * .07, rear_toe_length=length * .0455))
 
     return landmarks, tuple(tubes)
 
@@ -218,7 +221,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '8'
+    recipe_version = '9'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.
