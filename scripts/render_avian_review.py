@@ -94,6 +94,19 @@ def review_part(values, pose):
     report['neutral_surface_crossings'] = baseline_crossings
     report['new_surface_crossings'] = sorted(set(report['nonadjacent_surface_crossings']) - set(baseline_crossings))
     report['intersection_scope'] = 'Non-adjacent triangle surface crossings; excludes shared-vertex faces, containment and coplanar contact.'
+    report['feet'] = {}
+    foot_points = []
+    for region in anatomy.regions:
+        if region.name.startswith('leg.'):
+            vertices = [points[i] for i in region.vertex_indices[-16:]]
+            contact = [p for p in vertices if abs(p[2]) < 1e-5]
+            report['feet'][region.name] = {
+                'minimum_z_cm': min(p[2] for p in vertices),
+                'ground_vertex_count': len(contact),
+                'contact_width_cm': max((p[0] for p in contact), default=0) - min((p[0] for p in contact), default=0),
+                'contact_length_cm': max((p[1] for p in contact), default=0) - min((p[1] for p in contact), default=0)}
+            foot_points.extend(vertices)
+    report['foot_bounds_cm'] = sheets._bounds(foot_points)
     report['minimum_surface_z_cm'] = min(p[2] for p in points)
     return MeshPart('avian', points, mesh.parts[0].faces), report
 
@@ -103,7 +116,7 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
     parser.add_argument('--pose', choices=('neutral',) + tuple(POSES), default='neutral')
-    parser.add_argument('--view', choices=('four-view', 'top'), default='four-view')
+    parser.add_argument('--view', choices=('four-view', 'top', 'feet'), default='four-view')
     parser.add_argument('--samples', type=int, default=8)
     parser.add_argument('--resolution-x', type=int, default=1600)
     parser.add_argument('--resolution-y', type=int, default=600)
@@ -118,8 +131,13 @@ def main():
     sheets._clear_scene()
     part, report = review_part(values, args.pose)
     sheets._clear_scene()
+    if args.view == 'feet':
+        anatomy = provider.anatomy(values)
+        leg_indices = {i for r in anatomy.regions if r.name.startswith('leg.') for i in r.vertex_indices}
+        part = MeshPart('avian-feet', part.vertices,
+                        tuple(face for face in part.faces if set(face) <= leg_indices))
     material = sheets._configure_scene(args, part)
-    if args.view == 'top':
+    if args.view in ('top', 'feet'):
         # Reuse the review material/render setup, then frame one overhead bird.
         scene = bpy.context.scene
         body = next(o for o in scene.objects if o.type == 'MESH')
@@ -129,6 +147,8 @@ def main():
         body.location = (0, 0, 0)
         body.rotation_euler = (0, 0, 0)
         low, high = sheets._bounds(part.vertices)
+        if args.view == 'feet':
+            low, high = report['foot_bounds_cm']
         width, depth = high[0] - low[0], high[1] - low[1]
         center = tuple((a + b) / 2 for a, b in zip(low, high))
         camera = scene.camera
@@ -138,7 +158,15 @@ def main():
         camera.data.clip_end = max(width, depth) * 5
         sheets._add_lighting(center[2], width, high[2] - low[2])
         bpy.context.view_layer.update()
-        sheets._validate_camera_frame(camera, [body], scene)
+        if args.view == 'feet':
+            from mathutils import Vector
+            span = max(width, depth)
+            camera.location = (center[0] + span, center[1] + span, center[2] + span * .7)
+            camera.rotation_euler = (Vector(center) - camera.location).to_track_quat('-Z', 'Y').to_euler()
+            camera.data.ortho_scale = span * 1.7
+            report['framing'] = 'Isolated leg surfaces; torso, wings and attachment bridges hidden for foot inspection.'
+        else:
+            sheets._validate_camera_frame(camera, [body], scene)
     report['view'] = args.view
     for mode in args.modes:
         sheets._configure_material(material, mode)

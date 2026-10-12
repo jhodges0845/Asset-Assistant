@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 6: descending leg surfaces and shared support chains.
+"""Avian recipe 7: broad grounded soles on shared support chains.
 
 Wing and leg surface centerlines and rest chains share landmark identities.
 Body and tail rest offsets remain explicit.
@@ -124,7 +124,7 @@ def _surface_profiles(dimensions):
         tubes.append(tube("wing." + side, centers_wing, widths_wing, depths_wing))
 
     # Keep the support path descending and beneath the underside opening.
-    # Foot contact and toe anatomy remain a separate refinement step.
+    # Construction flattens the plantar arc of the ankle/toe rings to ground.
     hip_x = width * 0.15
     hip_y = -length * 0.20
     hip_z = height * 0.12
@@ -142,8 +142,8 @@ def _surface_profiles(dimensions):
             leg_thickness * 1.15,
             leg_thickness,
             leg_thickness * 0.82,
-            leg_thickness * 0.68,
-            leg_thickness * 0.42,
+            leg_thickness * 0.95,
+            leg_thickness * 0.85,
         )
         depths_leg = (
             leg_thickness * 1.10,
@@ -213,7 +213,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '6'
+    recipe_version = '7'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.

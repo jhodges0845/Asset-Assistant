@@ -55,7 +55,7 @@ def _ring(center, width, depth, tangent, *, stable_width=False):
     )
 
 
-def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True, stable_width=False):
+def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True, stable_width=False, ground_end=False):
     rings = []
     for index, center in enumerate(centers):
         if index == 0:
@@ -67,6 +67,12 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
         start = len(vertices)
         vertices.extend(_ring(center, widths[index], depths[index], tangent, stable_width=stable_width))
         rings.append(tuple(range(start, start + _RING_SIDES)))
+        if ground_end and index >= len(centers) - 2:
+            # Authored plantar arc of ankle/toe rings forms a finite flat sole.
+            # For the leg's lateral frame, positive ring sine points downward.
+            for segment in (1, 2, 3):
+                x, y, _ = vertices[start + segment]
+                vertices[start + segment] = (x, y, 0.0)
 
     if cap_start:
         faces.append(tuple(reversed(rings[0])))
@@ -80,10 +86,10 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
     return rings
 
 
-def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False):
+def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False, ground_end=False):
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
-    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True, stable_width=stable_width)
+    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True, stable_width=stable_width, ground_end=ground_end)
     first = rings[0]
     # Match perimeter phase without reversing the tube's outward winding.
     phase = min(range(_RING_SIDES), key=lambda offset: sum(
@@ -152,7 +158,7 @@ def _build_avian_mesh(anatomy):
         start = len(vertices)
         _append_branch(vertices, faces, openings[tube.name],
                        tuple(points[n] for n in tube.landmarks), tube.widths, tube.depths,
-                       stable_width=tube.name.startswith('leg.'))
+                       stable_width=tube.name.startswith('leg.'), ground_end=tube.name.startswith('leg.'))
         regions.append(AnatomyRegion(tube.name, 'avian', tuple(range(start, len(vertices)))))
         connections.append(AnatomyConnection('body.' + tube.name, ('body', tube.name), 'connected',
                            (openings[tube.name], tuple(range(start, start + _RING_SIDES)))))

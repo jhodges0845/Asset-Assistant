@@ -143,6 +143,20 @@ class AvianRecipeTests(unittest.TestCase):
                 self.assertEqual(bones[name].head, points[chain.landmarks[i]])
                 self.assertEqual(bones[name].tail, points[chain.landmarks[i + 1]])
 
+    def test_feet_have_finite_grounded_soles_without_penetration(self):
+        for values in (self.values, dict(self.values, body_length_cm=55, body_width_cm=22,
+                                         body_height_cm=28, wingspan_cm=140, tail_length_cm=35)):
+            mesh = self.provider.mesh(values)
+            anatomy = self.provider.anatomy(values)
+            self.assertGreaterEqual(min(v[2] for v in mesh.parts[0].vertices), 0)
+            for region in anatomy.regions:
+                if region.name.startswith('leg.'):
+                    sole = [mesh.parts[0].vertices[i] for i in region.vertex_indices[-16:]
+                            if abs(mesh.parts[0].vertices[i][2]) < 1e-9]
+                    self.assertEqual(len(sole), 6)
+                    self.assertGreater(max(v[0] for v in sole) - min(v[0] for v in sole), .5)
+                    self.assertGreater(max(v[1] for v in sole) - min(v[1] for v in sole), 1)
+
     def test_invalid_surface_profiles_and_landmark_references_are_rejected(self):
         tube = self.anatomy.tubes[0]
         for values in ((0,) * len(tube.widths), (float('nan'),) * len(tube.widths), (1,)):

@@ -183,6 +183,11 @@ class AvianDeformationTests(unittest.TestCase):
                     self.assertLess(movement[region], .00001)
                 self.assertAlmostEqual(movement['wing.left'], movement['wing.right'], places=5)
                 self.assertEqual(len(report['rotations']), 4)
+                for foot in report['feet'].values():
+                    self.assertLess(abs(foot['minimum_z_cm']), 1e-5)
+                    self.assertEqual(foot['ground_vertex_count'], 6)
+                    self.assertGreater(foot['contact_width_cm'], .5)
+                    self.assertGreater(foot['contact_length_cm'], 1)
 
     def test_wing_root_blends_with_spine_instead_of_hinging_as_a_rigid_seam(self):
         wing_group = self.avian.vertex_groups.get("wing.upper.left")

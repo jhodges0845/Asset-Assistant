@@ -1659,9 +1659,33 @@ remain unfinished.
 All 35 focused Avian core and 16 Blender tests pass; changed files compile.
 The full 455-test core pass belongs to recipe 5 and was not repeated here.
 
+## Avian neutral foot contact (recipe 7)
+
+The ankle/toe rings now have broader lateral profiles and an authored flat plantar
+arc at Z=0. Each foot contributes six ground vertices across two rings, providing
+a finite sole without adding vertices or changing the rest skeleton. Leg/foot
+geometry, projected UVs and regenerated weights change; existing artist-owned
+assets still require explicit regeneration. This is a simple continuous foot
+blockout; separated toes/claws and motion contact are not implemented here.
+
+Default contact width/length is approximately 0.9400/4.9056 cm per foot;
+contrasting contact is 1.3159/6.4376 cm. Blender evaluation preserves six contact
+vertices per foot within 0.00001 cm of ground. Both reference neutral meshes still
+have zero detected non-adjacent surface crossings. The grounded neutral pose is
+not evidence of planted feet during Walk or Idle.
+
+`scripts/render_avian_review.py --view feet` provides an isolated leg/foot close-up (torso, wings and attachment
+bridges are hidden for inspection), and all pose reports include per-foot minimum Z, ground vertex
+count and contact extents. The close-up artifact is
+`artifacts/shared-anatomy/avian7-feet.png`; evaluated reports are
+`avian7-feet-{default,contrasting}.json` in that directory (isolated wing-root
+pose leaves the feet unchanged). All 36 focused core and 16 Avian Blender tests
+pass; no full-suite rerun is claimed for this checkpoint.
+
 ## Next work
 
-For Avian, establish grounded leg/foot anatomy and review support-chain motion.
+For Avian, refine toe anatomy and leg proportions, then review support-chain
+motion and solve gait contact against the new soles.
 Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint
