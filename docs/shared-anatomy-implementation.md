@@ -1809,10 +1809,38 @@ Production geometry and clips are unchanged in this checkpoint. The next motion
 implementation must solve Walk against the weighted sole and recheck both shapes,
 including denser time sampling and clip-switch behavior.
 
+## Avian contact-solved Walk checkpoint (2026-10-12)
+
+Walk now uses parameter-aware alternating stance/swing targets with a 65% stance
+fraction and half-cycle separation. Stride is 8% of body height times strength;
+swing lift is 3.5%, with a constant 4% root crouch. The existing canine planar
+weighted-surface solver moved unchanged into `object_core/animation/weighted_contact.py`.
+Avian solves each full leg region at 128 keys and counter-rotates each foot to
+maintain its overall pitch. A 0.02 cm clearance margin covers measured interpolation
+error. Non-leg rotations remain neutral during Walk so outside-chain skin weights
+follow the solver's root-translation assumption. Body follow-through is a later
+quality pass. Idle and Flight retain their rotation curves and explicitly reset
+root translation, including when reusing existing actions.
+
+Actual Blender 5.2.1 actions over 127 intervals (128 samples, mostly between keys)
+show minimum foot height 0.0199879 cm default / 0.0199799 cm contrasting at strength
+1. Peak minimum foot height is about 0.7194 / 0.9992 cm respectively. Neither foot
+penetrates; both cycles close. The same sampled clearance gate passes for strengths
+0.1 and 2 on both shapes. Idle soles remain stationary. Reports are
+`artifacts/shared-anatomy/avian-contact-{default,contrasting}.json`.
+
+Validation: 41 Avian core tests, 10 canine gait tests, 4 quadruped animation tests,
+5 architecture boundary tests and 19 Avian Blender tests. Blender coverage includes
+between-key clearance, existing-action crouch reset, generation, deformation and
+GLB/FBX export checks. This is sampled canonical contact evidence, not physical
+slip proof, arbitrary edited-weight coverage, continuous-time bounds or final
+visual gait acceptance. No geometry/rig recipe migration is needed; regenerate
+the generated Walk action explicitly to adopt the new motion.
+
 ## Next work
 
-For Avian, fix the measured Walk penetrations using weighted-sole contact targets;
-retain visual review of the taller stance across additional shapes.
+For Avian, visually review the contact-solved Walk and taller stance across additional
+shapes; add stance-reference drift diagnostics before final motion acceptance.
 Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint

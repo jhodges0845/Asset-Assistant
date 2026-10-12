@@ -42,3 +42,14 @@ class AvianGaitReviewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             review_cycle(self.values,clip='run')
         self.assertEqual(set(bpy.data.scenes),before)
+
+    def test_walk_clearance_between_keys_on_both_shapes_and_strength_extremes(self):
+        from scripts.anatomy_baseline import SAMPLES
+        for values in (self.values,SAMPLES['avian']):
+            for strength in (.1,1.,2.):
+                report = review_cycle(values,intervals=127,strength=strength)
+                self.assertLess(report['loop_closure_error_cm'],1e-4)
+                for summary in report['summary'].values():
+                    self.assertGreater(summary['minimum_z_cm'],.018)
+                    self.assertEqual(summary['penetrating_samples'],0)
+                    self.assertGreater(summary['maximum_minimum_z_cm'],.05)

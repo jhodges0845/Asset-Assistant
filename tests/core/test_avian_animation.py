@@ -30,18 +30,44 @@ class AvianAnimationTests(unittest.TestCase):
 
     def test_walk_is_closed_and_alternates_leg_chains(self):
         clip = generate_avian_walk(1.2, 1.0)
-        stronger = generate_avian_walk(1.2, 2.0)
-        self.assertEqual(clip, generate_avian_walk(1.2, 1.0))
         by_bone = {track.bone: track for track in clip.tracks}
-        self.assertTrue({"leg.upper.left", "leg.upper.right",
-                         "leg.lower.left", "leg.lower.right",
-                         "foot.left", "foot.right", "spine", "neck", "head"}.issubset(by_bone))
-        left = by_bone["leg.upper.left"]
-        right = by_bone["leg.upper.right"]
-        self.assertAlmostEqual(left.keys[0][1], -right.keys[0][1])
-        for base, doubled in zip(clip.tracks, stronger.tracks):
-            self.assertAlmostEqual(base.keys[0][1], base.keys[-1][1])
-            self.assertAlmostEqual(doubled.keys[0][1], 2 * base.keys[0][1])
+        self.assertEqual(set(by_bone), {"leg.upper.left", "leg.upper.right",
+                         "leg.lower.left", "leg.lower.right", "foot.left", "foot.right"})
+        for name in ('leg.upper', 'leg.lower', 'foot'):
+            left, right = by_bone[name+'.left'], by_bone[name+'.right']
+            for i in range(128):
+                self.assertAlmostEqual(left.keys[i][1], right.keys[(i+64)%128][1], places=5)
+        for track in clip.tracks:
+            self.assertEqual(track.keys[0][1], track.keys[-1][1])
+        self.assertLess(clip.translations[0].keys[0][1][2], 0)
+        for resting in (generate_avian_idle(), generate_avian_flight()):
+            self.assertTrue(all(offset == (0.,0.,0.) for _,offset in resting.translations[0].keys))
+
+    def test_walk_matches_weighted_contact_targets_for_both_shapes_and_strengths(self):
+        from object_core.animation.weighted_contact import LimbSurface
+        from object_core.providers.avian_gait import contact_schedule
+        from scripts.anatomy_baseline import SAMPLES
+        provider = get_provider('avian')
+        defaults = {p.key:p.default for p in provider.parameters}
+        for values in (defaults, SAMPLES['avian']):
+            mesh, anatomy = provider.mesh(values), provider.anatomy(values)
+            bones = {b.name:b for b in provider.skeleton(values).bones}
+            weights = provider.skin_weights(mesh,values)[0]
+            regions = {r.name:r for r in anatomy.regions}
+            for strength in (.1,1.,2.):
+                clip = provider.locomotion(1.2,strength,values=values)
+                tracks = {t.bone:t for t in clip.tracks}
+                schedules = contact_schedule(1.2,strength,values['body_height_cm'])
+                for chain in anatomy.chains:
+                    if chain.name not in schedules:
+                        continue
+                    surface = LimbSurface(mesh,weights,regions[chain.name],
+                        tuple(bones[n] for n in chain.bones),-clip.translations[0].keys[0][1][2])
+                    for i in range(128):
+                        target = schedules[chain.name].target(i/128)
+                        y,z = surface.measure(tuple(tracks[n].keys[i][1] for n in chain.bones[:2]))
+                        self.assertAlmostEqual(y,surface.neutral_y+target.forward_cm,places=5)
+                        self.assertAlmostEqual(z,target.lift_cm+.02,places=5)
 
     def test_flight_is_closed_symmetric_and_uses_both_wing_segments(self):
         clip = generate_avian_flight(0.9, 1.0)

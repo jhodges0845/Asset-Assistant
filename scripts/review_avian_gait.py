@@ -19,7 +19,7 @@ from object_core.objects import get_provider
 from scripts.anatomy_baseline import SAMPLES
 
 
-def review_cycle(values, clip='walk', intervals=64):
+def review_cycle(values, clip='walk', intervals=64, strength=1.0):
     import bpy
     from blender_adapter.adapter import create_character
     from blender_adapter.animation import add_idle, add_locomotion
@@ -27,6 +27,8 @@ def review_cycle(values, clip='walk', intervals=64):
         raise ValueError('Review supports idle or walk')
     if isinstance(intervals, bool) or not isinstance(intervals, int) or not 4 <= intervals <= 256:
         raise ValueError('Review requires 4..256 intervals')
+    from object_core.providers.avian_animation import _validate
+    _validate(1.2, strength, .5, 4.)
     provider = get_provider('avian')
     mesh, anatomy = provider.mesh(values), provider.anatomy(values)
     duration = 4.0 if clip == 'idle' else 1.2
@@ -49,7 +51,7 @@ def review_cycle(values, clip='walk', intervals=64):
         for key, value in values.items():
             root[key] = value
         body = next(o for o in root.children if o.type == 'MESH')
-        (add_idle if clip == 'idle' else add_locomotion)(root, scene, duration, 1.0)
+        (add_idle if clip == 'idle' else add_locomotion)(root, scene, duration, strength)
         rows, first = [], None
         maximum_motion = 0.0
         for sample in range(intervals + 1):
@@ -87,7 +89,7 @@ def review_cycle(values, clip='walk', intervals=64):
                     for point,initial in zip(row['feet'][name]['fixed_sole_positions_cm'],
                                              rows[0]['feet'][name]['fixed_sole_positions_cm'])))
         return dict(clip=clip, parameters=values, recipe_version=anatomy.recipe_version,
-                    duration=duration, intervals=intervals, ground_tolerance_cm=.02,
+                    duration=duration, strength=strength, intervals=intervals, ground_tolerance_cm=.02,
                     fixed_sole_indices=soles, maximum_surface_motion_cm=maximum_motion,
                     loop_closure_error_cm=displacement, summary=summary, samples=rows)
     finally:

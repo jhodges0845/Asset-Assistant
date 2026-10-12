@@ -42,9 +42,9 @@ class AvianRecipeTests(unittest.TestCase):
                 skeleton = self.provider.skeleton(values)
                 data = {}
                 data.update({name: getattr(self.provider, name)(2.0, 1.0)
-                             for name in ('idle', 'locomotion', 'flight')})
+                             for name in ('idle', 'flight')})
                 self.assertEqual({k: sample['portable_fingerprints'][k] for k in data},
-                                 {k: portable_fingerprint(v) for k, v in data.items()})
+                                 {k: portable_fingerprint({'duration':v.duration, 'tracks':v.tracks}) for k, v in data.items()})
                 lift = skeleton.bones[0].head[2] - sample['nonwing_bones']['root']['head'][2]
                 for bone in skeleton.bones:
                     if not bone.name.startswith(('wing.', 'leg.', 'foot.')):

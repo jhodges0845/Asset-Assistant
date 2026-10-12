@@ -68,6 +68,17 @@ class AvianAnimationBlenderTests(unittest.TestCase):
         rig = next(obj for obj in self.root.children if obj.type == "ARMATURE")
         self.assertIs(rig.animation_data.action, flight)
         self.assertGreater(flight.frame_range[1], flight.frame_range[0])
+        # Reuse already-created actions: no generator reset may mask stale crouch.
+        for action in (walk, idle, walk, flight, idle):
+            rig.animation_data.action = action
+            self.scene.frame_set(3)
+            bpy.context.view_layer.update()
+            offset = rig.pose.bones['root'].location.length
+            if action == walk:
+                self.assertGreater(offset, .001)
+            else:
+                self.assertLess(offset, 1e-7)
+
 
     def test_run_remains_unavailable_to_avian(self):
         self.settings.animation_clip = "RUN"

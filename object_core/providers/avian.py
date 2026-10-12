@@ -70,6 +70,7 @@ class AvianProvider:
     supports_run = False
     locomotion_label = "Walk"
     uses_skin_weights = True
+    animation_uses_parameters = True
     parameters = AVIAN_PARAMETERS
     semantic_targets = AVIAN_SEMANTIC_TARGETS
     semantic_apply_capabilities = AVIAN_SEMANTIC_APPLY_CAPABILITIES
@@ -103,8 +104,8 @@ class AvianProvider:
     def idle(self, duration, strength):
         return generate_avian_idle(duration, strength)
 
-    def locomotion(self, duration, strength):
-        return generate_avian_walk(duration, strength)
+    def locomotion(self, duration, strength, values=None):
+        return generate_avian_walk(duration, strength, values)
 
     def flight(self, duration, strength):
         return generate_avian_flight(duration, strength)
