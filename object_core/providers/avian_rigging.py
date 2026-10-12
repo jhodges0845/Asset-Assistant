@@ -120,6 +120,16 @@ def generate_avian_skin_weights(mesh, skeleton, *, anatomy, max_influences=4):
     if not deform_bones:
         raise ValueError('Avian skeleton must contain deform bones')
     wing_candidates, attachments = _wing_ownership(mesh, anatomy, deform_bones)
+    # The ankle ring, ball, toes and claws form one material contact patch.
+    # Bind by authored membership so edited coordinates cannot move sole weights
+    # back onto the lower leg and shear a flat foot during stance.
+    for region in anatomy.regions:
+        if region.name in ('leg.left', 'leg.right'):
+            foot = 'foot.' + region.name.rsplit('.', 1)[1]
+            if foot not in {b.name for b in deform_bones}:
+                raise ValueError('Avian skeleton is missing an authored foot bone')
+            for index in region.vertex_indices[24:]:
+                attachments[(region.mesh_part, index)] = ((foot, 1.),)
     nonwing = tuple(b for b in deform_bones if not b.name.startswith('wing.'))
     results = []
     for part in mesh.parts:

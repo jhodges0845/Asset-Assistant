@@ -6,6 +6,7 @@ blender --background --factory-startup --python scripts/render_avian_review.py -
 """
 import argparse
 import json
+from math import floor, isfinite
 from pathlib import Path
 import subprocess
 import sys
@@ -56,7 +57,9 @@ def evaluated_points(body):
         evaluated.to_mesh_clear()
 
 
-def review_part(values, pose):
+def review_part(values, pose, phase=0., strength=1.):
+    if not isfinite(phase) or not 0 <= phase <= 1:
+        raise ValueError('Review phase must be in [0, 1]')
     provider = get_provider('avian')
     mesh, anatomy = provider.mesh(values), provider.anatomy(values)
     skeleton = provider.skeleton(values)
@@ -72,13 +75,26 @@ def review_part(values, pose):
         rig = next(o for o in root.children if o.type == 'ARMATURE')
         before = evaluated_points(body)
         baseline_crossings = surface_crossings(before, mesh.parts[0].faces)
-        for name, axis, angle in POSES[pose]:
-            bone = rig.pose.bones[name]
-            bone.rotation_mode = 'XYZ'
-            setattr(bone.rotation_euler, axis, angle)
+        if pose == 'walk':
+            from blender_adapter.animation import add_locomotion
+            root['object_type'] = 'avian'
+            for key, value in values.items():
+                root[key] = value
+            scene = bpy.context.scene
+            duration = 1.2
+            add_locomotion(root, scene, duration, strength)
+            frame = scene.frame_start + duration * phase * scene.render.fps / scene.render.fps_base
+            scene.frame_set(floor(frame), subframe=frame-floor(frame))
+            report.update(phase=phase, strength=strength, frame=frame,
+                          scope='Actual generated Walk action at the specified cycle phase.')
+        else:
+            for name, axis, angle in POSES[pose]:
+                bone = rig.pose.bones[name]
+                bone.rotation_mode = 'XYZ'
+                setattr(bone.rotation_euler, axis, angle)
+            report['rotations'] = [dict(bone=name, axis=axis, radians=angle)
+                                   for name, axis, angle in POSES[pose]]
         points = evaluated_points(body)
-        report['rotations'] = [dict(bone=name, axis=axis, radians=angle)
-                               for name, axis, angle in POSES[pose]]
         if pose in ISOLATED_POSES:
             name, axis, angle = ISOLATED_POSES[pose]
             report.update(bone=name, rotation_axis=axis, rotation_radians=angle)
@@ -115,7 +131,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
-    parser.add_argument('--pose', choices=('neutral',) + tuple(POSES), default='neutral')
+    parser.add_argument('--pose', choices=('neutral', 'walk') + tuple(POSES), default='neutral')
+    parser.add_argument('--phase', type=float, default=0.)
+    parser.add_argument('--strength', type=float, default=1.)
     parser.add_argument('--view', choices=('four-view', 'top', 'feet', 'side'), default='four-view')
     parser.add_argument('--samples', type=int, default=8)
     parser.add_argument('--resolution-x', type=int, default=1600)
@@ -129,7 +147,7 @@ def main():
     if args.sample == 'contrasting':
         values.update(SAMPLES['avian'])
     sheets._clear_scene()
-    part, report = review_part(values, args.pose)
+    part, report = review_part(values, args.pose, args.phase, args.strength)
     sheets._clear_scene()
     if args.view == 'feet':
         anatomy = provider.anatomy(values)

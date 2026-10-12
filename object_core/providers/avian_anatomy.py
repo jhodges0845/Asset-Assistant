@@ -229,7 +229,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '11'
+    recipe_version = '12'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.

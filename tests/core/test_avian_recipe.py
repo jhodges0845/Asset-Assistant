@@ -56,6 +56,22 @@ class AvianRecipeTests(unittest.TestCase):
                                     expected[endpoint][axis] + (lift if axis == 2 else 0))
                 self.assertEqual(sample['bones'], len(skeleton.bones))
 
+    def test_authored_foot_patch_keeps_material_ownership_after_vertex_edits(self):
+        mesh = self.provider.mesh(self.values)
+        anatomy = self.provider.anatomy(self.values)
+        part = mesh.parts[0]
+        moved = replace(mesh, parts=(replace(part, vertices=tuple(
+            (-x, y+30, z+10) for x,y,z in part.vertices)),))
+        for candidate in (mesh, moved):
+            weights = self.provider.skin_weights(candidate,self.values)[0]
+            for region in anatomy.regions:
+                if region.name.startswith('leg.'):
+                    foot = 'foot.' + region.name.rsplit('.',1)[1]
+                    for i in region.vertex_indices[24:]:
+                        self.assertEqual(len(weights.vertices[i]),1)
+                        self.assertEqual(weights.vertices[i][0].bone_name,foot)
+                        self.assertEqual(weights.vertices[i][0].weight,1.)
+
     def test_resolution_is_immutable_deterministic_and_parameter_complete(self):
         self.assertEqual(self.anatomy, AvianRecipe().resolve(self.provider.dimensions(dict(reversed(list(self.values.items()))))))
         self.assertEqual(dict(self.anatomy.parameters), self.values)

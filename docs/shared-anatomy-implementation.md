@@ -1837,10 +1837,48 @@ slip proof, arbitrary edited-weight coverage, continuous-time bounds or final
 visual gait acceptance. No geometry/rig recipe migration is needed; regenerate
 the generated Walk action explicitly to adopt the new motion.
 
+## Avian recipe 12: material sole contact (2026-10-12)
+
+The first Walk clearance gate hid foot shear: the neutral sole vertices drifted
+about 0.28 cm in scheduled stance on the default shape and never entered the
+0.05 cm ground band. Other foot vertices supplied the minimum surface height.
+Recipe 12 binds the authored ankle ring, ball, toes and claws to the foot bone,
+keeping the material sole together while the upper/lower leg still bends. This
+uses authored membership even after coordinate edits. Geometry and rest bones
+are unchanged (312 vertices, 326 faces, 16 bones). Existing generated rigs need
+explicit weight rebuilding and Walk regeneration; artist-owned weights are not
+automatically overwritten.
+
+`review_avian_gait.py` schema 2 reuses the tested fixed-material stance metric
+from `canine_review_metrics.py`, omits the closing duplicate sample, unwraps the
+right stance across the cycle boundary, and adds reference +Y travel. It reports
+both all-sole stance drift and contiguous near-ground episode drift. Null means
+insufficient comparisons, not zero drift. `--strength` exposes the tested range.
+
+At strength 1 over 127 intervals, maximum reference stance drift is 0.0002223 cm
+default and 0.0003120 cm contrasting. Each foot has 83 scheduled stance samples
+and 1230 near-ground vertex comparisons, covering all 15 sole vertices. Minimum
+foot height stays above 0.01998 cm. Both shapes also pass the 0.002 cm drift gate
+and positive-clearance gate at strengths 0.1 and 2. This remains sampled reference
+tracking, not physical friction/contact proof or a continuous-time bound.
+Reports: `artifacts/shared-anatomy/avian12-stance-{default,contrasting}.json`.
+
+The renderer now supports `--pose walk --phase 0.825 --strength 1` using the actual
+adapter-created action. Inspected feet views on both shapes show intact toe/claw
+silhouettes at left mid-swing, with zero detected non-adjacent crossings across
+the whole evaluated surface at that phase. Upper leg cropping is intentional in
+the feet view. These static views do not establish full-cycle artistic acceptance.
+Images/reports: `artifacts/shared-anatomy/avian12-walk-{default,contrasting}.*`.
+
+Validation: 42 Avian core tests, 13 shared stance/review metric tests and 19 Avian
+Blender integration tests pass, including both shapes and three strengths,
+coordinate-edited foot ownership, action switching and GLB/FBX export coverage.
+
 ## Next work
 
 For Avian, visually review the contact-solved Walk and taller stance across additional
-shapes; add stance-reference drift diagnostics before final motion acceptance.
+shapes; review full-cycle motion before final acceptance. Stance-reference drift
+is now measured on the two canonical shapes.
 Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint

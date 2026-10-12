@@ -53,3 +53,8 @@ class AvianGaitReviewTests(unittest.TestCase):
                     self.assertGreater(summary['minimum_z_cm'],.018)
                     self.assertEqual(summary['penetrating_samples'],0)
                     self.assertGreater(summary['maximum_minimum_z_cm'],.05)
+                    stance = summary['scheduled_stance']
+                    self.assertGreater(stance['reference_material_stance_samples'],80)
+                    self.assertGreater(stance['near_ground_vertex_comparisons'],1000)
+                    self.assertLess(stance['maximum_reference_vertex_displacement_cm'],.002)
+                    self.assertLess(stance['maximum_near_ground_episode_displacement_cm'],.002)

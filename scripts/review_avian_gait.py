@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Sample actual Avian Idle/Walk actions in an isolated Blender scene.
 
-These are fixed-ground diagnostics, not a physical slip or stance classification.
+Scheduled stance and fixed-ground diagnostics do not establish physical contact.
 Run in Blender with -- --output report.json [--sample contrasting].
 """
 import argparse
@@ -37,6 +37,9 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
              for name, indices in feet.items()}
     if not all(soles.values()):
         raise ValueError('Review requires neutral sole vertices')
+    from object_core.providers.avian_gait import contact_schedule
+    from scripts.canine_review_metrics import stance_material_motion
+    schedules = contact_schedule(duration, strength, values['body_height_cm']) if clip == 'walk' else {}
     previous = bpy.context.window.scene
     kinds = ('objects', 'meshes', 'armatures', 'collections', 'actions', 'materials')
     before = {kind: set(getattr(bpy.data, kind)) for kind in kinds}
@@ -88,6 +91,15 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
                     for row in rows
                     for point,initial in zip(row['feet'][name]['fixed_sole_positions_cm'],
                                              rows[0]['feet'][name]['fixed_sole_positions_cm'])))
+            if name in schedules:
+                schedule = schedules[name]
+                summary[name]['scheduled_stance'] = stance_material_motion(
+                    [row['phase'] for row in rows[:-1]],
+                    [row['feet'][name]['fixed_sole_positions_cm'] for row in rows[:-1]],
+                    schedule, tolerance_cm=.05)
+                summary[name]['schedule'] = dict(touchdown_phase=schedule.touchdown_phase,
+                    duty_factor=schedule.duty_factor, stride_cm=schedule.stride_cm,
+                    swing_height_cm=schedule.swing_height_cm)
         return dict(clip=clip, parameters=values, recipe_version=anatomy.recipe_version,
                     duration=duration, strength=strength, intervals=intervals, ground_tolerance_cm=.02,
                     fixed_sole_indices=soles, maximum_surface_motion_cm=maximum_motion,
@@ -106,16 +118,17 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
     parser.add_argument('--intervals', type=int, default=64)
+    parser.add_argument('--strength', type=float, default=1.0)
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     provider = get_provider('avian')
     values = {p.key:p.default for p in provider.parameters}
     if args.sample == 'contrasting':
         values.update(SAMPLES['avian'])
-    report = dict(schema_version=1, sample=args.sample,
-        interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. No stance schedule or physical slip proof; between-sample extremes are not bounded.',
+    report = dict(schema_version=2, sample=args.sample,
+        interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. Walk stance uses the authored schedule and reference +Y travel; it is not physical slip proof. Between-sample extremes are not bounded.',
         commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         working_tree_changes=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).splitlines(),
-        cycles=[review_cycle(values,clip,args.intervals) for clip in ('idle','walk')])
+        cycles=[review_cycle(values,clip,args.intervals,args.strength) for clip in ('idle','walk')])
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(report,indent=2,allow_nan=False)+'\n',encoding='utf-8')
     print(json.dumps({c['clip']:c['summary'] for c in report['cycles']},indent=2))
