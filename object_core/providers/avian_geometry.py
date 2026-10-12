@@ -86,10 +86,38 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
     return rings
 
 
-def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False, ground_end=False):
+def _append_toes(vertices, faces, ring, center, width, depth, length):
+    """Split the foot end into three quad openings and extrude tapered digits."""
+    # Ordered perimeter of a rectangular section with three width bands.
+    # Consecutive openings share root edges, keeping the foot one closed surface.
+    top = center[2] + depth * .5
+    profile = ((.5, top), (.5, 0), (1/6, 0), (-1/6, 0),
+               (-.5, 0), (-.5, top), (-1/6, top), (1/6, top))
+    for i, (offset, z) in zip(ring, profile):
+        vertices[i] = (center[0] + width * offset, center[1], z)
+    for digit, slots in enumerate(((0, 1, 2, 7), (7, 2, 3, 6), (6, 3, 4, 5))):
+        root = tuple(ring[i] for i in slots)
+        middle_x = sum(vertices[i][0] for i in root) / 4
+        extension = length * (1.0 if digit == 1 else .82)
+        spread = (1 - digit) * width * .30
+        end = []
+        for i in root:
+            x, y, z = vertices[i]
+            end.append(len(vertices))
+            vertices.append((middle_x + (x - middle_x) * .55 + spread,
+                             y + extension, z * .55))
+        for j in range(4):
+            nxt = (j + 1) % 4
+            faces.append((root[j], root[nxt], end[nxt], end[j]))
+        faces.append(tuple(end))
+
+
+def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False, ground_end=False, toe_length=0.0):
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
-    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True, stable_width=stable_width, ground_end=ground_end)
+    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=not toe_length, stable_width=stable_width, ground_end=ground_end)
+    if toe_length:
+        _append_toes(vertices, faces, rings[-1], centers[-1], widths[-1], depths[-1], toe_length)
     first = rings[0]
     # Match perimeter phase without reversing the tube's outward winding.
     phase = min(range(_RING_SIDES), key=lambda offset: sum(
@@ -158,7 +186,7 @@ def _build_avian_mesh(anatomy):
         start = len(vertices)
         _append_branch(vertices, faces, openings[tube.name],
                        tuple(points[n] for n in tube.landmarks), tube.widths, tube.depths,
-                       stable_width=tube.name.startswith('leg.'), ground_end=tube.name.startswith('leg.'))
+                       stable_width=tube.name.startswith('leg.'), ground_end=tube.name.startswith('leg.'), toe_length=tube.toe_length)
         regions.append(AnatomyRegion(tube.name, 'avian', tuple(range(start, len(vertices)))))
         connections.append(AnatomyConnection('body.' + tube.name, ('body', tube.name), 'connected',
                            (openings[tube.name], tuple(range(start, start + _RING_SIDES)))))

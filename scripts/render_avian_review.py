@@ -98,7 +98,7 @@ def review_part(values, pose):
     foot_points = []
     for region in anatomy.regions:
         if region.name.startswith('leg.'):
-            vertices = [points[i] for i in region.vertex_indices[-16:]]
+            vertices = [points[i] for i in region.vertex_indices[24:]]
             contact = [p for p in vertices if abs(p[2]) < 1e-5]
             report['feet'][region.name] = {
                 'minimum_z_cm': min(p[2] for p in vertices),

@@ -151,14 +151,34 @@ class AvianRecipeTests(unittest.TestCase):
             self.assertGreaterEqual(min(v[2] for v in mesh.parts[0].vertices), 0)
             for region in anatomy.regions:
                 if region.name.startswith('leg.'):
-                    sole = [mesh.parts[0].vertices[i] for i in region.vertex_indices[-16:]
+                    sole = [mesh.parts[0].vertices[i] for i in region.vertex_indices[24:]
                             if abs(mesh.parts[0].vertices[i][2]) < 1e-9]
-                    self.assertEqual(len(sole), 6)
+                    self.assertEqual(len(sole), 13)
                     self.assertGreater(max(v[0] for v in sole) - min(v[0] for v in sole), .5)
                     self.assertGreater(max(v[1] for v in sole) - min(v[1] for v in sole), 1)
 
+    def test_forward_toes_are_separated_and_tapered(self):
+        mesh = self.provider.mesh(self.values)
+        anatomy = self.provider.anatomy(self.values)
+        for region in anatomy.regions:
+            if not region.name.startswith('leg.'):
+                continue
+            ends = [[mesh.parts[0].vertices[i] for i in region.vertex_indices[40 + k * 4:44 + k * 4]]
+                    for k in range(3)]
+            self.assertTrue(all(len(end) == 4 for end in ends))
+            self.assertGreater(min(p[0] for p in ends[0]), max(p[0] for p in ends[1]))
+            self.assertGreater(min(p[0] for p in ends[1]), max(p[0] for p in ends[2]))
+            self.assertGreater(ends[1][0][1], ends[0][0][1])
+            self.assertAlmostEqual(ends[0][0][1], ends[2][0][1])
+            self.assertTrue(all(min(p[2] for p in end) == 0 for end in ends))
+
     def test_invalid_surface_profiles_and_landmark_references_are_rejected(self):
         tube = self.anatomy.tubes[0]
+        for bad in (-1, float('nan'), float('inf')):
+            with self.assertRaises(ValueError):
+                replace(tube, toe_length=bad)
+        with self.assertRaises(TypeError):
+            replace(tube, toe_length=True)
         for values in ((0,) * len(tube.widths), (float('nan'),) * len(tube.widths), (1,)):
             with self.assertRaises(ValueError):
                 replace(tube, widths=values)

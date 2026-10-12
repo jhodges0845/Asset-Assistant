@@ -23,10 +23,10 @@ class AvianWingShapeTests(unittest.TestCase):
                 for actual, expected in zip((mesh.parts[0].vertices[i] for i in indices), sample['nonwing_vertices'][:72]):
                     for a, b in zip(actual, expected):
                         self.assertAlmostEqual(a, b, places=9)
-                self.assertEqual(mesh.vertex_count, 232)
-                self.assertEqual(mesh.face_count, 226)
+                self.assertEqual(mesh.vertex_count, 256)
+                self.assertEqual(mesh.face_count, 254)
                 # An older generated cage must not receive current-recipe weights.
-                old_part = replace(mesh.parts[0], faces=tuple(tuple(f) for f in sample['faces']))
+                old_part = replace(mesh.parts[0], faces=tuple(tuple(f) for f in sample['faces']), uvs=())
                 with self.assertRaisesRegex(ValueError, 'authored topology'):
                     provider.skin_weights(ObjectMesh((old_part,)), sample['parameters'])
                 bones = json.loads(json.dumps(asdict(provider.skeleton(sample['parameters']))))['bones']

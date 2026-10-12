@@ -1682,9 +1682,34 @@ count and contact extents. The close-up artifact is
 pose leaves the feet unchanged). All 36 focused core and 16 Avian Blender tests
 pass; no full-suite rerun is claimed for this checkpoint.
 
+## Avian forward-toe construction (recipe 8)
+
+Each foot now ends in three connected, tapered forward toes with gaps between
+the distal tips; the center toe extends farther than the outer pair. The former
+single end cap is split into three openings and extruded, retaining a single
+closed, consistently oriented mesh. A validated recipe-owned toe length controls
+the extension. The foot ball moves rearward so the overall footprint length stays
+close to recipe 7; the shared foot bone ends at that ball landmark. The toes
+remain weighted to the existing support chain, without independent toe bones.
+
+The mesh now has 256 vertices and 254 faces. Each foot has 13 grounded vertices.
+Evaluated contact width/length is 1.7255/4.9795 cm for default and 2.4157/6.5465 cm
+for contrasting, within 0.00001 cm of ground. Both reference neutral meshes still
+have zero detected non-adjacent surface crossings. Footprint extents describe
+the outer bounds of the toes, not a solid contact rectangle. The review helper
+includes all toe vertices when measuring and framing the feet.
+
+Artifacts: `artifacts/shared-anatomy/avian8-feet.png` and evaluated contact reports
+`avian8-feet-{default,contrasting}.json`. All 37 focused core and 16 Avian Blender
+tests pass, including toe separation, ground contact, manifold winding,
+deformation and export checks. No full-suite rerun is claimed here. Older assets
+require explicit regeneration/rebuilding for the new topology and foot rest bone.
+Rear toes, claws, independent toe articulation, leg proportions and gait contact
+remain unfinished; the existing compact-wing fold is still not accepted.
+
 ## Next work
 
-For Avian, refine toe anatomy and leg proportions, then review support-chain
+For Avian, refine rear-toe/claw anatomy and leg proportions, then review support-chain
 motion and solve gait contact against the new soles.
 Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
