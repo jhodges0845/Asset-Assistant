@@ -1,0 +1,123 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Sample actual Avian Idle/Walk actions in an isolated Blender scene.
+
+These are fixed-ground diagnostics, not a physical slip or stance classification.
+Run in Blender with -- --output report.json [--sample contrasting].
+"""
+import argparse
+import json
+from math import floor, isfinite
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from object_core.objects import get_provider
+from scripts.anatomy_baseline import SAMPLES
+
+
+def review_cycle(values, clip='walk', intervals=64):
+    import bpy
+    from blender_adapter.adapter import create_character
+    from blender_adapter.animation import add_idle, add_locomotion
+    if clip not in ('idle', 'walk'):
+        raise ValueError('Review supports idle or walk')
+    if isinstance(intervals, bool) or not isinstance(intervals, int) or not 4 <= intervals <= 256:
+        raise ValueError('Review requires 4..256 intervals')
+    provider = get_provider('avian')
+    mesh, anatomy = provider.mesh(values), provider.anatomy(values)
+    duration = 4.0 if clip == 'idle' else 1.2
+    feet = {r.name: r.vertex_indices[24:] for r in anatomy.regions if r.name.startswith('leg.')}
+    soles = {name: tuple(i for i in indices if abs(mesh.parts[0].vertices[i][2]) < 1e-8)
+             for name, indices in feet.items()}
+    if not all(soles.values()):
+        raise ValueError('Review requires neutral sole vertices')
+    previous = bpy.context.window.scene
+    kinds = ('objects', 'meshes', 'armatures', 'collections', 'actions', 'materials')
+    before = {kind: set(getattr(bpy.data, kind)) for kind in kinds}
+    scene = bpy.data.scenes.new('AvianMotionReview')
+    try:
+        bpy.context.window.scene = scene
+        scene.render.fps, scene.render.fps_base = 24, 1
+        scene.frame_start = 1
+        root = create_character(mesh, scene=scene, skeleton=provider.skeleton(values),
+                                skin_weights=provider.skin_weights(mesh, values))
+        root['object_type'] = 'avian'
+        for key, value in values.items():
+            root[key] = value
+        body = next(o for o in root.children if o.type == 'MESH')
+        (add_idle if clip == 'idle' else add_locomotion)(root, scene, duration, 1.0)
+        rows, first = [], None
+        maximum_motion = 0.0
+        for sample in range(intervals + 1):
+            frame = 1 + duration * sample / intervals * 24
+            scene.frame_set(floor(frame), subframe=frame - floor(frame))
+            bpy.context.view_layer.update()
+            evaluated = body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            surface = evaluated.to_mesh()
+            try:
+                points = tuple(tuple(float(c) * 100 for c in evaluated.matrix_world @ v.co)
+                               for v in surface.vertices)
+            finally:
+                evaluated.to_mesh_clear()
+            if len(points) != mesh.vertex_count or not all(isfinite(c) for p in points for c in p):
+                raise ValueError('Review requires finite unchanged evaluated topology')
+            if first is None:
+                first = points
+            displacement = max(sum((a-b)**2 for a,b in zip(p,q))**.5 for p,q in zip(first,points))
+            maximum_motion = max(maximum_motion, displacement)
+            rows.append(dict(phase=sample/intervals, frame=frame,
+                feet={name: dict(minimum_z_cm=min(points[i][2] for i in indices),
+                    fixed_sole_positions_cm=[points[i] for i in soles[name]]) for name,indices in feet.items()}))
+        summary = {}
+        for name in feet:
+            heights = [row['feet'][name]['minimum_z_cm'] for row in rows]
+            worst = min(range(len(heights)), key=heights.__getitem__)
+            summary[name] = dict(minimum_z_cm=heights[worst], worst_phase=rows[worst]['phase'],
+                maximum_minimum_z_cm=max(heights),
+                penetrating_samples=sum(z < -.02 for z in heights),
+                lifted_samples=sum(z > .02 for z in heights),
+                near_ground_samples=sum(abs(z) <= .02 for z in heights),
+                maximum_fixed_sole_motion_cm=max(
+                    sum((a-b)**2 for a,b in zip(point,initial))**.5
+                    for row in rows
+                    for point,initial in zip(row['feet'][name]['fixed_sole_positions_cm'],
+                                             rows[0]['feet'][name]['fixed_sole_positions_cm'])))
+        return dict(clip=clip, parameters=values, recipe_version=anatomy.recipe_version,
+                    duration=duration, intervals=intervals, ground_tolerance_cm=.02,
+                    fixed_sole_indices=soles, maximum_surface_motion_cm=maximum_motion,
+                    loop_closure_error_cm=displacement, summary=summary, samples=rows)
+    finally:
+        bpy.context.window.scene = previous
+        for kind in kinds:
+            data = getattr(bpy.data, kind)
+            for item in set(data) - before[kind]:
+                data.remove(item, do_unlink=True)
+        bpy.data.scenes.remove(scene)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
+    parser.add_argument('--intervals', type=int, default=64)
+    args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
+    provider = get_provider('avian')
+    values = {p.key:p.default for p in provider.parameters}
+    if args.sample == 'contrasting':
+        values.update(SAMPLES['avian'])
+    report = dict(schema_version=1, sample=args.sample,
+        interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. No stance schedule or physical slip proof; between-sample extremes are not bounded.',
+        commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+        working_tree_changes=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).splitlines(),
+        cycles=[review_cycle(values,clip,args.intervals) for clip in ('idle','walk')])
+    args.output.parent.mkdir(parents=True,exist_ok=True)
+    args.output.write_text(json.dumps(report,indent=2,allow_nan=False)+'\n',encoding='utf-8')
+    print(json.dumps({c['clip']:c['summary'] for c in report['cycles']},indent=2))
+
+
+if __name__ == '__main__':
+    main()

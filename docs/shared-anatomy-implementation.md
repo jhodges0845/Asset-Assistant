@@ -1777,10 +1777,42 @@ tests pass, including body/axial shape preservation under translation, support
 clearance, contact, crossings, topology, deformation and export. The full suite
 has not been rerun at this checkpoint.
 
+## Avian actual-action contact baseline
+
+`scripts/review_avian_gait.py` samples real generated Idle and Walk actions in an
+isolated Blender scene and removes its generated data afterward. It records
+foot-region minimum heights, fixed neutral sole vertex positions, motion from
+the first sample, loop closure and counts relative to a 0.02 cm ground tolerance.
+It does not infer stance from a low point, label swing motion as slip, or claim
+continuous-time bounds. Reports include both endpoints of the closed cycle.
+
+At normal strength with 64 intervals (65 samples), default Walk reaches
+-3.03430 cm at phases 0.375 left / 0.875 right; contrasting Walk reaches
+-3.91967 cm at the same phases. These are real evaluated penetrations, not merely
+rest-pose offsets. Default left/right penetrating sample counts are 44/45;
+contrasting counts are 43/44. Idle fixed sole motion is zero for both shapes,
+with ground height within numerical tolerance. Sampled loop closure is zero for
+both clips and shapes. Flight was not evaluated by this ground-contact review.
+
+Run in a fresh Blender process:
+
+```powershell
+& <blender.exe> --background --factory-startup --python-exit-code 1 --python scripts/review_avian_gait.py -- --output artifacts/shared-anatomy/avian11-motion-default.json
+```
+
+Use `--sample contrasting` for the second reference shape. Both reports use
+`avian11-motion-{default,contrasting}.json` under `artifacts/shared-anatomy/`.
+All 18 focused Avian Blender tests pass, including actual-action sampling,
+summary consistency, loop closure, stationary Idle soles and scene/data cleanup.
+The tests validate the diagnostic; they do not accept the current Walk contact.
+Production geometry and clips are unchanged in this checkpoint. The next motion
+implementation must solve Walk against the weighted sole and recheck both shapes,
+including denser time sampling and clip-switch behavior.
+
 ## Next work
 
-For Avian, review support-chain motion and solve gait contact against the new
-soles; retain visual review of the taller stance across additional shapes.
+For Avian, fix the measured Walk penetrations using weighted-sole contact targets;
+retain visual review of the taller stance across additional shapes.
 Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint

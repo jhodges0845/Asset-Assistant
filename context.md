@@ -20,7 +20,7 @@ Canine contact gait: `object_core/animation/contact.py` supplies stance/swing ta
 
 ## Active Avian work
 
-Avian recipe 11 raises the torso and extends the shared support chains while preserving grounded clawed feet. Both reference neutral meshes have zero detected non-adjacent surface crossings. Compact-fold overlap, gait contact and broader stance/motion review remain. Foot close-ups, side views and contact measurements are available. Geometry/rig changes require explicit regeneration. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
+Avian recipe 11 raises the torso and extends the shared support chains while preserving grounded clawed feet. Both reference neutral meshes have zero detected non-adjacent surface crossings. Actual-action review finds Walk penetration of 3.03 cm default / 3.92 cm contrasting; Idle soles stay stationary. Next: solve Walk contact, then compact-fold clearance and broader stance/motion review. Foot close-ups, side views and `scripts/review_avian_gait.py` provide review evidence. Geometry/rig changes require explicit regeneration. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
 
 ## Current Human V2 integration (2026-09-20)
 
