@@ -1730,9 +1730,31 @@ crossings, deformation and export. Older assets require explicit regeneration
 for the changed topology. Claws, leg proportions, gait contact and compact-wing
 fold clearance remain open; no full-suite rerun is claimed for this checkpoint.
 
+## Avian claw construction (recipe 10)
+
+All three forward toes and the rear toe now end in connected tapered claws.
+Each toe cap is replaced by a narrower raised section and pointed end above the
+sole plane. Claw length is validated recipe data bounded by body length and leg
+thickness. Existing toe vertices, support-chain rest bones and ground-contact
+vertices are preserved; the claws follow existing skin weighting. No separate
+claw material or independent digit controls are added.
+
+The mesh has 312 vertices and 326 faces and remains closed with consistent
+winding. Both reference neutral meshes retain zero detected non-adjacent surface
+crossings, 15 ground vertices per foot and the recipe 9 contact extents. Claw
+vertices stay above ground in the neutral construction. These checks do not
+establish contact during animation or clearance of the compact wing fold.
+
+Artifacts: `artifacts/shared-anatomy/avian10-feet.png` and evaluated reports
+`avian10-feet-{default,contrasting}.json`. All 39 focused core and 16 Avian Blender
+tests pass, including taper/direction/clearance, contact, topology, deformation
+and export. Changed source files compile and whitespace checks pass. Older
+assets require explicit regeneration for the new topology. Full-suite testing
+has not been repeated at this checkpoint.
+
 ## Next work
 
-For Avian, refine claws and leg proportions, then review support-chain
+For Avian, refine leg proportions and review support-chain
 motion and solve gait contact against the new soles.
 Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
 surface, retaining the non-wing displacement gate. Review the contrasting shape

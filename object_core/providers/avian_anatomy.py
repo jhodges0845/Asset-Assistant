@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 9: connected forward and rear grounded toes.
+"""Avian recipe 10: tapered claws on connected grounded toes.
 
 Wing and leg surface centerlines and rest chains share landmark identities.
 Body and tail rest offsets remain explicit.
@@ -19,11 +19,12 @@ class AvianTube:
     depths: tuple
     toe_length: float = 0.0
     rear_toe_length: float = 0.0
+    claw_length: float = 0.0
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name:
             raise ValueError('Avian tube needs a name')
-        for name in ('toe_length', 'rear_toe_length'):
+        for name in ('toe_length', 'rear_toe_length', 'claw_length'):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise TypeError(name + ' must be a number')
@@ -64,10 +65,10 @@ def _lerp(a, b, amount):
 def _surface_profiles(dimensions):
     landmarks = []
 
-    def tube(name, centers, widths, depths, toe_length=0.0, rear_toe_length=0.0):
+    def tube(name, centers, widths, depths, toe_length=0.0, rear_toe_length=0.0, claw_length=0.0):
         names = tuple('surface.' + name + '.' + str(i) for i in range(len(centers)))
         landmarks.extend(Landmark(n, p) for n, p in zip(names, centers))
-        return AvianTube(name, names, widths, depths, toe_length, rear_toe_length)
+        return AvianTube(name, names, widths, depths, toe_length, rear_toe_length, claw_length)
 
     length = dimensions["body_length_cm"]
     width = dimensions["body_width_cm"]
@@ -160,7 +161,7 @@ def _surface_profiles(dimensions):
             leg_thickness * 0.56,
             leg_thickness * 0.34,
         )
-        tubes.append(tube("leg." + side, centers_leg, widths_leg, depths_leg, toe_length=length * .07, rear_toe_length=length * .0455))
+        tubes.append(tube("leg." + side, centers_leg, widths_leg, depths_leg, toe_length=length * .07, rear_toe_length=length * .0455, claw_length=min(leg_thickness * .65, length * .02)))
 
     return landmarks, tuple(tubes)
 
@@ -221,7 +222,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '9'
+    recipe_version = '10'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.

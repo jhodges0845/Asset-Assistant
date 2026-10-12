@@ -20,7 +20,7 @@ Canine contact gait: `object_core/animation/contact.py` supplies stance/swing ta
 
 ## Active Avian work
 
-Avian recipe 9 adds a connected rear toe to each three-toed foot, retaining neutral ground contact. Both reference neutral meshes have zero detected non-adjacent surface crossings. Compact-fold overlap, claws, leg proportions and gait-contact review remain. Foot close-ups and contact measurements are available. Geometry/rig changes require explicit regeneration. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
+Avian recipe 10 adds connected tapered claws to all forward/rear toes, preserving neutral sole contact. Both reference neutral meshes have zero detected non-adjacent surface crossings. Compact-fold overlap, leg proportions and gait-contact review remain. Foot close-ups and contact measurements are available. Geometry/rig changes require explicit regeneration. See `docs/shared-anatomy-implementation.md`. Human feedback remains deferred in `docs/human-review-notes.md`.
 
 ## Current Human V2 integration (2026-09-20)
 

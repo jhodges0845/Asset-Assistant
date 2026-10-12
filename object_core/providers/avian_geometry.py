@@ -95,6 +95,7 @@ def _append_toes(vertices, faces, ring, center, width, depth, length):
                (-.5, 0), (-.5, top), (-1/6, top), (1/6, top))
     for i, (offset, z) in zip(ring, profile):
         vertices[i] = (center[0] + width * offset, center[1], z)
+    caps = []
     for digit, slots in enumerate(((0, 1, 2, 7), (7, 2, 3, 6), (6, 3, 4, 5))):
         root = tuple(ring[i] for i in slots)
         middle_x = sum(vertices[i][0] for i in root) / 4
@@ -110,6 +111,8 @@ def _append_toes(vertices, faces, ring, center, width, depth, length):
             nxt = (j + 1) % 4
             faces.append((root[j], root[nxt], end[nxt], end[j]))
         faces.append(tuple(end))
+        caps.append(tuple(end))
+    return caps
 
 
 def _append_rear_toe(vertices, faces, rings, centers, widths, length):
@@ -141,16 +144,42 @@ def _append_rear_toe(vertices, faces, rings, centers, widths, length):
         nxt = (j + 1) % 4
         faces.append((root[j], root[nxt], end[nxt], end[j]))
     faces.append(end)
+    return end
 
 
-def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False, ground_end=False, toe_length=0.0, rear_toe_length=0.0):
+def _append_claw(vertices, faces, root, length, direction):
+    """Replace a toe cap with a raised taper ending above the sole plane."""
+    faces.remove(root)
+    center = tuple(sum(vertices[i][a] for i in root) / 4 for a in range(3))
+    height = max(vertices[i][2] for i in root)
+    shoulder = []
+    for i in root:
+        x, y, z = vertices[i]
+        shoulder.append(len(vertices))
+        vertices.append((center[0] + (x - center[0]) * .45,
+                         center[1] + direction * length * .55,
+                         height * .60 + (z - center[2]) * .35))
+    tip = len(vertices)
+    vertices.append((center[0], center[1] + direction * length, height * .15))
+    for j in range(4):
+        nxt = (j + 1) % 4
+        faces.append((root[j], root[nxt], shoulder[nxt], shoulder[j]))
+        faces.append((shoulder[j], shoulder[nxt], tip))
+
+
+def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False, ground_end=False, toe_length=0.0, rear_toe_length=0.0, claw_length=0.0):
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
     rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=not toe_length, stable_width=stable_width, ground_end=ground_end)
+    digits = []
     if toe_length:
-        _append_toes(vertices, faces, rings[-1], centers[-1], widths[-1], depths[-1], toe_length)
+        digits.extend((cap, 1) for cap in _append_toes(
+            vertices, faces, rings[-1], centers[-1], widths[-1], depths[-1], toe_length))
     if rear_toe_length:
-        _append_rear_toe(vertices, faces, rings, centers, widths, rear_toe_length)
+        digits.append((_append_rear_toe(vertices, faces, rings, centers, widths, rear_toe_length), -1))
+    if claw_length:
+        for cap, direction in digits:
+            _append_claw(vertices, faces, cap, claw_length, direction)
     first = rings[0]
     # Match perimeter phase without reversing the tube's outward winding.
     phase = min(range(_RING_SIDES), key=lambda offset: sum(
@@ -219,7 +248,7 @@ def _build_avian_mesh(anatomy):
         start = len(vertices)
         _append_branch(vertices, faces, openings[tube.name],
                        tuple(points[n] for n in tube.landmarks), tube.widths, tube.depths,
-                       stable_width=tube.name.startswith('leg.'), ground_end=tube.name.startswith('leg.'), toe_length=tube.toe_length, rear_toe_length=tube.rear_toe_length)
+                       stable_width=tube.name.startswith('leg.'), ground_end=tube.name.startswith('leg.'), toe_length=tube.toe_length, rear_toe_length=tube.rear_toe_length, claw_length=tube.claw_length)
         regions.append(AnatomyRegion(tube.name, 'avian', tuple(range(start, len(vertices)))))
         connections.append(AnatomyConnection('body.' + tube.name, ('body', tube.name), 'connected',
                            (openings[tube.name], tuple(range(start, start + _RING_SIDES)))))
