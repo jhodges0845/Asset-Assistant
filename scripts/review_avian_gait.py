@@ -59,6 +59,7 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
         for key, value in values.items():
             root[key] = value
         body = next(o for o in root.children if o.type == 'MESH')
+        rig = next(o for o in root.children if o.type == 'ARMATURE')
         (add_idle if clip == 'idle' else add_locomotion)(root, scene, duration, strength)
         rows, first = [], None
         maximum_motion = 0.0
@@ -81,6 +82,7 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
             maximum_motion = max(maximum_motion, displacement)
             crossings = surface_crossings(points, mesh.parts[0].faces)
             rows.append(dict(phase=sample/intervals, frame=frame,
+                root_head_cm=tuple(float(c)*100 for c in rig.matrix_world @ rig.pose.bones['root'].head),
                 wing_span_cm=max(points[i][0] for i in wing_indices)-min(points[i][0] for i in wing_indices),
                 surface_crossings=crossings,
                 new_surface_crossings=sorted(set(crossings)-neutral_pairs),
@@ -114,6 +116,7 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
                     fixed_sole_indices=soles, maximum_surface_motion_cm=maximum_motion,
                     neutral_surface_crossings=neutral_crossings,
                     neutral_wing_span_cm=neutral_wing_span,
+                    root_vertical_range_cm=max(row['root_head_cm'][2] for row in rows)-min(row['root_head_cm'][2] for row in rows),
                     maximum_wing_span_cm=max(row['wing_span_cm'] for row in rows),
                     crossing_samples=sum(bool(row['surface_crossings']) for row in rows),
                     maximum_crossing_pairs=max(len(row['surface_crossings']) for row in rows),
@@ -139,7 +142,7 @@ def main():
     values = {p.key:p.default for p in provider.parameters}
     if args.sample == 'contrasting':
         values.update(SAMPLES['avian'])
-    report = dict(schema_version=4, sample=args.sample,
+    report = dict(schema_version=5, sample=args.sample,
         interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. Walk stance uses the authored schedule and reference +Y travel; it is not physical slip proof. Between-sample extremes are not bounded.',
         commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         working_tree_changes=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).splitlines(),

@@ -2005,6 +2005,35 @@ Validation: 44 Avian core tests, 5 architecture tests, 21 Avian Blender tests an
 5 shared Human/Quadruped animation tests pass. GLB/FBX export checks are included
 in the Avian suite. No blend transition is generated between the separate clips.
 
+## Avian Walk body response (2026-10-14)
+
+Walk now adds a small two-step vertical body response: compression peaks at the
+middle of double support, and the body rises during single support. Crouch ranges
+from 2.8% to 4% of body height, scaled by strength up to 1. Stronger steps retain
+the tested 4% maximum compression instead of bending the hip more deeply. This
+is authored motion timing, not a dynamic balance simulation.
+
+The weighted-surface solver uses the varying crouch at every joint sample, and
+the root translation uses the same 128-key timing with an exact closing key.
+Feet therefore keep their original stance/swing targets as the body moves.
+Folded wing tracks remain unchanged. Idle/Flight still explicitly reset root
+translation. Regenerate Walk to adopt the motion; recipe 14 geometry and rig
+are unchanged.
+
+At strength 1 over 127 intervals, evaluated root vertical range is 0.239746 cm
+default / 0.335644 cm contrasting. Minimum foot height is 0.019977 / 0.019964 cm;
+maximum reference stance drift is 0.000213 / 0.000304 cm. No surface crossings
+are detected. The same contact, crossing, fold-span, closure and bounded-body
+checks pass both shapes at strengths 0.1, 1 and 2. Idle root range remains zero.
+Schema 5 gait reports add evaluated root-head positions and vertical range.
+
+Evidence: `artifacts/shared-anatomy/avian-body-response-{default,contrasting}.json`
+and `avian-body-response-walk.blend`, its MP4 and phase sheets. Validation:
+45 Avian core tests and 21 Avian Blender tests pass, including action switching
+and GLB/FBX exports. Sampled checks do not establish physical balance, arbitrary
+edited-shape coverage or continuous-time clearance. Final artistic motion review,
+broader shape coverage and transitions into/out of Flight remain ahead.
+
 ## Next work
 
 For Avian, visually review the contact-solved Walk and taller stance across additional
@@ -2012,7 +2041,7 @@ shapes; review full-cycle motion before final acceptance. Stance-reference drift
 is now measured on the two canonical shapes.
 Compact-fold sampled surface crossings are resolved on the two reference shapes;
 folded wings now hold in Idle/Walk; review posture quality and additional shapes,
-then add body follow-through and evaluate transitions into Flight. Retain the
+review the new bounded body response and evaluate transitions into Flight. Retain the
 non-wing displacement and foot-contact gates. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint
 landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,

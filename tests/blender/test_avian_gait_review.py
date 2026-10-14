@@ -49,6 +49,9 @@ class AvianGaitReviewTests(unittest.TestCase):
             for strength in (.1,1.,2.):
                 report = review_cycle(values,intervals=127,strength=strength)
                 self.assertLess(report['loop_closure_error_cm'],1e-4)
+                scale = values['body_height_cm']*min(strength,1.)
+                self.assertGreater(report['root_vertical_range_cm'],scale*.01)
+                self.assertLess(report['root_vertical_range_cm'],scale*.013)
                 self.assertEqual(report['neutral_surface_crossings'],[])
                 self.assertEqual(report['crossing_samples'],0)
                 self.assertEqual(report['maximum_crossing_pairs'],0)
@@ -69,6 +72,7 @@ class AvianGaitReviewTests(unittest.TestCase):
         for values in (self.values,SAMPLES['avian']):
             for strength in (.1,1.,2.):
                 report = review_cycle(values,clip='idle',intervals=127,strength=strength)
+                self.assertLess(report['root_vertical_range_cm'],1e-6)
                 self.assertEqual(report['crossing_samples'],0)
                 self.assertLess(report['maximum_wing_span_cm'],report['neutral_wing_span_cm']*.4)
                 for foot in report['summary'].values():

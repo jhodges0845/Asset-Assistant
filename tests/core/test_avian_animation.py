@@ -65,10 +65,28 @@ class AvianAnimationTests(unittest.TestCase):
                     surface = LimbSurface(mesh,weights,regions[chain.name],
                         tuple(bones[n] for n in chain.bones),-clip.translations[0].keys[0][1][2])
                     for i in range(128):
+                        surface.crouch = -clip.translations[0].keys[i][1][2]
                         target = schedules[chain.name].target(i/128)
                         y,z = surface.measure(tuple(tracks[n].keys[i][1] for n in chain.bones[:2]))
                         self.assertAlmostEqual(y,surface.neutral_y+target.forward_cm,places=5)
                         self.assertAlmostEqual(z,target.lift_cm+.02,places=5)
+
+    def test_walk_body_response_is_closed_bounded_and_synchronized_to_support(self):
+        from object_core.providers.avian_gait import body_crouch, contact_schedule
+        for strength in (.1,1.,2.):
+            clip = generate_avian_walk(1.2,strength)
+            root = clip.translations[0]
+            self.assertEqual(root.keys[0][1],root.keys[-1][1])
+            self.assertTrue(all(offset[:2] == (0.,0.) for _,offset in root.keys))
+            depth = [-offset[2] for _,offset in root.keys]
+            self.assertGreater(max(depth)-min(depth), .01*20*min(strength,1.))
+            self.assertLessEqual(max(depth),.04*20*min(strength,1.))
+            schedules = contact_schedule(1.2,strength,20)
+            self.assertTrue(all(s.target(.075).in_stance for s in schedules.values()))
+            self.assertEqual(sum(s.target(.325).in_stance for s in schedules.values()),1)
+            self.assertGreater(body_crouch(20,strength,.075),body_crouch(20,strength,.325))
+            for phase in (.0,.075,.325,.9):
+                self.assertAlmostEqual(body_crouch(20,strength,phase),body_crouch(20,strength,phase+.5))
 
     def test_fold_tracks_are_local_normalized_and_independent_of_step_strength(self):
         from dataclasses import asdict
