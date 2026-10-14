@@ -1906,6 +1906,40 @@ scenes generate; the original canine review builder also passes its scene-genera
 smoke check. Surface crossing detection excludes shared-vertex faces, containment,
 coplanar contact and between-sample extremes; it is not a collision-free proof.
 
+## Avian recipe 13: compact-fold collar refinement (2026-10-14)
+
+The original compact local-Z sweep intersects the torso and shoulder collar
+(20 detected pairs on the default bird). The diagnostic now combines a mirrored
+1.3-radian upper-wing sweep, 1.0-radian local-Y rotation and 0.2-radian elbow sweep.
+This clears the broad wing from the torso but initially left four collar crossings
+on each reference shape.
+
+Recipe 13 changes the leading two wing attachment sectors to the ring-side
+triangle/quad diagonal already used for the leg collars. The lifted compact pose
+now has one detected pair on each shape: faces 68/95, a left proximal wing surface
+against its shoulder bridge. Vertices, weights, rest bones and counts (312/326/16)
+are unchanged; connectivity and projected UVs change locally. Explicitly regenerate
+existing geometry before applying current-recipe weights. Artist-owned data is
+preserved, and incompatible old topology is rejected.
+
+Final spans are 29.7436 cm default and 42.7525 cm contrasting, under 40% of neutral.
+Body and legs stay stationary. Seventeen evenly spaced simultaneous Euler blend
+samples from neutral to the endpoint show at most one crossing on either shape.
+This is not a production folding animation or a collision-free path. The remaining
+collar crossing is an open defect; the older `wing-fold` diagnostic remains available.
+Shoulder weight experiments were not retained.
+
+Evidence: `artifacts/shared-anatomy/avian13-compact.png`,
+`avian13-compact-contrasting.png`, their JSON reports and `avian13-fold-path.json`.
+The default top view has a compact silhouette with the left shoulder pinch still
+visible. Next: remove that proximal collar intersection before accepting or
+integrating a folded/perched posture into generated animation.
+
+Validation: 42 Avian core tests and 20 Avian Blender tests pass, including neutral
+crossings, the two-shape/three-strength Walk contact/crossing gate, non-wing
+stationarity, compact endpoint regression ceiling and export tests. The one-pair
+ceiling records improvement; it does not accept folding.
+
 ## Next work
 
 For Avian, visually review the contact-solved Walk and taller stance across additional

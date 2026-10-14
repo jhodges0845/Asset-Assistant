@@ -189,6 +189,19 @@ class AvianDeformationTests(unittest.TestCase):
                     self.assertGreater(foot['contact_width_cm'], .5)
                     self.assertGreater(foot['contact_length_cm'], 1)
 
+    def test_lifted_compact_fold_limits_crossings_without_moving_nonwing_regions(self):
+        from scripts.render_avian_review import review_part
+        from scripts.anatomy_baseline import SAMPLES
+        provider = get_provider('avian')
+        for values in ({f.key:f.default for f in provider.parameters}, SAMPLES['avian']):
+            part, report = review_part(values, 'wing-fold-compact')
+            self.assertEqual(report['neutral_surface_crossings'], [])
+            # Regression ceiling only: the remaining collar crossing is not accepted.
+            self.assertLessEqual(len(report['new_surface_crossings']), 1)
+            self.assertLess(report['wing_span_cm']['posed'], report['wing_span_cm']['neutral']*.4)
+            for name in ('body', 'leg.left', 'leg.right'):
+                self.assertLess(report['region_max_displacement_cm'][name],1e-5)
+
     def test_wing_root_blends_with_spine_instead_of_hinging_as_a_rigid_seam(self):
         wing_group = self.avian.vertex_groups.get("wing.upper.left")
         spine_group = self.avian.vertex_groups.get("spine")

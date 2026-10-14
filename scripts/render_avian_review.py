@@ -37,14 +37,16 @@ POSES['wing-fold'] = (
     ('wing.lower.right', 'z', 2.1),
 )
 
+# Lifted shoulder sweep: improves torso clearance, but one collar crossing
+# remains on each reference shape. Diagnostic only, not an accepted rest pose.
 POSES['wing-fold-compact'] = (
-    ('wing.upper.left', 'z', 1.35),
+    ('wing.upper.left', 'z', 1.3),
+    ('wing.upper.left', 'y', 1.),
     ('wing.lower.left', 'z', .2),
-    ('wing.upper.right', 'z', -1.35),
+    ('wing.upper.right', 'z', -1.3),
+    ('wing.upper.right', 'y', -1.),
     ('wing.lower.right', 'z', -.2),
 )
-
-
 
 
 def evaluated_points(body):

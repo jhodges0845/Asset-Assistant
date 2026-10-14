@@ -192,9 +192,9 @@ def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_wid
         ring_start = first[(2 * index) % _RING_SIDES]
         ring_mid = first[(2 * index + 1) % _RING_SIDES]
         ring_end = first[(2 * index + 2) % _RING_SIDES]
-        if stable_width:
-            # Put the diagonal on the ring-side half of the broad leg collar;
-            # the opposite diagonal can cut through a descending upper leg.
+        if stable_width or index in (0, 1):
+            # Use the ring-side diagonal for leg collars and the leading
+            # wing collar sectors, reducing fold-induced shoulder crossings.
             faces.append((root_start, root_end, ring_end, ring_mid))
             faces.append((root_start, ring_mid, ring_start))
         else:
