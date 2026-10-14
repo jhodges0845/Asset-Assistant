@@ -72,6 +72,29 @@ class AvianRecipeTests(unittest.TestCase):
                         self.assertEqual(weights.vertices[i][0].bone_name,foot)
                         self.assertEqual(weights.vertices[i][0].weight,1.)
 
+    def test_shoulder_bridge_faces_are_reflected_with_matching_winding(self):
+        from scripts.anatomy_baseline import SAMPLES
+        def cyclic(face):
+            return min(face[i:]+face[:i] for i in range(len(face)))
+        for values in (self.values, SAMPLES['avian']):
+            part = self.provider.mesh(values).parts[0]
+            anatomy = self.provider.anatomy(values)
+            connections = [next(c for c in anatomy.connections if c.regions == ('body',name))
+                           for name in ('wing.left','wing.right')]
+            boundaries = [set(i for boundary in c.boundaries for i in boundary) for c in connections]
+            mapping = {}
+            for i in boundaries[1]:
+                x,y,z = part.vertices[i]
+                j = min(boundaries[0],key=lambda j:sum((a-b)**2 for a,b in zip((-x,y,z),part.vertices[j])))
+                self.assertLess(sum((a-b)**2 for a,b in zip((-x,y,z),part.vertices[j])),1e-12)
+                mapping[i] = j
+            self.assertEqual(len(set(mapping.values())),len(mapping))
+            def bridges(connection):
+                root,ring = map(set,connection.boundaries)
+                return [f for f in part.faces if root.intersection(f) and ring.intersection(f)]
+            self.assertEqual({cyclic(f) for f in bridges(connections[0])},
+                             {cyclic(tuple(mapping[i] for i in reversed(f))) for f in bridges(connections[1])})
+
     def test_resolution_is_immutable_deterministic_and_parameter_complete(self):
         self.assertEqual(self.anatomy, AvianRecipe().resolve(self.provider.dimensions(dict(reversed(list(self.values.items()))))))
         self.assertEqual(dict(self.anatomy.parameters), self.values)

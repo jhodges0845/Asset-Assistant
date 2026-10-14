@@ -37,8 +37,8 @@ POSES['wing-fold'] = (
     ('wing.lower.right', 'z', 2.1),
 )
 
-# Lifted shoulder sweep: improves torso clearance, but one collar crossing
-# remains on each reference shape. Diagnostic only, not an accepted rest pose.
+# Lifted shoulder sweep with sampled clearance on both reference shapes.
+# Diagnostic only; not yet an accepted or generated perched rest pose.
 POSES['wing-fold-compact'] = (
     ('wing.upper.left', 'z', 1.3),
     ('wing.upper.left', 'y', 1.),
@@ -59,9 +59,11 @@ def evaluated_points(body):
         evaluated.to_mesh_clear()
 
 
-def review_part(values, pose, phase=0., strength=1.):
+def review_part(values, pose, phase=0., strength=1., pose_fraction=1.):
     if not isfinite(phase) or not 0 <= phase <= 1:
         raise ValueError('Review phase must be in [0, 1]')
+    if not isfinite(pose_fraction) or not 0 <= pose_fraction <= 1:
+        raise ValueError('Pose fraction must be in [0, 1]')
     provider = get_provider('avian')
     mesh, anatomy = provider.mesh(values), provider.anatomy(values)
     skeleton = provider.skeleton(values)
@@ -93,13 +95,13 @@ def review_part(values, pose, phase=0., strength=1.):
             for name, axis, angle in POSES[pose]:
                 bone = rig.pose.bones[name]
                 bone.rotation_mode = 'XYZ'
-                setattr(bone.rotation_euler, axis, angle)
-            report['rotations'] = [dict(bone=name, axis=axis, radians=angle)
+                setattr(bone.rotation_euler, axis, angle * pose_fraction)
+            report['rotations'] = [dict(bone=name, axis=axis, radians=angle * pose_fraction)
                                    for name, axis, angle in POSES[pose]]
         points = evaluated_points(body)
         if pose in ISOLATED_POSES:
             name, axis, angle = ISOLATED_POSES[pose]
-            report.update(bone=name, rotation_axis=axis, rotation_radians=angle)
+            report.update(bone=name, rotation_axis=axis, rotation_radians=angle * pose_fraction)
         wing_indices = [i for r in anatomy.regions if r.name.startswith('wing.')
                         for i in r.vertex_indices]
         report['wing_span_cm'] = {
@@ -134,6 +136,7 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
     parser.add_argument('--pose', choices=('neutral', 'walk') + tuple(POSES), default='neutral')
+    parser.add_argument('--pose-fraction', type=float, default=1., help='Fraction of diagnostic joint rotations, 0..1')
     parser.add_argument('--phase', type=float, default=0.)
     parser.add_argument('--strength', type=float, default=1.)
     parser.add_argument('--view', choices=('four-view', 'top', 'feet', 'side'), default='four-view')
@@ -149,7 +152,7 @@ def main():
     if args.sample == 'contrasting':
         values.update(SAMPLES['avian'])
     sheets._clear_scene()
-    part, report = review_part(values, args.pose, args.phase, args.strength)
+    part, report = review_part(values, args.pose, args.phase, args.strength, args.pose_fraction)
     sheets._clear_scene()
     if args.view == 'feet':
         anatomy = provider.anatomy(values)

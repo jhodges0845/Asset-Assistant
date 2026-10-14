@@ -1940,13 +1940,44 @@ crossings, the two-shape/three-strength Walk contact/crossing gate, non-wing
 stationarity, compact endpoint regression ceiling and export tests. The one-pair
 ceiling records improvement; it does not accept folding.
 
+## Avian recipe 14: mirrored shoulder attachments (2026-10-14)
+
+The final compact-fold crossing came from asymmetric attachment connectivity,
+not the shoulder proportions or weights. Independent perimeter matching gave
+left and right collars different reflected face diagonals even though their
+vertices were mirrored. The left proximal surface crossed its own bridge.
+
+The constructor now uses the right shoulder bridge as the canonical connectivity
+and reflects it onto the left using authored ring indices, reversing face winding.
+This preserves 312 vertices, 326 faces, 16 bones, all surface positions, skin
+weights and rest landmarks. Only left shoulder face connectivity and its projected
+UVs change. Recipe 14 requires explicit geometry regeneration; artist-owned data
+is not overwritten. The new core regression verifies reflected connectivity and
+winding against reflected coordinates on both reference shapes.
+
+Both compact endpoints and all 17 sampled intermediate fold positions now have
+zero detected non-adjacent surface crossings. Body and leg vertices remain
+stationary. Folded spans remain 29.7436 / 42.7525 cm (default / contrasting).
+`render_avian_review.py --pose-fraction` can inspect intermediate diagnostic
+rotations without changing the pose definitions. These samples do not bound
+continuous-time intersections, containment or coplanar contact, and the diagnostic
+has not yet become a production folded/perched animation state.
+
+Validation: 43 Avian core and 20 Avian Blender tests pass, including full fold-path
+clearance on both shapes, neutral topology, all six Walk contact/crossing cases,
+action switching and GLB/FBX export. Top-view artifacts are
+`artifacts/shared-anatomy/avian14-compact-{default,contrasting}.png` with JSON reports.
+Next: review the folded posture from additional views and plan its explicit use
+in Idle/Walk before adding body follow-through.
+
 ## Next work
 
 For Avian, visually review the contact-solved Walk and taller stance across additional
 shapes; review full-cycle motion before final acceptance. Stance-reference drift
 is now measured on the two canonical shapes.
-Resolve compact-fold body overlap before accepting folding/perched poses on the broader wing
-surface, retaining the non-wing displacement gate. Review the contrasting shape
+Compact-fold sampled surface crossings are resolved on the two reference shapes;
+review posture quality and additional shapes before accepting or integrating
+folding/perched poses, retaining the non-wing displacement gate. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint
 landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,
 neck/head/beak, wing roots/folding, legs/feet and tail fan with default and

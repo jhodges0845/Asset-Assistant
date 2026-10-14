@@ -202,6 +202,30 @@ def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_wid
             faces.append((root_start, ring_end, ring_mid, ring_start))
 
 
+def _mirror_wing_bridge(faces, left, right):
+    """Give both shoulders the same reflected attachment connectivity.
+
+    Independent perimeter matching can choose different collar diagonals even
+    on mirrored rings. Use the right collar as the canonical topology. The
+    authored octagonal frames reflect ring index i to (4-i) modulo 8; body
+    opening winding reflects corner i to (1-i) modulo 4.
+    """
+    left_root, left_ring = left.boundaries
+    right_root, right_ring = right.boundaries
+    mapping = {index: left_root[(1-i) % 4] for i, index in enumerate(right_root)}
+    mapping.update({index: left_ring[(4-i) % _RING_SIDES]
+                    for i, index in enumerate(right_ring)})
+    def bridges(root, ring):
+        root, ring = set(root), set(ring)
+        return [i for i, face in enumerate(faces) if root.intersection(face) and ring.intersection(face)]
+    left_faces = bridges(left_root, left_ring)
+    right_faces = bridges(right_root, right_ring)
+    if len(left_faces) != 8 or len(right_faces) != 8:
+        raise ValueError('Avian wings require eight authored attachment faces')
+    for destination, source in zip(left_faces, right_faces):
+        faces[destination] = tuple(mapping[i] for i in reversed(faces[source]))
+
+
 def _project_uvs(vertices, faces):
     """Create deterministic box-projected UVs inside the unit square."""
     minimum = tuple(min(vertex[axis] for vertex in vertices) for axis in range(3))
@@ -258,6 +282,7 @@ def _build_avian_mesh(anatomy):
         regions.append(AnatomyRegion(tube.name, 'avian', tuple(range(start, len(vertices)))))
         connections.append(AnatomyConnection('body.' + tube.name, ('body', tube.name), 'connected',
                            (openings[tube.name], tuple(range(start, start + _RING_SIDES)))))
+    _mirror_wing_bridge(faces, connections[0], connections[1])
     vertices, faces = tuple(vertices), tuple(faces)
     mesh = ObjectMesh((MeshPart('avian', vertices, faces, _project_uvs(vertices, faces)),))
     bound = replace(anatomy, regions=regions, connections=connections)
