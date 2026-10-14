@@ -16,6 +16,7 @@ import bpy
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from object_core.objects import get_provider
+from object_core.providers.avian_posture import COMPACT_FOLD_ROTATIONS
 from object_core.models import MeshPart
 from blender_adapter.adapter import create_character
 from scripts import render_human_review as sheets
@@ -37,16 +38,7 @@ POSES['wing-fold'] = (
     ('wing.lower.right', 'z', 2.1),
 )
 
-# Lifted shoulder sweep with sampled clearance on both reference shapes.
-# Diagnostic only; not yet an accepted or generated perched rest pose.
-POSES['wing-fold-compact'] = (
-    ('wing.upper.left', 'z', 1.3),
-    ('wing.upper.left', 'y', 1.),
-    ('wing.lower.left', 'z', .2),
-    ('wing.upper.right', 'z', -1.3),
-    ('wing.upper.right', 'y', -1.),
-    ('wing.lower.right', 'z', -.2),
-)
+POSES['wing-fold-compact'] = COMPACT_FOLD_ROTATIONS
 
 
 def evaluated_points(body):

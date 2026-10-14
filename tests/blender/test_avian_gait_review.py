@@ -52,6 +52,7 @@ class AvianGaitReviewTests(unittest.TestCase):
                 self.assertEqual(report['neutral_surface_crossings'],[])
                 self.assertEqual(report['crossing_samples'],0)
                 self.assertEqual(report['maximum_crossing_pairs'],0)
+                self.assertLess(report['maximum_wing_span_cm'],report['neutral_wing_span_cm']*.4)
                 self.assertTrue(all(not row['new_surface_crossings'] for row in report['samples']))
                 for summary in report['summary'].values():
                     self.assertGreater(summary['minimum_z_cm'],.018)
@@ -62,3 +63,14 @@ class AvianGaitReviewTests(unittest.TestCase):
                     self.assertGreater(stance['near_ground_vertex_comparisons'],1000)
                     self.assertLess(stance['maximum_reference_vertex_displacement_cm'],.002)
                     self.assertLess(stance['maximum_near_ground_episode_displacement_cm'],.002)
+
+    def test_folded_idle_is_clear_and_grounded_across_shapes_and_strengths(self):
+        from scripts.anatomy_baseline import SAMPLES
+        for values in (self.values,SAMPLES['avian']):
+            for strength in (.1,1.,2.):
+                report = review_cycle(values,clip='idle',intervals=127,strength=strength)
+                self.assertEqual(report['crossing_samples'],0)
+                self.assertLess(report['maximum_wing_span_cm'],report['neutral_wing_span_cm']*.4)
+                for foot in report['summary'].values():
+                    self.assertLess(foot['maximum_fixed_sole_motion_cm'],1e-4)
+                    self.assertEqual(foot['penetrating_samples'],0)

@@ -7,6 +7,7 @@ from typing import Tuple
 
 from ..animation import IdleClip, RotationTrack
 from ..animation.idle import TranslationTrack
+from .avian_posture import folded_wing_tracks
 
 
 @dataclass(frozen=True)
@@ -45,17 +46,15 @@ def _wave(duration, degrees, strength, samples=16, phase=0.0):
 
 
 def generate_avian_idle(duration=4.0, strength=1.0):
-    """Return a subtle perched/resting cycle with head, neck, wing and tail motion."""
+    """Return a resting cycle with folded wings and head, neck and tail motion."""
     _validate(duration, strength, 1.0, 20.0)
     tracks = (
         RotationTrack("neck", (1.0, 0.0, 0.0), _wave(duration, 2.0, strength)),
         RotationTrack("head", (0.0, 0.0, 1.0), _wave(duration, 4.0, strength, phase=pi / 2)),
-        RotationTrack("wing.upper.left", (0.0, 1.0, 0.0), _wave(duration, 1.5, strength, phase=pi)),
-        RotationTrack("wing.upper.right", (0.0, 1.0, 0.0), _wave(duration, -1.5, strength, phase=pi)),
         RotationTrack("tail.1", (1.0, 0.0, 0.0), _wave(duration, 2.5, strength, phase=pi / 2)),
         RotationTrack("tail.2", (1.0, 0.0, 0.0), _wave(duration, 3.5, strength, phase=pi)),
     )
-    return GroundIdleClip(float(duration), tracks, _root_reset(duration))
+    return GroundIdleClip(float(duration), tracks + folded_wing_tracks(duration), _root_reset(duration))
 
 
 def generate_avian_walk(duration=1.2, strength=1.0, values=None):

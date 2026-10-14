@@ -52,8 +52,9 @@ def generate_contact_walk(duration, strength, parameters):
         for name, row in zip(chain.bones, keys):
             row.append((duration, row[0][1]))
             tracks.append(RotationTrack(name, (1., 0., 0.), tuple(row)))
-    # Keep non-chain influences stationary: the contact solver assumes only
-    # root translation outside the leg chain. Artist-authored motion stays editable.
+    # Keep non-leg influences on the legs stationary. Authored wing ownership
+    # excludes the legs, so the held fold cannot change the contact solution.
     root = TranslationTrack('root', ((0., (0., 0., -crouch)),
                                      (duration, (0., 0., -crouch))))
-    return ContactWalkClip(duration, tuple(tracks), (root,))
+    from .avian_posture import folded_wing_tracks
+    return ContactWalkClip(duration, tuple(tracks) + folded_wing_tracks(duration), (root,))

@@ -19,7 +19,7 @@ class AvianAnimationTests(unittest.TestCase):
         self.assertEqual(provider.locomotion_label, "Walk")
         self.assertTrue(callable(provider.flight))
 
-    def test_idle_is_closed_and_moves_head_wings_and_tail(self):
+    def test_idle_is_closed_and_moves_head_tail_with_folded_wings(self):
         clip = generate_avian_idle(4.0, 1.0)
         self.assertEqual(clip, generate_avian_idle(4.0, 1.0))
         by_bone = {track.bone: track for track in clip.tracks}
@@ -32,7 +32,8 @@ class AvianAnimationTests(unittest.TestCase):
         clip = generate_avian_walk(1.2, 1.0)
         by_bone = {track.bone: track for track in clip.tracks}
         self.assertEqual(set(by_bone), {"leg.upper.left", "leg.upper.right",
-                         "leg.lower.left", "leg.lower.right", "foot.left", "foot.right"})
+                         "leg.lower.left", "leg.lower.right", "foot.left", "foot.right",
+                         "wing.upper.left", "wing.upper.right", "wing.lower.left", "wing.lower.right"})
         for name in ('leg.upper', 'leg.lower', 'foot'):
             left, right = by_bone[name+'.left'], by_bone[name+'.right']
             for i in range(128):
@@ -68,6 +69,21 @@ class AvianAnimationTests(unittest.TestCase):
                         y,z = surface.measure(tuple(tracks[n].keys[i][1] for n in chain.bones[:2]))
                         self.assertAlmostEqual(y,surface.neutral_y+target.forward_cm,places=5)
                         self.assertAlmostEqual(z,target.lift_cm+.02,places=5)
+
+    def test_fold_tracks_are_local_normalized_and_independent_of_step_strength(self):
+        from dataclasses import asdict
+        from object_core.animation.idle import BoneLocalRotationTrack
+        def wings(clip):
+            return tuple(t for t in clip.tracks if t.bone.startswith('wing.'))
+        expected = wings(generate_avian_idle(1.2,.1))
+        for clip in (generate_avian_idle(1.2,2.), generate_avian_walk(1.2,.1), generate_avian_walk(1.2,2.)):
+            self.assertEqual(wings(clip),expected)
+        self.assertEqual(len(expected),4)
+        for track in expected:
+            self.assertIsInstance(track,BoneLocalRotationTrack)
+            self.assertEqual(asdict(track)['space'],'BONE_LOCAL')
+            self.assertAlmostEqual(sum(v*v for v in track.axis),1.)
+            self.assertEqual(track.keys[0][1],track.keys[-1][1])
 
     def test_flight_is_closed_symmetric_and_uses_both_wing_segments(self):
         clip = generate_avian_flight(0.9, 1.0)

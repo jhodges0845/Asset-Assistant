@@ -33,6 +33,8 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
     mesh, anatomy = provider.mesh(values), provider.anatomy(values)
     duration = 4.0 if clip == 'idle' else 1.2
     feet = {r.name: r.vertex_indices[24:] for r in anatomy.regions if r.name.startswith('leg.')}
+    wing_indices = tuple(i for r in anatomy.regions if r.name.startswith('wing.') for i in r.vertex_indices)
+    neutral_wing_span = max(mesh.parts[0].vertices[i][0] for i in wing_indices)-min(mesh.parts[0].vertices[i][0] for i in wing_indices)
     soles = {name: tuple(i for i in indices if abs(mesh.parts[0].vertices[i][2]) < 1e-8)
              for name, indices in feet.items()}
     if not all(soles.values()):
@@ -79,6 +81,7 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
             maximum_motion = max(maximum_motion, displacement)
             crossings = surface_crossings(points, mesh.parts[0].faces)
             rows.append(dict(phase=sample/intervals, frame=frame,
+                wing_span_cm=max(points[i][0] for i in wing_indices)-min(points[i][0] for i in wing_indices),
                 surface_crossings=crossings,
                 new_surface_crossings=sorted(set(crossings)-neutral_pairs),
                 feet={name: dict(minimum_z_cm=min(points[i][2] for i in indices),
@@ -110,6 +113,8 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
                     duration=duration, strength=strength, intervals=intervals, ground_tolerance_cm=.02,
                     fixed_sole_indices=soles, maximum_surface_motion_cm=maximum_motion,
                     neutral_surface_crossings=neutral_crossings,
+                    neutral_wing_span_cm=neutral_wing_span,
+                    maximum_wing_span_cm=max(row['wing_span_cm'] for row in rows),
                     crossing_samples=sum(bool(row['surface_crossings']) for row in rows),
                     maximum_crossing_pairs=max(len(row['surface_crossings']) for row in rows),
                     intersection_scope='Non-adjacent surface crossings only; excludes shared-vertex faces, containment and coplanar contact.',
@@ -134,7 +139,7 @@ def main():
     values = {p.key:p.default for p in provider.parameters}
     if args.sample == 'contrasting':
         values.update(SAMPLES['avian'])
-    report = dict(schema_version=3, sample=args.sample,
+    report = dict(schema_version=4, sample=args.sample,
         interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. Walk stance uses the authored schedule and reference +Y travel; it is not physical slip proof. Between-sample extremes are not bounded.',
         commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         working_tree_changes=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).splitlines(),

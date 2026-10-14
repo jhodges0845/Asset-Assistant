@@ -1970,14 +1970,50 @@ action switching and GLB/FBX export. Top-view artifacts are
 Next: review the folded posture from additional views and plan its explicit use
 in Idle/Walk before adding body follow-through.
 
+## Avian folded Idle and Walk (2026-10-14)
+
+Side views on both reference shapes show the compact wing posture clear of the
+body and ground. Idle and Walk now hold that posture instead of the extended
+neutral wings. Idle retains head, neck and tail motion; Walk retains its contact
+solve. Fold strength stays fixed while motion strength controls the existing
+motion. Flight retains its original wingbeat curves and resets folded rotations
+when its saved action is selected. No new geometry or rig migration is introduced;
+explicitly regenerate Idle and Walk to adopt the new motion on recipe-14 geometry.
+
+`object_core/providers/avian_posture.py` is the shared source of diagnostic Euler
+angles and held production tracks. The Euler pose is composed into one axis-angle
+rotation per bone. `BoneLocalRotationTrack` explicitly serializes its local-frame
+space; the adapter keeps ordinary tracks in rest-armature coordinates and only
+uses local axes for the explicit new contract. This preserves existing Human and
+Canine behavior. Local tracks depend on the generated skeleton's local frames;
+arbitrarily edited bone rolls are not covered by canonical posture checks.
+
+Actual Idle/Walk sampling on both shapes at strengths 0.1, 1 and 2 passes with
+zero detected surface crossings and wing span below 40% of neutral throughout.
+Idle soles stay stationary; Walk retains positive clearance and the existing
+0.002 cm reference stance-drift gate. Existing-action switching verifies all four
+folded joints against independently composed Euler quaternions, including a return
+to Flight. Schema 4 gait reports include neutral and maximum evaluated wing span.
+
+Evidence: `artifacts/shared-anatomy/avian14-folded-actions-{default,contrasting}.json`,
+`avian14-fold-side-{default,contrasting}.png`, and the editable three-cycle
+`avian14-folded-walk.blend` with four phase sheets. Inspected views show held
+folded wings through the larger stepping pose. Final artistic acceptance, broader
+shape coverage and animated transitions into/out of Flight remain open.
+
+Validation: 44 Avian core tests, 5 architecture tests, 21 Avian Blender tests and
+5 shared Human/Quadruped animation tests pass. GLB/FBX export checks are included
+in the Avian suite. No blend transition is generated between the separate clips.
+
 ## Next work
 
 For Avian, visually review the contact-solved Walk and taller stance across additional
 shapes; review full-cycle motion before final acceptance. Stance-reference drift
 is now measured on the two canonical shapes.
 Compact-fold sampled surface crossings are resolved on the two reference shapes;
-review posture quality and additional shapes before accepting or integrating
-folding/perched poses, retaining the non-wing displacement gate. Review the contrasting shape
+folded wings now hold in Idle/Walk; review posture quality and additional shapes,
+then add body follow-through and evaluate transitions into Flight. Retain the
+non-wing displacement and foot-contact gates. Review the contrasting shape
 and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint
 landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,
 neck/head/beak, wing roots/folding, legs/feet and tail fan with default and

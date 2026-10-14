@@ -169,7 +169,12 @@ def _add_clip(root, scene, clip, suffix, capability, strength):
                     identity = Quaternion((1.0, 0.0, 0.0, 0.0))
                     samples = [(start, identity), (end, identity)]
                 else:
-                    axis = bone.bone.matrix_local.to_3x3().inverted() @ Vector(track.axis)
+                    axis = Vector(track.axis)
+                    space = getattr(track, 'space', 'ARMATURE')
+                    if space == 'ARMATURE':
+                        axis = bone.bone.matrix_local.to_3x3().inverted() @ axis
+                    elif space != 'BONE_LOCAL':
+                        raise ValueError('Unknown rotation track coordinate space: ' + str(space))
                     samples = [(start + seconds * fps, Quaternion(axis, angle)) for seconds, angle in track.keys]
                 group = {'group_name' if slot is not None else 'action_group': bone.name}
                 for component in range(4):

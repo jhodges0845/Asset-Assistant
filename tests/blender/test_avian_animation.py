@@ -73,6 +73,19 @@ class AvianAnimationBlenderTests(unittest.TestCase):
             rig.animation_data.action = action
             self.scene.frame_set(3)
             bpy.context.view_layer.update()
+            from mathutils import Euler
+            from object_core.providers.avian_posture import COMPACT_FOLD_ROTATIONS
+            expected = {}
+            for name, axis, angle in COMPACT_FOLD_ROTATIONS:
+                expected.setdefault(name, [0.,0.,0.])['xyz'.index(axis)] = angle
+            for name, angles in expected.items():
+                target = Euler(angles, 'XYZ').to_quaternion()
+                actual = rig.pose.bones[name].rotation_quaternion
+                difference = 1-abs(target.dot(actual))
+                if action in (walk, idle):
+                    self.assertLess(abs(difference),1e-6)
+                else:
+                    self.assertGreater(difference,.001)
             offset = rig.pose.bones['root'].location.length
             if action == walk:
                 self.assertGreater(offset, .001)
