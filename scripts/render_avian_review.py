@@ -20,7 +20,7 @@ from object_core.providers.avian_posture import COMPACT_FOLD_ROTATIONS
 from object_core.models import MeshPart
 from blender_adapter.adapter import create_character
 from scripts import render_human_review as sheets
-from scripts.anatomy_baseline import SAMPLES
+from scripts.avian_review_samples import AVIAN_REVIEW_SAMPLES, review_values
 from scripts.avian_review_metrics import surface_crossings
 
 ISOLATED_POSES = {'wing-root': ('wing.upper.left', 'x', .4),
@@ -126,7 +126,7 @@ def review_part(values, pose, phase=0., strength=1., pose_fraction=1.):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
-    parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
+    parser.add_argument('--sample', choices=('default',) + tuple(AVIAN_REVIEW_SAMPLES), default='default')
     parser.add_argument('--pose', choices=('neutral', 'walk') + tuple(POSES), default='neutral')
     parser.add_argument('--pose-fraction', type=float, default=1., help='Fraction of diagnostic joint rotations, 0..1')
     parser.add_argument('--phase', type=float, default=0.)
@@ -140,9 +140,7 @@ def main():
     args.output = args.output.resolve()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     provider = get_provider('avian')
-    values = {p.key: p.default for p in provider.parameters}
-    if args.sample == 'contrasting':
-        values.update(SAMPLES['avian'])
+    values = review_values(args.sample)
     sheets._clear_scene()
     part, report = review_part(values, args.pose, args.phase, args.strength, args.pose_fraction)
     sheets._clear_scene()

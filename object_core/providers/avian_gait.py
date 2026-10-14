@@ -2,7 +2,7 @@
 """Alternating Avian steps solved against the canonical weighted surface."""
 from dataclasses import dataclass
 from functools import lru_cache
-from math import cos, pi
+from math import cos, pi, sqrt
 
 from ..animation.contact import ContactCycle
 from ..animation.idle import RotationTrack, TranslationTrack
@@ -15,10 +15,36 @@ class ContactWalkClip(WalkClip):
     translations: tuple
 
 
-def contact_schedule(duration, strength, height):
-    return {name: ContactCycle(duration, height * .08 * strength, .65,
-                               height * .035 * strength, phase)
-            for name, phase in (('leg.left', 0.), ('leg.right', .5))}
+def contact_schedule(duration, strength, height, skeleton=None):
+    """Requested stepping cycle, bounded by the supplied canonical limb reach.
+
+    The geometric bound avoids straight-leg singularities. The weighted-surface
+    solver still validates every target; this is not a fallback around failures.
+    """
+    stride = height * .08 * strength
+    if skeleton is not None:
+        bones = {b.name:b for b in skeleton.bones}
+        for side, phase in (('left',0.),('right',.5)):
+            upper, lower, foot = (bones[name+'.'+side] for name in ('leg.upper','leg.lower','foot'))
+            # Planar YZ reach matches the contact solver's X-axis rotations.
+            reach = .999 * sum(sqrt(sum((b.tail[i]-b.head[i])**2 for i in (1,2)))
+                               for b in (upper,lower))
+            dy = foot.head[1]-upper.head[1]
+            unit = ContactCycle(duration,1.,.65,height*.035*strength,phase)
+            for i in range(128):
+                target = unit.target(i/128)
+                dz = foot.head[2]-upper.head[2]+body_crouch(height,strength,i/128)+target.lift_cm+.02
+                if abs(dz) >= reach:
+                    raise ValueError('Avian contact height exceeds the available limb reach')
+                bound = sqrt(reach*reach-dz*dz)
+                forward = target.forward_cm
+                if abs(forward) > 1e-12:
+                    limit = ((bound-dy) if forward > 0 else (-bound-dy))/forward
+                    stride = min(stride,limit)
+        if stride <= 0:
+            raise ValueError('Avian limb proportions leave no forward stride clearance')
+    return {name: ContactCycle(duration,stride,.65,height*.035*strength,phase)
+            for name,phase in (('leg.left',0.),('leg.right',.5))}
 
 
 def body_crouch(height, strength, phase):
@@ -38,11 +64,12 @@ def generate_contact_walk(duration, strength, parameters):
     values = dict(parameters)
     mesh, anatomy = provider.mesh(values), provider.anatomy(values)
     weights = provider.skin_weights(mesh, values)[0]
-    bones = {bone.name: bone for bone in provider.skeleton(values).bones}
+    skeleton = provider.skeleton(values)
+    bones = {bone.name: bone for bone in skeleton.bones}
     regions = {region.name: region for region in anatomy.regions}
     height = values['body_height_cm']
     crouch = body_crouch(height, strength, 0.)
-    schedules = contact_schedule(duration, strength, height)
+    schedules = contact_schedule(duration, strength, height, skeleton)
     tracks = []
     samples = 128
     for chain in anatomy.chains:

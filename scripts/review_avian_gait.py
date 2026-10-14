@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from object_core.objects import get_provider
-from scripts.anatomy_baseline import SAMPLES
+from scripts.avian_review_samples import AVIAN_REVIEW_SAMPLES, review_values
 
 
 def review_cycle(values, clip='walk', intervals=64, strength=1.0):
@@ -41,7 +41,7 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
         raise ValueError('Review requires neutral sole vertices')
     from object_core.providers.avian_gait import contact_schedule
     from scripts.canine_review_metrics import stance_material_motion
-    schedules = contact_schedule(duration, strength, values['body_height_cm']) if clip == 'walk' else {}
+    schedules = contact_schedule(duration, strength, values['body_height_cm'], provider.skeleton(values)) if clip == 'walk' else {}
     from scripts.avian_review_metrics import surface_crossings
     neutral_crossings = surface_crossings(mesh.parts[0].vertices, mesh.parts[0].faces)
     neutral_pairs = set(neutral_crossings)
@@ -110,6 +110,8 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
                     schedule, tolerance_cm=.05)
                 summary[name]['schedule'] = dict(touchdown_phase=schedule.touchdown_phase,
                     duty_factor=schedule.duty_factor, stride_cm=schedule.stride_cm,
+                    requested_stride_cm=values['body_height_cm']*.08*strength,
+                    stride_limited=schedule.stride_cm < values['body_height_cm']*.08*strength-1e-9,
                     swing_height_cm=schedule.swing_height_cm)
         return dict(clip=clip, parameters=values, recipe_version=anatomy.recipe_version,
                     duration=duration, strength=strength, intervals=intervals, ground_tolerance_cm=.02,
@@ -134,15 +136,13 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
-    parser.add_argument('--sample', choices=('default', 'contrasting'), default='default')
+    parser.add_argument('--sample', choices=('default',) + tuple(AVIAN_REVIEW_SAMPLES), default='default')
     parser.add_argument('--intervals', type=int, default=64)
     parser.add_argument('--strength', type=float, default=1.0)
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     provider = get_provider('avian')
-    values = {p.key:p.default for p in provider.parameters}
-    if args.sample == 'contrasting':
-        values.update(SAMPLES['avian'])
-    report = dict(schema_version=5, sample=args.sample,
+    values = review_values(args.sample)
+    report = dict(schema_version=6, sample=args.sample,
         interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. Walk stance uses the authored schedule and reference +Y travel; it is not physical slip proof. Between-sample extremes are not bounded.',
         commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         working_tree_changes=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).splitlines(),

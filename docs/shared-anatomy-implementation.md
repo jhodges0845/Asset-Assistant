@@ -2034,10 +2034,39 @@ and GLB/FBX exports. Sampled checks do not establish physical balance, arbitrary
 edited-shape coverage or continuous-time clearance. Final artistic motion review,
 broader shape coverage and transitions into/out of Flight remain ahead.
 
+## Avian proportion survey and reachable stride (2026-10-14)
+
+Six additional reproducible proportions now live in `scripts/avian_review_samples.py`
+and are selectable in the pose renderer and gait review CLI. These are diagnostic
+profiles, not an accepted production catalog. A 31-interval Walk survey at strengths
+1 and 2 found persistent folded-posture crossings on tall-narrow (up to 16 pairs),
+long-low (2 pairs) and short-wing (8 pairs). Their neutral surfaces have no detected
+crossings. Compact-wide, long-wing and small have no sampled Walk crossings.
+
+The long-low shape also failed to generate its strength-2 Walk because the requested
+step exceeded limb reach. The schedule now bounds the shared stride using canonical
+YZ limb lengths, body response and swing targets at all 128 authored phases, with
+a small straight-leg margin. The existing weighted-surface solver still validates
+each target; failures are not swallowed. Reference-shape strides remain unchanged.
+Regenerate Walk to adopt this change; geometry recipe 14 is unchanged.
+
+A 127-interval Blender report for long-low strength 2 records requested stride
+2.56 cm and effective stride 1.984854 cm, minimum foot height 0.019495 cm and maximum
+reference stance drift 0.000572 cm. Its folded-posture crossings remain unresolved;
+contact passing does not constitute shape acceptance. Schema 6 reports both stride
+values and whether reach limited the request. Evidence is in ignored local reports
+`artifacts/shared-anatomy/avian-reach-long-low.json` and `avian-shape-survey.json`.
+
+Validation: 46 Avian core and 22 Avian Blender tests pass, including action switching
+and GLB/FBX exports. Dense 127-interval tests cover compact-wide, long-wing, small and
+long-low at strengths 1/2; only the first three assert crossing-free motion. The
+existing reference-shape gates remain intact. These sampled results do not prove
+continuous clearance or arbitrary edited-shape coverage.
+
 ## Next work
 
-For Avian, visually review the contact-solved Walk and taller stance across additional
-shapes; review full-cycle motion before final acceptance. Stance-reference drift
+For Avian, diagnose folded-posture crossings on tall-narrow, long-low and short-wing
+first, preserving the passing reference and additional shape gates; review full-cycle motion before final acceptance. Stance-reference drift
 is now measured on the two canonical shapes.
 Compact-fold sampled surface crossings are resolved on the two reference shapes;
 folded wings now hold in Idle/Walk; review posture quality and additional shapes,

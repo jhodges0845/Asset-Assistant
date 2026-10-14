@@ -58,7 +58,7 @@ class AvianAnimationTests(unittest.TestCase):
             for strength in (.1,1.,2.):
                 clip = provider.locomotion(1.2,strength,values=values)
                 tracks = {t.bone:t for t in clip.tracks}
-                schedules = contact_schedule(1.2,strength,values['body_height_cm'])
+                schedules = contact_schedule(1.2,strength,values['body_height_cm'],provider.skeleton(values))
                 for chain in anatomy.chains:
                     if chain.name not in schedules:
                         continue
@@ -70,6 +70,24 @@ class AvianAnimationTests(unittest.TestCase):
                         y,z = surface.measure(tuple(tracks[n].keys[i][1] for n in chain.bones[:2]))
                         self.assertAlmostEqual(y,surface.neutral_y+target.forward_cm,places=5)
                         self.assertAlmostEqual(z,target.lift_cm+.02,places=5)
+
+    def test_long_low_stride_is_reachable_without_changing_reference_shape_steps(self):
+        from scripts.avian_review_samples import review_values
+        from object_core.providers.avian_gait import contact_schedule
+        provider = get_provider('avian')
+        for name in ('default','contrasting','long-low'):
+            values = review_values(name)
+            for strength in (1.,2.):
+                requested = values['body_height_cm']*.08*strength
+                schedules = contact_schedule(1.2,strength,values['body_height_cm'],provider.skeleton(values))
+                stride = schedules['leg.left'].stride_cm
+                self.assertGreater(stride,0)
+                self.assertEqual(stride,schedules['leg.right'].stride_cm)
+                if name == 'long-low' and strength == 2.:
+                    self.assertLess(stride,requested)
+                else:
+                    self.assertEqual(stride,requested)
+                self.assertTrue(provider.locomotion(1.2,strength,values=values).tracks)
 
     def test_walk_body_response_is_closed_bounded_and_synchronized_to_support(self):
         from object_core.providers.avian_gait import body_crouch, contact_schedule

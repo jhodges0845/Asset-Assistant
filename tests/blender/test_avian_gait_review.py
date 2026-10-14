@@ -78,3 +78,22 @@ class AvianGaitReviewTests(unittest.TestCase):
                 for foot in report['summary'].values():
                     self.assertLess(foot['maximum_fixed_sole_motion_cm'],1e-4)
                     self.assertEqual(foot['penetrating_samples'],0)
+
+    def test_additional_shapes_preserve_contact_with_reported_reach_limit(self):
+        from scripts.avian_review_samples import review_values
+        for name in ('compact-wide','long-wing','small','long-low'):
+            values = review_values(name)
+            for strength in (1.,2.):
+                report = review_cycle(values,intervals=127,strength=strength)
+                self.assertLess(report['loop_closure_error_cm'],1e-4)
+                self.assertEqual(report['neutral_surface_crossings'],[])
+                # Long-low retains a documented folded-wing overlap; this case
+                # guards reachable foot targets, not acceptance of that posture.
+                if name != 'long-low':
+                    self.assertEqual(report['crossing_samples'],0)
+                for foot in report['summary'].values():
+                    self.assertGreater(foot['minimum_z_cm'],.018)
+                    self.assertLess(foot['scheduled_stance']['maximum_reference_vertex_displacement_cm'],.002)
+                    schedule = foot['schedule']
+                    self.assertEqual(schedule['stride_limited'],name == 'long-low' and strength == 2.)
+                    self.assertLessEqual(schedule['stride_cm'],schedule['requested_stride_cm'])
