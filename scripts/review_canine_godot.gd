@@ -64,7 +64,7 @@ func review():
     var skeleton = skeletons[0]
     var results = []
     var passed = true
-    for label in ["Walk", "Idle", "Run", "Idle"]:
+    for label in expected.get("playback_sequence", ["Walk", "Idle", "Run", "Idle"]):
         if not player.has_animation(label):
             fail("Missing clip " + label + ": " + str(player.get_animation_list()))
             return

@@ -16,12 +16,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from object_core.objects import get_provider
 from blender_adapter.adapter import create_character
-from blender_adapter.animation import add_idle, add_locomotion, add_run, activate_generated_action, action_curves
+from blender_adapter.animation import add_idle, add_locomotion, add_run, add_flight, activate_generated_action, action_curves
 from blender_adapter.materials import prepare_materials
 from blender_adapter.targets import get_adapter
 
 
-def main():
+def main(provider_key='quadruped'):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--surface', action='store_true', help='Also sample 127-interval Blender skin-contact oracles')
@@ -30,7 +30,7 @@ def main():
     if (args.output / 'canine.glb').exists():
         parser.error('--output must be a fresh fixture directory')
     args.output.mkdir(parents=True, exist_ok=True)
-    provider = get_provider('quadruped')
+    provider = get_provider(provider_key)
     values = {p.key: p.default for p in provider.parameters}
     if args.sample == 'contrasting':
         values.update(body_length_cm=95, shoulder_height_cm=40, body_width_cm=28,
@@ -38,7 +38,12 @@ def main():
     elif args.sample == 'short-wide':
         values.update(body_length_cm=25, shoulder_height_cm=15, body_width_cm=55,
                       head_length_cm=8, tail_length_cm=5)
-    scene = bpy.data.scenes.new('Canine Godot oracle')
+    if provider_key == 'avian':
+        if args.surface or args.sample == 'short-wide':
+            parser.error('Avian uses default/contrasting pose review; canine surface probes are separate')
+        from scripts.avian_review_samples import review_values
+        values = review_values(args.sample)
+    scene = bpy.data.scenes.new('Generated character Godot oracle')
     bpy.context.window.scene = scene
     scene.render.fps = 24
     scene.render.fps_base = 1
@@ -46,19 +51,22 @@ def main():
     mesh = provider.mesh(values)
     root = create_character(mesh, scene=scene, skeleton=provider.skeleton(values),
                             skin_weights=provider.skin_weights(mesh, values))
-    root['object_type'] = 'quadruped'
+    root['object_type'] = provider_key
     for key, value in values.items():
         root[key] = value
     prepare_materials(root)
     add_idle(root, scene, 4., 1.)
     add_locomotion(root, scene, 1.2, 1.)
-    add_run(root, scene, .64, 1.)
+    if provider_key == 'avian':
+        add_flight(root,scene,1.2,1.)
+    else:
+        add_run(root, scene, .64, 1.)
     result = get_adapter('GODOT', asset_use='ANIMATED').export(root, bpy.context, args.output / 'canine.glb')
     if not result.success:
         raise RuntimeError(result.issues)
     rig = next(o for o in root.children if o.type == 'ARMATURE')
     clips = {}
-    for name, duration in (('Walk', 1.2), ('Idle', 4.), ('Run', .64)):
+    for name, duration in (('Walk', 1.2), ('Idle', 4.), ('Flight',1.2) if provider_key == 'avian' else ('Run', .64)):
         action = activate_generated_action(root, name)
         curves = action_curves(action, action.slots[0])
         intervals = max(len(c.keyframe_points) - 1 for c in curves)
@@ -80,7 +88,8 @@ def main():
                 bones[bone.name] = [p.x, p.z, -p.y]
             samples.append(dict(seconds=seconds, bones=bones))
         clips[name] = dict(duration=duration, import_bake_fps=intervals / duration, samples=samples)
-    report = dict(schema_version=1, sample=args.sample, parameters=values,
+    report = dict(schema_version=1, provider=provider_key, sample=args.sample, parameters=values,
+                  playback_sequence=['Walk','Idle','Flight' if provider_key=='avian' else 'Run','Idle'],
                   blender_version=bpy.app.version_string,
                   commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   tolerance_cm=.002, clips=clips)

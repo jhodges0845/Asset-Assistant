@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Connected Avian surface generation."""
 
+from dataclasses import replace
+
+from ..anatomy import AnatomyConnection, AnatomyRegion
+from .avian_anatomy import AvianRecipe
+
 from math import cos, pi, sin, sqrt
 
 from ..models import MeshPart, ObjectMesh
@@ -28,16 +33,16 @@ def _subtract(a, b):
     return tuple(a[i] - b[i] for i in range(3))
 
 
-def _lerp(a, b, amount):
-    return tuple(a[i] + (b[i] - a[i]) * amount for i in range(3))
-
-
-def _ring(center, width, depth, tangent):
+def _ring(center, width, depth, tangent, *, stable_width=False):
     tangent = _normalize(tangent)
     reference = (0.0, 0.0, 1.0)
     if abs(sum(tangent[i] * reference[i] for i in range(3))) > 0.95:
         reference = (0.0, 1.0, 0.0)
     width_axis = _normalize(_cross(reference, tangent))
+    if stable_width:
+        # Project lateral X onto the section plane so near-vertical legs do not
+        # switch reference axes between neighboring rings.
+        width_axis = _normalize(tuple((1.0 if i == 0 else 0.0) - tangent[0] * tangent[i] for i in range(3)))
     depth_axis = _normalize(_cross(tangent, width_axis))
     return tuple(
         tuple(
@@ -50,7 +55,7 @@ def _ring(center, width, depth, tangent):
     )
 
 
-def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True):
+def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, cap_end=True, stable_width=False, ground_end=False):
     rings = []
     for index, center in enumerate(centers):
         if index == 0:
@@ -60,8 +65,14 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
         else:
             tangent = _subtract(centers[index + 1], centers[index - 1])
         start = len(vertices)
-        vertices.extend(_ring(center, widths[index], depths[index], tangent))
+        vertices.extend(_ring(center, widths[index], depths[index], tangent, stable_width=stable_width))
         rings.append(tuple(range(start, start + _RING_SIDES)))
+        if ground_end and index >= len(centers) - 2:
+            # Authored plantar arc of ankle/toe rings forms a finite flat sole.
+            # For the leg's lateral frame, positive ring sine points downward.
+            for segment in (1, 2, 3):
+                x, y, _ = vertices[start + segment]
+                vertices[start + segment] = (x, y, 0.0)
 
     if cap_start:
         faces.append(tuple(reversed(rings[0])))
@@ -75,19 +86,144 @@ def _append_tube(vertices, faces, centers, widths, depths, *, cap_start=True, ca
     return rings
 
 
-def _append_branch(vertices, faces, root, centers, widths, depths):
+def _append_toes(vertices, faces, ring, center, width, depth, length):
+    """Split the foot end into three quad openings and extrude tapered digits."""
+    # Ordered perimeter of a rectangular section with three width bands.
+    # Consecutive openings share root edges, keeping the foot one closed surface.
+    top = center[2] + depth * .5
+    profile = ((.5, top), (.5, 0), (1/6, 0), (-1/6, 0),
+               (-.5, 0), (-.5, top), (-1/6, top), (1/6, top))
+    for i, (offset, z) in zip(ring, profile):
+        vertices[i] = (center[0] + width * offset, center[1], z)
+    caps = []
+    for digit, slots in enumerate(((0, 1, 2, 7), (7, 2, 3, 6), (6, 3, 4, 5))):
+        root = tuple(ring[i] for i in slots)
+        middle_x = sum(vertices[i][0] for i in root) / 4
+        extension = length * (1.0 if digit == 1 else .82)
+        spread = (1 - digit) * width * .30
+        end = []
+        for i in root:
+            x, y, z = vertices[i]
+            end.append(len(vertices))
+            vertices.append((middle_x + (x - middle_x) * .55 + spread,
+                             y + extension, z * .55))
+        for j in range(4):
+            nxt = (j + 1) % 4
+            faces.append((root[j], root[nxt], end[nxt], end[j]))
+        faces.append(tuple(end))
+        caps.append(tuple(end))
+    return caps
+
+
+def _append_rear_toe(vertices, faces, rings, centers, widths, length):
+    """Extrude a rear-facing lower-leg quad into one connected support digit."""
+    knee, ankle = rings[2], rings[3]
+    sector = 1 if centers[3][0] < 0 else 2
+    root = (knee[sector], knee[sector + 1], ankle[sector + 1], ankle[sector])
+    faces.remove(root)
+    # Inset the opening near the ankle so the whole shin does not become a web.
+    inner = []
+    for across, down in ((.25, .65), (.75, .65), (.75, .95), (.25, .95)):
+        inner.append(len(vertices))
+        vertices.append(tuple(
+            (1 - down) * ((1 - across) * vertices[root[0]][axis] + across * vertices[root[1]][axis])
+            + down * ((1 - across) * vertices[root[3]][axis] + across * vertices[root[2]][axis])
+            for axis in range(3)))
+    for j in range(4):
+        nxt = (j + 1) % 4
+        faces.append((root[j], root[nxt], inner[nxt], inner[j]))
+    root = tuple(inner)
+    x, y, z = centers[3]
+    half_width = widths[3] * .18
+    end = tuple(range(len(vertices), len(vertices) + 4))
+    vertices.extend(((x + half_width, y - length, z * .40),
+                     (x - half_width, y - length, z * .40),
+                     (x - half_width, y - length, 0.0),
+                     (x + half_width, y - length, 0.0)))
+    for j in range(4):
+        nxt = (j + 1) % 4
+        faces.append((root[j], root[nxt], end[nxt], end[j]))
+    faces.append(end)
+    return end
+
+
+def _append_claw(vertices, faces, root, length, direction):
+    """Replace a toe cap with a raised taper ending above the sole plane."""
+    faces.remove(root)
+    center = tuple(sum(vertices[i][a] for i in root) / 4 for a in range(3))
+    height = max(vertices[i][2] for i in root)
+    shoulder = []
+    for i in root:
+        x, y, z = vertices[i]
+        shoulder.append(len(vertices))
+        vertices.append((center[0] + (x - center[0]) * .45,
+                         center[1] + direction * length * .55,
+                         height * .60 + (z - center[2]) * .35))
+    tip = len(vertices)
+    vertices.append((center[0], center[1] + direction * length, height * .15))
+    for j in range(4):
+        nxt = (j + 1) % 4
+        faces.append((root[j], root[nxt], shoulder[nxt], shoulder[j]))
+        faces.append((shoulder[j], shoulder[nxt], tip))
+
+
+def _append_branch(vertices, faces, root, centers, widths, depths, *, stable_width=False, ground_end=False, toe_length=0.0, rear_toe_length=0.0, claw_length=0.0):
     if len(root) != 4:
         raise ValueError("branch root must contain four vertices")
-    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=True)
+    rings = _append_tube(vertices, faces, centers, widths, depths, cap_start=False, cap_end=not toe_length, stable_width=stable_width, ground_end=ground_end)
+    digits = []
+    if toe_length:
+        digits.extend((cap, 1) for cap in _append_toes(
+            vertices, faces, rings[-1], centers[-1], widths[-1], depths[-1], toe_length))
+    if rear_toe_length:
+        digits.append((_append_rear_toe(vertices, faces, rings, centers, widths, rear_toe_length), -1))
+    if claw_length:
+        for cap, direction in digits:
+            _append_claw(vertices, faces, cap, claw_length, direction)
     first = rings[0]
+    # Match perimeter phase without reversing the tube's outward winding.
+    phase = min(range(_RING_SIDES), key=lambda offset: sum(
+        sum((vertices[root[i]][axis] - vertices[first[(2 * i + offset) % _RING_SIDES]][axis]) ** 2
+            for axis in range(3)) for i in range(4)))
+    first = first[phase:] + first[:phase]
     for index in range(4):
         root_start = root[index]
         root_end = root[(index + 1) % 4]
         ring_start = first[(2 * index) % _RING_SIDES]
         ring_mid = first[(2 * index + 1) % _RING_SIDES]
         ring_end = first[(2 * index + 2) % _RING_SIDES]
-        faces.append((root_start, root_end, ring_end))
-        faces.append((root_start, ring_end, ring_mid, ring_start))
+        if stable_width or index in (0, 1):
+            # Use the ring-side diagonal for leg collars and the leading
+            # wing collar sectors, reducing fold-induced shoulder crossings.
+            faces.append((root_start, root_end, ring_end, ring_mid))
+            faces.append((root_start, ring_mid, ring_start))
+        else:
+            faces.append((root_start, root_end, ring_end))
+            faces.append((root_start, ring_end, ring_mid, ring_start))
+
+
+def _mirror_wing_bridge(faces, left, right):
+    """Give both shoulders the same reflected attachment connectivity.
+
+    Independent perimeter matching can choose different collar diagonals even
+    on mirrored rings. Use the right collar as the canonical topology. The
+    authored octagonal frames reflect ring index i to (4-i) modulo 8; body
+    opening winding reflects corner i to (1-i) modulo 4.
+    """
+    left_root, left_ring = left.boundaries
+    right_root, right_ring = right.boundaries
+    mapping = {index: left_root[(1-i) % 4] for i, index in enumerate(right_root)}
+    mapping.update({index: left_ring[(4-i) % _RING_SIDES]
+                    for i, index in enumerate(right_ring)})
+    def bridges(root, ring):
+        root, ring = set(root), set(ring)
+        return [i for i, face in enumerate(faces) if root.intersection(face) and ring.intersection(face)]
+    left_faces = bridges(left_root, left_ring)
+    right_faces = bridges(right_root, right_ring)
+    if len(left_faces) != 8 or len(right_faces) != 8:
+        raise ValueError('Avian wings require eight authored attachment faces')
+    for destination, source in zip(left_faces, right_faces):
+        faces[destination] = tuple(mapping[i] for i in reversed(faces[source]))
 
 
 def _project_uvs(vertices, faces):
@@ -118,107 +254,37 @@ def _project_uvs(vertices, faces):
 
 
 def generate_avian_deformable_mesh(dimensions):
-    """Return one connected low-poly Avian surface with wings, legs, feet and tail."""
-    length = dimensions["body_length_cm"]
-    width = dimensions["body_width_cm"]
-    height = dimensions["body_height_cm"]
-    wingspan = dimensions["wingspan_cm"]
-    tail_length = dimensions["tail_length_cm"]
+    """Compatibility entry point using the single Avian recipe constructor."""
+    return _build_avian_mesh(AvianRecipe().resolve(dimensions))[0]
 
-    body_z = height * 0.52
-    rear_y = -length * 0.42
-    chest_y = length * 0.30
-    neck_y = length * 0.48
-    head_y = length * 0.63
-    beak_y = length * 0.78
-    tail_base_y = -length * 0.48
-    tail_mid_y = tail_base_y - tail_length * 0.46
-    tail_tip_y = tail_base_y - tail_length
 
-    centers = (
-        (0.0, tail_tip_y, body_z + height * 0.02),
-        (0.0, tail_mid_y, body_z + height * 0.05),
-        (0.0, tail_base_y, body_z),
-        (0.0, rear_y, body_z),
-        (0.0, 0.0, body_z + height * 0.04),
-        (0.0, chest_y, body_z + height * 0.08),
-        (0.0, neck_y, body_z + height * 0.22),
-        (0.0, head_y, body_z + height * 0.31),
-        (0.0, beak_y, body_z + height * 0.26),
-    )
-    widths = (
-        width * 0.10, width * 0.18, width * 0.38, width * 0.82,
-        width, width * 0.92, width * 0.48, width * 0.60, width * 0.18,
-    )
-    depths = (
-        height * 0.10, height * 0.16, height * 0.28, height * 0.76,
-        height, height * 0.88, height * 0.46, height * 0.56, height * 0.20,
-    )
-
+def _build_avian_mesh(anatomy):
+    """Bind authored surface ownership and attachment boundaries to the recipe."""
+    points = {p.name: p.position for p in anatomy.landmarks}
     vertices, faces = [], []
-    _append_tube(vertices, faces, centers, widths, depths)
-
-    wing_level = 4
-    leg_level = 3
+    body = anatomy.tubes[0]
+    _append_tube(vertices, faces, tuple(points[n] for n in body.landmarks), body.widths, body.depths)
+    regions = [AnatomyRegion('body', 'avian', tuple(range(len(vertices))))]
     openings = {
-        "wing.left": faces[1 + wing_level * _RING_SIDES + 3],
-        "wing.right": faces[1 + wing_level * _RING_SIDES + 7],
-        "leg.left": faces[1 + leg_level * _RING_SIDES + 7],
-        "leg.right": faces[1 + leg_level * _RING_SIDES + 4],
+        "wing.left": faces[1 + 4 * _RING_SIDES + 0],
+        "wing.right": faces[1 + 4 * _RING_SIDES + 3],
+        "leg.left": faces[1 + 3 * _RING_SIDES + 6],
+        "leg.right": faces[1 + 3 * _RING_SIDES + 5],
     }
-    removed = {face for face in openings.values()}
+    removed = set(openings.values())
     faces = [face for face in faces if face not in removed]
-
-    half_span = wingspan * 0.5
-    root_x = width * 0.36
-    root_y = length * 0.08
-    root_z = body_z + height * 0.14
-    for side, sign in (("left", -1.0), ("right", 1.0)):
-        shoulder = (sign * root_x, root_y, root_z)
-        elbow = (sign * (root_x + (half_span - root_x) * 0.48), root_y - length * 0.06, root_z - height * 0.08)
-        tip = (sign * half_span, root_y - length * 0.16, root_z - height * 0.13)
-        centers_wing = (
-            shoulder,
-            _lerp(shoulder, elbow, 0.22),
-            elbow,
-            _lerp(elbow, tip, 0.20),
-            tip,
-        )
-        base = max(height * 0.20, 1.0)
-        widths_wing = (base * 1.12, base, base * 0.84, base * 0.55, base * 0.18)
-        depths_wing = (base * 0.78, base * 0.66, base * 0.54, base * 0.34, base * 0.12)
-        _append_branch(vertices, faces, openings["wing." + side], centers_wing, widths_wing, depths_wing)
-
-    # Ground-contact anatomy. The leg bends slightly forward and the foot projects
-    # along +Y so the generated bird has a readable stance before animation.
-    hip_x = width * 0.25
-    hip_y = -length * 0.04
-    hip_z = body_z - height * 0.26
-    knee_z = height * 0.28
-    ankle_z = height * 0.08
-    toe_y = hip_y + length * 0.17
-    leg_thickness = max(width * 0.12, 0.8)
-    for side, sign in (("left", -1.0), ("right", 1.0)):
-        hip = (sign * hip_x, hip_y, hip_z)
-        knee = (sign * hip_x * 1.08, hip_y + length * 0.025, knee_z)
-        ankle = (sign * hip_x * 1.02, hip_y + length * 0.055, ankle_z)
-        toe = (sign * hip_x, toe_y, ankle_z * 0.72)
-        centers_leg = (hip, _lerp(hip, knee, 0.45), knee, ankle, toe)
-        widths_leg = (
-            leg_thickness * 1.15,
-            leg_thickness,
-            leg_thickness * 0.82,
-            leg_thickness * 0.68,
-            leg_thickness * 0.42,
-        )
-        depths_leg = (
-            leg_thickness * 1.10,
-            leg_thickness * 0.92,
-            leg_thickness * 0.72,
-            leg_thickness * 0.56,
-            leg_thickness * 0.34,
-        )
-        _append_branch(vertices, faces, openings["leg." + side], centers_leg, widths_leg, depths_leg)
-
+    connections = []
+    for tube in anatomy.tubes[1:]:
+        start = len(vertices)
+        _append_branch(vertices, faces, openings[tube.name],
+                       tuple(points[n] for n in tube.landmarks), tube.widths, tube.depths,
+                       stable_width=tube.name.startswith('leg.'), ground_end=tube.name.startswith('leg.'), toe_length=tube.toe_length, rear_toe_length=tube.rear_toe_length, claw_length=tube.claw_length)
+        regions.append(AnatomyRegion(tube.name, 'avian', tuple(range(start, len(vertices)))))
+        connections.append(AnatomyConnection('body.' + tube.name, ('body', tube.name), 'connected',
+                           (openings[tube.name], tuple(range(start, start + _RING_SIDES)))))
+    _mirror_wing_bridge(faces, connections[0], connections[1])
     vertices, faces = tuple(vertices), tuple(faces)
-    return ObjectMesh((MeshPart("avian", vertices, faces, _project_uvs(vertices, faces)),))
+    mesh = ObjectMesh((MeshPart('avian', vertices, faces, _project_uvs(vertices, faces)),))
+    bound = replace(anatomy, regions=regions, connections=connections)
+    bound.validate_mesh(mesh)
+    return mesh, bound

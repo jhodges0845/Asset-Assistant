@@ -1,73 +1,28 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Avian rig and skin-weight generation."""
 
+from collections import deque
 from math import sqrt
+
+from .avian_anatomy import AvianRecipe
 
 from ..models import Bone, BoneWeight, Skeleton, SkinWeights
 
 
 def generate_avian_skeleton(dimensions):
-    """Build a deterministic Avian skeleton from validated dimensions."""
-    length = dimensions["body_length_cm"]
-    width = dimensions["body_width_cm"]
-    height = dimensions["body_height_cm"]
-    wingspan = dimensions["wingspan_cm"]
-    tail_length = dimensions["tail_length_cm"]
+    """Build the rest rig through the single Avian recipe."""
+    return _build_avian_skeleton(AvianRecipe().resolve(dimensions))
 
-    body_z = height * 0.56
-    rear_y = -length * 0.34
-    chest_y = length * 0.28
-    neck_y = length * 0.48
-    head_y = length * 0.66
-    half_span = wingspan * 0.5
-    shoulder_x = width * 0.34
-    shoulder_y = length * 0.08
-    shoulder_z = body_z + height * 0.12
-    tail_base_y = -length * 0.48
 
-    bones = [
-        Bone("root", (0, 0, height * 0.22), (0, 0, body_z)),
-        Bone("spine", (0, rear_y, body_z), (0, chest_y, body_z + height * 0.06), "root"),
-        Bone("neck", (0, chest_y, body_z + height * 0.06), (0, neck_y, body_z + height * 0.22), "spine"),
-        Bone("head", (0, neck_y, body_z + height * 0.22), (0, head_y, body_z + height * 0.30), "neck"),
-    ]
-
-    for side, sign in (("left", -1.0), ("right", 1.0)):
-        shoulder = (sign * shoulder_x, shoulder_y, shoulder_z)
-        elbow = (sign * (shoulder_x + (half_span - shoulder_x) * 0.50), shoulder_y - length * 0.06, shoulder_z - height * 0.07)
-        tip = (sign * half_span, shoulder_y - length * 0.16, shoulder_z - height * 0.12)
-        bones.extend((
-            Bone("wing.upper." + side, shoulder, elbow, "spine"),
-            Bone("wing.lower." + side, elbow, tip, "wing.upper." + side),
-        ))
-
-    # Birds need a ground-contact chain as well as wings. Keep the leg anatomy
-    # provider-specific so shared Blender rigging stays body-plan agnostic.
-    hip_x = width * 0.24
-    hip_y = -length * 0.04
-    hip_z = body_z - height * 0.28
-    knee_z = height * 0.28
-    ankle_z = height * 0.08
-    toe_y = hip_y + length * 0.16
-    for side, sign in (("left", -1.0), ("right", 1.0)):
-        hip = (sign * hip_x, hip_y, hip_z)
-        knee = (sign * hip_x * 1.08, hip_y + length * 0.025, knee_z)
-        ankle = (sign * hip_x * 1.02, hip_y + length * 0.055, ankle_z)
-        toe = (sign * hip_x, toe_y, ankle_z * 0.72)
-        bones.extend((
-            Bone("leg.upper." + side, hip, knee, "spine"),
-            Bone("leg.lower." + side, knee, ankle, "leg.upper." + side),
-            Bone("foot." + side, ankle, toe, "leg.lower." + side),
-        ))
-
-    tail_segment = max(tail_length / 2.0, 1.0)
-    start = (0, tail_base_y, body_z)
-    mid = (0, tail_base_y - tail_segment, body_z + height * 0.04)
-    tip = (0, tail_base_y - tail_length, body_z + height * 0.02)
-    bones.extend((
-        Bone("tail.1", start, mid, "spine"),
-        Bone("tail.2", mid, tip, "tail.1"),
-    ))
+def _build_avian_skeleton(anatomy):
+    points = {p.name: p.position for p in anatomy.landmarks}
+    bones = []
+    for chain in anatomy.chains:
+        parent = chain.parent_bone
+        for index, name in enumerate(chain.bones):
+            bones.append(Bone(name, points[chain.landmarks[index]],
+                              points[chain.landmarks[index + 1]], parent))
+            parent = name
     return Skeleton(tuple(bones))
 
 
@@ -90,8 +45,8 @@ def _candidate_bones(vertex, bones):
     )
 
 
-def _weights_for_vertex(vertex, bones, max_influences=4):
-    candidates = _candidate_bones(vertex, bones)
+def _weights_for_vertex(vertex, bones, max_influences=4, *, side_filter=True):
+    candidates = _candidate_bones(vertex, bones) if side_filter else bones
     ranked = sorted(
         ((_distance_to_segment(vertex, bone.head, bone.tail), bone) for bone in candidates),
         key=lambda item: (item[0], item[1].name),
@@ -110,15 +65,85 @@ def _weights_for_vertex(vertex, bones, max_influences=4):
     return tuple(BoneWeight(name, value) for name, value in normalized if value > 0)
 
 
-def generate_avian_skin_weights(mesh, skeleton, *, max_influences=4):
-    """Return normalized local weights for the connected Avian surface."""
-    deform_bones = tuple(bone for bone in skeleton.bones if bone.name != "root")
+def _wing_ownership(mesh, anatomy, bones):
+    """Use authored membership, not current coordinates, for wing ownership."""
+    anatomy.validate_mesh(mesh)
+    regions = {r.name: r for r in anatomy.regions}
+    chains = {c.name: c for c in anatomy.chains}
+    parts = {p.name: p for p in mesh.parts}
+    result, attachments = {}, {}
+    for name in ('wing.left', 'wing.right'):
+        region, chain = regions[name], chains[name]
+        owned = set(region.vertex_indices)
+        local = tuple(b for b in bones if b.name in chain.bones)
+        if len(local) != len(chain.bones) or chain.parent_bone not in {b.name for b in bones}:
+            raise ValueError('Avian skeleton is missing an authored wing bone')
+        connection = next(c for c in anatomy.connections if c.regions == ('body', name))
+        root, first = map(set, connection.boundaries)
+        if not root or not first or not first <= owned or not root <= set(regions['body'].vertex_indices):
+            raise ValueError('Avian wing requires authored attachment boundaries')
+        # Anchor the collar to the torso, fading over one edge interval.
+        # A mobile first ring can fold through its fixed body opening.
+        graph = {i: set() for i in owned}
+        for face in parts[region.mesh_part].faces:
+            for a, b in zip(face, face[1:] + face[:1]):
+                if a in owned and b in owned:
+                    graph[a].add(b)
+                    graph[b].add(a)
+        depths = dict.fromkeys(first, 0)
+        pending = deque(sorted(first))
+        while pending:
+            index = pending.popleft()
+            if depths[index] == 1:
+                continue
+            for neighbor in sorted(graph[index]):
+                if neighbor not in depths:
+                    depths[neighbor] = depths[index] + 1
+                    pending.append(neighbor)
+        for index in owned:
+            key = (region.mesh_part, index)
+            if key in result:
+                raise ValueError('Avian wing regions must be disjoint')
+            result[key] = local
+            if index in depths:
+                parent = .75 if depths[index] == 0 else .40
+                attachments[key] = ((chain.bones[0], 1 - parent), (chain.parent_bone, parent))
+        for index in root:
+            attachments[(region.mesh_part, index)] = ((chain.parent_bone, 1.0),)
+    return result, attachments
+
+
+def generate_avian_skin_weights(mesh, skeleton, *, anatomy, max_influences=4):
+    """Keep wing motion within authored wings, with a short shoulder collar."""
+    if type(max_influences) is not int or max_influences < 1:
+        raise ValueError('Avian max influences must be a positive integer')
+    deform_bones = tuple(bone for bone in skeleton.bones if bone.name != 'root')
     if not deform_bones:
-        raise ValueError("Avian skeleton must contain deform bones")
-    return tuple(
-        SkinWeights(
-            part.name,
-            tuple(_weights_for_vertex(vertex, deform_bones, max_influences) for vertex in part.vertices),
-        )
-        for part in mesh.parts
-    )
+        raise ValueError('Avian skeleton must contain deform bones')
+    wing_candidates, attachments = _wing_ownership(mesh, anatomy, deform_bones)
+    # The ankle ring, ball, toes and claws form one material contact patch.
+    # Bind by authored membership so edited coordinates cannot move sole weights
+    # back onto the lower leg and shear a flat foot during stance.
+    for region in anatomy.regions:
+        if region.name in ('leg.left', 'leg.right'):
+            foot = 'foot.' + region.name.rsplit('.', 1)[1]
+            if foot not in {b.name for b in deform_bones}:
+                raise ValueError('Avian skeleton is missing an authored foot bone')
+            for index in region.vertex_indices[24:]:
+                attachments[(region.mesh_part, index)] = ((foot, 1.),)
+    nonwing = tuple(b for b in deform_bones if not b.name.startswith('wing.'))
+    results = []
+    for part in mesh.parts:
+        weights = []
+        for index, vertex in enumerate(part.vertices):
+            key = (part.name, index)
+            if key in attachments:
+                raw = attachments[key][:max_influences]
+                total = sum(weight for _, weight in raw)
+                weights.append(tuple(BoneWeight(name, weight / total) for name, weight in raw))
+            else:
+                owned = key in wing_candidates
+                candidates = wing_candidates[key] if owned else nonwing
+                weights.append(_weights_for_vertex(vertex, candidates, max_influences, side_filter=not owned))
+        results.append(SkinWeights(part.name, tuple(weights)))
+    return tuple(results)

@@ -1442,16 +1442,716 @@ intermediate frames. Dense skin/contact and loop checks provide separate numeric
 evidence. Final visual refinement and the documented short-wide stress limitation
 remain open after this integration checkpoint.
 
+## Avian shared-recipe checkpoint (2026-10-11)
+
+At the user's direction, Avian work now proceeds before the remaining canine
+artistic sign-off. Human review feedback stays deferred in `human-review-notes.md`.
+
+`providers/avian_anatomy.py` owns Avian recipe 1: immutable surface profiles,
+rest landmarks, wing/leg/tail chains and motion roles. Geometry consumes the
+resolved profiles and binds five authored regions plus four actual 4-to-8 vertex
+attachment boundaries. Rigging consumes the resolved chains. Provider validation
+still runs before resolution; no Blender dependency or alternate provider path
+was introduced. `AvianProvider.anatomy(values)` exposes the topology-bound result.
+
+This first migration preserves the existing surface/rest-joint offsets explicitly.
+It does not imply those offsets, leg bend directions, wing shapes or stance are
+anatomically accepted. Existing semantic selection and distance-based weights are
+unchanged; later ownership-aware refinement must preserve edited-asset behavior.
+
+Default and contrasting mesh, skeleton, weights and Idle/Walk/Flight fingerprints
+match the pre-migration `76780c7` baseline exactly. The reference is committed in
+`tests/fixtures/avian_recipe1_baseline.json`. All 25 Avian core tests and 12 Avian
+Blender tests pass. New tests protect recipe immutability, complete parameter
+identity, region partitioning, real bridge faces, profile validation, and landmark
+authority over surface and adjacent bones. Ten shared-contract tests and 15
+architecture/provider-boundary tests also pass; compilation and whitespace checks
+pass. Portable golden checks round to nine decimal places to avoid insignificant
+platform math differences; the local raw before/after fingerprints match exactly.
+
+## Avian wing-centerline checkpoint (recipe 2)
+
+Wing chains now reference the same landmark identities as the wing tube roots,
+elbows and tips. Recipe 1's default offsets were 0.512/0.866/0.600 cm; the
+contrasting offsets were 0.712/1.323/0.840 cm. All three offsets are now zero by
+construction. No separate wing-joint formulas remain. Other body-plan offsets
+are preserved for their own refinement passes.
+
+Neutral mesh/UV/topology, the 16 bone names/parents, non-wing rest bones and
+Idle/Walk/Flight key data are unchanged. Wing rest geometry and recomputed weights
+change, so existing saved rigs are not equivalent to newly generated recipe 2
+rigs. Apply through explicit rig regeneration; never overwrite artist-owned rigs
+or weights silently. The historical recipe 1 fixture continues to protect
+unchanged output, and joint/surface mutation tests prove the shared authority.
+
+`scripts/render_avian_review.py` renders neutral or isolated wing-root, wing-elbow,
+hip and ankle diagnostics on default/contrasting samples, with JSON provenance
+and displacement by authored region. Run it in a fresh Blender background process:
+
+```powershell
+& <blender.exe> --background --factory-startup --python-exit-code 1 --python scripts/render_avian_review.py -- --output artifacts/shared-anatomy/avian-wing.png --pose wing-elbow --sample default
+```
+
+The initial default neutral sheet and recipe 1/2 elbow comparisons are under
+`artifacts/shared-anatomy/avian1-*.png` and `avian2-*-wing-elbow.png`. The broad
+four-view framing exposes the thin wing profile and poorly readable legs; it
+is not a finished bird silhouette. The default neutral minimum Z is about
+0.827 cm, so grounded stance remains unfinished. In the recipe 2 default isolated
+elbow pose (local Z, 0.7 rad), the left wing moves up to 14.30 cm while the
+opposite wing and both legs remain stationary. Body vertices still move up to
+0.792 cm (recipe 1: 0.736 cm); investigate distance-based weight leakage before
+accepting wing folding. Joint alignment alone is not deformation acceptance.
+
+All 26 Avian core tests and 12 Blender integration tests pass, plus Python
+compilation and whitespace checks. No Human or canine production code changed.
+
+## Avian wing-weight locality checkpoint (recipe 3)
+
+Avian weights now use authored wing membership instead of coordinate proximity
+for wing influence. Non-wing vertices cannot acquire wing-bone weights. The body
+attachment loop remains on the spine; the first wing ring blends 25% spine / 75%
+upper wing, fading to 10% / 90% over the next topology interval. Distal vertices
+use only their own upper/lower wing chain. The collar remains attached without
+allowing a distal wing bend to pull the torso or opposite limbs.
+
+Membership survives topology-preserving edits across the body and centerline.
+The provider rejects mismatched part names, face topology or vertex counts before
+using ownership; users must explicitly regenerate incompatible assets. No saved
+artist weights are automatically replaced. Neutral mesh/UVs, rest rig and clip
+keys remain unchanged from recipe 2; generated weights intentionally change.
+
+All 31 Avian core tests and 13 Blender tests pass. The new evaluated Blender
+regression bends upper and lower wings independently on both sides of default
+and contrasting birds: each intended wing moves while all other vertices remain
+within 0.00001 cm of their neutral positions. Core regressions cover cross-center
+edited wings, normalized influence limits, collar blending and topology rejection.
+Python compilation and whitespace checks pass. Review artifacts are
+`artifacts/shared-anatomy/avian3-{sample}-wing-elbow.png` with JSON measurements.
+Rendered elbow reports confirm body displacement drops from 0.792 cm to zero
+for default and 0.986 cm to zero for contrasting, with intended wing displacement
+unchanged. These isolated poses establish locality, not final folding or flight quality.
+
+## Avian broad-wing checkpoint (recipe 4)
+
+The wing tube now has a broader fore/aft chord through its middle with a tapered
+tip, retaining its compact root and thin depth. Default elbow chord increases
+from 3.36 to 13.44 cm while elbow thickness remains 2.16 cm; the chord is bounded
+by body length and available wing span. Both sides use the same profile.
+This is a low-poly continuous surface, not individual feather construction.
+
+The 232-vertex/226-face topology, all non-wing vertex positions, complete recipe 3
+rest rig, authored ownership and animation keys are preserved. Wing positions,
+projected UVs and recomputed weights change. The existing isolated wing tests
+still require non-wing vertices to remain stationary. Prior generated meshes and
+artist weights are not silently rebuilt; changes use explicit regeneration.
+
+The review helper accepts `--view top` for a single overhead bird with camera
+framing validation. Use square output to inspect the wing outline:
+
+```powershell
+& <blender.exe> --background --factory-startup --python-exit-code 1 --python scripts/render_avian_review.py -- --output artifacts/shared-anatomy/avian-top.png --view top --resolution-x 1000 --resolution-y 1000 --pose neutral
+```
+
+The before sheet is `artifacts/shared-anatomy/avian3-top.png`; recipe 4 neutral
+and isolated elbow sheets use `avian4-top-{pose}.png`. JSON records the view,
+recipe version, parameters and pose displacement. These views distinguish wing
+outline from the edge-on four-view sheets. The neutral overhead render shows the
+broader tapered silhouette but also a coarse shoulder transition; a full
+folded/perched posture remains unfinished. All 33 Avian core and 13 Blender tests pass, including bilateral
+profile symmetry, unchanged surrounding geometry/rig and deformation locality.
+Compilation and whitespace checks pass.
+
+## Avian coordinated-fold diagnostic checkpoint
+
+The review helper now accepts `--pose wing-fold`, applying mirrored local-Z
+rotations to both upper and lower wing bones. Pose reports list all four rotations
+and neutral/posed wing spans; existing single-joint report fields remain supported.
+This is a diagnostic preset only: recipe 4 and production Idle/Walk/Flight are unchanged.
+
+Blender 5.2.1 evaluation reduces default span from 90.16258 to 56.13675 cm and
+contrasting span from 140.17737 to 85.81793 cm. Both shapes have symmetric wing
+displacement and zero measured body/leg movement. The regression requires span
+below 65% of neutral and non-wing displacement below 0.00001 cm. All 33 Avian core
+and 14 Blender tests pass, including animation and export checks.
+
+The inspected overhead render is `artifacts/shared-anatomy/avian4-fold-top.png`
+(with adjacent JSON); reproduce using the earlier top-view command with
+`--pose wing-fold`. It reveals outward-flaring tips and angular shoulder/elbow
+transitions. It does not establish collision clearance or a finished perched
+silhouette. A compact fold, shoulder refinement, contrasting visual review and
+intersection diagnostics remain open; grounded stance is still unfinished.
+
+## Avian compact-fold intersection checkpoint
+
+`--pose wing-fold-compact` is a separate diagnostic preset, preserving the earlier
+fold for comparison. It sweeps both wings back alongside the tail. Default span
+is 28.52460 cm (neutral 90.16258); contrasting span is 40.33019 cm (neutral
+140.17737). The inspected default overhead render shows a compact outline but
+visible overlap around the body; this pose is not accepted for production clips.
+
+`scripts/avian_review_metrics.py` tessellates polygons and uses Blender BVH triangle
+intersection queries, reporting unique non-adjacent face pairs. Reports include
+evaluated neutral pairs, posed pairs and newly appearing pairs. Faces sharing any
+vertex are excluded. These are surface-crossing diagnostics, not volumetric
+penetration or clearance measurements: containment, coplanar contact and
+within-polygon problems are outside their scope, and near-contact counts can be
+sensitive to floating-point evaluation.
+
+In Blender 5.2.1 the default evaluated neutral/compact counts are 100/126 with
+37 new pairs; contrasting counts are 105/125 with 32 new pairs. Thus neutral
+construction itself needs investigation before folding can pass an intersection
+gate. Artifacts: `avian4-compact-top.png` and `avian4-compact-{default,contrasting}.json`
+under `artifacts/shared-anatomy/`. The measured JSON files use evaluated-neutral
+baselines; the initial render JSON preceded that baseline precision correction.
+Synthetic crossing, separated and adjacent-face checks pass along with all 15
+Avian Blender tests. Recipe, generated geometry and production clips are unchanged.
+
+## Avian attachment repair (recipe 5)
+
+The crossing investigation found opposite-side wing openings and asymmetric leg
+openings in the inherited constructor. Recipe 5 connects each branch to its own
+side of the torso and aligns the bridge perimeter phase without reversing winding.
+Wing shoulders now sit outside the torso (bounded inside the available wing span),
+with surface and rig still consuming the same landmarks. This removes detected
+neutral wing/bridge crossings for both default and contrasting reference shapes.
+
+Vertex/face counts remain 232/226; non-wing vertices, non-wing rest bones and
+production clips are preserved. Face connectivity, wing geometry/rest bones,
+UVs and computed weights change. Older topology is explicitly rejected by the
+weight generator; existing assets require explicit regeneration/rebuilding rather
+than silent migration. Closed, consistently oriented topology and side-local
+attachment tests supplement the preservation and ownership checks.
+
+Default source-neutral crossings drop from 101 to 46; all remaining pairs involve
+leg geometry or leg bridges. The contrasting compact pose still has 70 pairs
+versus 46 in evaluated neutral, including 24 new pairs. It is not accepted.
+The inspected `avian5-neutral-top.png` and contrasting `avian5-compact-top.png`
+under `artifacts/shared-anatomy/` show the repaired shoulders and remaining folded
+overlap. The original broad fold diagnostic now uses elbow angles of +/-2.1
+radians to retain its span-reduction gate with exterior shoulders; the compact
+preset remains unchanged. All 34 focused core, 455 full core and 16 Avian Blender
+tests pass. Changed Python files compile and whitespace checks pass.
+
+## Avian leg construction repair (recipe 6)
+
+The leg surface now descends from hip through knee and ankle to toe, with its
+collar positioned beneath the underside opening. Upper-leg thickness is bounded
+by body height. A lateral section frame keeps neighboring leg rings from changing
+reference axes near vertical tangents. The leg rest bones now consume the same
+surface landmarks (rings 0, 2, 3, 4), removing the inherited surface/rig offset.
+Wing construction and the axial body/tail rest rig are unchanged.
+
+Default and contrasting source and evaluated neutral meshes have zero detected
+non-adjacent surface crossings in Blender 5.2.1. This replaces the prior wing-only
+regression with a whole-neutral-mesh check for those two shapes. It remains a
+surface-crossing diagnostic, not proof of volumetric clearance for all parameters.
+Compact-fold diagnostics still report 20 and 24 crossings respectively; that pose
+is not accepted. Reports are `artifacts/shared-anatomy/avian6-compact-{default,contrasting}.json`.
+
+The mesh retains 232 vertices and 226 faces. Leg geometry, attachment phase,
+leg/foot rest bones, UVs and computed weights change; explicit regeneration and
+rig rebuilding are required for older assets. Production Idle/Walk/Flight keys
+are unchanged, but their appearance needs review against the new support chain.
+The inspected four-view render `artifacts/shared-anatomy/avian6-neutral.png`
+shows short legs tucked beneath the body; foot detail is too small for visual
+acceptance at this framing. Foot grounding, readable toe anatomy and gait contact
+remain unfinished.
+All 35 focused Avian core and 16 Blender tests pass; changed files compile.
+The full 455-test core pass belongs to recipe 5 and was not repeated here.
+
+## Avian neutral foot contact (recipe 7)
+
+The ankle/toe rings now have broader lateral profiles and an authored flat plantar
+arc at Z=0. Each foot contributes six ground vertices across two rings, providing
+a finite sole without adding vertices or changing the rest skeleton. Leg/foot
+geometry, projected UVs and regenerated weights change; existing artist-owned
+assets still require explicit regeneration. This is a simple continuous foot
+blockout; separated toes/claws and motion contact are not implemented here.
+
+Default contact width/length is approximately 0.9400/4.9056 cm per foot;
+contrasting contact is 1.3159/6.4376 cm. Blender evaluation preserves six contact
+vertices per foot within 0.00001 cm of ground. Both reference neutral meshes still
+have zero detected non-adjacent surface crossings. The grounded neutral pose is
+not evidence of planted feet during Walk or Idle.
+
+`scripts/render_avian_review.py --view feet` provides an isolated leg/foot close-up (torso, wings and attachment
+bridges are hidden for inspection), and all pose reports include per-foot minimum Z, ground vertex
+count and contact extents. The close-up artifact is
+`artifacts/shared-anatomy/avian7-feet.png`; evaluated reports are
+`avian7-feet-{default,contrasting}.json` in that directory (isolated wing-root
+pose leaves the feet unchanged). All 36 focused core and 16 Avian Blender tests
+pass; no full-suite rerun is claimed for this checkpoint.
+
+## Avian forward-toe construction (recipe 8)
+
+Each foot now ends in three connected, tapered forward toes with gaps between
+the distal tips; the center toe extends farther than the outer pair. The former
+single end cap is split into three openings and extruded, retaining a single
+closed, consistently oriented mesh. A validated recipe-owned toe length controls
+the extension. The foot ball moves rearward so the overall footprint length stays
+close to recipe 7; the shared foot bone ends at that ball landmark. The toes
+remain weighted to the existing support chain, without independent toe bones.
+
+The mesh now has 256 vertices and 254 faces. Each foot has 13 grounded vertices.
+Evaluated contact width/length is 1.7255/4.9795 cm for default and 2.4157/6.5465 cm
+for contrasting, within 0.00001 cm of ground. Both reference neutral meshes still
+have zero detected non-adjacent surface crossings. Footprint extents describe
+the outer bounds of the toes, not a solid contact rectangle. The review helper
+includes all toe vertices when measuring and framing the feet.
+
+Artifacts: `artifacts/shared-anatomy/avian8-feet.png` and evaluated contact reports
+`avian8-feet-{default,contrasting}.json`. All 37 focused core and 16 Avian Blender
+tests pass, including toe separation, ground contact, manifold winding,
+deformation and export checks. No full-suite rerun is claimed here. Older assets
+require explicit regeneration/rebuilding for the new topology and foot rest bone.
+Rear toes, claws, independent toe articulation, leg proportions and gait contact
+remain unfinished; the existing compact-wing fold is still not accepted.
+
+## Avian rear-toe construction (recipe 9)
+
+Each foot now includes one connected rear-facing toe extruded from a mirrored
+lower-leg surface opening inset near the ankle to avoid a broad shin flange.
+Rear-toe length belongs to the validated recipe,
+while construction owns the four-vertex tapered end and bridge topology. The
+rest skeleton and forward-toe geometry are unchanged. Rear toes use existing
+support-chain weights; independent toe articulation is not implemented.
+
+The mesh now has 272 vertices and 270 faces and remains closed with consistent
+winding. Both reference neutral meshes have zero detected non-adjacent surface
+crossings. Each foot has 15 evaluated ground vertices within 0.00001 cm of Z=0.
+Contact width/length is approximately 1.7255/6.7410 cm for default and
+2.4157/8.8275 cm for contrasting. Extents include gaps between toes and are not
+solid contact areas or proof of motion contact.
+
+Artifacts: `artifacts/shared-anatomy/avian9-feet.png` and evaluated reports
+`avian9-feet-{default,contrasting}.json`. All 38 focused core and 16 Avian Blender
+tests pass, including rearward extension, contact, manifold winding, neutral
+crossings, deformation and export. Older assets require explicit regeneration
+for the changed topology. Claws, leg proportions, gait contact and compact-wing
+fold clearance remain open; no full-suite rerun is claimed for this checkpoint.
+
+## Avian claw construction (recipe 10)
+
+All three forward toes and the rear toe now end in connected tapered claws.
+Each toe cap is replaced by a narrower raised section and pointed end above the
+sole plane. Claw length is validated recipe data bounded by body length and leg
+thickness. Existing toe vertices, support-chain rest bones and ground-contact
+vertices are preserved; the claws follow existing skin weighting. No separate
+claw material or independent digit controls are added.
+
+The mesh has 312 vertices and 326 faces and remains closed with consistent
+winding. Both reference neutral meshes retain zero detected non-adjacent surface
+crossings, 15 ground vertices per foot and the recipe 9 contact extents. Claw
+vertices stay above ground in the neutral construction. These checks do not
+establish contact during animation or clearance of the compact wing fold.
+
+Artifacts: `artifacts/shared-anatomy/avian10-feet.png` and evaluated reports
+`avian10-feet-{default,contrasting}.json`. All 39 focused core and 16 Avian Blender
+tests pass, including taper/direction/clearance, contact, topology, deformation
+and export. Changed source files compile and whitespace checks pass. Older
+assets require explicit regeneration for the new topology. Full-suite testing
+has not been repeated at this checkpoint.
+
+## Avian stance proportions (recipe 11)
+
+A recipe-owned support lift raises the torso, wings, tail and axial rest rig by
+22% of body height (4.4 cm default; 6.16 cm contrasting), preserving their local
+shapes. Hips and knees rise while ankle/ball placement remains fixed, giving the
+support chain more room beneath the body. Default hip/knee heights are now
+6.4/4.0 cm versus 2.4/1.8 cm; ankle height remains 0.8 cm. The leg collar uses the
+opposite bridge diagonal to prevent the broad attachment from cutting across
+the extended upper leg. No global Human or shared primitive settings change.
+
+Both reference neutral meshes retain zero detected non-adjacent crossings and
+15 ground-contact vertices per foot within 0.00001 cm of Z=0. Contact extents
+remain approximately 1.7255/6.7410 cm default and 2.4157/8.8275 cm contrasting.
+Vertex/face counts remain 312/326, but leg bridge connectivity, geometry, UVs,
+rest skeleton and regenerated weights change. Explicit regeneration/rebuilding
+is required for older assets. Production animation keys remain unchanged;
+stance geometry does not establish animated foot contact.
+
+The review helper now supports `--view side` with camera framing validation.
+Artifacts: `artifacts/shared-anatomy/avian11-side.png` and evaluated reports
+`avian11-feet-{default,contrasting}.json`. All 40 focused core and 16 Avian Blender
+tests pass, including body/axial shape preservation under translation, support
+clearance, contact, crossings, topology, deformation and export. The full suite
+has not been rerun at this checkpoint.
+
+## Avian actual-action contact baseline
+
+`scripts/review_avian_gait.py` samples real generated Idle and Walk actions in an
+isolated Blender scene and removes its generated data afterward. It records
+foot-region minimum heights, fixed neutral sole vertex positions, motion from
+the first sample, loop closure and counts relative to a 0.02 cm ground tolerance.
+It does not infer stance from a low point, label swing motion as slip, or claim
+continuous-time bounds. Reports include both endpoints of the closed cycle.
+
+At normal strength with 64 intervals (65 samples), default Walk reaches
+-3.03430 cm at phases 0.375 left / 0.875 right; contrasting Walk reaches
+-3.91967 cm at the same phases. These are real evaluated penetrations, not merely
+rest-pose offsets. Default left/right penetrating sample counts are 44/45;
+contrasting counts are 43/44. Idle fixed sole motion is zero for both shapes,
+with ground height within numerical tolerance. Sampled loop closure is zero for
+both clips and shapes. Flight was not evaluated by this ground-contact review.
+
+Run in a fresh Blender process:
+
+```powershell
+& <blender.exe> --background --factory-startup --python-exit-code 1 --python scripts/review_avian_gait.py -- --output artifacts/shared-anatomy/avian11-motion-default.json
+```
+
+Use `--sample contrasting` for the second reference shape. Both reports use
+`avian11-motion-{default,contrasting}.json` under `artifacts/shared-anatomy/`.
+All 18 focused Avian Blender tests pass, including actual-action sampling,
+summary consistency, loop closure, stationary Idle soles and scene/data cleanup.
+The tests validate the diagnostic; they do not accept the current Walk contact.
+Production geometry and clips are unchanged in this checkpoint. The next motion
+implementation must solve Walk against the weighted sole and recheck both shapes,
+including denser time sampling and clip-switch behavior.
+
+## Avian contact-solved Walk checkpoint (2026-10-12)
+
+Walk now uses parameter-aware alternating stance/swing targets with a 65% stance
+fraction and half-cycle separation. Stride is 8% of body height times strength;
+swing lift is 3.5%, with a constant 4% root crouch. The existing canine planar
+weighted-surface solver moved unchanged into `object_core/animation/weighted_contact.py`.
+Avian solves each full leg region at 128 keys and counter-rotates each foot to
+maintain its overall pitch. A 0.02 cm clearance margin covers measured interpolation
+error. Non-leg rotations remain neutral during Walk so outside-chain skin weights
+follow the solver's root-translation assumption. Body follow-through is a later
+quality pass. Idle and Flight retain their rotation curves and explicitly reset
+root translation, including when reusing existing actions.
+
+Actual Blender 5.2.1 actions over 127 intervals (128 samples, mostly between keys)
+show minimum foot height 0.0199879 cm default / 0.0199799 cm contrasting at strength
+1. Peak minimum foot height is about 0.7194 / 0.9992 cm respectively. Neither foot
+penetrates; both cycles close. The same sampled clearance gate passes for strengths
+0.1 and 2 on both shapes. Idle soles remain stationary. Reports are
+`artifacts/shared-anatomy/avian-contact-{default,contrasting}.json`.
+
+Validation: 41 Avian core tests, 10 canine gait tests, 4 quadruped animation tests,
+5 architecture boundary tests and 19 Avian Blender tests. Blender coverage includes
+between-key clearance, existing-action crouch reset, generation, deformation and
+GLB/FBX export checks. This is sampled canonical contact evidence, not physical
+slip proof, arbitrary edited-weight coverage, continuous-time bounds or final
+visual gait acceptance. No geometry/rig recipe migration is needed; regenerate
+the generated Walk action explicitly to adopt the new motion.
+
+## Avian recipe 12: material sole contact (2026-10-12)
+
+The first Walk clearance gate hid foot shear: the neutral sole vertices drifted
+about 0.28 cm in scheduled stance on the default shape and never entered the
+0.05 cm ground band. Other foot vertices supplied the minimum surface height.
+Recipe 12 binds the authored ankle ring, ball, toes and claws to the foot bone,
+keeping the material sole together while the upper/lower leg still bends. This
+uses authored membership even after coordinate edits. Geometry and rest bones
+are unchanged (312 vertices, 326 faces, 16 bones). Existing generated rigs need
+explicit weight rebuilding and Walk regeneration; artist-owned weights are not
+automatically overwritten.
+
+`review_avian_gait.py` schema 2 reuses the tested fixed-material stance metric
+from `canine_review_metrics.py`, omits the closing duplicate sample, unwraps the
+right stance across the cycle boundary, and adds reference +Y travel. It reports
+both all-sole stance drift and contiguous near-ground episode drift. Null means
+insufficient comparisons, not zero drift. `--strength` exposes the tested range.
+
+At strength 1 over 127 intervals, maximum reference stance drift is 0.0002223 cm
+default and 0.0003120 cm contrasting. Each foot has 83 scheduled stance samples
+and 1230 near-ground vertex comparisons, covering all 15 sole vertices. Minimum
+foot height stays above 0.01998 cm. Both shapes also pass the 0.002 cm drift gate
+and positive-clearance gate at strengths 0.1 and 2. This remains sampled reference
+tracking, not physical friction/contact proof or a continuous-time bound.
+Reports: `artifacts/shared-anatomy/avian12-stance-{default,contrasting}.json`.
+
+The renderer now supports `--pose walk --phase 0.825 --strength 1` using the actual
+adapter-created action. Inspected feet views on both shapes show intact toe/claw
+silhouettes at left mid-swing, with zero detected non-adjacent crossings across
+the whole evaluated surface at that phase. Upper leg cropping is intentional in
+the feet view. These static views do not establish full-cycle artistic acceptance.
+Images/reports: `artifacts/shared-anatomy/avian12-walk-{default,contrasting}.*`.
+
+Validation: 42 Avian core tests, 13 shared stance/review metric tests and 19 Avian
+Blender integration tests pass, including both shapes and three strengths,
+coordinate-edited foot ownership, action switching and GLB/FBX export coverage.
+
+## Avian full-cycle deformation checkpoint (2026-10-12)
+
+Schema 3 of `review_avian_gait.py` records non-adjacent surface crossings at every
+sample, with neutral pairs and newly introduced pairs distinguished. This exposed
+an upper-leg/body-attachment crossing missed by the earlier swing snapshot:
+strength 2 produced 37 affected samples on the default bird and 34 on the
+contrasting bird (127 intervals). Lower strengths were clear.
+
+Walk now caps crouch at its strength-1 depth (4% of body height). Stride and swing
+lift still scale with strength. This removes excessive hip compression without
+reducing the larger step. Both shapes at strengths 0.1, 1 and 2 have zero detected
+crossing pairs over all 128 samples. At strength 2, minimum foot clearance is
+0.019943 cm default / 0.019926 cm contrasting; maximum reference stance drift is
+0.000419 / 0.000596 cm. Normal-strength behavior is unchanged. Regenerate Walk
+to adopt this change; no further geometry, rig or weight migration is required.
+Reports: `artifacts/shared-anatomy/avian12-full-{default,contrasting}-{0.1,1.0,2.0}.json`.
+
+`scripts/create_avian_motion_review.py` reuses the existing canine scene builder
+to save editable four-view, three-cycle Walk scenes at 25 fps. `--stills` writes
+phases 0, 0.325, 0.5 and 0.825; `--render` writes an MP4. Default and contrasting
+scenes and phase sheets are under `artifacts/shared-anatomy/avian12-cycle-*`;
+a contrasting video is also available. Inspected full-body phase sheets retain
+intact silhouettes but expose the intentionally stationary upper body and extended
+wings. These overview sheets are not sufficient for fine joint inspection or final
+motion acceptance. Compact folding and later body follow-through remain ahead.
+
+Validation: 42 Avian core and 19 Avian Blender tests pass, including the six-case
+crossing/contact gate, action switching and GLB/FBX export. Both Avian review
+scenes generate; the original canine review builder also passes its scene-generation
+smoke check. Surface crossing detection excludes shared-vertex faces, containment,
+coplanar contact and between-sample extremes; it is not a collision-free proof.
+
+## Avian recipe 13: compact-fold collar refinement (2026-10-14)
+
+The original compact local-Z sweep intersects the torso and shoulder collar
+(20 detected pairs on the default bird). The diagnostic now combines a mirrored
+1.3-radian upper-wing sweep, 1.0-radian local-Y rotation and 0.2-radian elbow sweep.
+This clears the broad wing from the torso but initially left four collar crossings
+on each reference shape.
+
+Recipe 13 changes the leading two wing attachment sectors to the ring-side
+triangle/quad diagonal already used for the leg collars. The lifted compact pose
+now has one detected pair on each shape: faces 68/95, a left proximal wing surface
+against its shoulder bridge. Vertices, weights, rest bones and counts (312/326/16)
+are unchanged; connectivity and projected UVs change locally. Explicitly regenerate
+existing geometry before applying current-recipe weights. Artist-owned data is
+preserved, and incompatible old topology is rejected.
+
+Final spans are 29.7436 cm default and 42.7525 cm contrasting, under 40% of neutral.
+Body and legs stay stationary. Seventeen evenly spaced simultaneous Euler blend
+samples from neutral to the endpoint show at most one crossing on either shape.
+This is not a production folding animation or a collision-free path. The remaining
+collar crossing is an open defect; the older `wing-fold` diagnostic remains available.
+Shoulder weight experiments were not retained.
+
+Evidence: `artifacts/shared-anatomy/avian13-compact.png`,
+`avian13-compact-contrasting.png`, their JSON reports and `avian13-fold-path.json`.
+The default top view has a compact silhouette with the left shoulder pinch still
+visible. Next: remove that proximal collar intersection before accepting or
+integrating a folded/perched posture into generated animation.
+
+Validation: 42 Avian core tests and 20 Avian Blender tests pass, including neutral
+crossings, the two-shape/three-strength Walk contact/crossing gate, non-wing
+stationarity, compact endpoint regression ceiling and export tests. The one-pair
+ceiling records improvement; it does not accept folding.
+
+## Avian recipe 14: mirrored shoulder attachments (2026-10-14)
+
+The final compact-fold crossing came from asymmetric attachment connectivity,
+not the shoulder proportions or weights. Independent perimeter matching gave
+left and right collars different reflected face diagonals even though their
+vertices were mirrored. The left proximal surface crossed its own bridge.
+
+The constructor now uses the right shoulder bridge as the canonical connectivity
+and reflects it onto the left using authored ring indices, reversing face winding.
+This preserves 312 vertices, 326 faces, 16 bones, all surface positions, skin
+weights and rest landmarks. Only left shoulder face connectivity and its projected
+UVs change. Recipe 14 requires explicit geometry regeneration; artist-owned data
+is not overwritten. The new core regression verifies reflected connectivity and
+winding against reflected coordinates on both reference shapes.
+
+Both compact endpoints and all 17 sampled intermediate fold positions now have
+zero detected non-adjacent surface crossings. Body and leg vertices remain
+stationary. Folded spans remain 29.7436 / 42.7525 cm (default / contrasting).
+`render_avian_review.py --pose-fraction` can inspect intermediate diagnostic
+rotations without changing the pose definitions. These samples do not bound
+continuous-time intersections, containment or coplanar contact, and the diagnostic
+has not yet become a production folded/perched animation state.
+
+Validation: 43 Avian core and 20 Avian Blender tests pass, including full fold-path
+clearance on both shapes, neutral topology, all six Walk contact/crossing cases,
+action switching and GLB/FBX export. Top-view artifacts are
+`artifacts/shared-anatomy/avian14-compact-{default,contrasting}.png` with JSON reports.
+Next: review the folded posture from additional views and plan its explicit use
+in Idle/Walk before adding body follow-through.
+
+## Avian folded Idle and Walk (2026-10-14)
+
+Side views on both reference shapes show the compact wing posture clear of the
+body and ground. Idle and Walk now hold that posture instead of the extended
+neutral wings. Idle retains head, neck and tail motion; Walk retains its contact
+solve. Fold strength stays fixed while motion strength controls the existing
+motion. Flight retains its original wingbeat curves and resets folded rotations
+when its saved action is selected. No new geometry or rig migration is introduced;
+explicitly regenerate Idle and Walk to adopt the new motion on recipe-14 geometry.
+
+`object_core/providers/avian_posture.py` is the shared source of diagnostic Euler
+angles and held production tracks. The Euler pose is composed into one axis-angle
+rotation per bone. `BoneLocalRotationTrack` explicitly serializes its local-frame
+space; the adapter keeps ordinary tracks in rest-armature coordinates and only
+uses local axes for the explicit new contract. This preserves existing Human and
+Canine behavior. Local tracks depend on the generated skeleton's local frames;
+arbitrarily edited bone rolls are not covered by canonical posture checks.
+
+Actual Idle/Walk sampling on both shapes at strengths 0.1, 1 and 2 passes with
+zero detected surface crossings and wing span below 40% of neutral throughout.
+Idle soles stay stationary; Walk retains positive clearance and the existing
+0.002 cm reference stance-drift gate. Existing-action switching verifies all four
+folded joints against independently composed Euler quaternions, including a return
+to Flight. Schema 4 gait reports include neutral and maximum evaluated wing span.
+
+Evidence: `artifacts/shared-anatomy/avian14-folded-actions-{default,contrasting}.json`,
+`avian14-fold-side-{default,contrasting}.png`, and the editable three-cycle
+`avian14-folded-walk.blend` with four phase sheets. Inspected views show held
+folded wings through the larger stepping pose. Final artistic acceptance, broader
+shape coverage and animated transitions into/out of Flight remain open.
+
+Validation: 44 Avian core tests, 5 architecture tests, 21 Avian Blender tests and
+5 shared Human/Quadruped animation tests pass. GLB/FBX export checks are included
+in the Avian suite. No blend transition is generated between the separate clips.
+
+## Avian Walk body response (2026-10-14)
+
+Walk now adds a small two-step vertical body response: compression peaks at the
+middle of double support, and the body rises during single support. Crouch ranges
+from 2.8% to 4% of body height, scaled by strength up to 1. Stronger steps retain
+the tested 4% maximum compression instead of bending the hip more deeply. This
+is authored motion timing, not a dynamic balance simulation.
+
+The weighted-surface solver uses the varying crouch at every joint sample, and
+the root translation uses the same 128-key timing with an exact closing key.
+Feet therefore keep their original stance/swing targets as the body moves.
+Folded wing tracks remain unchanged. Idle/Flight still explicitly reset root
+translation. Regenerate Walk to adopt the motion; recipe 14 geometry and rig
+are unchanged.
+
+At strength 1 over 127 intervals, evaluated root vertical range is 0.239746 cm
+default / 0.335644 cm contrasting. Minimum foot height is 0.019977 / 0.019964 cm;
+maximum reference stance drift is 0.000213 / 0.000304 cm. No surface crossings
+are detected. The same contact, crossing, fold-span, closure and bounded-body
+checks pass both shapes at strengths 0.1, 1 and 2. Idle root range remains zero.
+Schema 5 gait reports add evaluated root-head positions and vertical range.
+
+Evidence: `artifacts/shared-anatomy/avian-body-response-{default,contrasting}.json`
+and `avian-body-response-walk.blend`, its MP4 and phase sheets. Validation:
+45 Avian core tests and 21 Avian Blender tests pass, including action switching
+and GLB/FBX exports. Sampled checks do not establish physical balance, arbitrary
+edited-shape coverage or continuous-time clearance. Final artistic motion review,
+broader shape coverage and transitions into/out of Flight remain ahead.
+
+## Avian proportion survey and reachable stride (2026-10-14)
+
+Six additional reproducible proportions now live in `scripts/avian_review_samples.py`
+and are selectable in the pose renderer and gait review CLI. These are diagnostic
+profiles, not an accepted production catalog. A 31-interval Walk survey at strengths
+1 and 2 found persistent folded-posture crossings on tall-narrow (up to 16 pairs),
+long-low (2 pairs) and short-wing (8 pairs). Their neutral surfaces have no detected
+crossings. Compact-wide, long-wing and small have no sampled Walk crossings.
+
+The long-low shape also failed to generate its strength-2 Walk because the requested
+step exceeded limb reach. The schedule now bounds the shared stride using canonical
+YZ limb lengths, body response and swing targets at all 128 authored phases, with
+a small straight-leg margin. The existing weighted-surface solver still validates
+each target; failures are not swallowed. Reference-shape strides remain unchanged.
+Regenerate Walk to adopt this change; geometry recipe 14 is unchanged.
+
+A 127-interval Blender report for long-low strength 2 records requested stride
+2.56 cm and effective stride 1.984854 cm, minimum foot height 0.019495 cm and maximum
+reference stance drift 0.000572 cm. Its folded-posture crossings remain unresolved;
+contact passing does not constitute shape acceptance. Schema 6 reports both stride
+values and whether reach limited the request. Evidence is in ignored local reports
+`artifacts/shared-anatomy/avian-reach-long-low.json` and `avian-shape-survey.json`.
+
+Validation: 46 Avian core and 22 Avian Blender tests pass, including action switching
+and GLB/FBX exports. Dense 127-interval tests cover compact-wide, long-wing, small and
+long-low at strengths 1/2; only the first three assert crossing-free motion. The
+existing reference-shape gates remain intact. These sampled results do not prove
+continuous clearance or arbitrary edited-shape coverage.
+
+## Avian folded-posture defect localization (2026-10-16)
+
+Compact-pose inspection separates the three failing proportions into two causes.
+Tall-narrow has eight torso/wing face pairs: body faces 25/28 intersect the proximal
+wing surfaces on both sides. Long-low has two proximal-wing/shoulder-bridge pairs
+(69/101 and 107/142). Short-wing has eight wing/shoulder-bridge pairs. These are
+recipe-14 face indices; they are diagnostic evidence, not stable topology IDs.
+The crossings remain unresolved; no posture or geometry change is claimed here.
+
+Pose reports now include each intersecting face's vertices and all authored region
+memberships. Mixed body/wing attachment faces retain both labels instead of being
+assigned a guessed dominant region. Gait schema 7 includes the same details once
+for the union of face pairs across sampled frames, while per-frame pairs retain
+timing. This makes future collar and torso-clearance changes separately reviewable.
+
+Next, refine shoulder clearance for long-low/short-wing and torso clearance for
+tall-narrow, retaining the existing contact and reference-shape gates. A global
+fold-angle change has not been validated. Local evidence: `localize_fold.py` and
+`avian-localization-tests.log` under ignored `artifacts/shared-anatomy/`.
+Validation: all 24 Avian Blender tests pass, including mixed-region ownership,
+actual-action report coverage, contact gates, action switching and GLB/FBX exports.
+
+## Avian tall-torso shoulder clearance (2026-10-16)
+
+Recipe 15 places the shared wing shoulder at the greater of 55% body width and
+34% body height, retaining the existing available-span cap. This gives tall,
+narrow torsos room for the folded proximal wing. Surface and rest chain consume
+the same landmark; reference default/contrasting shoulder positions are unchanged.
+Explicitly regenerate geometry and rebuild the rig/weights, then regenerate actions;
+existing artist-owned objects are not automatically rewritten.
+
+The tall-narrow profile has no detected crossings at all 17 sampled compact-fold
+positions, with non-wing vertices stationary and folded span below 40% of neutral.
+Idle at strength 2 is clear over 127 intervals. Walk strength 1 is clear; strength 2
+still has leg-only self-intersections in 26 of 128 samples (up to 16 face pairs).
+The latter is not a wing defect and prevents full shape acceptance. Long-low and
+short-wing shoulder overlaps remain open. All previous reference-shape gates remain.
+
+The inspected four-view `artifacts/shared-anatomy/avian15-tall-narrow.png` shows
+separated, raised folded wings; final artistic silhouette acceptance remains open.
+`avian15-tall-gait.json` records actual-action evidence. The new regression gates
+cover tall-narrow fold positions, foot contact and the absence of wing crossings;
+they explicitly retain the high-strength leg limitation. Validation: 46 Avian core,
+24 Avian Blender and 5 architecture tests pass; Blender coverage includes GLB/FBX
+exports and action switching.
+
+## Avian anchored shoulder collars (2026-10-17)
+
+Recipe 16 keeps recipe-15 geometry and rest joints, but anchors the first wing ring
+with 75% spine / 25% upper-wing influence, fading to 40% spine / 60% upper-wing at
+the next ring. Previously these rings had only 25% and 10% spine influence. The
+stronger torso anchor prevents the proximal surface folding through its attachment.
+Authored region membership still determines ownership, including after vertex edits;
+non-wing vertices and distal foot ownership are unchanged.
+
+Long-low and short-wing now have zero detected crossings through all 17 sampled
+compact-fold positions. The same sweep passes all eight review shapes, with body
+and leg vertices stationary. Both repaired shapes pass 127-interval Walk checks at
+strengths 1/2 and Idle checks at strengths 0.1/1/2. Existing reference-shape compact
+span and contact gates remain intact. Tall-narrow strength-2 Walk still has leg-only
+self-intersections; this change does not claim to repair those or establish final
+artistic acceptance. All sampled checks retain their documented detector limitations.
+
+Rebuild generated weights explicitly to adopt this change. Recipe-15 geometry and
+rig rest positions can be retained; older geometry/rig versions still require their
+prior rebuild steps. Artist-owned data is not automatically overwritten.
+Evidence: `artifacts/shared-anatomy/avian16-tests.log`, `avian16-fold-tests.log` and
+`avian16-short-wing.png`. Validation: 46 Avian core tests and 25 Avian Blender tests
+(24-suite plus the new expanded fold regression) pass, including exports and action
+switching. Next: repair tall-narrow strong-Walk leg folding, then review full motion
+and Flight transitions.
+
+## Avian recipe 17 completion pass (2026-10-17)
+
+The bird implementation pass now resolves the remaining tall-narrow leg fold by
+bounding swing lift, adds restrained Walk head/tail response, bounds Flight wing
+excursion and increases Flight sampling to 64 intervals for destination parity.
+Recipe 17 adds a thin tail fan and tapered beak while preserving topology/rest joints.
+The complete 72-case action matrix and canonical folded-to-Flight transition checks
+pass; both reference shapes have three-cycle motion artifacts and Godot playback
+proofs. See [Avian review](avian-review.md) for metrics, rebuild requirements,
+reproduction commands and the exact visual/runtime acceptance boundaries.
+
 ## Next work
 
-Retain the fixed-toe limits and schema 5 reports while reviewing lateral
-weight shift across the contrasting and short-wide shapes. Inspect at least three cycles from front/side/three-quarter views and complete visual destination
-playback review and shipping-import evaluation. Preserve the now-passing sampled
-skin-contact gates while tuning. Preserve the declared stance/travel contract and sampled contact/drift
-checks while tuning. Use the new material-point baseline when choosing toe-off
-pivots; a stable sole centroid alone does not establish planted toes. Arbitrary edited shapes/weights and dense-time contact remain outside the canonical generated-asset checkpoint.
-
-After the canine motion/visual sign-off, migrate Avian through the shared layer
-using bird-specific rules, then complete cross-provider Modify acceptance and
-release hardening in the alpha plan. Do not reopen canine anatomy for additional
-species, fur or facial animation unless a concrete release blocker requires it.
+Avian is ready for user artistic review of the supplied reference scenes. No known
+crossing/contact defect remains in the documented matrix. Arbitrary species,
+edited-weight coverage, automatic takeoff/landing and shipping animation blending
+are not implied by this pass. Continue the separate cross-provider Modify acceptance
+and alpha release-hardening milestones after artistic review. Canine final artistic
+acceptance remains open; Human fullness/foot-shape and neck/glute feedback remains
+deferred at the user's request.

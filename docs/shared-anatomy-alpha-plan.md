@@ -1,6 +1,6 @@
 # Shared anatomy and animation: alpha plan
 
-Status: in progress, October 10, 2026. Human and Quadruped use shared anatomy
+Status: in progress, October 17, 2026. Human and Quadruped use shared anatomy
 contracts. Canine recipe 16 retains the stylized anatomy finishing pass:
 connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
 transitions. Contact-driven Walk/Run include bounded vertical body compression and a
@@ -11,8 +11,9 @@ skeletal parity with 94.1% fewer keys than the diagnostic baseline; four-view
 Godot renders are available, and sampled skin-contact checks pass on all three
 canonical shapes. Shipping integration/performance remain unvalidated. Default GLB source/reimport surface parity
 now passes through gait/Idle switches; the short-wide stress shape is not
-visually accepted. Avian recipe
-migration, cross-provider acceptance and release hardening follow. See the
+visually accepted. Avian recipe 17 completes the current bird implementation pass with a 72-case
+motion matrix and default/contrasting Godot playback proofs. Artistic review,
+cross-provider acceptance and release hardening remain; see [Avian review](avian-review.md). See the
 [implementation checkpoint](shared-anatomy-implementation.md) for evidence.
 Recipe 16 extends the rig to 19 bones for independent forepaw landing, building
 on recipe 15 distal sole weighting. Old rigs require explicit rebuilding.
@@ -43,6 +44,10 @@ Shared machinery owns parameter validation, deterministic construction orchestra
 
 Start with typed Python contracts in a focused host-independent anatomy package; do not invent an external recipe language or plugin registry before two cross-body-plan proofs justify the anatomy seam. This anatomy work sits beneath the broader Asset Recipe direction: the eventual scalable catalog can discover recipes such as Rock, Human or Canine, while each recipe composes only the construction capabilities it needs. Static/rigid recipes do not need anatomy. Providers remain the current tested compatibility/workflow boundary during this milestone rather than becoming a one-class-per-recipe content catalog. Blender continues to consume existing mesh/skeleton/animation contracts.
 
+## Current sequencing update (2026-10-11)
+
+The user moved Avian work ahead of final canine artistic sign-off. Avian recipe 17 now completes the documented bird implementation pass; the reference review and acceptance bounds are in `avian-review.md`. Human review feedback remains deferred. This changes work order, not the final quality gates below.
+
 ## Milestones and acceptance gates
 
 ### 1. Record the baseline and prove the shared seam
@@ -70,6 +75,8 @@ Start with typed Python contracts in a focused host-independent anatomy package;
 - Gate: recognizable perched silhouette and extended-wing silhouette, at least two useful proportion variants, credible wing folding, and correct leg/ankle bend behavior. Existing Avian semantic operations remain useful.
 
 ### 4. Cross-provider anatomy and Modify acceptance
+
+External-file operator proofs now pass for all three providers, including cancellation, rig/identity preservation and manual-edit blocking. Component/parameter integration and fresh-process persistence remain open; see [acceptance status](cross-provider-acceptance.md).
 
 - Refine Human where shared work reveals actual silhouette or deformation weaknesses.
 - For each provider, perform one external Model JSON -> preview -> apply proof that produces an intentional visible character variation without arbitrary vertex authoring.

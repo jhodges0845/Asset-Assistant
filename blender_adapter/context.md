@@ -44,6 +44,8 @@ When UI work resumes, favor Blender-native hierarchy, progressive disclosure, co
 
 ## Tests
 
+- `tests/blender/test_model_json_acceptance.py` exercises actual external Model JSON operators across Human/Quadruped/Avian, including preview cancellation, apply equivalence and manual-edit blocking. See `docs/cross-provider-acceptance.md` for remaining component/save-reopen acceptance.
+
 Use focused tests under `tests/blender/` first. Full CI also includes Blender 5.2.1 integration, real save/reopen, release ZIP build, and isolated packaged add-on verification.
 
 ## Human geometry

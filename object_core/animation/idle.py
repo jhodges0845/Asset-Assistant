@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Sampled idle rotations in rest armature coordinates, independent of bone roll."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import cos, isfinite, pi, radians
 from typing import Tuple
 
@@ -12,6 +12,16 @@ class RotationTrack:
     axis: Tuple[float, float, float]
     # (seconds, angle in radians); adapters interpolate samples linearly.
     keys: Tuple[Tuple[float, float], ...]
+
+
+@dataclass(frozen=True)
+class BoneLocalRotationTrack(RotationTrack):
+    """Rotations in the generated bone's local rest frame, including its roll.
+
+    Use for authored joint poses; ordinary RotationTrack remains armature-space.
+    Adapters must preserve the skeleton's local-frame convention for these tracks.
+    """
+    space: str = field(default='BONE_LOCAL', init=False)
 
 
 @dataclass(frozen=True)
