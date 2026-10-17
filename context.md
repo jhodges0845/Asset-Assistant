@@ -22,6 +22,10 @@ Canine contact gait: `object_core/animation/contact.py` supplies stance/swing ta
 
 Avian recipe 17 completes the current bird implementation pass: tapered beak, thin tail fan, grounded clawed feet, folded Idle/Walk wings and articulated Flight. Walk has reach-bounded stride, bounded lift/body compression and head/tail response. Flight caps wing excursion and uses 64 intervals. All 72 shape/clip/strength cases pass sampled crossing/contact/closure checks; canonical folded-to-Flight blends pass. Both reference shapes have three-cycle review artifacts and Godot skeletal playback proofs. See `docs/avian-review.md` for metrics, explicit regeneration and limits. Artistic review, cross-provider Modify acceptance and release hardening remain separate gates. Human feedback remains deferred in `docs/human-review-notes.md`.
 
+## Cross-provider acceptance
+
+External Model JSON export/import, visual preview, cancel/restore and explicit apply now have operator-level proofs for Human shoulders, Canine chest and Avian chest. Preview leaves live geometry unchanged; apply preserves identity/rig and matches preview; manual edits block regeneration. See `docs/cross-provider-acceptance.md`. Component/parameter integration, fresh-process save/reopen and artistic review remain next.
+
 ## Current Human V2 integration (2026-09-20)
 
 Create > Human is the single Human UI path. `HumanProvider` uses key `human` and

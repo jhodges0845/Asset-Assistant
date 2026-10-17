@@ -76,6 +76,8 @@ The user moved Avian work ahead of final canine artistic sign-off. Avian recipe 
 
 ### 4. Cross-provider anatomy and Modify acceptance
 
+External-file operator proofs now pass for all three providers, including cancellation, rig/identity preservation and manual-edit blocking. Component/parameter integration and fresh-process persistence remain open; see [acceptance status](cross-provider-acceptance.md).
+
 - Refine Human where shared work reveals actual silhouette or deformation weaknesses.
 - For each provider, perform one external Model JSON -> preview -> apply proof that produces an intentional visible character variation without arbitrary vertex authoring.
 - Exercise a representative attached component, parameter regeneration, manual artist edits, save/reopen and validation.
