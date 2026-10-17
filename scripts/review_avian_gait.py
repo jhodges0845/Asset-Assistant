@@ -42,7 +42,7 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
     from object_core.providers.avian_gait import contact_schedule
     from scripts.canine_review_metrics import stance_material_motion
     schedules = contact_schedule(duration, strength, values['body_height_cm'], provider.skeleton(values)) if clip == 'walk' else {}
-    from scripts.avian_review_metrics import surface_crossings
+    from scripts.avian_review_metrics import surface_crossings, crossing_details
     neutral_crossings = surface_crossings(mesh.parts[0].vertices, mesh.parts[0].faces)
     neutral_pairs = set(neutral_crossings)
     previous = bpy.context.window.scene
@@ -117,6 +117,8 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
                     duration=duration, strength=strength, intervals=intervals, ground_tolerance_cm=.02,
                     fixed_sole_indices=soles, maximum_surface_motion_cm=maximum_motion,
                     neutral_surface_crossings=neutral_crossings,
+                    surface_crossing_details=crossing_details(mesh.parts[0].faces, anatomy.regions,
+                        sorted({tuple(pair) for row in rows for pair in row["surface_crossings"]})),
                     neutral_wing_span_cm=neutral_wing_span,
                     root_vertical_range_cm=max(row['root_head_cm'][2] for row in rows)-min(row['root_head_cm'][2] for row in rows),
                     maximum_wing_span_cm=max(row['wing_span_cm'] for row in rows),
@@ -142,7 +144,7 @@ def main():
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     provider = get_provider('avian')
     values = review_values(args.sample)
-    report = dict(schema_version=6, sample=args.sample,
+    report = dict(schema_version=7, sample=args.sample,
         interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. Walk stance uses the authored schedule and reference +Y travel; it is not physical slip proof. Between-sample extremes are not bounded.',
         commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         working_tree_changes=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).splitlines(),

@@ -21,7 +21,7 @@ from object_core.models import MeshPart
 from blender_adapter.adapter import create_character
 from scripts import render_human_review as sheets
 from scripts.avian_review_samples import AVIAN_REVIEW_SAMPLES, review_values
-from scripts.avian_review_metrics import surface_crossings
+from scripts.avian_review_metrics import surface_crossings, crossing_details
 
 ISOLATED_POSES = {'wing-root': ('wing.upper.left', 'x', .4),
          'wing-elbow': ('wing.lower.left', 'z', .7),
@@ -103,6 +103,8 @@ def review_part(values, pose, phase=0., strength=1., pose_fraction=1.):
             r.name: max(sum((points[i][a] - before[i][a]) ** 2 for a in range(3)) ** .5
                         for i in r.vertex_indices) for r in anatomy.regions}
     report['nonadjacent_surface_crossings'] = surface_crossings(points, mesh.parts[0].faces)
+    report['surface_crossing_details'] = crossing_details(
+        mesh.parts[0].faces, anatomy.regions, report['nonadjacent_surface_crossings'])
     report['neutral_surface_crossings'] = baseline_crossings
     report['new_surface_crossings'] = sorted(set(report['nonadjacent_surface_crossings']) - set(baseline_crossings))
     report['intersection_scope'] = 'Non-adjacent triangle surface crossings; excludes shared-vertex faces, containment and coplanar contact.'

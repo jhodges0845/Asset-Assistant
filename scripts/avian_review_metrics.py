@@ -26,3 +26,17 @@ def surface_crossings(vertices, faces):
             pairs.add((first, second))
     return sorted(pairs)
 
+
+def crossing_details(faces, regions, pairs):
+    """Describe face ownership without hiding mixed-region attachment faces.
+
+    Counts are authored vertex membership, not a guessed dominant region. A
+    bridge face therefore retains both body and wing labels.
+    """
+    memberships = [(region.name, set(region.vertex_indices)) for region in regions]
+    def describe(index):
+        vertices = set(faces[index])
+        return dict(face_index=index, vertex_indices=list(faces[index]),
+                    regions={name: len(vertices & indices) for name, indices in memberships
+                             if vertices & indices})
+    return [dict(faces=[describe(first), describe(second)]) for first, second in pairs]

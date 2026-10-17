@@ -2063,6 +2063,28 @@ long-low at strengths 1/2; only the first three assert crossing-free motion. The
 existing reference-shape gates remain intact. These sampled results do not prove
 continuous clearance or arbitrary edited-shape coverage.
 
+## Avian folded-posture defect localization (2026-10-16)
+
+Compact-pose inspection separates the three failing proportions into two causes.
+Tall-narrow has eight torso/wing face pairs: body faces 25/28 intersect the proximal
+wing surfaces on both sides. Long-low has two proximal-wing/shoulder-bridge pairs
+(69/101 and 107/142). Short-wing has eight wing/shoulder-bridge pairs. These are
+recipe-14 face indices; they are diagnostic evidence, not stable topology IDs.
+The crossings remain unresolved; no posture or geometry change is claimed here.
+
+Pose reports now include each intersecting face's vertices and all authored region
+memberships. Mixed body/wing attachment faces retain both labels instead of being
+assigned a guessed dominant region. Gait schema 7 includes the same details once
+for the union of face pairs across sampled frames, while per-frame pairs retain
+timing. This makes future collar and torso-clearance changes separately reviewable.
+
+Next, refine shoulder clearance for long-low/short-wing and torso clearance for
+tall-narrow, retaining the existing contact and reference-shape gates. A global
+fold-angle change has not been validated. Local evidence: `localize_fold.py` and
+`avian-localization-tests.log` under ignored `artifacts/shared-anatomy/`.
+Validation: all 24 Avian Blender tests pass, including mixed-region ownership,
+actual-action report coverage, contact gates, action switching and GLB/FBX exports.
+
 ## Next work
 
 For Avian, diagnose folded-posture crossings on tall-narrow, long-low and short-wing

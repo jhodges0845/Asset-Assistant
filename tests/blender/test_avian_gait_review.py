@@ -97,3 +97,26 @@ class AvianGaitReviewTests(unittest.TestCase):
                     schedule = foot['schedule']
                     self.assertEqual(schedule['stride_limited'],name == 'long-low' and strength == 2.)
                     self.assertLessEqual(schedule['stride_cm'],schedule['requested_stride_cm'])
+
+    def test_crossing_details_preserve_mixed_attachment_ownership(self):
+        from types import SimpleNamespace
+        from scripts.avian_review_metrics import crossing_details
+        faces = ((0,1,2),(3,4,5))
+        regions = (SimpleNamespace(name='body',vertex_indices=(0,1)),
+                   SimpleNamespace(name='wing.left',vertex_indices=(2,3,4,5)))
+        rows = crossing_details(faces,regions,[(0,1)])
+        self.assertEqual(rows[0]['faces'][0],dict(face_index=0,
+            vertex_indices=[0,1,2],regions={'body':2,'wing.left':1}))
+        self.assertEqual(rows[0]['faces'][1]['regions'],{'wing.left':3})
+        self.assertEqual(crossing_details(faces,regions,[]),[])
+
+    def test_known_fold_crossings_are_localized_in_actual_actions(self):
+        from scripts.avian_review_samples import review_values
+        for name in ('tall-narrow','long-low','short-wing'):
+            report = review_cycle(review_values(name),clip='idle',intervals=4)
+            pairs = {tuple(pair) for row in report['samples'] for pair in row['surface_crossings']}
+            details = report['surface_crossing_details']
+            self.assertEqual({tuple(face['face_index'] for face in row['faces'])
+                              for row in details},pairs)
+            for row in details:
+                self.assertTrue(all(face['regions'] for face in row['faces']))
