@@ -6,8 +6,7 @@ import json
 import bpy
 
 from .adapter import create_asset
-from .core import get_provider, plan_modification, request_from_json
-from .modification import inspect_generated_asset
+from .core import get_provider, request_from_json
 
 _PREVIEW_ROOT_KEY = "asset_assistant_model_preview_root"
 _PREVIEW_SOURCE_KEY = "asset_assistant_model_preview_source"
@@ -76,8 +75,10 @@ def _hide_source(scene, root):
 
 
 def _build_preview(context, root, request):
-    snapshot = inspect_generated_asset(root)
-    plan = plan_modification(snapshot, request)
+    from . import modify_ui
+
+    snapshot = modify_ui.inspect_generated_asset(root)
+    plan = modify_ui.plan_modification(snapshot, request)
     if plan.blockers:
         raise ValueError("Modify preview is blocked: " + "; ".join(plan.blockers))
     if not (plan.requested_parameter_changes or plan.requested_semantic_operations or plan.requested_animation_renames):
@@ -132,7 +133,7 @@ class ASSET_ASSISTANT_OT_model_preview_imported(bpy.types.Operator):
             return {"CANCELLED"}
         clear_preview(context.scene)
         try:
-            snapshot = inspect_generated_asset(root)
+            snapshot = modify_ui.inspect_generated_asset(root)
             request = request_from_json(context.scene[modify_ui._IMPORTED_REQUEST_KEY], snapshot)
             preview, plan = _build_preview(context, root, request)
             _hide_source(context.scene, root)

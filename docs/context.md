@@ -8,7 +8,7 @@ Read `human-workflow.md` for the user workflow and code ownership map.
 
 ## Active pre-alpha direction (2026-09-21)
 
-Plan: [shared-anatomy-alpha-plan.md](shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now use shared resolved-anatomy contracts; canine contact gait and Godot playback checks are integrated, with final canine visual acceptance open and Avian anatomy refinement active. The plan supersedes older Human-only milestone sequencing.
+Plan: [shared-anatomy-alpha-plan.md](shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now use shared resolved-anatomy contracts; canine contact gait and Godot playback checks are integrated, with final canine visual acceptance open and the documented Avian reference implementation complete. The plan supersedes older Human-only milestone sequencing.
 
 ## Shared anatomy implementation
 
@@ -45,6 +45,7 @@ standalone pelvis and coarse-mesh refinement notes record earlier experiments.
 
 ## Model/LLM round-trip and Modify
 
+- `cross-provider-acceptance.md` - Human/Canine/Avian operator, parameter, component-preservation and fresh-process persistence proofs; artistic acceptance remains open.
 - `model-json-roundtrip.md` — model inspection and safe modification round trip.
 - `semantic-modify.md` — semantic modification behavior.
 - `artist-control-contract.md` — artist-control/ownership expectations.
