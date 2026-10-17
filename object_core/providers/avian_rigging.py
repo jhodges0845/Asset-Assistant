@@ -82,7 +82,8 @@ def _wing_ownership(mesh, anatomy, bones):
         root, first = map(set, connection.boundaries)
         if not root or not first or not first <= owned or not root <= set(regions['body'].vertex_indices):
             raise ValueError('Avian wing requires authored attachment boundaries')
-        # One edge interval past the attachment gives a short parent fade.
+        # Anchor the collar to the torso, fading over one edge interval.
+        # A mobile first ring can fold through its fixed body opening.
         graph = {i: set() for i in owned}
         for face in parts[region.mesh_part].faces:
             for a, b in zip(face, face[1:] + face[:1]):
@@ -105,7 +106,7 @@ def _wing_ownership(mesh, anatomy, bones):
                 raise ValueError('Avian wing regions must be disjoint')
             result[key] = local
             if index in depths:
-                parent = .25 if depths[index] == 0 else .10
+                parent = .75 if depths[index] == 0 else .40
                 attachments[key] = ((chain.bones[0], 1 - parent), (chain.parent_bone, parent))
         for index in root:
             attachments[(region.mesh_part, index)] = ((chain.parent_bone, 1.0),)

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 15: lateral shoulder clearance for folded wings.
+"""Avian recipe 16: torso-anchored shoulder collars for folded wings.
 
 Wing and leg surface centerlines and rest chains share landmark identities.
 Body and tail rest offsets remain explicit.
@@ -231,7 +231,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '15'
+    recipe_version = '16'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.

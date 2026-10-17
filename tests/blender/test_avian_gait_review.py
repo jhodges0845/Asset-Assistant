@@ -69,31 +69,33 @@ class AvianGaitReviewTests(unittest.TestCase):
 
     def test_folded_idle_is_clear_and_grounded_across_shapes_and_strengths(self):
         from scripts.anatomy_baseline import SAMPLES
-        for values in (self.values,SAMPLES['avian']):
+        from scripts.avian_review_samples import review_values
+        for values in (self.values,SAMPLES['avian'], review_values('long-low'), review_values('short-wing')):
             for strength in (.1,1.,2.):
                 report = review_cycle(values,clip='idle',intervals=127,strength=strength)
                 self.assertLess(report['root_vertical_range_cm'],1e-6)
                 self.assertEqual(report['crossing_samples'],0)
-                self.assertLess(report['maximum_wing_span_cm'],report['neutral_wing_span_cm']*.4)
+                self.assertLess(report['maximum_wing_span_cm'],report['neutral_wing_span_cm'])
+                if values in (self.values,SAMPLES['avian']):
+                    self.assertLess(report['maximum_wing_span_cm'],report['neutral_wing_span_cm']*.4)
                 for foot in report['summary'].values():
                     self.assertLess(foot['maximum_fixed_sole_motion_cm'],1e-4)
                     self.assertEqual(foot['penetrating_samples'],0)
 
     def test_additional_shapes_preserve_contact_with_reported_reach_limit(self):
         from scripts.avian_review_samples import review_values
-        for name in ('compact-wide','long-wing','small','long-low','tall-narrow'):
+        for name in ('compact-wide','long-wing','small','long-low','tall-narrow','short-wing'):
             values = review_values(name)
             for strength in (1.,2.):
                 report = review_cycle(values,intervals=127,strength=strength)
                 self.assertLess(report['loop_closure_error_cm'],1e-4)
                 self.assertEqual(report['neutral_surface_crossings'],[])
-                # Long-low still has collar overlaps; tall-narrow strength 2
-                # has leg self-intersections. Neither is full shape acceptance.
+                # Tall-narrow strength 2 retains a documented leg-only defect.
                 if name == 'tall-narrow' and strength == 2.:
                     for pair in report['surface_crossing_details']:
                         for face in pair['faces']:
                             self.assertTrue(all(region.startswith('leg.') for region in face['regions']))
-                elif name != 'long-low':
+                else:
                     self.assertEqual(report['crossing_samples'],0, (name,strength))
                 for foot in report['summary'].values():
                     self.assertGreater(foot['minimum_z_cm'],.018)

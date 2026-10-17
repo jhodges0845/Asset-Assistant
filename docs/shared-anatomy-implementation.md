@@ -2109,10 +2109,36 @@ they explicitly retain the high-strength leg limitation. Validation: 46 Avian co
 24 Avian Blender and 5 architecture tests pass; Blender coverage includes GLB/FBX
 exports and action switching.
 
+## Avian anchored shoulder collars (2026-10-17)
+
+Recipe 16 keeps recipe-15 geometry and rest joints, but anchors the first wing ring
+with 75% spine / 25% upper-wing influence, fading to 40% spine / 60% upper-wing at
+the next ring. Previously these rings had only 25% and 10% spine influence. The
+stronger torso anchor prevents the proximal surface folding through its attachment.
+Authored region membership still determines ownership, including after vertex edits;
+non-wing vertices and distal foot ownership are unchanged.
+
+Long-low and short-wing now have zero detected crossings through all 17 sampled
+compact-fold positions. The same sweep passes all eight review shapes, with body
+and leg vertices stationary. Both repaired shapes pass 127-interval Walk checks at
+strengths 1/2 and Idle checks at strengths 0.1/1/2. Existing reference-shape compact
+span and contact gates remain intact. Tall-narrow strength-2 Walk still has leg-only
+self-intersections; this change does not claim to repair those or establish final
+artistic acceptance. All sampled checks retain their documented detector limitations.
+
+Rebuild generated weights explicitly to adopt this change. Recipe-15 geometry and
+rig rest positions can be retained; older geometry/rig versions still require their
+prior rebuild steps. Artist-owned data is not automatically overwritten.
+Evidence: `artifacts/shared-anatomy/avian16-tests.log`, `avian16-fold-tests.log` and
+`avian16-short-wing.png`. Validation: 46 Avian core tests and 25 Avian Blender tests
+(24-suite plus the new expanded fold regression) pass, including exports and action
+switching. Next: repair tall-narrow strong-Walk leg folding, then review full motion
+and Flight transitions.
+
 ## Next work
 
-For Avian, resolve long-low/short-wing shoulder overlaps and tall-narrow strong-Walk
-leg self-intersections, preserving the passing reference and additional shape gates; review full-cycle motion before final acceptance. Stance-reference drift
+For Avian, resolve tall-narrow strong-Walk leg self-intersections, preserving the
+passing folded-wing, reference-shape and contact gates; review full-cycle motion before final acceptance. Stance-reference drift
 is now measured on the two canonical shapes.
 Compact-fold sampled surface crossings are resolved on the two reference shapes;
 folded wings now hold in Idle/Walk; review posture quality and additional shapes,

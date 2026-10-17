@@ -221,6 +221,16 @@ class AvianDeformationTests(unittest.TestCase):
                 shared.append(vertex.index)
         self.assertTrue(shared, "left wing root should have shared spine/wing influence")
 
+    def test_additional_proportions_clear_all_sampled_compact_fold_positions(self):
+        from scripts.avian_review_samples import AVIAN_REVIEW_SAMPLES, review_values
+        from scripts.render_avian_review import review_part
+        for name in AVIAN_REVIEW_SAMPLES:
+            for step in range(17):
+                _, report = review_part(review_values(name), 'wing-fold-compact', pose_fraction=step/16)
+                self.assertEqual(report['nonadjacent_surface_crossings'], [], (name,step))
+                for region in ('body','leg.left','leg.right'):
+                    self.assertLess(report['region_max_displacement_cm'][region],1e-5)
+
 
 if __name__ == "__main__":
     unittest.main()
