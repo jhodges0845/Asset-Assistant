@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Sample actual Avian Idle/Walk actions in an isolated Blender scene.
+"""Sample actual Avian Idle/Walk/Flight actions in an isolated Blender scene.
 
 Scheduled stance and fixed-ground diagnostics do not establish physical contact.
 Run in Blender with -- --output report.json [--sample contrasting].
@@ -22,9 +22,9 @@ from scripts.avian_review_samples import AVIAN_REVIEW_SAMPLES, review_values
 def review_cycle(values, clip='walk', intervals=64, strength=1.0):
     import bpy
     from blender_adapter.adapter import create_character
-    from blender_adapter.animation import add_idle, add_locomotion
-    if clip not in ('idle', 'walk'):
-        raise ValueError('Review supports idle or walk')
+    from blender_adapter.animation import add_idle, add_locomotion, add_flight
+    if clip not in ('idle', 'walk', 'flight'):
+        raise ValueError('Review supports idle, walk or flight')
     if isinstance(intervals, bool) or not isinstance(intervals, int) or not 4 <= intervals <= 256:
         raise ValueError('Review requires 4..256 intervals')
     from object_core.providers.avian_animation import _validate
@@ -60,7 +60,7 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
             root[key] = value
         body = next(o for o in root.children if o.type == 'MESH')
         rig = next(o for o in root.children if o.type == 'ARMATURE')
-        (add_idle if clip == 'idle' else add_locomotion)(root, scene, duration, strength)
+        {'idle':add_idle, 'walk':add_locomotion, 'flight':add_flight}[clip](root, scene, duration, strength)
         rows, first = [], None
         maximum_motion = 0.0
         for sample in range(intervals + 1):
@@ -141,14 +141,15 @@ def main():
     parser.add_argument('--sample', choices=('default',) + tuple(AVIAN_REVIEW_SAMPLES), default='default')
     parser.add_argument('--intervals', type=int, default=64)
     parser.add_argument('--strength', type=float, default=1.0)
+    parser.add_argument('--clips', nargs='+', choices=('idle','walk','flight'), default=('idle','walk','flight'))
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     provider = get_provider('avian')
     values = review_values(args.sample)
-    report = dict(schema_version=7, sample=args.sample,
-        interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. Walk stance uses the authored schedule and reference +Y travel; it is not physical slip proof. Between-sample extremes are not bounded.',
+    report = dict(schema_version=8, sample=args.sample,
+        interpretation='Sampled in-place fixed-ground heights and fixed neutral sole vertices. Walk stance uses the authored schedule and reference +Y travel; it is not physical slip proof. Flight ground heights are diagnostic only, not planted-contact requirements. Between-sample extremes are not bounded.',
         commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
         working_tree_changes=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).splitlines(),
-        cycles=[review_cycle(values,clip,args.intervals,args.strength) for clip in ('idle','walk')])
+        cycles=[review_cycle(values,clip,args.intervals,args.strength) for clip in args.clips])
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(report,indent=2,allow_nan=False)+'\n',encoding='utf-8')
     print(json.dumps({c['clip']:c['summary'] for c in report['cycles']},indent=2))

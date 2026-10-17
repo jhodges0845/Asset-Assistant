@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 16: torso-anchored shoulder collars for folded wings.
+"""Avian recipe 17: tapered beak and broad, thin tail fan.
 
 Wing and leg surface centerlines and rest chains share landmark identities.
 Body and tail rest offsets remain explicit.
@@ -104,12 +104,12 @@ def _surface_profiles(dimensions):
         (0.0, beak_y, body_z + height * 0.26),
     )
     widths = (
-        width * 0.10, width * 0.18, width * 0.38, width * 0.82,
-        width, width * 0.92, width * 0.48, width * 0.60, width * 0.18,
+        width * 0.55, width * 0.65, width * 0.38, width * 0.82,
+        width, width * 0.92, width * 0.48, width * 0.60, width * 0.04,
     )
     depths = (
-        height * 0.10, height * 0.16, height * 0.28, height * 0.76,
-        height, height * 0.88, height * 0.46, height * 0.56, height * 0.20,
+        height * 0.04, height * 0.08, height * 0.28, height * 0.76,
+        height, height * 0.88, height * 0.46, height * 0.56, height * 0.05,
     )
 
     tubes = [tube("body", centers, widths, depths)]
@@ -231,7 +231,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '16'
+    recipe_version = '17'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.

@@ -33,7 +33,8 @@ class AvianAnimationTests(unittest.TestCase):
         by_bone = {track.bone: track for track in clip.tracks}
         self.assertEqual(set(by_bone), {"leg.upper.left", "leg.upper.right",
                          "leg.lower.left", "leg.lower.right", "foot.left", "foot.right",
-                         "wing.upper.left", "wing.upper.right", "wing.lower.left", "wing.lower.right"})
+                         "wing.upper.left", "wing.upper.right", "wing.lower.left", "wing.lower.right",
+                         "neck", "head", "tail.1", "tail.2"})
         for name in ('leg.upper', 'leg.lower', 'foot'):
             left, right = by_bone[name+'.left'], by_bone[name+'.right']
             for i in range(128):
@@ -134,9 +135,9 @@ class AvianAnimationTests(unittest.TestCase):
         self.assertAlmostEqual(left.keys[0][1], -right.keys[0][1])
         self.assertAlmostEqual(left.keys[0][1], left.keys[-1][1])
         for base, doubled in zip(clip.tracks, stronger.tracks):
-            self.assertEqual(len(base.keys), 17)
+            self.assertEqual(len(base.keys), 65)
             self.assertTrue(all(a[0] < b[0] for a, b in zip(base.keys, base.keys[1:])))
-            self.assertAlmostEqual(doubled.keys[0][1], 2 * base.keys[0][1])
+            self.assertAlmostEqual(doubled.keys[0][1], (1 if base.bone.startswith('wing.') else 2) * base.keys[0][1])
 
     def test_animation_validation_rejects_shared_control_outliers(self):
         for generator, bad_durations in ((generate_avian_idle, (0.5, 21.0)),

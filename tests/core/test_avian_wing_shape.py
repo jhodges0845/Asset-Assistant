@@ -20,9 +20,10 @@ class AvianWingShapeTests(unittest.TestCase):
                 anatomy = provider.anatomy(sample['parameters'])
                 indices = [i for r in anatomy.regions if r.name == 'body' for i in r.vertex_indices]
                 self.assertEqual(len(indices), 72)
-                lift = mesh.parts[0].vertices[0][2] - sample['nonwing_vertices'][0][2]
+                lift = mesh.parts[0].vertices[24][2] - sample['nonwing_vertices'][24][2]
                 self.assertGreater(lift, 0)
-                for actual, expected in zip((mesh.parts[0].vertices[i] for i in indices), sample['nonwing_vertices'][:72]):
+                # Recipe 17 intentionally reshapes tail fan rings 0/1 and beak ring 8.
+                for actual, expected in zip((mesh.parts[0].vertices[i] for i in indices[16:64]), sample['nonwing_vertices'][16:64]):
                     expected = (expected[0], expected[1], expected[2] + lift)
                     for a, b in zip(actual, expected):
                         self.assertAlmostEqual(a, b, places=9)
@@ -64,3 +65,12 @@ class AvianWingShapeTests(unittest.TestCase):
             right = sorted((round(-v[0], 6), round(v[1], 6), round(v[2], 6))
                            for i, v in enumerate(mesh.parts[0].vertices) if i in regions['wing.right'])
             self.assertEqual(left, right)
+
+    def test_tail_fan_and_beak_have_distinct_tapered_profiles(self):
+        from scripts.avian_review_samples import review_values
+        for name in ('default','contrasting'):
+            tube=get_provider('avian').anatomy(review_values(name)).tubes[0]
+            self.assertGreater(tube.widths[1],tube.widths[2]*1.5)
+            self.assertGreater(tube.widths[0],tube.depths[0]*5)
+            self.assertLess(tube.widths[-1],tube.widths[-2]*.1)
+            self.assertLess(tube.depths[-1],tube.depths[-2]*.1)

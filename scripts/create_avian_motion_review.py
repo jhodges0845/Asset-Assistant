@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Save three-cycle Avian Walk review scenes; --stills writes four phase sheets.
+"""Save three-cycle Avian Idle/Walk/Flight review scenes; --stills writes four phase sheets.
 
 Use in a fresh Blender background process with -- --output review.blend.
 Shares the canine review layout and real adapter action workflow.

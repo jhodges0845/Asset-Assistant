@@ -1,6 +1,6 @@
 # Shared anatomy and animation: alpha plan
 
-Status: in progress, October 10, 2026. Human and Quadruped use shared anatomy
+Status: in progress, October 17, 2026. Human and Quadruped use shared anatomy
 contracts. Canine recipe 16 retains the stylized anatomy finishing pass:
 connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
 transitions. Contact-driven Walk/Run include bounded vertical body compression and a
@@ -11,8 +11,9 @@ skeletal parity with 94.1% fewer keys than the diagnostic baseline; four-view
 Godot renders are available, and sampled skin-contact checks pass on all three
 canonical shapes. Shipping integration/performance remain unvalidated. Default GLB source/reimport surface parity
 now passes through gait/Idle switches; the short-wide stress shape is not
-visually accepted. Avian recipe
-migration, cross-provider acceptance and release hardening follow. See the
+visually accepted. Avian recipe 17 completes the current bird implementation pass with a 72-case
+motion matrix and default/contrasting Godot playback proofs. Artistic review,
+cross-provider acceptance and release hardening remain; see [Avian review](avian-review.md). See the
 [implementation checkpoint](shared-anatomy-implementation.md) for evidence.
 Recipe 16 extends the rig to 19 bones for independent forepaw landing, building
 on recipe 15 distal sole weighting. Old rigs require explicit rebuilding.
@@ -45,7 +46,7 @@ Start with typed Python contracts in a focused host-independent anatomy package;
 
 ## Current sequencing update (2026-10-11)
 
-The user has moved Avian work ahead of final canine artistic sign-off. Avian recipe 1 now preserves existing geometry, rig, weights and clips through the shared contract; bird-specific shape and pose refinement is next. Human review feedback remains deferred. This changes work order, not the final quality gates below.
+The user moved Avian work ahead of final canine artistic sign-off. Avian recipe 17 now completes the documented bird implementation pass; the reference review and acceptance bounds are in `avian-review.md`. Human review feedback remains deferred. This changes work order, not the final quality gates below.
 
 ## Milestones and acceptance gates
 

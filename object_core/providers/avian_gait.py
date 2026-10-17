@@ -2,7 +2,7 @@
 """Alternating Avian steps solved against the canonical weighted surface."""
 from dataclasses import dataclass
 from functools import lru_cache
-from math import cos, pi, sqrt
+from math import cos, pi, sqrt, radians
 
 from ..animation.contact import ContactCycle
 from ..animation.idle import RotationTrack, TranslationTrack
@@ -21,6 +21,8 @@ def contact_schedule(duration, strength, height, skeleton=None):
     The geometric bound avoids straight-leg singularities. The weighted-surface
     solver still validates every target; this is not a fallback around failures.
     """
+    # Lift saturates before the ankle folds into the shin; strength still
+    # increases stride within the limb reach bound.
     stride = height * .08 * strength
     if skeleton is not None:
         bones = {b.name:b for b in skeleton.bones}
@@ -30,7 +32,7 @@ def contact_schedule(duration, strength, height, skeleton=None):
             reach = .999 * sum(sqrt(sum((b.tail[i]-b.head[i])**2 for i in (1,2)))
                                for b in (upper,lower))
             dy = foot.head[1]-upper.head[1]
-            unit = ContactCycle(duration,1.,.65,height*.035*strength,phase)
+            unit = ContactCycle(duration,1.,.65,height*.035*min(strength,1.),phase)
             for i in range(128):
                 target = unit.target(i/128)
                 dz = foot.head[2]-upper.head[2]+body_crouch(height,strength,i/128)+target.lift_cm+.02
@@ -43,7 +45,7 @@ def contact_schedule(duration, strength, height, skeleton=None):
                     stride = min(stride,limit)
         if stride <= 0:
             raise ValueError('Avian limb proportions leave no forward stride clearance')
-    return {name: ContactCycle(duration,stride,.65,height*.035*strength,phase)
+    return {name: ContactCycle(duration,stride,.65,height*.035*min(strength,1.),phase)
             for name,phase in (('leg.left',0.),('leg.right',.5))}
 
 
@@ -95,4 +97,11 @@ def generate_contact_walk(duration, strength, parameters):
                       for i in range(samples))
     root = TranslationTrack('root',root_keys+((duration,root_keys[0][1]),))
     from .avian_posture import folded_wing_tracks
+    # A restrained two-step neck nod with head counter-rotation and tail lag.
+    response = min(strength, 1.)
+    for name, degrees, phase in (('neck',1.2,0.), ('head',-1.2,0.),
+                                 ('tail.1',.8,pi/2), ('tail.2',1.2,pi/2)):
+        keys = tuple((duration*i/samples, radians(degrees)*response*cos(4*pi*i/samples+phase))
+                     for i in range(samples))
+        tracks.append(RotationTrack(name,(1.,0.,0.),keys+((duration,keys[0][1]),)))
     return ContactWalkClip(duration, tuple(tracks) + folded_wing_tracks(duration), (root,))

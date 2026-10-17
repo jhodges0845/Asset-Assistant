@@ -18,14 +18,14 @@ if str(ROOT) not in sys.path:
 from object_core.objects import get_provider
 from object_core.models import MeshPart
 from blender_adapter.adapter import create_character
-from blender_adapter.animation import add_locomotion, add_run
+from blender_adapter.animation import add_locomotion, add_run, add_idle, add_flight
 from scripts import render_human_review as sheets
 
 
 def main(provider_key="quadruped"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--gait', choices=('walk', 'run') if provider_key == 'quadruped' else ('walk',), default='walk')
+    parser.add_argument('--gait', choices=('walk', 'run') if provider_key == 'quadruped' else ('idle','walk','flight'), default='walk')
     parser.add_argument('--sample', choices=('default', 'contrasting', 'short-wide') if provider_key == 'quadruped' else ('default', 'contrasting'), default='default')
     parser.add_argument('--render', action='store_true')
     parser.add_argument('--stills', action='store_true', help='Render four cycle phase PNGs')
@@ -48,7 +48,7 @@ def main(provider_key="quadruped"):
     bpy.context.window.scene = scene
     material = sheets._configure_scene(SimpleNamespace(resolution_x=1200, resolution_y=500, samples=4), meters)
     placeholders = [o for o in scene.objects if o.type == 'MESH']
-    duration = 1.2 if args.gait == 'walk' else .64
+    duration = {'walk':1.2, 'run':.64, 'idle':4., 'flight':1.2}[args.gait]
     scene.render.fps = 25
     scene.render.fps_base = 1
     scene.frame_start = 1
@@ -60,7 +60,7 @@ def main(provider_key="quadruped"):
         root['object_type'] = provider_key
         for key,value in values.items():
             root[key] = value
-        (add_locomotion if args.gait == 'walk' else add_run)(root, scene, duration, 1.)
+        {'walk':add_locomotion,'run':add_run,'idle':add_idle,'flight':add_flight}[args.gait](root, scene, duration, 1.)
         root.location = placeholder.location
         root.rotation_euler = placeholder.rotation_euler
         body = next(o for o in root.children if o.type == 'MESH')

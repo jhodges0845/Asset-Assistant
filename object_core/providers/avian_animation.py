@@ -72,14 +72,17 @@ def generate_avian_walk(duration=1.2, strength=1.0, values=None):
 def generate_avian_flight(duration=0.9, strength=1.0):
     """Return a closed in-place wingbeat cycle with symmetric wings and body follow-through."""
     _validate(duration, strength, 0.5, 4.0)
+    # Preserve wing clearance at high strength; body/tail response still grows.
+    # Dense samples also bound cross-engine quaternion interpolation error.
+    wing_strength = min(strength, 1.)
     tracks = (
-        RotationTrack("wing.upper.left", (0.0, 1.0, 0.0), _wave(duration, 48.0, strength)),
-        RotationTrack("wing.upper.right", (0.0, 1.0, 0.0), _wave(duration, -48.0, strength)),
-        RotationTrack("wing.lower.left", (0.0, 1.0, 0.0), _wave(duration, 24.0, strength, phase=pi / 5)),
-        RotationTrack("wing.lower.right", (0.0, 1.0, 0.0), _wave(duration, -24.0, strength, phase=pi / 5)),
-        RotationTrack("spine", (1.0, 0.0, 0.0), _wave(duration, 4.0, strength, phase=pi / 2)),
-        RotationTrack("neck", (1.0, 0.0, 0.0), _wave(duration, 3.0, strength, phase=pi)),
-        RotationTrack("tail.1", (1.0, 0.0, 0.0), _wave(duration, 6.0, strength, phase=pi / 2)),
-        RotationTrack("tail.2", (1.0, 0.0, 0.0), _wave(duration, 9.0, strength, phase=3 * pi / 4)),
+        RotationTrack("wing.upper.left", (0.0, 1.0, 0.0), _wave(duration, 48.0, wing_strength, samples=64)),
+        RotationTrack("wing.upper.right", (0.0, 1.0, 0.0), _wave(duration, -48.0, wing_strength, samples=64)),
+        RotationTrack("wing.lower.left", (0.0, 1.0, 0.0), _wave(duration, 24.0, wing_strength, samples=64, phase=pi / 5)),
+        RotationTrack("wing.lower.right", (0.0, 1.0, 0.0), _wave(duration, -24.0, wing_strength, samples=64, phase=pi / 5)),
+        RotationTrack("spine", (1.0, 0.0, 0.0), _wave(duration, 4.0, strength, samples=64, phase=pi / 2)),
+        RotationTrack("neck", (1.0, 0.0, 0.0), _wave(duration, 3.0, strength, samples=64, phase=pi)),
+        RotationTrack("tail.1", (1.0, 0.0, 0.0), _wave(duration, 6.0, strength, samples=64, phase=pi / 2)),
+        RotationTrack("tail.2", (1.0, 0.0, 0.0), _wave(duration, 9.0, strength, samples=64, phase=3 * pi / 4)),
     )
     return FlightClip(float(duration), tracks, _root_reset(duration))

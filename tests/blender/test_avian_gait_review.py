@@ -90,13 +90,7 @@ class AvianGaitReviewTests(unittest.TestCase):
                 report = review_cycle(values,intervals=127,strength=strength)
                 self.assertLess(report['loop_closure_error_cm'],1e-4)
                 self.assertEqual(report['neutral_surface_crossings'],[])
-                # Tall-narrow strength 2 retains a documented leg-only defect.
-                if name == 'tall-narrow' and strength == 2.:
-                    for pair in report['surface_crossing_details']:
-                        for face in pair['faces']:
-                            self.assertTrue(all(region.startswith('leg.') for region in face['regions']))
-                else:
-                    self.assertEqual(report['crossing_samples'],0, (name,strength))
+                self.assertEqual(report['crossing_samples'],0, (name,strength))
                 for foot in report['summary'].values():
                     self.assertGreater(foot['minimum_z_cm'],.018)
                     self.assertLess(foot['scheduled_stance']['maximum_reference_vertex_displacement_cm'],.002)
@@ -126,3 +120,12 @@ class AvianGaitReviewTests(unittest.TestCase):
                               for row in details},pairs)
             for row in details:
                 self.assertTrue(all(face['regions'] for face in row['faces']))
+
+    def test_flight_is_clear_and_closed_across_shapes_and_strengths(self):
+        from scripts.avian_review_samples import AVIAN_REVIEW_SAMPLES, review_values
+        for name in ('default',)+tuple(AVIAN_REVIEW_SAMPLES):
+            for strength in (.1,1.,2.):
+                report = review_cycle(review_values(name),clip='flight',intervals=127,strength=strength)
+                self.assertEqual(report['crossing_samples'],0,(name,strength))
+                self.assertLess(report['loop_closure_error_cm'],1e-4)
+                self.assertGreater(report['maximum_surface_motion_cm'],.01)

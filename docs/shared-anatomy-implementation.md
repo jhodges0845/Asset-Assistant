@@ -2135,23 +2135,23 @@ Evidence: `artifacts/shared-anatomy/avian16-tests.log`, `avian16-fold-tests.log`
 switching. Next: repair tall-narrow strong-Walk leg folding, then review full motion
 and Flight transitions.
 
+## Avian recipe 17 completion pass (2026-10-17)
+
+The bird implementation pass now resolves the remaining tall-narrow leg fold by
+bounding swing lift, adds restrained Walk head/tail response, bounds Flight wing
+excursion and increases Flight sampling to 64 intervals for destination parity.
+Recipe 17 adds a thin tail fan and tapered beak while preserving topology/rest joints.
+The complete 72-case action matrix and canonical folded-to-Flight transition checks
+pass; both reference shapes have three-cycle motion artifacts and Godot playback
+proofs. See [Avian review](avian-review.md) for metrics, rebuild requirements,
+reproduction commands and the exact visual/runtime acceptance boundaries.
+
 ## Next work
 
-For Avian, resolve tall-narrow strong-Walk leg self-intersections, preserving the
-passing folded-wing, reference-shape and contact gates; review full-cycle motion before final acceptance. Stance-reference drift
-is now measured on the two canonical shapes.
-Compact-fold sampled surface crossings are resolved on the two reference shapes;
-folded wings now hold in Idle/Walk; review posture quality and additional shapes,
-review the new bounded body response and evaluate transitions into Flight. Retain the
-non-wing displacement and foot-contact gates. Review the contrasting shape
-and diagnose self-intersections and shoulder-collar deformation. Align remaining surface/rest-joint
-landmarks using bird-specific rules and establish a readable grounded stance. Refine breast/back,
-neck/head/beak, wing roots/folding, legs/feet and tail fan with default and
-contrasting silhouettes and pose checks. Preserve Idle/Walk/Flight identities,
-semantic Modify, weights and artist ownership. Recipe 1 is a behavior-preserving
-migration baseline, not completion of the Avian anatomy milestone.
-
-Canine final artistic review, arbitrary edited-shape/weight coverage and dense-time
-contact remain tracked follow-ups. Human fullness/foot-shape and neck/glute notes
-remain deferred at the user's request. After provider anatomy work, complete
-cross-provider Modify acceptance and alpha release hardening.
+Avian is ready for user artistic review of the supplied reference scenes. No known
+crossing/contact defect remains in the documented matrix. Arbitrary species,
+edited-weight coverage, automatic takeoff/landing and shipping animation blending
+are not implied by this pass. Continue the separate cross-provider Modify acceptance
+and alpha release-hardening milestones after artistic review. Canine final artistic
+acceptance remains open; Human fullness/foot-shape and neck/glute feedback remains
+deferred at the user's request.
