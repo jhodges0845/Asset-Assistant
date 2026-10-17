@@ -2155,3 +2155,18 @@ are not implied by this pass. Continue the separate cross-provider Modify accept
 and alpha release-hardening milestones after artistic review. Canine final artistic
 acceptance remains open; Human fullness/foot-shape and neck/glute feedback remains
 deferred at the user's request.
+
+
+## Cross-provider Modify persistence checkpoint (2026-10-17)
+
+External Model JSON operator acceptance now combines parameter regeneration and
+semantic variation for Human, Canine and Avian, followed by a generated rigid
+accessory. Attempts to regenerate with that attachment are blocked without
+changing either mesh. Visual preview now uses Apply's component-aware inspection
+and planner, fixing previews that offered changes Apply could not execute.
+
+All three assets pass save/reopen verification in separate Blender processes via
+`scripts/test_model_json_reopen.py`, now included in CI. See
+`cross-provider-acceptance.md` for the tested ownership, geometry and rig bindings,
+and the explicit attached-component regeneration restriction. Artistic sign-off
+and the deferred Human feedback remain open.
