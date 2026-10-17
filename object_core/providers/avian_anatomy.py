@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Avian recipe 11: taller support chains beneath a raised torso.
+"""Avian recipe 15: lateral shoulder clearance for folded wings.
 
 Wing and leg surface centerlines and rest chains share landmark identities.
 Body and tail rest offsets remain explicit.
@@ -115,8 +115,10 @@ def _surface_profiles(dimensions):
     tubes = [tube("body", centers, widths, depths)]
 
     half_span = wingspan * 0.5
-    # Keep the shared shoulder outside the torso, but inside a short wing span.
-    root_x = min(width * 0.55, width * 0.5 + (half_span - width * 0.5) * 0.25)
+    # Tall torsos need lateral clearance for the folded proximal wing.
+    # Limit the offset by available span so short wings retain an upper segment.
+    root_x = min(max(width * 0.55, height * 0.34),
+                 width * 0.5 + (half_span - width * 0.5) * 0.25)
     root_y = length * 0.08
     root_z = body_z + height * 0.14
     for side, sign in (("left", -1.0), ("right", 1.0)):
@@ -229,7 +231,7 @@ def _rest_segments(dimensions, landmarks, tubes):
 
 class AvianRecipe:
     recipe_id = 'avian'
-    recipe_version = '14'
+    recipe_version = '15'
 
     def resolve(self, dimensions):
         # Values have already passed the provider's range/cross-field validation.

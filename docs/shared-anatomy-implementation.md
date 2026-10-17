@@ -2085,10 +2085,34 @@ fold-angle change has not been validated. Local evidence: `localize_fold.py` and
 Validation: all 24 Avian Blender tests pass, including mixed-region ownership,
 actual-action report coverage, contact gates, action switching and GLB/FBX exports.
 
+## Avian tall-torso shoulder clearance (2026-10-16)
+
+Recipe 15 places the shared wing shoulder at the greater of 55% body width and
+34% body height, retaining the existing available-span cap. This gives tall,
+narrow torsos room for the folded proximal wing. Surface and rest chain consume
+the same landmark; reference default/contrasting shoulder positions are unchanged.
+Explicitly regenerate geometry and rebuild the rig/weights, then regenerate actions;
+existing artist-owned objects are not automatically rewritten.
+
+The tall-narrow profile has no detected crossings at all 17 sampled compact-fold
+positions, with non-wing vertices stationary and folded span below 40% of neutral.
+Idle at strength 2 is clear over 127 intervals. Walk strength 1 is clear; strength 2
+still has leg-only self-intersections in 26 of 128 samples (up to 16 face pairs).
+The latter is not a wing defect and prevents full shape acceptance. Long-low and
+short-wing shoulder overlaps remain open. All previous reference-shape gates remain.
+
+The inspected four-view `artifacts/shared-anatomy/avian15-tall-narrow.png` shows
+separated, raised folded wings; final artistic silhouette acceptance remains open.
+`avian15-tall-gait.json` records actual-action evidence. The new regression gates
+cover tall-narrow fold positions, foot contact and the absence of wing crossings;
+they explicitly retain the high-strength leg limitation. Validation: 46 Avian core,
+24 Avian Blender and 5 architecture tests pass; Blender coverage includes GLB/FBX
+exports and action switching.
+
 ## Next work
 
-For Avian, diagnose folded-posture crossings on tall-narrow, long-low and short-wing
-first, preserving the passing reference and additional shape gates; review full-cycle motion before final acceptance. Stance-reference drift
+For Avian, resolve long-low/short-wing shoulder overlaps and tall-narrow strong-Walk
+leg self-intersections, preserving the passing reference and additional shape gates; review full-cycle motion before final acceptance. Stance-reference drift
 is now measured on the two canonical shapes.
 Compact-fold sampled surface crossings are resolved on the two reference shapes;
 folded wings now hold in Idle/Walk; review posture quality and additional shapes,

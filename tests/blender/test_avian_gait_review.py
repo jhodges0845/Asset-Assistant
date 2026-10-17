@@ -81,16 +81,20 @@ class AvianGaitReviewTests(unittest.TestCase):
 
     def test_additional_shapes_preserve_contact_with_reported_reach_limit(self):
         from scripts.avian_review_samples import review_values
-        for name in ('compact-wide','long-wing','small','long-low'):
+        for name in ('compact-wide','long-wing','small','long-low','tall-narrow'):
             values = review_values(name)
             for strength in (1.,2.):
                 report = review_cycle(values,intervals=127,strength=strength)
                 self.assertLess(report['loop_closure_error_cm'],1e-4)
                 self.assertEqual(report['neutral_surface_crossings'],[])
-                # Long-low retains a documented folded-wing overlap; this case
-                # guards reachable foot targets, not acceptance of that posture.
-                if name != 'long-low':
-                    self.assertEqual(report['crossing_samples'],0)
+                # Long-low still has collar overlaps; tall-narrow strength 2
+                # has leg self-intersections. Neither is full shape acceptance.
+                if name == 'tall-narrow' and strength == 2.:
+                    for pair in report['surface_crossing_details']:
+                        for face in pair['faces']:
+                            self.assertTrue(all(region.startswith('leg.') for region in face['regions']))
+                elif name != 'long-low':
+                    self.assertEqual(report['crossing_samples'],0, (name,strength))
                 for foot in report['summary'].values():
                     self.assertGreater(foot['minimum_z_cm'],.018)
                     self.assertLess(foot['scheduled_stance']['maximum_reference_vertex_displacement_cm'],.002)

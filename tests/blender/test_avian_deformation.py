@@ -193,7 +193,9 @@ class AvianDeformationTests(unittest.TestCase):
         from scripts.render_avian_review import review_part
         from scripts.anatomy_baseline import SAMPLES
         provider = get_provider('avian')
-        for values in ({f.key:f.default for f in provider.parameters}, SAMPLES['avian']):
+        from scripts.avian_review_samples import review_values
+        for values in ({f.key:f.default for f in provider.parameters}, SAMPLES['avian'],
+                       review_values('tall-narrow')):
             for step in range(17):
                 part, report = review_part(values, 'wing-fold-compact', pose_fraction=step/16)
                 self.assertEqual(report['neutral_surface_crossings'], [])
