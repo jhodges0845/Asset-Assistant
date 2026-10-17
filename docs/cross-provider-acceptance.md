@@ -56,13 +56,53 @@ in CI alongside existing persistence checks.
 
 The full local Blender suite reports 270 tests passing in 626 seconds, and all
 five architecture boundary tests pass. The full Blender shell invocation returned
-exit code 1 despite unittest reporting OK and no traceback; treat remote CI as the
-remaining process-level confirmation rather than claiming a clean full-suite exit.
+exit code 1 despite unittest reporting OK and no traceback. Remote Blender CI for
+commit `08fdb06` subsequently passed the full suite, new fresh-process checks and
+packaged-add-on checks (run `39071957394`), providing independent process-level
+confirmation. All six CI jobs for that commit passed, including Python 3.12
+coverage. The local exit discrepancy remains unexplained.
 Local full-suite log: `artifacts/shared-anatomy/cross-provider-full-blender.log`.
 
 Scope is one generated asset-root rigid accessory per provider. Bone attachments,
 skinned/imported components and rebuilding with attachments are not established
 by these new cases; their existing narrower tests and restrictions still apply.
+
+## Reproducible visual review
+
+Run `scripts/render_model_json_acceptance.py` in a fresh Blender process with
+`-- --output artifacts/shared-anatomy/modify-review`. The helper exports and imports
+real Model JSON, verifies that preview leaves the source unchanged, applies the
+request, and checks that applied geometry equals preview geometry.
+
+For each provider it saves the applied `.blend`, exported inspection, returned
+request, a review JSON with source commit/parameters/operation/displacement, and
+before/after clay and silhouette sheets. Both states share camera, lighting and
+framing derived from their combined bounds. These are neutral semantic-only
+comparisons, separate from the combined parameter/component persistence cases.
+The Human shoulder example does not implement the deferred Human art feedback.
+The complete Blender 5.2.1 run exited successfully and produced all 12 PNGs, three
+applied scenes and three review reports. Open the generated `index.html` for
+clay/silhouette comparisons. Source geometry is from `08fdb06`; reports record
+preview/apply equality. These artifacts are local/ignored and reproducible with
+the committed script.
+
+### Initial visual findings
+
+The Human `shoulders/broad` edit at amount 0.6 produces an abrupt ledge at the
+shoulder-to-upper-arm boundary in the matched clay views. Preview/apply equality
+passes, but this variation fails visual quality acceptance. The current
+`human_semantic.py` broad profile applies a uniform X scale within its selected
+region, leaving a sharp transition to untouched vertices. A follow-up should
+introduce a bounded transition with boundary/locality regressions and repeat the
+same comparison. Do not confuse this with the separately deferred glute, foot or
+neck-deformation feedback. Existing saved semantic edits need ownership/version
+consideration before changing their reconstruction behavior.
+
+The Canine `chest/broad` edit at amount 0.6 also exposes a pronounced shoulder/chest
+boundary ridge in the three-quarter and side clay views. Preserve this comparison
+as a regression reference for localized chest blending. Neither observation is a
+claim about physical deformation or manifoldness; these are visible rest-surface
+quality defects.
 
 ## Remaining acceptance work
 
