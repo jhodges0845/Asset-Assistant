@@ -26,11 +26,8 @@ class SemanticDeformationTests(unittest.TestCase):
                     self.assertIs(bpy.context.window.scene,scene)
                     self.assertEqual(before,{kind:set(getattr(bpy.data,kind)) for kind in kinds})
 
-        if key == 'quadruped':
+        if key in ('quadruped','avian'):
             self.assertTrue(all(results.values()))
-        elif key == 'avian':
-            # Current chest selection cuts across authored wing regions.
-            self.assertFalse(any(results.values()))
         else:
             # Keep the screening failure explicit until Human quality work resolves it.
             self.assertTrue(results[('default',.6)])
@@ -42,7 +39,7 @@ class SemanticDeformationTests(unittest.TestCase):
     def test_canine_broad_chest_under_diagnostic_bends(self):
         self.prove('quadruped')
 
-    def test_avian_chest_diagnostics_record_wing_boundary_failure(self):
+    def test_avian_chest_preserves_wings_under_diagnostic_bends(self):
         self.prove('avian')
 
     def test_invalid_review_keeps_scene_data_intact(self):
@@ -59,7 +56,7 @@ class SemanticDeformationTests(unittest.TestCase):
         scene = bpy.context.window.scene
         kinds = ('objects','meshes','armatures','collections','materials','actions','scenes')
         before = {kind:set(getattr(bpy.data,kind)) for kind in kinds}
-        for key in ('human','avian'):
+        for key in ('human',):
             with self.subTest(provider=key), self.assertRaisesRegex(RuntimeError,'relative edge ratios'):
                 review_case(key,'contrasting',1.5)
         self.assertIs(bpy.context.window.scene,scene)

@@ -222,6 +222,45 @@ unexplained local runner discrepancy; remote CI remains the process-level check.
 Log: `artifacts/shared-anatomy/semantic-deformation-tests.log`. Passing harness
 tests must not be reported as Avian quality acceptance.
 
+## Avian chest selection repair (2026-10-18)
+
+`chest/powerful` now intersects its coordinate selection with the constructor's
+body region. Authored wing and leg vertices cannot enter this profile, including
+when an earlier semantic operation moves them into the chest bounds. The existing
+profile scale and pivot calculation then operates on the selected body vertices.
+The provider verifies authored topology before using these indices. Other profiles
+and chest operations without the powerful profile retain their previous behavior.
+There is no base recipe, skeleton, weight, topology or UV change.
+
+All 16 Avian paired poses now pass the unchanged screen across both shapes and
+strengths; edge ratios range from approximately 0.844 to 1.354. Weights remain
+unchanged and posed displacement outside the rest edit remains zero. The original
+failing evidence is retained in `avian-semantic-deformation`; repaired evidence
+is in `artifacts/shared-anatomy/avian-chest-refined/index.html`. These sampled
+screens do not establish final artistic or animation acceptance.
+
+Saved old powerful-chest edits remain intact but differ from new reconstruction,
+so the existing ownership guard blocks automatic regeneration. Create a fresh
+asset with the saved parameters and reapply the request to adopt the repaired
+profile, retaining the old asset for comparison. A legacy operator regression
+and the actual original `modify-review/avian-applied.blend` exercise this boundary.
+No stored operation metadata is rewritten and no automatic migration is performed.
+
+The broader Avian core suite passes 49 tests, including wing/leg preservation at
+strengths 0, 0.6 and 1.5 and rejection of altered topology. All six CI jobs passed
+for preceding diagnostic commit `71f92b8`; repair CI is separate.
+The 14 focused Blender operator/deformation tests report OK (198 seconds); all
+three fresh-process save/reopen checks pass with process exit 0, as does the
+actual legacy-file inspection. Five architecture-boundary tests pass. Matched
+folded-wing renders show the added wing ridge removed while retaining chest
+expansion. Local logs: `avian-chest-core.log`, `avian-chest-tests.log`,
+`avian-chest-reopen.log`, `avian-chest-legacy.log` and `avian-chest-refined.log`
+under `artifacts/shared-anatomy`. The redirected core/test/render shell wrappers
+returned 1 despite successful test/report output, continuing the local wrapper
+exit discrepancy; no quality failure is hidden by that observation. Repair CI
+remains the independent full-suite process check.
+
+
 ## Remaining acceptance work
 
 - Review before/after silhouettes artistically; coordinate inequality alone is

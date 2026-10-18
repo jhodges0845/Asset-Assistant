@@ -147,11 +147,19 @@ class ModelJSONAcceptanceTests(unittest.TestCase):
         provider = get_provider(key)
         values = {f.key:f.default for f in provider.parameters}
         base = provider.mesh(values)
-        operation = SemanticOperation('shape',target,(('profile','broad'),('amount',.6)))
-        module = 'human_semantic' if key == 'human' else 'quadruped_semantic'
-        # Reproduce the previously persisted hard-region profile exactly.
-        with patch('object_core.providers.' + module + '._blend_region_transform',
-                   side_effect=lambda vertices,faces,indices,args: _transform(vertices,indices,args)):
+        profile = 'powerful' if key == 'avian' else 'broad'
+        operation = SemanticOperation('shape',target,(('profile',profile),('amount',.6)))
+        if key == 'avian':
+            from object_core.providers.avian_semantic import _selected
+            legacy_patch = patch('object_core.providers.avian_semantic._chest_indices',
+                side_effect=lambda mesh,dimensions,vertices: [i for i,v in enumerate(vertices)
+                    if _selected('chest',v,dimensions)])
+        else:
+            module = 'human_semantic' if key == 'human' else 'quadruped_semantic'
+            legacy_patch = patch('object_core.providers.' + module + '._blend_region_transform',
+                side_effect=lambda vertices,faces,indices,args: _transform(vertices,indices,args))
+        # Reproduce the previously persisted profile exactly.
+        with legacy_patch:
             legacy = provider.semantic_mesh(base,values,(operation,))
         root = create_character(legacy,scene=self.scene)
         root['object_type'] = key
@@ -185,3 +193,6 @@ class ModelJSONAcceptanceTests(unittest.TestCase):
 
     def test_legacy_canine_chest_is_preserved(self):
         self.prove_legacy_profile_is_preserved('quadruped','chest')
+
+    def test_legacy_avian_chest_is_preserved(self):
+        self.prove_legacy_profile_is_preserved('avian','chest')

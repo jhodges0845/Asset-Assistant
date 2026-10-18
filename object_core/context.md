@@ -97,3 +97,8 @@ Tests: `tests/core/test_semantic_boundaries.py`, Human/Avian semantic suites and
 `tests/blender/test_model_json_acceptance.py` (including old-profile protection).
 Saved hard-region edits are preserved but fail reconstruction ownership checks;
 see `docs/cross-provider-acceptance.md` for the explicit fresh-asset workflow.
+
+Avian `chest/powerful` intersects its coordinate bounds with authored body ownership
+and validates topology before indexing. Wings/legs remain unchanged. Other Avian
+profiles retain prior selection. Saved old chest profiles are preserved but blocked
+by reconstruction ownership checks. See the cross-provider acceptance document.
