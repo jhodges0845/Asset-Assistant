@@ -25,7 +25,7 @@ from scripts import render_human_review as sheets
 
 def source_evidence():
     paths = ['object_core/providers/' + name + '.py' for name in
-             ('human_semantic', 'quadruped_semantic', 'semantic_geometry')]
+             ('human_semantic', 'quadruped_semantic', 'avian_semantic', 'semantic_geometry')]
     return dict(source_files_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
                                      for name in paths},
                 source_files_modified=bool(subprocess.check_output(

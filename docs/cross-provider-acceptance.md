@@ -188,6 +188,40 @@ after saving all four paired images and the complete report. See
 All six CI jobs passed for production-refinement commit `da6f3c5` before this
 diagnostic-only checkpoint. New CI verifies the harness, not final model quality.
 
+## Avian paired deformation checkpoint (2026-10-18)
+
+All six CI jobs passed for `24cb46e` (run `39135176285`). The extended
+review now includes Avian `chest/powerful`, using wing-up/down, elbow and the
+existing authored compact folded-wing pose. It covers default parameters and a
+contrasting 65/24/30 cm body with 145 cm wingspan and 35 cm tail, at strengths
+0.6 and 1.5. Use `--providers avian` to reproduce only these four cases; the
+unfiltered command now covers 12 cases / 48 poses across all three providers.
+
+All 16 Avian poses fail the unchanged relative-edge screen. Weights remain
+unchanged, and posed displacement outside the rest edit is zero. This is a
+quality failure, not an operator/persistence failure. The script writes its
+complete report before returning nonzero. Local matched folded-wing images and
+measurements: `artifacts/shared-anatomy/avian-semantic-deformation/index.html`.
+The after image exposes a new ridge on the folded wing at default strength 0.6.
+
+The default right-wing edge 134--142 shrinks from 3.9158 cm to 0.6317 cm
+already in the neutral edit. Its left counterpart is 94--102. Authored anatomy
+places both endpoints in their respective wing region, but the coordinate-based
+chest selector includes only the first endpoint. It therefore scales a partial
+wing selection while leaving neighboring wing vertices fixed. This establishes a
+rest-shape selection defect; the folded pose reveals it rather than causing it.
+
+Next repair: constrain chest shaping using authored region ownership, check its
+body/wing transition across both shapes and strengths, and protect saved existing
+chest edits when reconstruction changes. Do not silently migrate saved geometry
+or override ownership checks. No Avian production geometry is changed here.
+All five focused diagnostic tests report OK in Blender 5.2.1 (82.7 seconds),
+including strict rejection and scene restoration. The local shell returned exit
+code 1 despite unittest reporting OK with no traceback, matching the earlier
+unexplained local runner discrepancy; remote CI remains the process-level check.
+Log: `artifacts/shared-anatomy/semantic-deformation-tests.log`. Passing harness
+tests must not be reported as Avian quality acceptance.
+
 ## Remaining acceptance work
 
 - Review before/after silhouettes artistically; coordinate inequality alone is

@@ -18,8 +18,13 @@ from blender_adapter.modification import inspect_generated_asset, apply_semantic
 from object_core.modification import SemanticOperation, ModificationRequest, plan_modification
 from object_core.objects import get_provider
 from object_core.models import MeshPart
+from object_core.providers.avian_posture import COMPACT_FOLD_ROTATIONS
 
 POSES = {
+    'avian': {'wing-up': [('wing.upper.left','x',.4)],
+              'wing-down': [('wing.upper.left','x',-.4)],
+              'elbow': [('wing.lower.left','z',.4)],
+              'combined': list(COMPACT_FOLD_ROTATIONS)},
     'human': {'shoulder': [('upper_arm.left','z',1.05)],
               'shoulder-back': [('upper_arm.left','z',-.6)],
               'elbow': [('forearm.left','z',1.2)],
@@ -67,8 +72,12 @@ def review_case(key, sample, amount, *, enforce_limits=True):
         provider = get_provider(key)
         values = {p.key:p.default for p in provider.parameters}
         if sample == 'contrasting':
-            values.update(dict(height_cm=160,weight_kg=55) if key=='human' else
-                          dict(body_length_cm=100,shoulder_height_cm=65,body_width_cm=30))
+            values.update({
+                'human': dict(height_cm=160,weight_kg=55),
+                'quadruped': dict(body_length_cm=100,shoulder_height_cm=65,body_width_cm=30),
+                'avian': dict(body_length_cm=65,body_width_cm=24,body_height_cm=30,
+                              wingspan_cm=145,tail_length_cm=35),
+            }[key])
         mesh = provider.mesh(values)
         root = create_character(mesh,scene=scene,skeleton=provider.skeleton(values),
                                 skin_weights=provider.skin_weights(mesh,values))
@@ -84,7 +93,8 @@ def review_case(key, sample, amount, *, enforce_limits=True):
             baseline[name] = evaluated(body)
         pose(rig,[])
         target = 'shoulders' if key=='human' else 'chest'
-        operation = SemanticOperation('shape',target,(('profile','broad'),('amount',amount)))
+        profile = 'powerful' if key=='avian' else 'broad'
+        operation = SemanticOperation('shape',target,(('profile',profile),('amount',amount)))
         plan = plan_modification(inspect_generated_asset(root),ModificationRequest(semantic_operations=(operation,)))
         require(plan.safe_to_apply,'Semantic apply must remain safe')
         snapshot = apply_semantic_modification(root,plan)
@@ -127,7 +137,7 @@ def review_case(key, sample, amount, *, enforce_limits=True):
                                 worst_edges=[edge_rows[0],edge_rows[-1]]))
             if name=='combined':
                 parts = dict(before=MeshPart('before',baseline[name],faces),after=MeshPart('after',points,faces))
-        return dict(provider=key,sample=sample,amount=amount,parameters=values,
+        return dict(provider=key,sample=sample,amount=amount,profile=profile,parameters=values,
                     unchanged_vertices=len(unchanged),poses=reports), parts
     finally:
         bpy.context.window.scene = previous
@@ -162,7 +172,7 @@ def write_report_page(output, document):
                      'Pass' if pose_report['edge_limit_passed'] else 'Inspect']
             rows.append('<tr>' + ''.join('<td>'+cell+'</td>' for cell in cells) + '</tr>')
     images = []
-    for key in POSES:
+    for key in dict.fromkeys(case['provider'] for case in document['cases']):
         images.append('<h2>'+key.title()+' - default, amount 0.6, combined bend</h2>')
         for label in ('before','after'):
             path = key+'-combined-'+label+'.png'
@@ -185,11 +195,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--render',action='store_true')
+    parser.add_argument('--providers',nargs='+',choices=tuple(POSES),default=list(POSES))
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     args.output = args.output.resolve()
     args.output.mkdir(parents=True,exist_ok=True)
     reports = []
-    for key in POSES:
+    for key in dict.fromkeys(args.providers):
         for sample in ('default','contrasting'):
             for amount in (.6,1.5):
                 report,parts = review_case(key,sample,amount,enforce_limits=False)
@@ -205,7 +216,7 @@ def main():
     (args.output/'report.json').write_text(json.dumps(document,indent=2),encoding='utf-8')
     write_report_page(args.output,document)
     require(passed,'Relative edge screening failed; see the complete report.json and paired images')
-    print('All eight semantic deformation cases passed (32 paired poses)')
+    print(f'All {len(reports)} semantic deformation cases passed ({sum(len(r["poses"]) for r in reports)} paired poses)')
 
 
 if __name__=='__main__':

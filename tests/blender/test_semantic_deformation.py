@@ -28,6 +28,9 @@ class SemanticDeformationTests(unittest.TestCase):
 
         if key == 'quadruped':
             self.assertTrue(all(results.values()))
+        elif key == 'avian':
+            # Current chest selection cuts across authored wing regions.
+            self.assertFalse(any(results.values()))
         else:
             # Keep the screening failure explicit until Human quality work resolves it.
             self.assertTrue(results[('default',.6)])
@@ -39,11 +42,14 @@ class SemanticDeformationTests(unittest.TestCase):
     def test_canine_broad_chest_under_diagnostic_bends(self):
         self.prove('quadruped')
 
+    def test_avian_chest_diagnostics_record_wing_boundary_failure(self):
+        self.prove('avian')
+
     def test_invalid_review_keeps_scene_data_intact(self):
         from scripts.review_semantic_deformation import review_case
         scene = bpy.context.window.scene
         before = set(bpy.data.objects)
-        for args in [('avian','default',.6),('human','missing',.6),('human','default',float('nan'))]:
+        for args in [('missing','default',.6),('human','missing',.6),('human','default',float('nan'))]:
             with self.assertRaises(ValueError): review_case(*args)
         self.assertIs(bpy.context.window.scene,scene)
         self.assertEqual(before,set(bpy.data.objects))
@@ -53,7 +59,8 @@ class SemanticDeformationTests(unittest.TestCase):
         scene = bpy.context.window.scene
         kinds = ('objects','meshes','armatures','collections','materials','actions','scenes')
         before = {kind:set(getattr(bpy.data,kind)) for kind in kinds}
-        with self.assertRaisesRegex(RuntimeError,'relative edge ratios'):
-            review_case('human','contrasting',1.5)
+        for key in ('human','avian'):
+            with self.subTest(provider=key), self.assertRaisesRegex(RuntimeError,'relative edge ratios'):
+                review_case(key,'contrasting',1.5)
         self.assertIs(bpy.context.window.scene,scene)
         self.assertEqual(before,{kind:set(getattr(bpy.data,kind)) for kind in kinds})

@@ -46,7 +46,7 @@ When UI work resumes, favor Blender-native hierarchy, progressive disclosure, co
 
 - `tests/blender/test_model_json_acceptance.py` exercises actual external Model JSON operators across Human/Quadruped/Avian, including preview cancellation, apply equivalence and manual-edit blocking. Preview shares the component-aware Apply planner. `scripts/test_model_json_reopen.py` verifies parameter/semantic edits and rigid attachments in fresh Blender processes; see `docs/cross-provider-acceptance.md` for scope.
 
-`tests/blender/test_semantic_deformation.py` validates paired-pose diagnostics and scene restoration. Human quality-screen failures remain explicitly open; passing harness tests are not artistic acceptance. See `scripts/review_semantic_deformation.py` and `docs/cross-provider-acceptance.md`.
+`tests/blender/test_semantic_deformation.py` validates paired-pose diagnostics and scene restoration. Human and Avian quality-screen failures remain explicitly open; passing harness tests are not artistic acceptance. See `scripts/review_semantic_deformation.py` and `docs/cross-provider-acceptance.md`.
 
 Use focused tests under `tests/blender/` first. Full CI also includes Blender 5.2.1 integration, real save/reopen, release ZIP build, and isolated packaged add-on verification.
 
