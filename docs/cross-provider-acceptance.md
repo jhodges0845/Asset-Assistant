@@ -143,6 +143,51 @@ asset for comparison. Do not override the ownership guard or rewrite saved patch
 metadata merely to force regeneration. Other profiles and unmodified generated
 assets are unaffected by this profile-specific reconstruction change.
 
+## Paired deformation screening (2026-10-18)
+
+`review_semantic_deformation.py` applies each broad profile through the existing
+inspection/plan/apply path, retaining the original skin weights. It compares the
+edited and unedited body in identical shoulder-forward, shoulder-back, elbow and
+combined poses. The matrix covers Human and Canine, default and contrasting
+parameters, and amounts 0.6/1.5 (eight cases, 32 paired poses).
+
+The screen requires finite evaluated vertices, effective limb motion and unchanged
+posed positions for vertices outside the rest edit. It also flags edited-to-baseline
+posed edge-length ratios outside 0.5 to 2. These are conservative diagnostic limits,
+not a proof of deformation quality: an already compressed baseline edge can inflate
+the ratio even when the edited edge is less compressed. Reports retain the worst
+edge indices and both neutral and posed lengths so that distinction is inspectable.
+No self-intersection, volume, animation or final artistic acceptance is inferred.
+The completed report passes 24/32 pose screens: all 16 Canine poses and eight
+Human poses. Every case retains the original skin weights and has zero measured
+posed displacement outside the rest edit. Eight Human poses fail the edge screen.
+
+The Human default at amount 0.6 passes this relative screen. The default at 1.5 and
+contrasting shape at both amounts fail it. The combined Human pose already shows
+torso/hip pulling on the unedited baseline; see `human-review-notes.md`. Keep Human
+profile/deformation acceptance open. This checkpoint does not change production
+shaping, weights, or the separately deferred Human anatomy feedback.
+
+Run in a fresh Blender process:
+
+```text
+blender --background --factory-startup --python-exit-code 1 --python scripts/review_semantic_deformation.py -- --output artifacts/shared-anatomy/semantic-deformation --render
+```
+
+The command writes the complete JSON/HTML report and paired default-strength images
+before returning failure for the known quality-screen failures. A nonzero exit for
+this matrix must not be described as successful deformation acceptance. The
+`test_semantic_deformation.py` tests verify the passing Canine cases, explicitly
+record the known Human failures, verify strict rejection, and ensure both success
+and failure restore the caller's scene/datablocks. All four harness tests pass locally in Blender 5.2.1. Passing these tests does
+not close the failing quality gate. The report generator correctly exits nonzero
+after saving all four paired images and the complete report. See
+`artifacts/shared-anatomy/semantic-deformation/index.html`; the associated logs are
+`semantic-deformation.log` and `semantic-deformation-tests.log`.
+
+All six CI jobs passed for production-refinement commit `da6f3c5` before this
+diagnostic-only checkpoint. New CI verifies the harness, not final model quality.
+
 ## Remaining acceptance work
 
 - Review before/after silhouettes artistically; coordinate inequality alone is
