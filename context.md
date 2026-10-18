@@ -24,7 +24,7 @@ Avian recipe 17 completes the current bird implementation pass: tapered beak, th
 
 ## Cross-provider acceptance
 
-External Model JSON export/import, visual preview, cancel/restore and explicit apply now have operator-level proofs for Human shoulders, Canine chest and Avian chest. Preview leaves live geometry unchanged; apply preserves identity/rig and matches preview; manual edits block regeneration. See `docs/cross-provider-acceptance.md`. Parameter-plus-semantic edits, rigid-component regeneration blocking and fresh-process save/reopen now have acceptance tests. Artistic review remains open: matched Model JSON renders expose a hard boundary in Human broad-shoulder shaping. Reproduction: `scripts/render_model_json_acceptance.py`; details in the acceptance doc.
+External Model JSON export/import, visual preview, cancel/restore and explicit apply now have operator-level proofs for Human shoulders, Canine chest and Avian chest. Preview leaves live geometry unchanged; apply preserves identity/rig and matches preview; manual edits block regeneration. See `docs/cross-provider-acceptance.md`. Parameter-plus-semantic edits, rigid-component regeneration blocking and fresh-process save/reopen now have acceptance tests. Human broad-shoulder and Canine broad-chest profiles now fade at their region boundaries; matched renders remove the prior ledges. Legacy hard-region edits remain preserved and blocked from automatic regeneration. Final artistic review remains open. Reproduction: `scripts/render_model_json_acceptance.py`; details in the acceptance doc.
 
 ## Current Human V2 integration (2026-09-20)
 

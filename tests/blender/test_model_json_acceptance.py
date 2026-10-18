@@ -136,3 +136,52 @@ class ModelJSONAcceptanceTests(unittest.TestCase):
     def test_human_parameter_and_component(self): self.prove('human','shoulders','broad',combined=True)
     def test_canine_parameter_and_component(self): self.prove('quadruped','chest','broad',combined=True)
     def test_avian_parameter_and_component(self): self.prove('avian','chest','powerful',combined=True)
+
+    def prove_legacy_profile_is_preserved(self, key, target):
+        from unittest.mock import patch
+        from object_core.objects import get_provider
+        from object_core.modification import SemanticOperation
+        from object_core.providers.semantic_geometry import _transform
+        from blender_adapter.adapter import create_character
+        from blender_adapter.modification import inspect_generated_asset, _semantic_document
+        provider = get_provider(key)
+        values = {f.key:f.default for f in provider.parameters}
+        base = provider.mesh(values)
+        operation = SemanticOperation('shape',target,(('profile','broad'),('amount',.6)))
+        module = 'human_semantic' if key == 'human' else 'quadruped_semantic'
+        # Reproduce the previously persisted hard-region profile exactly.
+        with patch('object_core.providers.' + module + '._blend_region_transform',
+                   side_effect=lambda vertices,faces,indices,args: _transform(vertices,indices,args)):
+            legacy = provider.semantic_mesh(base,values,(operation,))
+        root = create_character(legacy,scene=self.scene)
+        root['object_type'] = key
+        for name,value in values.items(): root[name] = value
+        root['asset_assistant_semantic_operations'] = json.dumps([_semantic_document(operation)])
+        self.scene.humanoid_settings.target = root
+        bpy.context.view_layer.objects.active = root
+        root.select_set(True)
+        body = next(obj for obj in root.children if obj.type == 'MESH')
+        before = tuple(tuple(v.co) for v in body.data.vertices)
+        metadata = root['asset_assistant_semantic_operations']
+        snapshot = inspect_generated_asset(root)
+        self.assertFalse(snapshot.owns_geometry)
+        exported = Path(self.temp.name)/'legacy-context.json'
+        returned = Path(self.temp.name)/'legacy-request.json'
+        self.assertEqual(bpy.ops.asset_assistant.modify_export_inspection(filepath=str(exported)),{'FINISHED'})
+        document = json.loads(exported.read_text(encoding='utf-8'))
+        request = dict(schema=document['request_template']['schema'],asset_id=snapshot.asset_id,
+                       provider_key=key,parameter_changes={},component_operations=[],
+                       animation_export_names={},semantic_operations=[_semantic_document(operation)])
+        returned.write_text(json.dumps(request),encoding='utf-8')
+        self.assertEqual(bpy.ops.asset_assistant.modify_import_request(filepath=str(returned)),{'FINISHED'})
+        with self.assertRaisesRegex(RuntimeError,'unowned or ambiguous geometry'):
+            bpy.ops.asset_assistant.model_preview_imported()
+        self.assertEqual(before,tuple(tuple(v.co) for v in body.data.vertices))
+        self.assertEqual(metadata,root['asset_assistant_semantic_operations'])
+        self.assertNotIn('asset_assistant_model_preview_root',self.scene)
+
+    def test_legacy_human_shoulders_are_preserved(self):
+        self.prove_legacy_profile_is_preserved('human','shoulders')
+
+    def test_legacy_canine_chest_is_preserved(self):
+        self.prove_legacy_profile_is_preserved('quadruped','chest')

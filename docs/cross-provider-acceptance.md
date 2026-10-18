@@ -86,15 +86,13 @@ clay/silhouette comparisons. Source geometry is from `08fdb06`; reports record
 preview/apply equality. These artifacts are local/ignored and reproducible with
 the committed script.
 
-### Initial visual findings
+### Initial visual findings (before boundary blending)
 
 The Human `shoulders/broad` edit at amount 0.6 produces an abrupt ledge at the
 shoulder-to-upper-arm boundary in the matched clay views. Preview/apply equality
-passes, but this variation fails visual quality acceptance. The current
-`human_semantic.py` broad profile applies a uniform X scale within its selected
-region, leaving a sharp transition to untouched vertices. A follow-up should
-introduce a bounded transition with boundary/locality regressions and repeat the
-same comparison. Do not confuse this with the separately deferred glute, foot or
+passes, but this variation fails visual quality acceptance. The previous
+`human_semantic.py` broad profile applied a uniform X scale within its selected
+region, leaving a sharp transition to untouched vertices. The bounded transition below addresses this defect and repeats the same comparison. Do not confuse this with the separately deferred glute, foot or
 neck-deformation feedback. Existing saved semantic edits need ownership/version
 consideration before changing their reconstruction behavior.
 
@@ -103,6 +101,47 @@ boundary ridge in the three-quarter and side clay views. Preserve this compariso
 as a regression reference for localized chest blending. Neither observation is a
 claim about physical deformation or manifoldness; these are visible rest-surface
 quality defects.
+
+## Broad-profile boundary refinement (2026-10-18)
+
+Human `shoulders/broad` and Canine `chest/broad` now blend the existing validated
+profile displacement according to distance from the selected region boundary
+along mesh edges. Boundary vertices stay fixed; the interior retains the original
+profile scale/pivot. A smoothstep falloff reaches full influence at 75% of the
+maximum inward distance. Explicit scale/offset arguments and other profiles retain
+their prior behavior. No base topology, rig, UV, or global ring-resolution changes
+are involved.
+
+The matched amount-0.6 clay views remove the conspicuous Human shoulder ledge and
+Canine chest ridge recorded above. New artifacts live in
+`artifacts/shared-anatomy/modify-blended-review/index.html`; the original
+`modify-review` directory is retained. Reproduce with the existing render helper
+and `--providers human quadruped`. These are neutral default-shape observations,
+not full deformation or final artistic acceptance.
+
+Core tests cover unchanged seams/exterior vertices (within floating-point
+roundoff), topology/UV preservation and interior widening at amounts 0, 0.6 and
+1.5, plus fully selected and boundary-only islands. Blender tests cover current
+preview/apply behavior and preservation of the old hard-region profiles. All eight
+operator cases pass in Blender 5.2.1; all three fresh-process cases pass, and opening
+the original saved Human/Canine review files confirms their geometry and metadata
+remain unchanged. The full core suite passes 470 tests (591 seconds); four focused boundary/island
+tests also pass, including two island cases added during that run. Local evidence:
+`semantic-blend-blender.log`, `semantic-blend-reopen.log`, and
+`semantic-boundary-final.log` under `artifacts/shared-anatomy`. The revised render
+run exited successfully with eight images, two applied scenes and two reports;
+reports now include source-file hashes and whether those sources were modified.
+
+### Existing saved edits
+
+There is no automatic migration. Saved old broad-shoulder/chest geometry differs
+from reconstruction under the new profile and is therefore treated as unowned
+geometry by the existing comparison guard. It remains editable and intact;
+automatic Modify regeneration is blocked. To use the new profile, create a fresh
+generated asset from the saved parameters and reapply the request, keeping the old
+asset for comparison. Do not override the ownership guard or rewrite saved patch
+metadata merely to force regeneration. Other profiles and unmodified generated
+assets are unaffected by this profile-specific reconstruction change.
 
 ## Remaining acceptance work
 

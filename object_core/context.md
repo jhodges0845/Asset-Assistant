@@ -87,3 +87,13 @@ The standalone prototype now distributes the lower-hip turn across cubic longitu
 `object_core/geometry/surface_human_builder.py` builds and audits geometry for
 `HumanProvider`. Standalone study scripts are development tools, not a second
 plugin workflow. See `docs/human-workflow.md` for the current code map.
+
+## Semantic boundary refinement
+
+`providers/semantic_geometry.py::_blend_region_transform` tapers profile displacement
+along mesh-edge distance from authored region seams. Only Human shoulders/broad and
+Canine chest/broad opt in. Other profile/explicit scale behavior is unchanged.
+Tests: `tests/core/test_semantic_boundaries.py`, Human/Avian semantic suites and
+`tests/blender/test_model_json_acceptance.py` (including old-profile protection).
+Saved hard-region edits are preserved but fail reconstruction ownership checks;
+see `docs/cross-provider-acceptance.md` for the explicit fresh-asset workflow.

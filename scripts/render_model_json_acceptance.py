@@ -5,6 +5,7 @@ Run in a fresh Blender process with -- --output DIRECTORY.
 Each provider keeps the same framing, lighting and scale across both states.
 """
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -20,6 +21,15 @@ from blender_adapter.modification import inspect_generated_asset
 from object_core.models import MeshPart
 from object_core.objects import get_provider
 from scripts import render_human_review as sheets
+
+
+def source_evidence():
+    paths = ['object_core/providers/' + name + '.py' for name in
+             ('human_semantic', 'quadruped_semantic', 'semantic_geometry')]
+    return dict(source_files_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
+                                     for name in paths},
+                source_files_modified=bool(subprocess.check_output(
+                    ['git','diff','HEAD','--name-only','--'] + paths, cwd=ROOT, text=True).strip()))
 
 
 def capture(root):
@@ -94,14 +104,17 @@ def review(key, target, profile, output):
                   max_vertex_displacement_cm=max(sum((a-b)**2 for a,b in zip(v,w))**.5
                                                  for v,w in zip(before.vertices, after.vertices)),
                   scope='Neutral semantic-only comparison; no artistic sign-off or deformation proof.')
+    report.update(source_evidence())
     (output / (key + '-review.json')).write_text(json.dumps(report, indent=2), encoding='utf-8')
 
 
 
-def write_gallery(output):
+def write_gallery(output, providers=('human', 'quadruped', 'avian')):
     cards = []
     for key, title in [('human', 'Human shoulders'), ('quadruped', 'Canine chest'),
                        ('avian', 'Avian chest')]:
+        if key not in providers:
+            continue
         cards.append('<section><h2>' + title + '</h2><p><a href="' + key +
                      '-applied.blend">Applied Blender scene</a> | <a href="' + key +
                      '-review.json">Parameters and evidence</a></p>')
@@ -125,13 +138,16 @@ Neutral geometry only; artistic acceptance and deformation review remain open.</
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--providers', nargs='+', choices=('human','quadruped','avian'),
+                        default=['human','quadruped','avian'])
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     for case in [('human', 'shoulders', 'broad'), ('quadruped', 'chest', 'broad'),
                  ('avian', 'chest', 'powerful')]:
-        review(*case, output)
-    write_gallery(output)
+        if case[0] in args.providers:
+            review(*case, output)
+    write_gallery(output, args.providers)
 
 
 if __name__ == '__main__':

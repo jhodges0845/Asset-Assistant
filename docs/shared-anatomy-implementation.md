@@ -2170,3 +2170,17 @@ All three assets pass save/reopen verification in separate Blender processes via
 `cross-provider-acceptance.md` for the tested ownership, geometry and rig bindings,
 and the explicit attached-component regeneration restriction. Artistic sign-off
 and the deferred Human feedback remain open.
+
+
+## Semantic broad-profile transition refinement (2026-10-18)
+
+The matched Model JSON review exposed hard edges in Human broad shoulders and
+Canine broad chest. Both now taper displacement toward their region seams using
+shared mesh-edge distance blending. The default neutral review removes the prior
+ledge/ridge; base anatomy, rig, topology and other profiles remain unchanged.
+
+Boundary/locality tests, current operator tests, fresh-process persistence and
+legacy preservation checks pass. Existing saved hard-region edits remain intact
+but are protected from automatic reconstruction under the changed profile. See
+`cross-provider-acceptance.md` for artifacts, reproduction and the explicit workflow
+for creating a fresh variation. Final artistic/deformation review remains open.
