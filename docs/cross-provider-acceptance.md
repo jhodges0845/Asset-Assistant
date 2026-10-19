@@ -331,6 +331,40 @@ The probe does not measure rendered skin through motion or establish final
 artistic acceptance. Edited-bird skeletal playback and rest geometry are now
 verified in this destination; posed-skin and visual destination review remain.
 
+## Edited Avian posed-surface parity (2026-10-19)
+
+All six CI jobs passed for `13b5bb2` (run `39179771358`). The export fixture
+now accepts Avian-only `--posed-surface` and records every evaluated Blender
+vertex at the existing 34 sample times per clip. `review_avian_godot_skin.gd`
+imports through the same source-grid importer and compares Godot's baked skinned
+mesh using fixed neutral correspondence. Every source vertex must be represented;
+export duplicates retain that correspondence throughout playback. Moving vertices
+are never rematched. Nonfinite points and changed surface/vertex counts fail.
+
+All four default/contrasting, amount-0.6/1.5 fixtures pass in Blender 5.2.1 and
+Godot 4.7.2. Each tests three cycles through Walk, Idle, Flight and Idle again.
+All 312 source vertices are covered. Worst sampled errors are 0.00069782 cm for
+default and 0.00110342 cm for contrasting, below the unchanged 0.002 cm threshold.
+A separate control changes one Flight reference vertex by 1 cm and correctly
+fails with approximately 1.0000002 cm error. All valid processes exit 0; the
+negative control exits 1. Evidence: `artifacts/shared-anatomy/avian-skin-`
+`{default,contrasting}-{06,15}/godot-skin-report.json`; the separate
+`avian-skin-negative` directory retains rejection evidence.
+
+Generate a fresh fixture and run Godot with a rendering-capable driver:
+
+```text
+blender --background --factory-startup --python-exit-code 1 --python scripts/export_avian_godot_review.py -- --output artifacts/shared-anatomy/avian-skin-default-06 --chest-amount 0.6 --posed-surface
+godot --path artifacts/shared-anatomy/avian-skin-default-06 --script skin.gd --rendering-method gl_compatibility --resolution 320x240
+```
+
+Do not use the headless dummy renderer for baked-skin measurements. This run used
+Godot's compatibility renderer with ANGLE on the local AMD GPU. These are sampled
+surface-position comparisons, excluding between-sample behavior, normals/UVs,
+blendshape deformation and final artistic acceptance. The fixture has no animated
+blendshapes. Full visual playback review remains open; numerical agreement alone
+does not establish appealing motion or anatomy.
+
 ## Remaining acceptance work
 
 - Review before/after silhouettes artistically; coordinate inequality alone is

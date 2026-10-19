@@ -27,9 +27,12 @@ def main(provider_key='quadruped'):
     parser.add_argument('--surface', action='store_true', help='Also sample 127-interval Blender skin-contact oracles')
     parser.add_argument('--sample', choices=('default', 'contrasting', 'short-wide'), default='default')
     parser.add_argument('--chest-amount',type=float,help='Avian powerful-chest edit before export')
+    parser.add_argument('--posed-surface',action='store_true',help='Sample full Avian evaluated surfaces for Godot')
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
     if args.chest_amount is not None and (provider_key != 'avian' or not math.isfinite(args.chest_amount) or not 0 < args.chest_amount <= 1.5):
         parser.error('--chest-amount requires Avian and a finite amount in (0, 1.5]')
+    if args.posed_surface and provider_key != 'avian':
+        parser.error('--posed-surface currently supports Avian only')
     args.output = args.output.resolve()
     if (args.output / 'canine.glb').exists():
         parser.error('--output must be a fresh fixture directory')
@@ -71,6 +74,7 @@ def main(provider_key='quadruped'):
         if not snapshot.owns_geometry:
             raise RuntimeError('Semantic export fixture lost geometry ownership')
         semantic_operations = [dict(operation=operation.operation,target=operation.target,arguments=operation.argument_values())]
+    if args.chest_amount is not None or args.posed_surface:
         bpy.context.view_layer.update()
         body = next(o for o in root.children if o.type == 'MESH')
         neutral_positions = []
@@ -109,7 +113,16 @@ def main(provider_key='quadruped'):
                 p = rig.matrix_world @ bone.matrix.translation
                 # Blender Z-up to glTF/Godot Y-up; world coordinates are meters.
                 bones[bone.name] = [p.x, p.z, -p.y]
-            samples.append(dict(seconds=seconds, bones=bones))
+            row = dict(seconds=seconds, bones=bones)
+            if args.posed_surface:
+                evaluated = body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                surface = evaluated.to_mesh()
+                try:
+                    points = [evaluated.matrix_world @ vertex.co for vertex in surface.vertices]
+                    row['positions_m'] = [[p.x,p.z,-p.y] for p in points]
+                finally:
+                    evaluated.to_mesh_clear()
+            samples.append(row)
         clips[name] = dict(duration=duration, import_bake_fps=intervals / duration, samples=samples)
     report = dict(schema_version=1, provider=provider_key, sample=args.sample, parameters=values,
                   playback_sequence=['Walk','Idle','Flight' if provider_key=='avian' else 'Run','Idle'],
@@ -126,6 +139,8 @@ def main(provider_key='quadruped'):
     shutil.copyfile(ROOT / 'scripts/package_canine_godot_review.gd', args.output / 'package_review.gd')
     shutil.copyfile(ROOT / 'scripts/render_canine_godot.gd', args.output / 'render.gd')
     shutil.copyfile(ROOT / 'scripts/review_canine_godot_surface.gd', args.output / 'surface.gd')
+    if args.posed_surface:
+        shutil.copyfile(ROOT / 'scripts/review_avian_godot_skin.gd', args.output / 'skin.gd')
     if args.surface:
         from scripts.review_canine_gait import review_cycle
         cycles = [review_cycle(values, clip, intervals=127) for clip in ('walk', 'run')]

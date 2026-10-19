@@ -96,5 +96,6 @@ canonical shapes, or add `--samples default contrasting`. The sampler applies th
 edit through the existing planner before generating Actions, preserving weights.
 See `cross-provider-acceptance.md` for results and limitations. The export helper
 now accepts `--chest-amount` for four edited default/contrasting fixtures; Godot
-rest vertex-cloud parity and skeletal playback pass. Posed-skin parity and final
-visual destination acceptance remain open.
+rest vertex-cloud parity and skeletal playback pass. Four edited fixtures also pass sampled posed-skin parity with `--posed-surface`
+and the renderer-backed `skin.gd` probe; final visual destination acceptance
+remains open.
