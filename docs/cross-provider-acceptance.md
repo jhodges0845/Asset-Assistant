@@ -297,6 +297,40 @@ local wrapper discrepancy; the matrix itself exited 0. Test log:
 final artistic acceptance, destination acceptance for edited assets, or prove
 collision freedom between samples. Human quality work remains open.
 
+## Edited Avian Godot proof (2026-10-18)
+
+The shared export fixture accepts `--chest-amount` for Avian only, validates a
+finite value in (0, 1.5], and applies `chest/powerful` through the existing planner
+before materials, Actions and GLB export. It records the semantic operation and
+neutral mesh positions in Godot coordinates. Unedited fixtures keep their prior
+path. Output must be a fresh directory.
+
+The Godot probe optionally compares imported rest vertices against that reference
+in both directions, allowing duplicate export vertices at UV/normal seams. This is
+vertex-cloud parity, not topology, UV, normal or posed-skin parity. It then runs
+the existing source-grid skeletal proof: three cycles each of Walk, Idle, Flight
+and Idle again, with 34 samples per cycle and a 0.002 cm bone-head tolerance.
+
+All four fixtures pass in Blender 5.2.1 / Godot 4.7.2: default and canonical
+contrasting shapes, each with chest amount 0.6 and 1.5. Rest-coordinate error is
+0 cm; worst bone-head error is 0.00005694 cm. A deliberately shifted reference
+vertex is rejected with process exit 1; restoring the reference passes again.
+An unedited Avian fixture also passes the updated shared probe. All valid export
+and Godot processes exit 0. Evidence: `artifacts/shared-anatomy/avian-edited-godot-`
+`{default,contrasting}-{06,15}/expected.json` and `godot-report.json`, plus
+`avian-edited-godot-negative.json` for the rejection control.
+
+Example (repeat with a fresh directory and the other shape/amount):
+
+```text
+blender --background --factory-startup --python-exit-code 1 --python scripts/export_avian_godot_review.py -- --output artifacts/shared-anatomy/avian-edited-godot-default-06 --chest-amount 0.6
+godot --headless --path artifacts/shared-anatomy/avian-edited-godot-default-06 --script review.gd -- --source-aligned
+```
+
+The probe does not measure rendered skin through motion or establish final
+artistic acceptance. Edited-bird skeletal playback and rest geometry are now
+verified in this destination; posed-skin and visual destination review remain.
+
 ## Remaining acceptance work
 
 - Review before/after silhouettes artistically; coordinate inequality alone is

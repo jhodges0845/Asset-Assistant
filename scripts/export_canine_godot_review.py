@@ -26,7 +26,11 @@ def main(provider_key='quadruped'):
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--surface', action='store_true', help='Also sample 127-interval Blender skin-contact oracles')
     parser.add_argument('--sample', choices=('default', 'contrasting', 'short-wide'), default='default')
+    parser.add_argument('--chest-amount',type=float,help='Avian powerful-chest edit before export')
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
+    if args.chest_amount is not None and (provider_key != 'avian' or not math.isfinite(args.chest_amount) or not 0 < args.chest_amount <= 1.5):
+        parser.error('--chest-amount requires Avian and a finite amount in (0, 1.5]')
+    args.output = args.output.resolve()
     if (args.output / 'canine.glb').exists():
         parser.error('--output must be a fresh fixture directory')
     args.output.mkdir(parents=True, exist_ok=True)
@@ -54,6 +58,25 @@ def main(provider_key='quadruped'):
     root['object_type'] = provider_key
     for key, value in values.items():
         root[key] = value
+    semantic_operations = []
+    neutral_positions = None
+    if args.chest_amount is not None:
+        from object_core.modification import SemanticOperation, ModificationRequest, plan_modification
+        from blender_adapter.modification import inspect_generated_asset, apply_semantic_modification
+        operation = SemanticOperation('shape','chest',(('profile','powerful'),('amount',args.chest_amount)))
+        plan = plan_modification(inspect_generated_asset(root),ModificationRequest(semantic_operations=(operation,)))
+        if not plan.safe_to_apply:
+            raise RuntimeError('Semantic export fixture requires a safe plan')
+        snapshot = apply_semantic_modification(root,plan)
+        if not snapshot.owns_geometry:
+            raise RuntimeError('Semantic export fixture lost geometry ownership')
+        semantic_operations = [dict(operation=operation.operation,target=operation.target,arguments=operation.argument_values())]
+        bpy.context.view_layer.update()
+        body = next(o for o in root.children if o.type == 'MESH')
+        neutral_positions = []
+        for vertex in body.data.vertices:
+            point = body.matrix_world @ vertex.co
+            neutral_positions.append([point.x,point.z,-point.y])
     prepare_materials(root)
     add_idle(root, scene, 4., 1.)
     add_locomotion(root, scene, 1.2, 1.)
@@ -92,7 +115,9 @@ def main(provider_key='quadruped'):
                   playback_sequence=['Walk','Idle','Flight' if provider_key=='avian' else 'Run','Idle'],
                   blender_version=bpy.app.version_string,
                   commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-                  tolerance_cm=.002, clips=clips)
+                  tolerance_cm=.002, clips=clips,semantic_operations=semantic_operations)
+    if neutral_positions is not None:
+        report['neutral_positions_m'] = neutral_positions
     (args.output / 'expected.json').write_text(json.dumps(report, indent=2) + '\n')
     (args.output / 'project.godot').write_text('config_version=5\n[application]\nconfig/name="Canine playback probe"\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n')
     shutil.copyfile(ROOT / 'scripts/review_canine_godot.gd', args.output / 'review.gd')

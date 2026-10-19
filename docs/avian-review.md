@@ -94,5 +94,7 @@ The repaired powerful-chest profile has a separate action-sampling matrix. Use
 `review_avian_matrix.py --output REPORT.json --chest-amounts 0.6 1.5` for all eight
 canonical shapes, or add `--samples default contrasting`. The sampler applies the
 edit through the existing planner before generating Actions, preserving weights.
-See `cross-provider-acceptance.md` for results and limitations; unedited destination
-proofs do not establish destination acceptance for these edited assets.
+See `cross-provider-acceptance.md` for results and limitations. The export helper
+now accepts `--chest-amount` for four edited default/contrasting fixtures; Godot
+rest vertex-cloud parity and skeletal playback pass. Posed-skin parity and final
+visual destination acceptance remain open.
