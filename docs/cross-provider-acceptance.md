@@ -365,6 +365,40 @@ blendshape deformation and final artistic acceptance. The fixture has no animate
 blendshapes. Full visual playback review remains open; numerical agreement alone
 does not establish appealing motion or anatomy.
 
+## Godot phase-sheet review (2026-10-19)
+
+All six CI jobs passed for `98ea7dc` (run `39250157031`). The shared destination
+renderer now accepts any clip present in the fixture, including Avian Idle and
+Flight. `--stills` captures phases 0%, 25%, 50% and 75% in a separate directory;
+the default retains three-cycle, 25 fps capture. Metadata distinguishes those
+modes and records the semantic operation, source fixture commit and renderer.
+
+The four edited fixtures now have 48 four-view phase sheets: two shapes, two
+chest strengths, three clips, four phases. Representative high- and low-strength
+Walk/Idle/Flight sheets were inspected. Chest enlargement remains visible, and
+the earlier partial-wing ridge is not apparent in those inspected views. These
+are representative observations, not final acceptance of all frames or motion.
+
+The first Flight sheets exposed floor occlusion of the downstroke because the
+review scene placed the in-place Flight clip at ground level. Flight display
+copies and the review camera now receive a documented elevation based on neutral
+span. Corrected sheets expose the complete wing tips. This is presentation only;
+exported geometry, Actions and root motion are unchanged. Walk/Idle stay grounded.
+
+Reproduce after exporting fixtures and copying the current renderer as `render.gd`:
+
+```text
+godot --path FIXTURE --script render.gd --rendering-method gl_compatibility --resolution 1600x600 -- --clip=Flight --stills
+python scripts/build_avian_godot_gallery.py --root artifacts/shared-anatomy
+```
+
+Repeat rendering for Walk/Idle and each fixture. The gallery builder requires all
+12 metadata files and 48 PNGs before writing `avian-destination-review.html`.
+It provides fixture and phase controls with links to render metadata. The default
+three-cycle mode also produced 90 Flight frames successfully; missing-clip input
+is rejected with exit 1. Final
+continuous visual playback and artistic acceptance remain open.
+
 ## Remaining acceptance work
 
 - Review before/after silhouettes artistically; coordinate inequality alone is
