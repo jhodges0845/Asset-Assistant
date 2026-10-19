@@ -34,6 +34,28 @@ class AvianGaitReviewTests(unittest.TestCase):
             for kind in kinds:
                 self.assertEqual(set(getattr(bpy.data,kind)),before[kind],kind)
 
+    def test_semantic_chest_actions_preserve_feet_and_restore_scene(self):
+        from object_core.modification import SemanticOperation
+        scene = bpy.context.window.scene
+        kinds = ('scenes','objects','meshes','armatures','collections','actions','materials')
+        before = {kind:set(getattr(bpy.data,kind)) for kind in kinds}
+        operation = SemanticOperation('shape','chest',(('profile','powerful'),('amount',1.5)))
+        for clip in ('idle','walk','flight'):
+            with self.subTest(clip=clip):
+                baseline = review_cycle(self.values,clip,intervals=16)
+                edited = review_cycle(self.values,clip,intervals=16,semantic_operations=(operation,))
+                self.assertEqual(edited['semantic_operations'][0]['arguments'],operation.argument_values())
+                self.assertEqual(edited['neutral_surface_crossings'],[])
+                self.assertEqual(edited['crossing_samples'],0)
+                self.assertLess(edited['loop_closure_error_cm'],1e-4)
+                self.assertGreater(edited['maximum_surface_motion_cm'],.01)
+                self.assertEqual(baseline['summary'],edited['summary'])
+                for a,b in zip(baseline['samples'],edited['samples']):
+                    self.assertEqual(a['feet'],b['feet'])
+                    self.assertEqual(a['wing_span_cm'],b['wing_span_cm'])
+                self.assertIs(bpy.context.window.scene,scene)
+                self.assertEqual(before,{kind:set(getattr(bpy.data,kind)) for kind in kinds})
+
     def test_invalid_requests_fail_before_allocating_scene_data(self):
         before = set(bpy.data.scenes)
         for intervals in (True,3,257,4.5):

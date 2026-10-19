@@ -19,7 +19,7 @@ from object_core.objects import get_provider
 from scripts.avian_review_samples import AVIAN_REVIEW_SAMPLES, review_values
 
 
-def review_cycle(values, clip='walk', intervals=64, strength=1.0):
+def review_cycle(values, clip='walk', intervals=64, strength=1.0, *, semantic_operations=()):
     import bpy
     from blender_adapter.adapter import create_character
     from blender_adapter.animation import add_idle, add_locomotion, add_flight
@@ -30,7 +30,9 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
     from object_core.providers.avian_animation import _validate
     _validate(1.2, strength, .5, 4.)
     provider = get_provider('avian')
-    mesh, anatomy = provider.mesh(values), provider.anatomy(values)
+    base, anatomy = provider.mesh(values), provider.anatomy(values)
+    semantic_operations = tuple(semantic_operations)
+    mesh = provider.semantic_mesh(base, values, semantic_operations) if semantic_operations else base
     duration = 4.0 if clip == 'idle' else 1.2
     feet = {r.name: r.vertex_indices[24:] for r in anatomy.regions if r.name.startswith('leg.')}
     wing_indices = tuple(i for r in anatomy.regions if r.name.startswith('wing.') for i in r.vertex_indices)
@@ -53,13 +55,25 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
         bpy.context.window.scene = scene
         scene.render.fps, scene.render.fps_base = 24, 1
         scene.frame_start = 1
-        root = create_character(mesh, scene=scene, skeleton=provider.skeleton(values),
-                                skin_weights=provider.skin_weights(mesh, values))
+        root = create_character(base, scene=scene, skeleton=provider.skeleton(values),
+                                skin_weights=provider.skin_weights(base, values))
         root['object_type'] = 'avian'
         for key, value in values.items():
             root[key] = value
         body = next(o for o in root.children if o.type == 'MESH')
         rig = next(o for o in root.children if o.type == 'ARMATURE')
+        if semantic_operations:
+            from blender_adapter.modification import inspect_generated_asset, apply_semantic_modification
+            from object_core.modification import ModificationRequest, plan_modification
+            weights = tuple(tuple((g.group,g.weight) for g in v.groups) for v in body.data.vertices)
+            plan = plan_modification(inspect_generated_asset(root),
+                ModificationRequest(semantic_operations=semantic_operations))
+            if not plan.safe_to_apply:
+                raise ValueError('Semantic motion review requires a safe modification plan')
+            snapshot = apply_semantic_modification(root,plan)
+            if not snapshot.owns_geometry or weights != tuple(
+                    tuple((g.group,g.weight) for g in v.groups) for v in body.data.vertices):
+                raise ValueError('Semantic motion review lost geometry ownership or skin weights')
         {'idle':add_idle, 'walk':add_locomotion, 'flight':add_flight}[clip](root, scene, duration, strength)
         rows, first = [], None
         maximum_motion = 0.0
@@ -114,6 +128,8 @@ def review_cycle(values, clip='walk', intervals=64, strength=1.0):
                     stride_limited=schedule.stride_cm < values['body_height_cm']*.08*strength-1e-9,
                     swing_height_cm=schedule.swing_height_cm)
         return dict(clip=clip, parameters=values, recipe_version=anatomy.recipe_version,
+                    semantic_operations=[dict(operation=o.operation,target=o.target,
+                        arguments=o.argument_values()) for o in semantic_operations],
                     duration=duration, strength=strength, intervals=intervals, ground_tolerance_cm=.02,
                     fixed_sole_indices=soles, maximum_surface_motion_cm=maximum_motion,
                     neutral_surface_crossings=neutral_crossings,

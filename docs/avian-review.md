@@ -87,3 +87,12 @@ Local ignored evidence is under `artifacts/shared-anatomy/`: `avian17-matrix.jso
 and adjacent MP4/phase sheets, plus `avian17-godot-dense-{default,contrasting}`.
 Numerical checks sample time and detect surface crossings; they do not establish
 continuous collision freedom, containment clearance or arbitrary edited weights.
+
+## Semantic chest motion review
+
+The repaired powerful-chest profile has a separate action-sampling matrix. Use
+`review_avian_matrix.py --output REPORT.json --chest-amounts 0.6 1.5` for all eight
+canonical shapes, or add `--samples default contrasting`. The sampler applies the
+edit through the existing planner before generating Actions, preserving weights.
+See `cross-provider-acceptance.md` for results and limitations; unedited destination
+proofs do not establish destination acceptance for these edited assets.

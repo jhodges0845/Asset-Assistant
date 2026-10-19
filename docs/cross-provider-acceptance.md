@@ -261,6 +261,42 @@ exit discrepancy; no quality failure is hidden by that observation. Repair CI
 remains the independent full-suite process check.
 
 
+## Edited Avian action sampling (2026-10-18)
+
+All six CI jobs passed for chest repair `2fc249f` (run `39162848447`).
+`review_avian_gait.py` now accepts semantic operations, applies them through the
+existing inspection/plan/apply path, verifies geometry ownership and unchanged
+weights, then samples actual generated Idle/Walk/Flight Actions. Neutral crossing
+checks use the edited surface. Reports identify the applied operations.
+
+`review_avian_matrix.py` accepts `--samples` and `--chest-amounts`; omitting both
+retains the unedited 72-case matrix. The edited matrix combines chest amounts
+0.6/1.5 with animation strengths 0.1/1/2. Each cycle uses 127 intervals. It retains
+the existing contact, crossing and closure thresholds and additionally checks
+neutral crossings. Matrix schema 2 records source hashes, commit, working-tree
+state, operations and scope. Reproduce all eight canonical review shapes with:
+
+```text
+blender --background --factory-startup --python-exit-code 1 --python scripts/review_avian_matrix.py -- --output artifacts/shared-anatomy/avian-chest-motion-full.json --chest-amounts 0.6 1.5
+```
+
+The complete 144-case edited matrix passes with process exit 0: eight shapes,
+two chest amounts, three clips and three animation strengths. No sampled or
+neutral surface crossings were detected; maximum sampled loop-closure error is
+0 cm. Minimum Walk clearance is 0.0196018 cm and maximum scheduled-stance
+reference displacement is 0.00065136 cm. Report and log:
+`artifacts/shared-anatomy/avian-chest-motion-full.json` and adjacent `.log`.
+
+Nine Avian action-review tests report OK locally (67.3 seconds). The new paired
+case checks identical foot positions and wing spans before/after the strongest
+chest edit across all three clips, as well as loop closure, crossings, actual
+motion and scene/datablock restoration. The redirected test wrapper returned 1
+despite unittest reporting OK without a traceback, continuing the documented
+local wrapper discrepancy; the matrix itself exited 0. Test log:
+`artifacts/shared-anatomy/avian-semantic-motion-tests.log`. These sampled measurements do not close
+final artistic acceptance, destination acceptance for edited assets, or prove
+collision freedom between samples. Human quality work remains open.
+
 ## Remaining acceptance work
 
 - Review before/after silhouettes artistically; coordinate inequality alone is
