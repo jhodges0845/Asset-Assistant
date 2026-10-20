@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Provider-owned semantic mesh edits for Human assets."""
 
-from .semantic_geometry import _number, _scale_value, _transform
+from .semantic_geometry import _number, _scale_value, _transform, _blend_region_transform
 
 from ..models import MeshPart, ObjectMesh
 from ..proportions.landmarks import generate_landmarks
@@ -69,7 +69,7 @@ def _selected(target, vertex, proportions, bounds):
     return False
 
 
-def _profile(vertices, indices, target, arguments, proportions, bounds):
+def _profile(vertices, indices, target, arguments, proportions, bounds, faces):
     profile = arguments.get("profile")
     if not profile:
         return vertices
@@ -84,7 +84,7 @@ def _profile(vertices, indices, target, arguments, proportions, bounds):
             "z": 1.0,
         })
     if target == "shoulders" and profile == "broad":
-        return _transform(vertices, indices, {"x": 1.0 + amount * 0.18, "y": 1.0, "z": 1.0})
+        return _blend_region_transform(vertices, faces, indices, {"x": 1.0 + amount * 0.18, "y": 1.0, "z": 1.0})
     if target == "head" and profile == "oval":
         return _transform(vertices, indices, {"x": 0.96, "y": 0.96, "z": 1.0 + amount * 0.08})
     if target == "face" and profile == "narrow":
@@ -152,6 +152,6 @@ def apply_human_semantic_operations(mesh, proportions, operations, *, skeleton=N
         arguments = operation.argument_values()
         vertices = _transform(vertices, indices, arguments)
         if operation.operation == "shape":
-            vertices = _profile(vertices, indices, operation.target, arguments, proportions, bounds)
+            vertices = _profile(vertices, indices, operation.target, arguments, proportions, bounds, part.faces)
 
     return ObjectMesh((MeshPart(part.name, tuple(vertices), part.faces, part.uvs),))

@@ -77,6 +77,20 @@ def _profile(vertices, indices, target, arguments, dimensions):
     raise ValueError("Unsupported Avian semantic profile " + str(profile) + " for " + target)
 
 
+def _chest_indices(mesh, dimensions, vertices):
+    """Keep the powerful chest profile within constructor-authored body topology."""
+    from .avian_anatomy import AvianRecipe
+    from .avian_geometry import _build_avian_mesh
+
+    base, anatomy = _build_avian_mesh(AvianRecipe().resolve(dimensions))
+    part = mesh.parts[0]
+    if (part.name != base.parts[0].name or part.faces != base.parts[0].faces
+            or len(part.vertices) != len(base.parts[0].vertices)):
+        raise ValueError('Avian chest shaping requires authored topology; explicitly regenerate this asset')
+    body = next(region.vertex_indices for region in anatomy.regions if region.name == 'body')
+    return [index for index in body if _selected('chest', vertices[index], dimensions)]
+
+
 def apply_avian_semantic_operations(mesh, dimensions, operations):
     """Apply semantic operations without changing topology or the procedural base."""
     if not isinstance(mesh, ObjectMesh) or len(mesh.parts) != 1:
@@ -89,6 +103,9 @@ def apply_avian_semantic_operations(mesh, dimensions, operations):
             raise ValueError("Avian semantic geometry cannot apply " + operation.operation)
         indices = [index for index, vertex in enumerate(vertices) if _selected(operation.target, vertex, dimensions)]
         arguments = operation.argument_values()
+        if (operation.operation == 'shape' and operation.target == 'chest'
+                and arguments.get('profile') == 'powerful'):
+            indices = _chest_indices(mesh, dimensions, vertices)
         vertices = _transform(vertices, indices, arguments)
         if operation.operation == "shape":
             vertices = _profile(vertices, indices, operation.target, arguments, dimensions)

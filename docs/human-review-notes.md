@@ -24,3 +24,15 @@ asset parameters and neck pose were not supplied.
 Keep before/after visual evidence and record parameters, pose and commit when
 investigating. Preserve artist-owned meshes, weights and actions; use the existing
 preview/apply and explicit regeneration workflows.
+
+
+## Additional paired-pose observation (2026-10-18)
+
+The default generated Human at source `da6f3c5`, before semantic editing, shows
+visible torso/hip pulling in the combined diagnostic pose `upper_arm.left` local
+Z = 1.05 radians and `forearm.left` local Z = 1.2 radians. Matched evidence is in
+`artifacts/shared-anatomy/semantic-deformation/human-combined-before.png` and the
+corresponding after image. The broad-shoulder edit is compared with that same posed
+baseline; preserved weights do not establish that those baseline weights are good.
+Neck-pose reproduction and the root cause remain outstanding. Keep this with the
+deferred Human quality review; no base anatomy/weight changes were made here.

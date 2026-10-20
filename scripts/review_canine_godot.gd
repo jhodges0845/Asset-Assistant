@@ -55,6 +55,9 @@ func review():
         fail("Canine import failed")
         return
     root.add_child(asset)
+    var geometry = {}
+    if expected.has("neutral_positions_m"):
+        geometry = compare_neutral_mesh(asset, expected.neutral_positions_m, expected.tolerance_cm)
     var players = asset.find_children("*", "AnimationPlayer", true, false)
     var skeletons = asset.find_children("*", "Skeleton3D", true, false)
     if players.size() != 1 or skeletons.size() != 1:
@@ -63,7 +66,7 @@ func review():
     var player = players[0]
     var skeleton = skeletons[0]
     var results = []
-    var passed = true
+    var passed = geometry.get("passed", true)
     for label in expected.get("playback_sequence", ["Walk", "Idle", "Run", "Idle"]):
         if not player.has_animation(label):
             fail("Missing clip " + label + ": " + str(player.get_animation_list()))
@@ -113,9 +116,40 @@ func review():
         "sample": expected.sample, "source_commit": expected.commit,
         "tolerance_cm": expected.tolerance_cm, "clips": results, "passed": passed,
         "packed_scene": packed_scene, "source_aligned": source_aligned, "bake_fps": bake_fps, "remove_immutable_tracks": remove_immutable,
-        "scope": "Headless skeletal playback; loop mode explicitly enabled; not rendered skin or visual acceptance."}
+        "neutral_geometry": geometry, "semantic_operations": expected.get("semantic_operations", []),
+        "scope": "Optional rest vertex-cloud parity and headless skeletal playback; loop mode explicitly enabled; not rendered skin or visual acceptance."}
     var output = FileAccess.open("res://godot-report.json", FileAccess.WRITE)
     output.store_string(JSON.stringify(report, "  ") + "\n")
     output.close()
     print("CANINE_GODOT_PLAYBACK_OK " if passed else "CANINE_GODOT_PLAYBACK_FAILED ", expected.sample)
     quit(0 if passed else 1)
+
+
+func compare_neutral_mesh(asset, reference_rows, tolerance_cm):
+    var actual = []
+    for instance in asset.find_children("*", "MeshInstance3D", true, false):
+        if instance.mesh == null:
+            continue
+        for surface in range(instance.mesh.get_surface_count()):
+            var arrays = instance.mesh.surface_get_arrays(surface)
+            for point in arrays[Mesh.ARRAY_VERTEX]:
+                actual.append(instance.global_transform * point)
+    var reference = []
+    for point in reference_rows:
+        reference.append(Vector3(point[0], point[1], point[2]))
+    if actual.is_empty() or reference.is_empty():
+        return {"passed": false, "reason": "Missing rest vertices"}
+    # Export may duplicate vertices at UV/normal seams. Compare both directions
+    # without treating those duplicates as changed topology or vertex identity.
+    var maximum = 0.0
+    for pair in [[actual, reference], [reference, actual]]:
+        for point in pair[0]:
+            if not point.is_finite():
+                return {"passed": false, "reason": "Nonfinite rest vertex"}
+            var nearest = INF
+            for other in pair[1]:
+                nearest = min(nearest, point.distance_to(other))
+            maximum = max(maximum, nearest * 100.0)
+    return {"passed": maximum <= tolerance_cm, "maximum_nearest_vertex_error_cm": maximum,
+        "imported_vertex_count": actual.size(), "source_vertex_count": reference.size(),
+        "scope": "Bidirectional rest vertex-cloud distance; excludes topology, normals, UVs and posed skin."}

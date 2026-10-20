@@ -1,11 +1,10 @@
-# Pre-release scope checkpoint
+# Historical pre-release scope checkpoint
 
-> Scope update (2026-09-21): [Shared anatomy and animation](shared-anatomy-alpha-plan.md) is the active pre-alpha plan. Complete the Human/Quadruped/Avian recipe and animation quality milestones before final release hardening. The older checklist below contains historical claims and must be reconciled against source before treating an item as outstanding.
+> Archived inventory, reconciled 2026-10-19: the sections below describe the earlier pre-shared-anatomy checkpoint, not current capabilities or work order. In particular, Quadruped semantic execution, rigid-component preservation, the UI and packaging have advanced. Do not use the checklist below to select outstanding implementation work.
+>
+> Current sequencing and quality gates: [Shared anatomy and animation](shared-anatomy-alpha-plan.md). Current workflow evidence: [Cross-provider acceptance](cross-provider-acceptance.md). Remaining release work: [Publish readiness audit](publish-readiness-audit.md). Human feedback remains deferred in [Human review notes](human-review-notes.md).
 
-
-This checkpoint began after the Avian leg/Walk correction and now tracks the path to the first public alpha.
-
-## Current status
+## Status at the historical checkpoint
 
 - The preservation-aware Modify foundation, external inspection/change-file handoff, transactional parameter regeneration, metadata-only animation rename path, and persistent semantic patch architecture are implemented.
 - Avian and Human both have provider-owned topology-preserving semantic geometry executors.

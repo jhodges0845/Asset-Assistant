@@ -109,6 +109,12 @@ jobs:
             --background --factory-startup --python-exit-code 1 \
             --python scripts/test_component_reopen.py
 
+      - name: Test cross-provider Model JSON in fresh processes
+        run: |
+          "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
+            --background --factory-startup --python-exit-code 1 \
+            --python scripts/test_model_json_reopen.py
+
       - name: Test Human plugin save/reopen
         run: |
           "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \

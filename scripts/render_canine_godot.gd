@@ -14,15 +14,20 @@ func render_review():
         quit(1)
         return
     var label = "Walk"
+    var stills = false
     for argument in OS.get_cmdline_user_args():
         if argument.begins_with("--clip="):
             label = argument.get_slice("=", 1)
+        elif argument == "--stills":
+            stills = true
         else:
             push_error("Unknown render option " + argument)
+            asset.free()
             quit(1)
             return
-    if label not in ["Walk", "Run"]:
-        push_error("Render clip must be Walk or Run")
+    if not expected.clips.has(label):
+        push_error("Render clip is missing from the fixture: " + label)
+        asset.free()
         quit(1)
         return
     var world = Node3D.new()
@@ -36,12 +41,15 @@ func render_review():
         first = false
     var stride = max(bounds.size.x, bounds.size.z) * 1.2
     var height = bounds.size.y
+    # Flight is an in-place airborne clip, not a takeoff/landing preview.
+    var elevation = max(bounds.size.x, bounds.size.z) * 0.6 if label == "Flight" else 0.0
     var players = []
     for index in range(4):
         var animal = asset if index == 0 else asset.duplicate()
         if index != 0:
             world.add_child(animal)
         animal.position.x = (index - 1.5) * stride
+        animal.position.y = elevation
         animal.rotation.y = [PI, 3 * PI / 4, PI / 2, 0.0][index]
         var player = animal.find_children("*", "AnimationPlayer", true, false)[0]
         player.get_animation(label).loop_mode = Animation.LOOP_LINEAR
@@ -73,9 +81,9 @@ func render_review():
     var camera = Camera3D.new()
     camera.projection = Camera3D.PROJECTION_ORTHOGONAL
     camera.size = max(stride * 4.3 / (1600.0 / 600.0), height * 1.5)
-    camera.position = Vector3(0, height * 0.6 + 0.65, stride * 4)
+    camera.position = Vector3(0, height * 0.6 + 0.65 + elevation, stride * 4)
     world.add_child(camera)
-    camera.look_at(Vector3(0, height * 0.5, 0))
+    camera.look_at(Vector3(0, height * 0.5 + elevation, 0))
     camera.current = true
     root.size = Vector2i(1600, 600)
     root.content_scale_size = Vector2i(1600, 600)
@@ -86,12 +94,12 @@ func render_review():
         caption.position = Vector2(index * 400 + 130, 530)
         caption.add_theme_font_size_override("font_size", 20)
         root.add_child(caption)
-    var directory = "res://render-" + label.to_lower()
+    var directory = "res://render-" + label.to_lower() + ("-stills" if stills else "")
     DirAccess.make_dir_recursive_absolute(directory)
-    var frames = int(round(float(expected.clips[label].duration) * 25 * 3))
+    var frames = 4 if stills else int(round(float(expected.clips[label].duration) * 25 * 3))
     for frame in range(frames):
         for player in players:
-            player.seek(float(frame) / 25.0, true)
+            player.seek(float(expected.clips[label].duration) * frame / 4.0 if stills else float(frame) / 25.0, true)
             player.advance(0)
         await process_frame
         await RenderingServer.frame_post_draw
@@ -101,7 +109,11 @@ func render_review():
             quit(1)
             return
     var report = {"sample": expected.sample, "clip": label, "frames": frames,
-        "fps": 25, "cycles": 3, "views": ["front", "three-quarter", "side", "back"],
+        "fps": null if stills else 25, "cycles": null if stills else 3,
+        "phases": [0.0, 0.25, 0.5, 0.75] if stills else [],
+        "review_elevation_m": elevation,
+        "capture_mode": "phase-stills" if stills else "three-cycle-sequence",
+        "semantic_operations": expected.get("semantic_operations", []), "source_commit": expected.commit, "views": ["front", "three-quarter", "side", "back"],
         "import": "source-aligned, constant tracks retained", "godot_version": Engine.get_version_info(), "renderer": RenderingServer.get_current_rendering_method()}
     var file = FileAccess.open(directory + "/render-report.json", FileAccess.WRITE)
     file.store_string(JSON.stringify(report, "  ") + "\n")

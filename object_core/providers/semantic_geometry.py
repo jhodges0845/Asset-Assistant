@@ -37,3 +37,52 @@ def _transform(vertices, indices, arguments):
     return result
 
 
+def _blend_region_transform(vertices, faces, indices, arguments):
+    """Fade a profile to zero at its authored region boundary along mesh edges.
+
+    Preserve the ordinary validated transform and its pivot. Only its displacement
+    is blended; vertices outside the region and boundary vertices stay untouched.
+    """
+    from heapq import heappop, heappush
+    from math import dist
+
+    transformed = _transform(vertices, indices, arguments)
+    selected = set(indices)
+    neighbors = {index: set() for index in selected}
+    boundary = set()
+    for face in faces:
+        for a, b in zip(face, face[1:] + face[:1]):
+            if a in selected and b in selected:
+                neighbors[a].add(b)
+                neighbors[b].add(a)
+            elif a in selected:
+                boundary.add(a)
+            elif b in selected:
+                boundary.add(b)
+    if not boundary:
+        return transformed
+    distances = {index: 0.0 for index in boundary}
+    queue = [(0.0, index) for index in sorted(boundary)]
+    while queue:
+        distance, index = heappop(queue)
+        if distance != distances[index]:
+            continue
+        for neighbor in neighbors[index]:
+            candidate = distance + dist(vertices[index], vertices[neighbor])
+            if candidate < distances.get(neighbor, float('inf')):
+                distances[neighbor] = candidate
+                heappush(queue, (candidate, neighbor))
+    radius = max(distances.values()) * .75
+    result = list(vertices)
+    for index in selected:
+        distance = distances.get(index)
+        # A disconnected fully selected component has no external seam.
+        if distance is None:
+            t = 1.0
+        elif radius > 0:
+            t = min(1.0, distance / radius)
+        else:
+            t = 0.0
+        weight = t * t * (3.0 - 2.0 * t)
+        result[index] = tuple(a + (b-a)*weight for a,b in zip(vertices[index], transformed[index]))
+    return result

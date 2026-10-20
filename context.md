@@ -24,7 +24,9 @@ Avian recipe 17 completes the current bird implementation pass: tapered beak, th
 
 ## Cross-provider acceptance
 
-External Model JSON export/import, visual preview, cancel/restore and explicit apply now have operator-level proofs for Human shoulders, Canine chest and Avian chest. Preview leaves live geometry unchanged; apply preserves identity/rig and matches preview; manual edits block regeneration. See `docs/cross-provider-acceptance.md`. Component/parameter integration, fresh-process save/reopen and artistic review remain next.
+External Model JSON preview/apply, ownership blocking, parameter/semantic integration, component preservation and fresh-process persistence have operator proofs for Human, Canine and Avian. Human/Canine boundary blending and Avian body-owned chest selection are implemented; legacy incompatible edits remain preserved and blocked from regeneration.
+
+Edited Avian validation covers 144 action cases and four Godot fixtures through rest, skeletal, posed-skin and saved-scene checks. The local gallery contains 48 phase sheets and 12 verified three-cycle videos. Final artistic acceptance remains open; Human baseline deformation findings remain deferred. See [docs/cross-provider-acceptance.md](docs/cross-provider-acceptance.md) for evidence, limits and reproduction commands.
 
 ## Current Human V2 integration (2026-09-20)
 
@@ -59,7 +61,8 @@ Read next when architecture matters:
 
 ## Current product focus
 
-Human V2 quality is active. `object_core/providers/human.py` composes the mathematical
+Human feedback remains deferred while cross-provider acceptance is active.
+`object_core/providers/human.py` composes the mathematical
 surface, surface-aligned skeleton, cached skin weights and semantic controls.
 The mathematical surface builder is internal; Human is the only Human UI option.
 

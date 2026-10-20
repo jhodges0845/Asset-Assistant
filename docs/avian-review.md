@@ -87,3 +87,26 @@ Local ignored evidence is under `artifacts/shared-anatomy/`: `avian17-matrix.jso
 and adjacent MP4/phase sheets, plus `avian17-godot-dense-{default,contrasting}`.
 Numerical checks sample time and detect surface crossings; they do not establish
 continuous collision freedom, containment clearance or arbitrary edited weights.
+
+## Semantic chest motion review
+
+The repaired powerful-chest profile has a separate action-sampling matrix. Use
+`review_avian_matrix.py --output REPORT.json --chest-amounts 0.6 1.5` for all eight
+canonical shapes, or add `--samples default contrasting`. The sampler applies the
+edit through the existing planner before generating Actions, preserving weights.
+See `cross-provider-acceptance.md` for results and limitations. The export helper
+now accepts `--chest-amount` for four edited default/contrasting fixtures; Godot
+rest vertex-cloud parity and skeletal playback pass. Four edited fixtures also pass sampled posed-skin parity with `--posed-surface`
+and the renderer-backed `skin.gd` probe; final visual destination acceptance
+remains open.
+
+The destination gallery now includes 12 three-cycle MP4s alongside the phase
+sheets. Encode existing Godot captures with `scripts/encode_godot_review.py`
+inside Blender, then rebuild with `scripts/build_avian_godot_gallery.py --root
+artifacts/shared-anatomy --require-videos`. Media verification is complete;
+browser playback and final artistic acceptance remain open.
+
+Edited Avian saved scenes also pass the skin probe with `--packed-scene`; the
+existing `prepare_scene.gd` creates the scene once and refuses overwrites.
+Default/0.6 also passes without the original GLB or importer. See the acceptance
+document for reports and scope; final artistic approval is still separate.

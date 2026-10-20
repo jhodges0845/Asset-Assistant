@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Quadruped semantic shaping using authored recipe regions."""
 from ..models import MeshPart, ObjectMesh
-from .semantic_geometry import _number, _transform
+from .semantic_geometry import _number, _transform, _blend_region_transform
 
 
 PROFILES = {
@@ -40,6 +40,9 @@ def apply_quadruped_semantic_operations(mesh, anatomy, operations):
                 changes = (0.20, 0.20, 0.0)
             if changes is None:
                 raise ValueError('Unsupported Quadruped semantic profile ' + str(profile))
-            vertices = _transform(vertices, indices, dict(zip(('x', 'y', 'z'),
-                                  (1.0 + amount * change for change in changes))))
+            scales = dict(zip(('x', 'y', 'z'), (1.0 + amount * change for change in changes)))
+            if operation.target == 'chest' and profile == 'broad':
+                vertices = _blend_region_transform(vertices, part.faces, indices, scales)
+            else:
+                vertices = _transform(vertices, indices, scales)
     return ObjectMesh((MeshPart(part.name, tuple(vertices), part.faces, part.uvs),))
