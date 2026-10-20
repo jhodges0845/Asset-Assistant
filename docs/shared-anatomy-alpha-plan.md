@@ -1,6 +1,6 @@
 # Shared anatomy and animation: alpha plan
 
-Status: in progress, October 17, 2026. Human and Quadruped use shared anatomy
+Status: in progress, October 19, 2026. Human and Quadruped use shared anatomy
 contracts. Canine recipe 16 retains the stylized anatomy finishing pass:
 connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
 transitions. Contact-driven Walk/Run include bounded vertical body compression and a
@@ -12,7 +12,10 @@ Godot renders are available, and sampled skin-contact checks pass on all three
 canonical shapes. Shipping integration/performance remain unvalidated. Default GLB source/reimport surface parity
 now passes through gait/Idle switches; the short-wide stress shape is not
 visually accepted. Avian recipe 17 completes the current bird implementation pass with a 72-case
-motion matrix and default/contrasting Godot playback proofs. Artistic review,
+base motion matrix plus 144 edited-chest action cases. Four edited Godot fixtures
+pass rest, skeletal, posed-skin and saved-scene checks; three-cycle videos are
+available. These sampled proofs do not close artistic acceptance. See
+[cross-provider acceptance](cross-provider-acceptance.md). Artistic review,
 cross-provider acceptance and release hardening remain; see [Avian review](avian-review.md). See the
 [implementation checkpoint](shared-anatomy-implementation.md) for evidence.
 Recipe 16 extends the rig to 19 bones for independent forepaw landing, building
@@ -32,7 +35,7 @@ Read `human-workflow.md`, `object_core/providers/quadruped.py`, `object_core/pro
 
 ## Shared construction with anatomy recipes
 
-Target flow (implemented for Human and Quadruped through anatomy, surface, rig and Modify; shared motion work remains ahead):
+Target flow (implemented for Human, Quadruped and Avian through anatomy, surface, rig and Modify; provider motion uses shared review/contact tools where applicable, with final quality gates still open):
 
 `provider controls -> validated anatomy recipe -> resolved anatomy -> surface + rig + region metadata -> weights / semantic Modify -> provider motion recipe -> existing Blender workflow`
 
