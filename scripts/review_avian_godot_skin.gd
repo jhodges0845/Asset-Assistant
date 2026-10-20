@@ -13,14 +13,29 @@ func point(row):
     return Vector3(row[0], row[1], row[2])
 
 func review():
-    var report_path = "res://godot-skin-report.json"
+    var packed_scene = false
+    for argument in OS.get_cmdline_user_args():
+        if argument == "--packed-scene":
+            packed_scene = true
+        else:
+            fail("Unknown skin probe option: " + argument)
+            return
+    var report_path = "res://godot-skin-packed-report.json" if packed_scene else "res://godot-skin-report.json"
     if FileAccess.file_exists(report_path):
         DirAccess.remove_absolute(report_path)
     var expected = JSON.parse_string(FileAccess.get_file_as_string("res://expected.json"))
     if expected == null or not expected.has("neutral_positions_m"):
         fail("Generate an Avian fixture with --posed-surface")
         return
-    var asset = load("res://canine_import.gd").load_asset(expected, true)
+    var asset
+    if packed_scene:
+        var saved = load("res://canine-source-grid.scn")
+        if not saved is PackedScene:
+            fail("Missing prepared scene")
+            return
+        asset = saved.instantiate()
+    else:
+        asset = load("res://canine_import.gd").load_asset(expected, true)
     if asset == null:
         fail("Import failed")
         return
@@ -102,7 +117,7 @@ func review():
         passed = passed and clip_passed
         results.append({"clip": label, "passed": clip_passed, "maximum_error_cm": maximum,
             "worst": worst, "cycles": 3, "samples_per_cycle": clip.samples.size()})
-    var report = {"passed": passed, "godot_version": Engine.get_version_info(),
+    var report = {"passed": passed, "packed_scene": packed_scene, "godot_version": Engine.get_version_info(),
         "sample": expected.sample, "semantic_operations": expected.get("semantic_operations", []),
         "source_commit": expected.commit, "tolerance_cm": expected.tolerance_cm,
         "neutral_mapping_error_cm": mapping_error, "source_vertices_covered": represented.size(),

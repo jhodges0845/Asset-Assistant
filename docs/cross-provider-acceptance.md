@@ -426,6 +426,37 @@ not initialize its Windows sandbox, so browser interaction/playback was not
 verified. Final continuous-motion and artistic acceptance remain open; creating
 playable media and verifying counts does not close those gates.
 
+## Edited Avian saved-scene parity (2026-10-19)
+
+The Avian baked-skin probe accepts `--packed-scene`, loading the existing prepared
+`canine-source-grid.scn` via `load().instantiate()` instead of importing the GLB.
+The existing preparation helper is unchanged and refuses to overwrite saved
+scenes. Direct-import and saved-scene reports have distinct filenames so neither
+proof overwrites the other.
+
+All four edited fixtures pass after preparation and reload in separate Godot
+processes. All 312 source vertices retain fixed correspondence; maximum errors
+remain 0.00069782 cm for default and 0.00110342 cm for contrasting. A standalone
+default/0.6 fixture containing only the saved scene, oracle, project and probe
+also passes with no GLB or importer script present. This establishes saved-resource
+independence for that fixture, not shipped-game or resource-pack acceptance.
+
+Repeated preparation is rejected and leaves the existing scene hash unchanged.
+Missing prepared scenes fail without falling back to GLB import. Unknown options
+fail before deleting a prior valid report. The unchanged direct-import path also
+passes. Valid Godot runs exit 0; negative checks exit 1.
+
+```text
+godot --headless --path FIXTURE --script prepare_scene.gd
+godot --path FIXTURE --script skin.gd --rendering-method gl_compatibility --resolution 320x240 -- --packed-scene
+```
+
+Use the current `review_avian_godot_skin.gd` as the fixture's `skin.gd`. Results
+are `godot-skin-packed-report.json` in the four `avian-skin-*` directories and
+`artifacts/shared-anatomy/avian-saved-standalone`. Existing direct-import evidence
+remains in `godot-skin-report.json`. Browser startup was retried but still failed
+before connection; continuous visual/artistic acceptance remains open.
+
 ## Remaining acceptance work
 
 - Review before/after silhouettes artistically; coordinate inequality alone is
