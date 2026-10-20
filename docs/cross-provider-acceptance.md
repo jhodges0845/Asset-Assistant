@@ -399,6 +399,33 @@ three-cycle mode also produced 90 Flight frames successfully; missing-clip input
 is rejected with exit 1. Final
 continuous visual playback and artistic acceptance remain open.
 
+## Continuous destination review media (2026-10-19)
+
+All six CI jobs passed for `b0dca1a` (run `39253783106`). All four edited fixtures
+now have complete three-cycle Godot captures for Walk/Idle/Flight: 1,920 PNG frames
+in total. `scripts/encode_godot_review.py` uses Blender's bundled H.264 encoder
+without an external ffmpeg dependency. It requires a complete three-cycle capture,
+encodes at the recorded frame rate and resolution, then reopens the MP4 to verify
+frame count and dimensions. Each clip has a `video-report.json` manifest.
+
+All 12 MP4s verify as 1600x600 at 25 fps: Walk/Flight contain 90 frames (3.6 s),
+Idle contains 300 frames (12 s). Missing-frame input is rejected before encoding.
+Videos are adjacent to each fixture's full capture at `render-{clip}/review.mp4`.
+Reproduction after the existing Godot sequence capture:
+
+```text
+blender --background --factory-startup --python-exit-code 1 --python scripts/encode_godot_review.py -- FIXTURE/render-walk FIXTURE/render-idle FIXTURE/render-flight
+python scripts/build_avian_godot_gallery.py --root artifacts/shared-anatomy --require-videos
+```
+
+The gallery retains its phase controls and adds native video playback controls.
+Changing fixture pauses/reloads the clip; changing phase only updates the still.
+Strict mode requires all 12 video manifests to match their capture metadata.
+File completeness and JavaScript syntax checks pass. Browser automation could
+not initialize its Windows sandbox, so browser interaction/playback was not
+verified. Final continuous-motion and artistic acceptance remain open; creating
+playable media and verifying counts does not close those gates.
+
 ## Remaining acceptance work
 
 - Review before/after silhouettes artistically; coordinate inequality alone is

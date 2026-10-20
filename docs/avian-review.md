@@ -99,3 +99,9 @@ now accepts `--chest-amount` for four edited default/contrasting fixtures; Godot
 rest vertex-cloud parity and skeletal playback pass. Four edited fixtures also pass sampled posed-skin parity with `--posed-surface`
 and the renderer-backed `skin.gd` probe; final visual destination acceptance
 remains open.
+
+The destination gallery now includes 12 three-cycle MP4s alongside the phase
+sheets. Encode existing Godot captures with `scripts/encode_godot_review.py`
+inside Blender, then rebuild with `scripts/build_avian_godot_gallery.py --root
+artifacts/shared-anatomy --require-videos`. Media verification is complete;
+browser playback and final artistic acceptance remain open.
