@@ -2,6 +2,8 @@
 """Test the Asset Assistant release ZIP in a fresh headless Blender process."""
 
 from pathlib import Path
+import json
+import math
 import sys
 import tempfile
 from zipfile import ZipFile
@@ -64,6 +66,54 @@ with tempfile.TemporaryDirectory() as directory:
         assert bpy.ops.humanoid.prepare_materials() == {"FINISHED"}
         assert bpy.ops.humanoid.validate_character() == {"FINISHED"}
         assert not any(row.status == "ERROR" for row in scene.humanoid_settings.validation_results)
+
+        # Exercise the installed provider and external-file workflow, with no
+        # source-tree imports available to conceal missing packaged modules.
+        scene.humanoid_settings.object_type = "avian"
+        assert bpy.ops.humanoid.generate_blockout() == {"FINISHED"}
+        bird = scene.humanoid_settings.target
+        assert bird["object_type"] == "avian"
+        assert bpy.ops.humanoid.add_basic_rig() == {"FINISHED"}
+        bird_rig = next(obj for obj in bird.children if obj.type == "ARMATURE")
+        body = next(obj for obj in bird.children if obj.type == "MESH")
+        assert "wing.upper.left" in bird_rig.data.bones
+        original = tuple(tuple(vertex.co) for vertex in body.data.vertices)
+        inspection = Path(directory) / "avian-inspection.json"
+        request_path = Path(directory) / "avian-request.json"
+        assert bpy.ops.asset_assistant.modify_export_inspection(filepath=str(inspection)) == {"FINISHED"}
+        template = json.loads(inspection.read_text(encoding="utf-8"))["request_template"]
+        template["semantic_operations"] = [dict(operation="shape", target="chest",
+            arguments=dict(profile="powerful", amount=.6))]
+        request_path.write_text(json.dumps(template), encoding="utf-8")
+        assert bpy.ops.asset_assistant.modify_import_request(filepath=str(request_path)) == {"FINISHED"}
+        assert bpy.ops.asset_assistant.model_preview_imported() == {"FINISHED"}
+        assert tuple(tuple(vertex.co) for vertex in body.data.vertices) == original
+        preview = bpy.data.objects[scene["asset_assistant_model_preview_root"]]
+        preview_body = next(obj for obj in preview.children if obj.type == "MESH")
+        expected = tuple(tuple(vertex.co) for vertex in preview_body.data.vertices)
+        assert expected != original
+        assert bpy.ops.asset_assistant.model_apply_previewed() == {"FINISHED"}
+        assert tuple(tuple(vertex.co) for vertex in body.data.vertices) == expected
+        assert next(obj for obj in bird.children if obj.type == "ARMATURE") == bird_rig
+        assert any(mod.type == "ARMATURE" and mod.object == bird_rig for mod in body.modifiers)
+        assert len(body.vertex_groups) > 0
+        actions = []
+        scene.humanoid_settings.workflow_tab = "ANIMATION"
+        for clip in ("IDLE", "WALK", "FLIGHT"):
+            scene.humanoid_settings.animation_clip = clip
+            assert bpy.ops.humanoid.select_animation_clip() == {"FINISHED"}, clip
+            action = bird_rig.animation_data.action
+            assert action is not None and action not in actions, clip
+            actions.append(action)
+            assert bpy.ops.humanoid.preview_idle() == {"FINISHED"}
+            evaluated = body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            assert all(math.isfinite(value) for vertex in evaluated.data.vertices for value in vertex.co)
+        scene.humanoid_settings.asset_use = "ANIMATED"
+        scene.humanoid_settings.workflow_tab = "VALIDATION"
+        assert bpy.ops.humanoid.prepare_materials() == {"FINISHED"}
+        assert bpy.ops.humanoid.validate_character() == {"FINISHED"}
+        assert not any(row.status == "ERROR" for row in scene.humanoid_settings.validation_results)
+        print("PACKAGED_AVIAN_OK: semantic preview/apply, preserved rig, Idle/Walk/Flight and validation")
 
         scene.humanoid_settings.object_type = "box"
         assert bpy.ops.humanoid.generate_blockout() == {"FINISHED"}
