@@ -28,6 +28,8 @@ External Model JSON preview/apply, ownership blocking, parameter/semantic integr
 
 Edited Avian validation covers 144 action cases and four Godot fixtures through rest, skeletal, posed-skin and saved-scene checks. The local gallery contains 48 phase sheets and 12 verified three-cycle videos. Final artistic acceptance remains open; Human baseline deformation findings remain deferred. See [docs/cross-provider-acceptance.md](docs/cross-provider-acceptance.md) for evidence, limits and reproduction commands.
 
+Packaged acceptance: `scripts/test_blender_package.py` covers isolated ZIP Human/Box workflows plus Avian external chest preview/apply, rig preservation and Idle/Walk/Flight. Remaining candidate lifecycle and publication gates are in `docs/publish-readiness-audit.md`.
+
 ## Current Human V2 integration (2026-09-20)
 
 Create > Human is the single Human UI path. `HumanProvider` uses key `human` and
