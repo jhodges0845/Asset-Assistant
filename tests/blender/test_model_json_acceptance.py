@@ -137,7 +137,8 @@ class ModelJSONAcceptanceTests(unittest.TestCase):
     def test_canine_parameter_and_component(self): self.prove('quadruped','chest','broad',combined=True)
     def test_avian_parameter_and_component(self): self.prove('avian','chest','powerful',combined=True)
 
-    def prove_legacy_profile_is_preserved(self, key, target):
+    def prove_legacy_profile_is_preserved(self, key, target, *, blended=False):
+        from contextlib import nullcontext
         from unittest.mock import patch
         from object_core.objects import get_provider
         from object_core.modification import SemanticOperation
@@ -154,12 +155,17 @@ class ModelJSONAcceptanceTests(unittest.TestCase):
             legacy_patch = patch('object_core.providers.avian_semantic._chest_indices',
                 side_effect=lambda mesh,dimensions,vertices: [i for i,v in enumerate(vertices)
                     if _selected('chest',v,dimensions)])
+        elif blended:
+            legacy_patch = nullcontext()
         else:
             module = 'human_semantic' if key == 'human' else 'quadruped_semantic'
             legacy_patch = patch('object_core.providers.' + module + '._blend_region_transform',
                 side_effect=lambda vertices,faces,indices,args: _transform(vertices,indices,args))
         # Reproduce the previously persisted profile exactly.
-        with legacy_patch:
+        limit_patch = (patch('object_core.providers.human_semantic._limit_shoulder_displacement',
+                             side_effect=lambda vertices, faces, changed: changed)
+                       if key == 'human' else nullcontext())
+        with legacy_patch, limit_patch:
             legacy = provider.semantic_mesh(base,values,(operation,))
         root = create_character(legacy,scene=self.scene)
         root['object_type'] = key
@@ -196,3 +202,7 @@ class ModelJSONAcceptanceTests(unittest.TestCase):
 
     def test_legacy_avian_chest_is_preserved(self):
         self.prove_legacy_profile_is_preserved('avian','chest')
+
+
+    def test_previous_blended_human_shoulders_are_preserved(self):
+        self.prove_legacy_profile_is_preserved('human', 'shoulders', blended=True)

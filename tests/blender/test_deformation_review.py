@@ -111,3 +111,13 @@ class DeformationReviewTests(unittest.TestCase):
                             self.assertGreater(max((a-b).length for a,b in zip(after,before)), .01)
         finally:
             review._clear_scene()
+
+
+    def test_human_semantic_shoulder_pose_matrix(self):
+        from scripts.review_semantic_deformation import review_case
+        for sample in ('default', 'contrasting'):
+            for amount in (.6, 1.5):
+                with self.subTest(sample=sample, amount=amount):
+                    report, _ = review_case('human', sample, amount)
+                    self.assertEqual(len(report['poses']), 4)
+                    self.assertTrue(all(row['edge_limit_passed'] for row in report['poses']))

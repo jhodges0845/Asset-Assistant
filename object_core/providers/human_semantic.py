@@ -69,6 +69,28 @@ def _selected(target, vertex, proportions, bounds):
     return False
 
 
+
+def _limit_shoulder_displacement(vertices, faces, changed):
+    """Smoothly bound relative displacement between neighboring vertices.
+
+    A displacement gradient below 0.45 bounds neutral edge lengths to more
+    than 55% and less than 145% of their original lengths. Smooth saturation
+    retains monotonic profile strength without a hard amount clamp. This is
+    a construction constraint, not a substitute for posed-surface validation.
+    """
+    from math import dist, sqrt
+    shifts = [tuple(b-a for a,b in zip(v,w)) for v,w in zip(vertices, changed)]
+    maximum = 0.
+    for face in faces:
+        for a,b in zip(face, face[1:]+face[:1]):
+            length = dist(vertices[a], vertices[b])
+            if length > 1e-9:
+                maximum = max(maximum, dist(shifts[a], shifts[b])/length)
+    factor = 1./sqrt(1.+(maximum/.45)**2)
+    return [tuple(a+factor*d for a,d in zip(vertex, shift))
+            for vertex,shift in zip(vertices, shifts)]
+
+
 def _profile(vertices, indices, target, arguments, proportions, bounds, faces):
     profile = arguments.get("profile")
     if not profile:
@@ -84,7 +106,8 @@ def _profile(vertices, indices, target, arguments, proportions, bounds, faces):
             "z": 1.0,
         })
     if target == "shoulders" and profile == "broad":
-        return _blend_region_transform(vertices, faces, indices, {"x": 1.0 + amount * 0.18, "y": 1.0, "z": 1.0})
+        changed = _blend_region_transform(vertices, faces, indices, {"x": 1.0 + amount * 0.18, "y": 1.0, "z": 1.0})
+        return _limit_shoulder_displacement(vertices, faces, changed)
     if target == "head" and profile == "oval":
         return _transform(vertices, indices, {"x": 0.96, "y": 0.96, "z": 1.0 + amount * 0.08})
     if target == "face" and profile == "narrow":

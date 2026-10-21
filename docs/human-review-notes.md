@@ -84,3 +84,44 @@ upper-arm weights on every torso-side join vertex, and exact authored arm weight
 Final numerical matrix: artifacts/shared-anatomy/human-join-weights-review/report.json.
 The broad local core run ended without a completion result and is not a pass;
 full CI on the PR remains the broader validation gate.
+
+
+## Shoulder profile deformation refinement (2026-10-21)
+
+Follow-up to the validated recipe-2 lower-body repair (PR #305). The remaining
+semantic screen had eight failures among 16 poses. Two independent mechanisms
+were confirmed: distant forearm weights deformed the shoulder collar during an
+elbow bend, and a strong localized broad profile compressed neutral surface edges
+before posing. Widening the selected shoulder region did not resolve the problem
+and is not part of the implementation.
+
+Human recipe 3 retains the shared weight solver and recipe-2 body constraint.
+Within authored arms, torso influence fades out by the upper-arm segment midpoint;
+forearm influence fades in between the midpoint and distal quarter. Influence
+removed from these regions transfers to the upper arm. Hands and lower-body
+ownership remain separate, and existing saved weights are never rewritten.
+
+Only shoulders/broad receives a smooth bound on neighboring displacement
+differences. The existing transform and selected region remain; its displacement
+is scaled by 1/sqrt(1+(maximum_gradient/0.45)^2). For nondegenerate neutral edges
+this bounds length to more than 55% and less than 145% of the original. Increasing
+amount still increases broadening, with diminishing increments at strong values.
+Explicit scale, offset and other profiles are unchanged. This is a geometry
+constraint, not a replacement for the unchanged posed-edge acceptance screen.
+
+The production review is reproduced with scripts/review_semantic_deformation.py
+--providers human --render --output artifacts/shared-anatomy/human-shoulder-refined-review.
+Core tests protect monotonic strength, neutral-edge bounds, unchanged profile
+boundaries, shoulder locality and blended elbows. Blender tests exercise all
+16 default/contrasting poses at amounts 0.6/1.5 and preserve both earlier hard
+and blended shoulder edits: old incompatible edits stay intact and are blocked
+from automatic reconstruction. Explicitly rebuild generated weights or use fresh
+assets for recipe 3; do not overwrite artist-owned weights or saved shape edits.
+
+Glute fullness, foot silhouette, continuous motion, self-intersection and final
+artistic acceptance remain separate work.
+
+Validation completed: 25 focused core tests and 14 focused Blender tests pass.
+The production review passes all 16 paired poses with unchanged 0.5-2.0 edge
+ratio thresholds; observed ratios span 0.697851 to 1.418240. Both normal-strength
+paired renders were inspected. Full CI remains required before merging.

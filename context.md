@@ -32,6 +32,10 @@ Edited Avian validation covers 144 action cases and four Godot fixtures through 
 
 Packaged acceptance: `scripts/test_blender_package.py` covers isolated ZIP Human/Box workflows plus Avian external chest preview/apply, rig preservation and Idle/Walk/Flight. Remaining candidate lifecycle and publication gates are in `docs/publish-readiness-audit.md`.
 
+## Human shoulder refinement (2026-10-21)
+
+Recipe 3 builds on the recipe-2 lower-body isolation repair: authored arm weights now exclude distant elbow influence near shoulders. The broad shoulder profile smoothly bounds displacement gradients while retaining its selected region and monotonic strength. All 16 paired shoulder poses pass the unchanged screen; 25 core and 14 focused Blender tests pass. Old saved profiles/weights are preserved; incompatible old edits cannot be automatically reconstructed. See docs/human-review-notes.md (root-relative) and tests/blender/test_deformation_review.py.
+
 ## Human deformation repair (2026-10-20)
 
 Human recipe 2 localizes neck/upper-arm influence below their attachments using a smooth weight transfer to torso; authored arm weights remain unchanged. Fresh Blender poses reproduce and eliminate the reported lower-body pulling. Existing saved weights require explicit rebuilding. Glute/foot silhouette feedback remains open. See docs/human-review-notes.md (root-relative) and object_core/rigging/surface_human.py; regression: tests/blender/test_deformation_review.py.

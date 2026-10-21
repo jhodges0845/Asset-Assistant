@@ -73,3 +73,41 @@ def localize_upper_body_weights(mesh, skeleton, weights, arm_owners):
             vertices.append(tuple(BoneWeight(name, value / total) for name, value in adjusted.items()))
         result.append(SkinWeights(skin.part_name, tuple(vertices)))
     return tuple(result)
+
+
+def localize_arm_joint_weights(mesh, skeleton, weights, arm_owners):
+    """Keep the shoulder collar free of distant elbow deformation.
+
+    Project authored arm vertices along the upper-arm rest segment. Torso
+    influence fades by the segment midpoint; forearm influence starts there
+    and reaches the shared solver's full value in the distal quarter.
+    Removed influence transfers to the upper arm, retaining normalized weights.
+    """
+    bones = {b.name: b for b in skeleton.bones}
+    result = []
+    for part, skin in zip(mesh.parts, weights):
+        rows = list(skin.vertices)
+        for index, side in arm_owners.items():
+            upper = 'upper_arm.' + side
+            bone = bones[upper]
+            axis = tuple(b-a for a,b in zip(bone.head, bone.tail))
+            point = part.vertices[index]
+            t = sum((p-a)*d for p,a,d in zip(point, bone.head, axis)) / sum(d*d for d in axis)
+            row = {w.bone_name:w.weight for w in rows[index]}
+            changed = False
+            for name, factor in (
+                    ('forearm.' + side, max(0., min(1., (t-.5)/.25))),
+                    ('torso', 1.-max(0., min(1., (t-.25)/.25)))):
+                factor = factor * factor * (3.-2.*factor)
+                weight = row.get(name, 0.)
+                transfer = weight * (1.-factor)
+                if transfer:
+                    row[name] = weight-transfer
+                    row[upper] = row.get(upper, 0.)+transfer
+                    changed = True
+            if changed:
+                total = sum(row.values())
+                rows[index] = tuple(BoneWeight(name, value/total)
+                                    for name,value in row.items() if value > 0.)
+        result.append(SkinWeights(skin.part_name, tuple(rows)))
+    return tuple(result)

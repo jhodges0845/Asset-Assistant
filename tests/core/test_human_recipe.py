@@ -21,7 +21,7 @@ class HumanRecipeTests(unittest.TestCase):
         anatomy = mesh_builder.call_args.args[1]
         self.assertIs(anatomy, rig_builder.call_args.args[0])
         self.assertTrue(anatomy is human._human_anatomy(**values), "normalized calls must reuse anatomy")
-        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '2'))
+        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '3'))
         self.assertEqual(dict(anatomy.parameters), values)
         self.assertEqual(16, sum(len(chain.bones) for chain in anatomy.chains))
 
@@ -90,9 +90,13 @@ class HumanRecipeTests(unittest.TestCase):
         skeleton = human._human_skeleton(**values)
         anatomy = human._human_anatomy(**values)
         with patch.object(human, 'localize_upper_body_weights',
+                          side_effect=lambda mesh, skeleton, weights, owners: weights), \
+             patch.object(human, 'localize_arm_joint_weights',
                           side_effect=lambda mesh, skeleton, weights, owners: weights):
             original = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
-        repaired = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
+        owners = {i:r.name.split('.')[-1] for r in anatomy.regions
+                  if r.name.startswith('arm.') for i in r.vertex_indices}
+        repaired = human.localize_upper_body_weights(mesh, skeleton, (original,), owners)[0]
         arms = {i for r in anatomy.regions if r.name.startswith('arm.') for i in r.vertex_indices}
         for i in arms:
             self.assertEqual(repaired.vertices[i], original.vertices[i])
@@ -108,6 +112,36 @@ class HumanRecipeTests(unittest.TestCase):
             for side in ('left', 'right'):
                 name = 'upper_arm.' + side
                 self.assertAlmostEqual(before.get(name, 0), after.get(name, 0), places=12)
+
+
+    def test_shoulder_collar_has_no_remote_forearm_influence(self):
+        values = dict(height_cm=180, weight_kg=95, body_type='average')
+        mesh = human._human_mesh(**values)
+        skeleton = human._human_skeleton(**values)
+        anatomy = human._human_anatomy(**values)
+        weights = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
+        bones = {b.name:b for b in skeleton.bones}
+        collars = 0
+        blended_elbows = 0
+        for region in anatomy.regions:
+            if not region.name.startswith('arm.'):
+                continue
+            side = region.name.split('.')[-1]
+            bone = bones['upper_arm.'+side]
+            axis = tuple(b-a for a,b in zip(bone.head, bone.tail))
+            for i in region.vertex_indices:
+                point = mesh.parts[0].vertices[i]
+                t = sum((p-a)*d for p,a,d in zip(point,bone.head,axis))/sum(d*d for d in axis)
+                row = {w.bone_name:w.weight for w in weights.vertices[i]}
+                if t <= .5:
+                    self.assertNotIn('forearm.'+side, row)
+                    collars += 1
+                if t >= .5:
+                    self.assertNotIn('torso', row)
+                if .9 < t < 1.1 and 'upper_arm.'+side in row and 'forearm.'+side in row:
+                    blended_elbows += 1
+        self.assertGreater(collars, 100)
+        self.assertGreater(blended_elbows, 10)
 
 
 if __name__ == '__main__':

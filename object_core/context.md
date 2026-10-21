@@ -10,6 +10,10 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 Plan: [../docs/shared-anatomy-alpha-plan.md](../docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now resolve shared anatomy contracts; Avian implementation is complete for the documented review shapes; artistic review and final canine visual acceptance remain open. The plan supersedes older Human-only milestone sequencing.
 
+## Human shoulder refinement (2026-10-21)
+
+Recipe 3 builds on the recipe-2 lower-body isolation repair: authored arm weights now exclude distant elbow influence near shoulders. The broad shoulder profile smoothly bounds displacement gradients while retaining its selected region and monotonic strength. All 16 paired shoulder poses pass the unchanged screen; 25 core and 14 focused Blender tests pass. Old saved profiles/weights are preserved; incompatible old edits cannot be automatically reconstructed. See docs/human-review-notes.md (root-relative) and tests/blender/test_deformation_review.py.
+
 ## Human deformation repair (2026-10-20)
 
 Human recipe 2 localizes neck/upper-arm influence below their attachments using a smooth weight transfer to torso; authored arm weights remain unchanged. Fresh Blender poses reproduce and eliminate the reported lower-body pulling. Existing saved weights require explicit rebuilding. Glute/foot silhouette feedback remains open. See docs/human-review-notes.md (root-relative) and object_core/rigging/surface_human.py; regression: tests/blender/test_deformation_review.py.

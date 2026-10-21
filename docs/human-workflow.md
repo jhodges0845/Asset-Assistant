@@ -38,8 +38,10 @@ Within `providers/human.py`, read `_neutral_surface_anatomy_data`, `_human_anato
 `_human_skeleton`, `_surface_skin_weights`, then `HumanProvider`.
 The caches share immutable core data keyed by recipe/version and normalized controls. Edited meshes recompute weights; arm
 ownership follows topology so wrist movement cannot pull nearby hip vertices.
-Human recipe 2 also tapers remote neck/upper-arm weights into torso below their
-attachments; saved weights require explicit rebuilding.
+Human recipe 3 retains the recipe-2 neck/upper-arm torso taper and localizes elbow
+influence within authored arms. Saved weights require explicit rebuilding. The
+broad shoulder profile uses a smooth displacement-gradient bound; previous
+incompatible profile geometry is preserved and blocked from regeneration.
 
 The geometry builder (`HumanSurfaceBuilder`) is an implementation detail, not a
 registered asset provider. Standalone investigation scripts can call it directly.
