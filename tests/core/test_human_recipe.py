@@ -21,7 +21,7 @@ class HumanRecipeTests(unittest.TestCase):
         anatomy = mesh_builder.call_args.args[1]
         self.assertIs(anatomy, rig_builder.call_args.args[0])
         self.assertTrue(anatomy is human._human_anatomy(**values), "normalized calls must reuse anatomy")
-        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '1'))
+        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '2'))
         self.assertEqual(dict(anatomy.parameters), values)
         self.assertEqual(16, sum(len(chain.bones) for chain in anatomy.chains))
 

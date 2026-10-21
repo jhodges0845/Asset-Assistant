@@ -237,3 +237,45 @@ a tested candidate, not yet a shipping importer integration. Bone-head parity
 does not prove distal orientation, skinned-surface contact, or visual quality.
 The short-wide shape is a stress case with a flattened torso, not an accepted
 canine design.
+
+## Current-main short-wide diagnosis (2026-10-20)
+
+Reproduced with Blender 5.2.1 at clean commit
+`7211654b733bc3c5864cdc36d5cdd1f62eec8eb5`, recipe 16 (17,218 vertices,
+17,216 faces, 19 bones). Existing `scripts/render_canine_review.py` produced
+`artifacts/shared-anatomy/canine-current-neutral.png` and
+`canine-current-walk.png`, with adjacent JSON provenance. Both renders completed
+successfully. The Walk sample is phase 0.1 at strength 1.
+
+The disk-like torso is already present in the unrigged provider mesh; the sampled
+Walk pose retains that silhouette. This isolates the observed flattening to the
+neutral proportions, rather than animation causing it. It does not establish
+that every pose is deformation-free.
+
+The stress inputs combine body length 25 cm, shoulder height 15 cm, body width
+55 cm, head length 8 cm and tail length 5 cm. `CanineRecipe.resolve` derives torso
+depth from `shoulder_height_cm * 0.42` while lateral size follows the independent
+width control. Its torso sections have width/depth ratios of 8.57–9.63; the fore
+torso section is 59.4 cm wide by 6.93 cm deep. Provider validation checks each
+parameter's range independently; it does not promise canine-like proportions
+for every combination of endpoints.
+
+No production geometry, rig, weights or parameter validation changed. Preserve
+this corner as a robustness case, and do not use its successful contact tests as
+artistic acceptance. A future proportional-envelope rule would be a deliberate
+artist-control/product decision, not an animation repair. Default and contrasting
+references still need continuous artistic review. At the sampled Walk phase,
+all four limb clearance reports have zero penetration; this is a one-phase check,
+not a replacement for the existing dense gait sweeps.
+
+Reproduce in a fresh Blender background process with `--python-exit-code 1
+--python scripts/render_canine_review.py`, then pass after `--`:
+
+- `--sample short-wide --modes clay --output artifacts/shared-anatomy/canine-current-neutral.png`
+- `--sample short-wide --modes clay --gait walk --phase 0.1 --output artifacts/shared-anatomy/canine-current-walk.png`
+
+Additional frame review (2026-10-20): inspected default Walk frames 0/7/15/22
+and contrasting Run frames 0/4/8/12 from the existing godot-grid fixtures. No
+obvious detached limbs or catastrophic torso collapse appears in those samples.
+This is sampled phase inspection, not continuous playback approval; the existing
+three-cycle videos and final artistic gate remain open.

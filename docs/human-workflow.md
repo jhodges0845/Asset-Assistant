@@ -30,7 +30,7 @@ asset, not from changing the Create dropdown.
 | Shape surface | `object_core/geometry/human_shaping.py` | Applies the recipe body-control mapping to the audited neutral mesh. |
 | Construct rig | `object_core/rigging/surface_human.py` | Converts resolved chains and landmarks into portable bones. |
 | Attach rig | `blender_adapter/workflow.py` | Reads saved asset parameters and attaches the provider skeleton/weights. |
-| Calculate weights | `object_core/rigging/deforming.py` | Uses shared weighting with Human's arm candidate restrictions. |
+| Calculate weights | `object_core/rigging/deforming.py` | Uses shared weighting with Human arm restrictions and attachment-local torso taper. |
 | Animate | `blender_adapter/animation.py` and animation modules | Turns provider motion into editable Blender actions. |
 | Modify | `object_core/providers/human_semantic.py` | Uses resolved landmarks and authored limb ownership; preview/apply stays explicit in the adapter. |
 
@@ -38,6 +38,8 @@ Within `providers/human.py`, read `_neutral_surface_anatomy_data`, `_human_anato
 `_human_skeleton`, `_surface_skin_weights`, then `HumanProvider`.
 The caches share immutable core data keyed by recipe/version and normalized controls. Edited meshes recompute weights; arm
 ownership follows topology so wrist movement cannot pull nearby hip vertices.
+Human recipe 2 also tapers remote neck/upper-arm weights into torso below their
+attachments; saved weights require explicit rebuilding.
 
 The geometry builder (`HumanSurfaceBuilder`) is an implementation detail, not a
 registered asset provider. Standalone investigation scripts can call it directly.

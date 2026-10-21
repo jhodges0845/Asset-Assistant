@@ -18,6 +18,8 @@ Paw-review baseline: `scripts/canine_review_metrics.py` measures per-limb ground
 
 Canine contact gait: `object_core/animation/contact.py` supplies stance/swing targets; `object_core/providers/quadruped_gait.py` solves joint rotations against the weighted sole, with editable root crouch and bounded vertical compression synchronized to the footfalls. Walk uses four footfalls; Run is a diagonal trot. The three documented shapes have no penetration in Blender samples over 127 intervals, with fixed-toe drift below 0.00156 cm for forepaws and 0.00006 cm for hind paws in the toe-off checkpoint. Gait reports track fixed sole/toe vertices and contiguous near-ground episodes (schema 5), separating lifted-point movement from sampled ground proximity; these remain diagnostics rather than physical contact-slip proof. The three-cycle review helper is `scripts/create_canine_motion_review.py`. All four paws add late-stance heel lift about a fixed forward toe target, then curl during swing. Reports distinguish expected sole roll from fixed-toe drift. Walk now adds bounded lateral sway toward stance support, counter-translated at the upper limbs to preserve paw contact; Idle and Run explicitly reset those offsets. Godot skeletal playback passes with diagnostic and source-grid imports; four-view renders and sampled canonical skin-contact checks pass; saved-scene skin checks and isolated resource-pack playback also pass; see `docs/canine-godot-playback.md`. Final multi-shape motion/visual acceptance remains open.
 
+Short-wide Canine diagnosis: current-main neutral and Walk renders confirm the disk-like torso originates in extreme independent width/height inputs, before rigging. This remains a robustness sample, not an accepted canine reference. See the final section of docs/canine-godot-playback.md for reproduction and limits.
+
 ## Active Avian work
 
 Avian recipe 17 completes the current bird implementation pass: tapered beak, thin tail fan, grounded clawed feet, folded Idle/Walk wings and articulated Flight. Walk has reach-bounded stride, bounded lift/body compression and head/tail response. Flight caps wing excursion and uses 64 intervals. All 72 shape/clip/strength cases pass sampled crossing/contact/closure checks; canonical folded-to-Flight blends pass. Both reference shapes have three-cycle review artifacts and Godot skeletal playback proofs. See `docs/avian-review.md` for metrics, explicit regeneration and limits. Artistic review, cross-provider Modify acceptance and release hardening remain separate gates. Human feedback remains deferred in `docs/human-review-notes.md`.
@@ -26,9 +28,13 @@ Avian recipe 17 completes the current bird implementation pass: tapered beak, th
 
 External Model JSON preview/apply, ownership blocking, parameter/semantic integration, component preservation and fresh-process persistence have operator proofs for Human, Canine and Avian. Human/Canine boundary blending and Avian body-owned chest selection are implemented; legacy incompatible edits remain preserved and blocked from regeneration.
 
-Edited Avian validation covers 144 action cases and four Godot fixtures through rest, skeletal, posed-skin and saved-scene checks. The local gallery contains 48 phase sheets and 12 verified three-cycle videos. Final artistic acceptance remains open; Human baseline deformation findings remain deferred. See [docs/cross-provider-acceptance.md](docs/cross-provider-acceptance.md) for evidence, limits and reproduction commands.
+Edited Avian validation covers 144 action cases and four Godot fixtures through rest, skeletal, posed-skin and saved-scene checks. The local gallery contains 48 phase sheets and 12 verified three-cycle videos. Final artistic acceptance remains open; Human baseline weight leakage is repaired below; silhouette feedback remains open. See [docs/cross-provider-acceptance.md](docs/cross-provider-acceptance.md) for evidence, limits and reproduction commands.
 
 Packaged acceptance: `scripts/test_blender_package.py` covers isolated ZIP Human/Box workflows plus Avian external chest preview/apply, rig preservation and Idle/Walk/Flight. Remaining candidate lifecycle and publication gates are in `docs/publish-readiness-audit.md`.
+
+## Human deformation repair (2026-10-20)
+
+Human recipe 2 localizes neck/upper-arm influence below their attachments using a smooth weight transfer to torso; authored arm weights remain unchanged. Fresh Blender poses reproduce and eliminate the reported lower-body pulling. Existing saved weights require explicit rebuilding. Glute/foot silhouette feedback remains open. See docs/human-review-notes.md (root-relative) and object_core/rigging/surface_human.py; regression: tests/blender/test_deformation_review.py.
 
 ## Current Human V2 integration (2026-09-20)
 
@@ -63,7 +69,7 @@ Read next when architecture matters:
 
 ## Current product focus
 
-Human feedback remains deferred while cross-provider acceptance is active.
+Human glute/foot silhouette feedback remains open; the reproduced upper-body weight leakage is repaired.
 `object_core/providers/human.py` composes the mathematical
 surface, surface-aligned skeleton, cached skin weights and semantic controls.
 The mathematical surface builder is internal; Human is the only Human UI option.
