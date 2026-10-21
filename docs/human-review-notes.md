@@ -125,3 +125,9 @@ Validation completed: 25 focused core tests and 14 focused Blender tests pass.
 The production review passes all 16 paired poses with unchanged 0.5-2.0 edge
 ratio thresholds; observed ratios span 0.697851 to 1.418240. Both normal-strength
 paired renders were inspected. Full CI remains required before merging.
+
+Full-suite follow-up: the initial recipe-3 CI run exposed two stale tests in
+tests/blender/test_semantic_deformation.py that required the old Human defect.
+Current profiles now use strict screening for all three providers. The rejection
+and scene-cleanup regression explicitly reconstructs the old unbounded shoulder
+profile, preserving a meaningful negative case without accepting a live defect.
