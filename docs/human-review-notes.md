@@ -50,8 +50,10 @@ a worst arm case carried 50.7% upper-arm weight on the lower torso.
 The shared solver includes parent/child neighbors of the nearest bone. For the
 long torso bone, that neighborhood includes neck and upper arms even far below
 their attachments. Human recipe 2 now retains the shared solver and applies a
-Human-only smooth taper over the quarter-torso-height band below each attachment,
-transferring removed influence to torso. Authored arm-chain weights are unchanged;
+Human-only smooth taper transferring remote influence to torso. Neck influence
+fades over a quarter-torso-height band. Upper-arm influence fades from the torso
+midpoint to the lowest authored shoulder-join height, preserving original
+upper-arm weights on both sides of that join. Authored arm-chain weights are unchanged;
 neutral geometry and rest bones are unchanged. Saved meshes, weights and Actions
 are not rewritten. Existing assets need an explicit generated-weight rebuild or
 a freshly generated/rigged asset to receive the correction; preserve artist work.
@@ -71,8 +73,14 @@ Validation: the three focused Blender deformation tests and all nine Model JSON
 acceptance tests pass. The default amount-0.6 semantic pose comparison passes all
 four poses, and its rendered combined pose no longer shows the diagonal torso/hip
 pull. The full 16-pose Human semantic screen remains FAILED: eight cases already
-failed in the previous review, and the same eight fail now. At amount 1.5, the
-minimum edited/baseline edge ratio in the shoulder pose worsens from 0.497 to 0.391
-(default) and 0.361 to 0.248 (contrasting). These strong-edit compression findings
-remain open; do not treat this isolated-weight repair as complete Human quality
+failed in the previous review, and the same eight fail now. The initial bone-head-based taper worsened two strong-edit shoulder compression
+ratios. Using the authored shoulder join instead restores both baseline values
+(0.497 default, 0.361 contrasting); the refinement introduces no additional
+failing cases in this matrix. The pre-existing strong-edit findings remain open; do not treat this isolated-weight repair as complete Human quality
 acceptance or relax the screening thresholds.
+
+The shoulder-join preservation regression compares repaired versus original
+upper-arm weights on every torso-side join vertex, and exact authored arm weights.
+Final numerical matrix: artifacts/shared-anatomy/human-join-weights-review/report.json.
+The broad local core run ended without a completion result and is not a pass;
+full CI on the PR remains the broader validation gate.
