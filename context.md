@@ -32,6 +32,10 @@ Edited Avian validation covers 144 action cases and four Godot fixtures through 
 
 Packaged acceptance: `scripts/test_blender_package.py` covers isolated ZIP Human/Box workflows plus Avian external chest preview/apply, rig preservation and Idle/Walk/Flight. Remaining candidate lifecycle and publication gates are in `docs/publish-readiness-audit.md`.
 
+## Human actual-action baseline (2026-10-22)
+
+Foot PR #309 has six green CI jobs. Actual Walk/Run sampling still exposes neck-base compression, distal-arm stretching, Walk floor penetration and an entirely airborne Run cycle. Motion acceptance remains blocked. Tool: scripts/review_human_motion.py; measured values and next repair order: docs/human-review-notes.md.
+
 ## Human foot refinement (2026-10-21)
 
 Recipe 5 shares the foot surface/toe profile, shortens default feet by 13.45%, raises instep/heel volume and adds a local ankle weight blend. Heel/ball grounding, unchanged body topology, toe-bone alignment, ankle poses and legacy-mesh preservation have focused regressions. Explicit fresh generation/rebuilding is required; saved artist assets are preserved. Review: docs/human-review-notes.md; scripts/render_human_review.py supports --region left-foot and --foot-bend. Final artistic/continuous-motion approval remains open.

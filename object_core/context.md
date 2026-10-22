@@ -10,6 +10,10 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 Plan: [../docs/shared-anatomy-alpha-plan.md](../docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now resolve shared anatomy contracts; Avian implementation is complete for the documented review shapes; artistic review and final canine visual acceptance remain open. The plan supersedes older Human-only milestone sequencing.
 
+## Human actual-action baseline (2026-10-22)
+
+Foot PR #309 has six green CI jobs. Actual Walk/Run sampling still exposes neck-base compression, distal-arm stretching, Walk floor penetration and an entirely airborne Run cycle. Motion acceptance remains blocked. Tool: scripts/review_human_motion.py; measured values and next repair order: docs/human-review-notes.md.
+
 ## Human foot refinement (2026-10-21)
 
 Recipe 5 shares the foot surface/toe profile, shortens default feet by 13.45%, raises instep/heel volume and adds a local ankle weight blend. Heel/ball grounding, unchanged body topology, toe-bone alignment, ankle poses and legacy-mesh preservation have focused regressions. Explicit fresh generation/rebuilding is required; saved artist assets are preserved. Review: docs/human-review-notes.md; scripts/render_human_review.py supports --region left-foot and --foot-bend. Final artistic/continuous-motion approval remains open.

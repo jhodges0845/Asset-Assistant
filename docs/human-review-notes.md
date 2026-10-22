@@ -238,3 +238,32 @@ remain outside this blockout-foot refinement.
 
 Validation (2026-10-22): 26 focused core tests and all 19 Blender deformation /
 Model JSON acceptance tests pass. Full CI remains the merge gate.
+
+## Actual-action motion baseline (2026-10-22)
+
+Foot PR #309 passed all six CI jobs (run 39773820643). Those checks do not
+establish continuous motion acceptance. scripts/review_human_motion.py samples
+actual Blender Walk/Run actions on fresh recipe-5 assets at 64 intervals per
+cycle, with source hashes and loop closure. Reproduce with Blender background:
+--python scripts/review_human_motion.py -- --output artifacts/shared-anatomy/human-motion-review/baseline.json
+
+At strength 1, 180/95 Walk reaches -0.1881 cm floor clearance; 160/55 reaches
+-0.0908 cm. The lowest of both feet rises to 2.6972 / 2.9366 cm respectively.
+Run stays airborne at every sample: minimum clearance 3.0172 / 3.8839 cm,
+with the lowest foot rising to 26.1831 / 26.3105 cm. All four loops close exactly.
+These in-place clips have no demonstrated ground-contact schedule; Run flight
+phases are expected, but an entirely airborne cycle is not accepted locomotion.
+
+Whole-mesh edge ratios expose additional defects beyond the focused pose tests:
+Walk 0.1424..2.0959 (180/95), 0.1294..2.3333 (160/55); Run
+0.1549..6.8797 and 0.1294..6.7554. Worst compression is at body-owned neck-base
+edges 4878/4879 or 4909/4910 (83.6% height). Worst Run stretch is authored
+arm.right edge 38941/38942 near the wrist. These are measured diagnoses, not
+proof of self-intersection. Source walk.py also alternates knee flexion sign.
+
+Next work: isolate neck-base and distal-arm weight transitions under combined
+actions, correct Walk knee direction, then implement and validate grounded Human
+locomotion. Do not mask these defects with global floor offsets or weaken screens.
+The sampler is diagnostic (exit success means measurement completed); it does
+not mark these failing motion results as acceptance. Samples cannot bound peaks
+between samples, prove contact slip, or replace visual review.
