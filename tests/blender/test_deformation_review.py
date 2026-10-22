@@ -131,3 +131,13 @@ class DeformationReviewTests(unittest.TestCase):
                     self.assertEqual(report['target'], 'glutes')
                     self.assertEqual(len(report['poses']), 4)
                     self.assertTrue(all(row['edge_limit_passed'] for row in report['poses']))
+
+    def test_absolute_hip_deformation_has_no_weight_switch_spikes(self):
+        from scripts.review_human_hip_deformation import review_hips
+        for height, weight in ((180,95),(160,55)):
+            report = review_hips(height, weight)
+            self.assertGreater(report['hip_edges'], 8000)
+            for row in report['poses']:
+                with self.subTest(height=height, side=row['side'], angle=row['angle']):
+                    self.assertGreater(row['min_edge_ratio'], .5)
+                    self.assertLess(row['max_edge_ratio'], 2.)

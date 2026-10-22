@@ -162,3 +162,40 @@ X=-1.2). The relative screen passes because it compares against that already
 poor baseline. This is not visual or motion acceptance. Diagnose hip weighting
 before further foot polish; foot length/instep/heel and final glute anatomy remain
 open. The paired images and report above preserve this evidence.
+
+## Hip-weight continuity repair (2026-10-21)
+
+The prior glute review revealed a baseline rig defect, independently of the new
+shape control. The shared nearest-bone solver flips left/right influence at X=0
+and enables its torso/thigh bridge inside a hard radius. At the default pelvis,
+adjacent vertices only 0.1304 cm apart jumped by 45.1 percentage points of left
+thigh weight. Absolute posed/rest hip-edge stretch reached 34.91x across the
+180/95 and 160/55 reference bodies.
+
+Human recipe 4 adds a continuous local pelvis weight field after shared weighting:
+vertical torso/thigh blending, bilateral midline blending, and smooth transitions
+back to the existing weights above the pelvis and below the upper thigh. Authored
+arms and distal knee/ankle weights remain intact. The neutral mesh, topology and
+rest bones do not change. Existing saved meshes/weights/Actions are not rewritten;
+explicitly rebuild generated weights or create a fresh rig to receive the fix.
+
+scripts/review_human_hip_deformation.py measures absolute posed/rest edge ratios,
+not just semantic edits relative to an already-deformed baseline. Reproduce with
+Blender background/factory-startup --python scripts/review_human_hip_deformation.py
+-- --output artifacts/shared-anatomy/hip-after.json. All 12 forward/backward and
+combined hip/knee poses on both sides of both bodies are within 0.528802..1.441008.
+Maximum left-thigh weight gradient drops from 3.460/5.874 to 0.0822/0.1185 per cm.
+The original report is artifacts/shared-anatomy/hip-before.json.
+
+Matched visual evidence: the old human-glute-review/human-combined-before.png
+contains sharp folds. The new human-hip-refined-review/human-combined-before.png
+shows a continuous hip join. Both directories are under artifacts/shared-anatomy.
+In these paired semantic reports, 'before' means before the glute shape edit,
+not before the code change. The new combined render has been visually inspected.
+Relative glute and shoulder screening remains required alongside the absolute
+hip regression. Final continuous motion, collision checks and anatomical approval
+are still open; foot silhouette is the next geometry task.
+
+Validation: all 14 focused core tests and 17 Blender deformation/Model JSON
+tests pass. The rendered 16-pose glute screen also passes with recipe-4 weights.
+Full CI remains the merge gate.

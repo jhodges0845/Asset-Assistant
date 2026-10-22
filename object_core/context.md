@@ -10,9 +10,13 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 Plan: [../docs/shared-anatomy-alpha-plan.md](../docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now resolve shared anatomy contracts; Avian implementation is complete for the documented review shapes; artistic review and final canine visual acceptance remain open. The plan supersedes older Human-only milestone sequencing.
 
+## Human hip-weight repair (2026-10-21)
+
+Recipe 4 replaces abrupt pelvis side/radius weight switches with a local continuous torso/thigh field. Absolute hip-edge ratios improve from up to 34.91x stretching to 0.529..1.442 across 12 reference poses; neutral geometry, rest bones, authored arms and distal weights are preserved. Existing saved weights require explicit rebuilding. Evidence and remaining foot/motion work: docs/human-review-notes.md; regression tool: scripts/review_human_hip_deformation.py.
+
 ## Human glute control and hip review (2026-10-21)
 
-Modify exposes glutes/full through Model JSON preview/apply, preserving neutral generation and independent waist/width/arm ownership. The 16-pose relative screen passes, but paired renders reveal severe pre-existing hip-junction folding in the unedited baseline. Hip-weight diagnosis precedes further foot polish; final anatomy/motion acceptance remains open. See docs/human-review-notes.md and scripts/review_semantic_deformation.py --human-target glutes.
+Modify exposes glutes/full through Model JSON preview/apply, preserving neutral generation and independent waist/width/arm ownership. The 16-pose relative screen passes, but paired renders reveal severe pre-existing hip-junction folding in the unedited baseline. The hip defect is repaired in recipe 4 above; final anatomy/motion acceptance remains open. See docs/human-review-notes.md and scripts/review_semantic_deformation.py --human-target glutes.
 
 ## Human shoulder refinement (2026-10-21)
 

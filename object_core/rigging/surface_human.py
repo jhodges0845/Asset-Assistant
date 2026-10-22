@@ -111,3 +111,44 @@ def localize_arm_joint_weights(mesh, skeleton, weights, arm_owners):
                                     for name,value in row.items() if value > 0.)
         result.append(SkinWeights(skin.part_name, tuple(rows)))
     return tuple(result)
+
+
+def blend_hip_weights(mesh, skeleton, weights, arm_owners):
+    """Replace discontinuous nearest-bone hip switches with a continuous field.
+
+    Blend torso to thighs vertically and both thighs across the pelvic midline.
+    Smoothly restore the shared solver below the upper thigh and above the pelvis;
+    authored arms and distal joint weights remain unchanged.
+    """
+    bones = {bone.name: bone for bone in skeleton.bones}
+    left, right = bones['upper_leg.left'], bones['upper_leg.right']
+    hip_z = (left.head[2] + right.head[2]) * .5
+    thigh = ((left.head[2]-left.tail[2]) + (right.head[2]-right.tail[2])) * .5
+    half_width = abs(left.head[0]-right.head[0]) * .25
+
+    def smooth(t):
+        t = max(0., min(1., t))
+        return t*t*(3.-2.*t)
+
+    result = []
+    for part, skin in zip(mesh.parts, weights):
+        rows = []
+        for index, (point, original) in enumerate(zip(part.vertices, skin.vertices)):
+            x, _, z = point
+            blend = (smooth((z-(hip_z-.65*thigh))/(.2*thigh))
+                     * (1.-smooth((z-(hip_z+.4*thigh))/(.15*thigh))))
+            if index in arm_owners or blend == 0.:
+                rows.append(original)
+                continue
+            leg = 1.-smooth((z-(hip_z-.45*thigh))/(.65*thigh))
+            side = smooth((x+half_width)/(2.*half_width))
+            target = {'torso': 1.-leg, 'upper_leg.left': leg*side,
+                      'upper_leg.right': leg*(1.-side)}
+            row = {w.bone_name: w.weight*(1.-blend) for w in original}
+            for name, value in target.items():
+                row[name] = row.get(name, 0.) + blend*value
+            total = sum(row.values())
+            rows.append(tuple(BoneWeight(name, value/total)
+                              for name,value in row.items() if value > 0.))
+        result.append(SkinWeights(skin.part_name, tuple(rows)))
+    return tuple(result)

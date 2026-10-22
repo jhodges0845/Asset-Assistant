@@ -21,7 +21,7 @@ class HumanRecipeTests(unittest.TestCase):
         anatomy = mesh_builder.call_args.args[1]
         self.assertIs(anatomy, rig_builder.call_args.args[0])
         self.assertTrue(anatomy is human._human_anatomy(**values), "normalized calls must reuse anatomy")
-        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '3'))
+        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '4'))
         self.assertEqual(dict(anatomy.parameters), values)
         self.assertEqual(16, sum(len(chain.bones) for chain in anatomy.chains))
 
@@ -142,6 +142,35 @@ class HumanRecipeTests(unittest.TestCase):
                     blended_elbows += 1
         self.assertGreater(collars, 100)
         self.assertGreater(blended_elbows, 10)
+
+
+    def test_hip_weights_are_continuous_and_preserve_unrelated_regions(self):
+        from math import dist
+        for height, weight in ((180,95),(160,55)):
+            values = dict(height_cm=height, weight_kg=weight, body_type='average')
+            mesh = human._human_mesh(**values)
+            skeleton = human._human_skeleton(**values)
+            anatomy = human._human_anatomy(**values)
+            with patch.object(human, 'blend_hip_weights', side_effect=lambda m,s,w,o:w):
+                original = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
+            owners = {i:r.name.split('.')[-1] for r in anatomy.regions
+                      if r.name.startswith('arm.') for i in r.vertex_indices}
+            repaired = human.blend_hip_weights(mesh,skeleton,(original,),owners)[0]
+            rows = [{w.bone_name:w.weight for w in row} for row in repaired.vertices]
+            part = mesh.parts[0]
+            for i,point in enumerate(part.vertices):
+                if i in owners or point[2] < .36*height or point[2] > .71*height:
+                    self.assertEqual(original.vertices[i], repaired.vertices[i])
+                self.assertAlmostEqual(sum(rows[i].values()), 1.)
+            edges = {tuple(sorted((a,b))) for f in part.faces for a,b in zip(f,f[1:]+f[:1])
+                     if a not in owners and b not in owners
+                     and .44*height < part.vertices[a][2] < .64*height
+                     and .44*height < part.vertices[b][2] < .64*height}
+            for a,b in edges:
+                length = dist(part.vertices[a],part.vertices[b])
+                if length > 1e-7:
+                    jump = abs(rows[a].get('upper_leg.left',0)-rows[b].get('upper_leg.left',0))
+                    self.assertLess(jump/length, .25)
 
 
 if __name__ == '__main__':
