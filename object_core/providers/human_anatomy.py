@@ -5,11 +5,11 @@ Resolution precedes the mesh and skeleton. Human-specific surface math remains
 in geometry; the generic anatomy contract knows nothing about Human body plans.
 """
 from dataclasses import dataclass
-from math import pi, sin
 from typing import Optional
 
 from ..anatomy import AnatomyConnection, AnatomyRegion, JointChain, Landmark, ResolvedAnatomy
 from ..geometry.human_shaping import shape_surface_point
+from ..geometry.surface_human import HUMAN_FOOT_FLOOR, human_foot_profile
 from ..models import BodyType, HumanoidSpec
 from ..models.proportions import HumanoidProportions
 from ..proportions import generate_proportions
@@ -36,7 +36,7 @@ class HumanRecipe:
     """One Human resolution; regions come from audited neutral topology."""
     regions: tuple = ()
     recipe_id = 'human'
-    recipe_version = '4'
+    recipe_version = '5'
 
     def __post_init__(self):
         regions = tuple(self.regions)
@@ -56,11 +56,8 @@ class HumanRecipe:
         reference_height = min(MAX_HEIGHT_CM, max(MIN_HEIGHT_CM, height))
         rig_reference = generate_proportions(HumanoidSpec(reference_height, 95.0, BodyType.AVERAGE))
         surface_reference = generate_proportions(HumanoidSpec(spec.height_cm, 95.0, BodyType.AVERAGE))
-        floor = min(
-            0.09 - 0.059 * min((k / 32) / 0.24, 1) - 0.003 * (k / 32)
-            - (0.026 * (1 - k / 32) + 0.014 * (k / 32)) * sin(pi / 2 * min(1, k / 16))
-            for k in range(1, 33)
-        )
+        floor = HUMAN_FOOT_FLOOR
+        toe_y, toe_z, _, _, _ = human_foot_profile(1.)
 
         def point(x, y, z):
             return shape_surface_point(
@@ -83,7 +80,7 @@ class HumanRecipe:
             leg_names = tuple(name + '.' + side for name in ('hip', 'knee', 'ankle', 'toe'))
             leg_points = tuple(point(sign * x, y, z) for x, y, z in
                                ((0.089, 0.008, 0.965), (0.155, 0.008, 0.50),
-                                (0.187, 0.005, 0.09), (0.187, 0.174, 0.028)))
+                                (0.187, 0.005, 0.09), (0.187, toe_y, toe_z)))
             landmarks.extend(Landmark(name, p) for name, p in zip(arm_names, arm_points))
             landmarks.extend(Landmark(name, p) for name, p in zip(leg_names, leg_points))
             chains.append(JointChain('arm.' + side, arm_names,

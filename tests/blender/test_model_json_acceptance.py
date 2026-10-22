@@ -208,3 +208,34 @@ class ModelJSONAcceptanceTests(unittest.TestCase):
 
     def test_previous_blended_human_shoulders_are_preserved(self):
         self.prove_legacy_profile_is_preserved('human', 'shoulders', blended=True)
+
+    def test_previous_human_feet_are_preserved_and_regeneration_blocked(self):
+        from math import sin, pi
+        from unittest.mock import patch
+        from object_core.geometry.surface_human import generate_surface_human, _sample
+        from object_core.geometry.human_shaping import shape_human_surface
+        from object_core.providers.human import _human_anatomy
+        from object_core.modification import SemanticOperation, ModificationRequest, plan_modification
+        from blender_adapter.adapter import create_character
+        from blender_adapter.modification import inspect_generated_asset, apply_semantic_modification
+        def old_foot(t):
+            return (-.006+.18*t, .09-.059*min(t/.24,1)-.003*t,
+                    _sample([(0,.022),(.20,.031),(.65,.045),(.95,.039),(1,.032)],t)[0],
+                    .026*(1-t)+.014*t, pi/2*min(1,t*2))
+        values = dict(height_cm=180,weight_kg=95,body_type='average')
+        with patch('object_core.geometry.surface_human.human_foot_profile',side_effect=old_foot):
+            old = generate_surface_human()
+        mesh = shape_human_surface(old,_human_anatomy(**values))
+        root = create_character(mesh,scene=self.scene)
+        root['object_type'] = 'human'
+        for name,value in values.items(): root[name] = value
+        body = next(obj for obj in root.children if obj.type=='MESH')
+        before = tuple(tuple(v.co) for v in body.data.vertices)
+        snapshot = inspect_generated_asset(root)
+        self.assertFalse(snapshot.owns_geometry)
+        request = ModificationRequest(semantic_operations=(SemanticOperation(
+            'shape','glutes',(('profile','full'),('amount',.6))),))
+        plan = plan_modification(snapshot,request)
+        self.assertFalse(plan.safe_to_apply)
+        with self.assertRaises(ValueError): apply_semantic_modification(root,plan)
+        self.assertEqual(before,tuple(tuple(v.co) for v in body.data.vertices))

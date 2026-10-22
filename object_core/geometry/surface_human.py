@@ -54,6 +54,31 @@ def _sample(rows, x):
             return tuple(out)
 
 
+# Keep the established whole-body floor datum while refining only the feet.
+HUMAN_FOOT_FLOOR = min(
+    .09-.059*min((k/32)/.24,1)-.003*(k/32)
+    -(.026*(1-k/32)+.014*(k/32))*sin(pi/2*min(1,k/16))
+    for k in range(1,33))
+
+
+def human_foot_profile(t):
+    """One rest profile for the connected surface, floor and toe landmark (meters)."""
+    rx, horizontal, y, top, clearance = _sample([
+        (0., .022, .026, .005, .09, .09-HUMAN_FOOT_FLOOR),
+        (.25, .031, .012, .022, .078, 0.),
+        (.45, .037, 0., .056, .073, .006),
+        (.65, .044, 0., .094, .054, .003),
+        (.75, .043, 0., .114, .049, 0.),
+        (1., .031, 0., .150, .037, .003),
+    ], t)
+    bottom = HUMAN_FOOT_FLOOR + clearance
+    vertical = (top-bottom)*.5
+    z = (top+bottom)*.5
+    ry = sqrt(horizontal*horizontal + vertical*vertical)
+    angle = atan2(vertical, horizontal)
+    return y, z, rx, ry, angle
+
+
 class _Surface:
     def __init__(self): self.v=[];self.f=[]
     def ring(self, points):
@@ -172,9 +197,8 @@ def generate_surface_human(spec=SurfaceHumanSpec(), *, include_arm_indices=False
             if k==1:first_leg_rows[sign]=current
         # Ankle -> heel -> instep -> toe: one bent surface, no floating feet.
         for k in range(1,33):
-            t=k/32;rx=_sample([(0,.022),(.20,.031),(.65,.045),(.95,.039),(1,.032)],t)[0];ry=.026*(1-t)+.014*t
-            center=(sign*.187,-.006+.18*t,.09-.059*min(t/.24,1)-.003*t)
-            angle=pi/2*min(1,t*2)
+            y,z,rx,ry,angle=human_foot_profile(k/32)
+            center=(sign*.187,y,z)
             pts=[(center[0]+rx*cos(2*pi*j/n),center[1]+ry*sin(2*pi*j/n)*cos(angle),center[2]+ry*sin(2*pi*j/n)*sin(angle)) for j in range(n)]
             current=b.ring(pts);b.band(previous,current);previous=current
         b.cap(previous)

@@ -52,6 +52,9 @@ def _parse_args():
     parser.add_argument("--body-type", default="average")
     parser.add_argument("--glute-fullness", type=float, default=0.0,
                         help="Preview the independent glutes/full profile (0 to 1.5).")
+    parser.add_argument("--foot-bend", type=float, default=0.0,
+                        help="Left ankle X rotation in radians (-1.2 to 1.2).")
+    parser.add_argument("--region", choices=("full", "left-foot"), default="full")
     parser.add_argument("--samples", type=int, default=32)
     parser.add_argument("--resolution-x", type=int, default=1800)
     parser.add_argument("--resolution-y", type=int, default=900)
@@ -87,7 +90,33 @@ def _human_part(args):
             SemanticOperation("shape", "glutes", (("profile", "full"), ("amount", amount))),))
     if len(mesh.parts) != 1:
         raise RuntimeError("Human review renderer expects exactly one mesh part")
-    return mesh.parts[0]
+    part = mesh.parts[0]
+    rest_vertices = part.vertices
+    bend = getattr(args, "foot_bend", 0.)
+    if not math.isfinite(bend) or not -1.2 <= bend <= 1.2:
+        raise ValueError("Foot bend must be finite and in [-1.2, 1.2]")
+    if bend:
+        from blender_adapter.adapter import create_character
+        from scripts.review_semantic_deformation import evaluated, pose
+        from object_core.models import MeshPart
+        root = create_character(mesh,scene=bpy.context.scene,skeleton=provider.skeleton(values),
+                                skin_weights=provider.skin_weights(mesh,values))
+        try:
+            body = next(o for o in root.children if o.type == "MESH")
+            rig = next(o for o in root.children if o.type == "ARMATURE")
+            pose(rig,[("foot.left","x",bend)])
+            part = MeshPart(part.name,evaluated(body),part.faces,part.uvs)
+        finally:
+            _clear_scene()
+    if getattr(args, "region", "full") == "left-foot":
+        from object_core.models import MeshPart
+        selected = {i for i,(x,y,z) in enumerate(rest_vertices) if x > 0 and z < args.height_cm * .075}
+        faces = [face for face in part.faces if all(i in selected for i in face)]
+        used = sorted({i for face in faces for i in face})
+        remap = {index:i for i,index in enumerate(used)}
+        part = MeshPart(part.name, tuple(part.vertices[i] for i in used),
+                        tuple(tuple(remap[i] for i in face) for face in faces))
+    return part
 
 
 def _make_mesh_object(name, part):

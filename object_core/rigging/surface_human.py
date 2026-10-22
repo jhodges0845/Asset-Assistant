@@ -152,3 +152,30 @@ def blend_hip_weights(mesh, skeleton, weights, arm_owners):
                               for name,value in row.items() if value > 0.))
         result.append(SkinWeights(skin.part_name, tuple(rows)))
     return tuple(result)
+
+
+def blend_ankle_weights(mesh, skeleton, weights, leg_owners):
+    """Blend the refined heel/instep into the shin without compressing the sole."""
+    bones = {bone.name:bone for bone in skeleton.bones}
+    def smooth(t):
+        t = max(0.,min(1.,t))
+        return t*t*(3.-2.*t)
+    result = []
+    for part,skin in zip(mesh.parts,weights):
+        rows = list(skin.vertices)
+        for index,side in leg_owners.items():
+            foot = bones['foot.'+side]
+            shin = bones['lower_leg.'+side]
+            length = shin.head[2]-shin.tail[2]
+            x,y,z = part.vertices[index]
+            blend = 1.-smooth((z-foot.head[2]-.25*length)/(.1*length))
+            if blend == 0.: continue
+            vertical = smooth((foot.head[2]+.2*length-z)/(.4*length))
+            influence = vertical
+            row = {w.bone_name:w.weight*(1.-blend) for w in rows[index]}
+            for name,value in (('foot.'+side,influence),('lower_leg.'+side,1.-influence)):
+                row[name] = row.get(name,0.)+blend*value
+            total = sum(row.values())
+            rows[index] = tuple(BoneWeight(name,value/total) for name,value in row.items() if value>0.)
+        result.append(SkinWeights(skin.part_name,tuple(rows)))
+    return tuple(result)

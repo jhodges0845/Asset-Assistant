@@ -141,3 +141,42 @@ class DeformationReviewTests(unittest.TestCase):
                 with self.subTest(height=height, side=row['side'], angle=row['angle']):
                     self.assertGreater(row['min_edge_ratio'], .5)
                     self.assertLess(row['max_edge_ratio'], 2.)
+
+    def test_refined_feet_ground_and_bend_without_opposite_foot_motion(self):
+        from math import dist
+        from scripts import inspect_human_deformation as review
+        from scripts.review_semantic_deformation import pose
+        from object_core.objects import get_provider
+        from blender_adapter.adapter import create_asset
+        provider = get_provider('human')
+        try:
+            for height,weight in ((180,95),(160,55)):
+                review._clear_scene()
+                values = dict(height_cm=height,weight_kg=weight,body_type='average')
+                mesh = provider.mesh(values)
+                root = create_asset(mesh,skeleton=provider.skeleton(values),
+                                    skin_weights=provider.skin_weights(mesh,values))
+                body = next(o for o in root.children if o.type=='MESH')
+                rig = next(o for o in root.children if o.type=='ARMATURE')
+                neutral = review._evaluated_local_points(body)
+                self.assertAlmostEqual(min(p.z for p in neutral),0.,places=6)
+                for side,sign in (('left',1),('right',-1)):
+                    selected = {i for i,p in enumerate(mesh.parts[0].vertices)
+                                if p[0]*sign > 0 and p[2] < height*.075}
+                    opposite = {i for i,p in enumerate(mesh.parts[0].vertices)
+                                if p[0]*sign < 0 and p[2] < height*.075}
+                    edges = {tuple(sorted((a,b))) for f in mesh.parts[0].faces
+                             for a,b in zip(f,f[1:]+f[:1]) if a in selected and b in selected
+                             and dist(neutral[a],neutral[b]) > 1e-9}
+                    for angle in (1.05,-.6):
+                        pose(rig,[('foot.'+side,'x',angle)])
+                        points = review._evaluated_local_points(body)
+                        ratios = [dist(points[a],points[b])/dist(neutral[a],neutral[b]) for a,b in edges]
+                        print('FOOT EDGE SCREEN',height,side,angle,min(ratios),max(ratios))
+                        with self.subTest(height=height,side=side,angle=angle):
+                            self.assertGreater(min(ratios),.5)
+                            self.assertLess(max(ratios),2.)
+                            self.assertGreater(max(dist(points[i],neutral[i]) for i in selected),.01)
+                            self.assertLess(max(dist(points[i],neutral[i]) for i in opposite),1e-6)
+        finally:
+            review._clear_scene()

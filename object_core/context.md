@@ -10,6 +10,10 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 Plan: [../docs/shared-anatomy-alpha-plan.md](../docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now resolve shared anatomy contracts; Avian implementation is complete for the documented review shapes; artistic review and final canine visual acceptance remain open. The plan supersedes older Human-only milestone sequencing.
 
+## Human foot refinement (2026-10-21)
+
+Recipe 5 shares the foot surface/toe profile, shortens default feet by 13.45%, raises instep/heel volume and adds a local ankle weight blend. Heel/ball grounding, unchanged body topology, toe-bone alignment, ankle poses and legacy-mesh preservation have focused regressions. Explicit fresh generation/rebuilding is required; saved artist assets are preserved. Review: docs/human-review-notes.md; scripts/render_human_review.py supports --region left-foot and --foot-bend. Final artistic/continuous-motion approval remains open.
+
 ## Human hip-weight repair (2026-10-21)
 
 Recipe 4 replaces abrupt pelvis side/radius weight switches with a local continuous torso/thigh field. Absolute hip-edge ratios improve from up to 34.91x stretching to 0.529..1.442 across 12 reference poses; neutral geometry, rest bones, authored arms and distal weights are preserved. Existing saved weights require explicit rebuilding. Evidence and remaining foot/motion work: docs/human-review-notes.md; regression tool: scripts/review_human_hip_deformation.py.
