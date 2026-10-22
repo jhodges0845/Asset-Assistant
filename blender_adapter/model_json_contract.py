@@ -12,6 +12,7 @@ _HUMAN_SHAPE_PROFILES = {
     "body": (),
     "torso": ("athletic",),
     "shoulders": ("broad",),
+    "glutes": ("full",),
     "head": ("oval",),
     "face": ("narrow", "defined"),
     "jaw": ("tapered", "strong"),

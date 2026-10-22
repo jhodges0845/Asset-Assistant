@@ -131,3 +131,34 @@ tests/blender/test_semantic_deformation.py that required the old Human defect.
 Current profiles now use strict screening for all three providers. The rejection
 and scene-cleanup regression explicitly reconstructs the old unbounded shoulder
 profile, preserving a meaningful negative case without accepting a live defect.
+
+## Independent glute fullness (2026-10-21)
+
+Human Modify now accepts shape target `glutes`, profile `full`, amount 0..1.5
+(default 0.65), advertised in the exported Model JSON contract. Two compact
+posterior displacement fields increase rear projection without changing X/Z,
+waist, anterior tissue, topology, UVs or authored arms. Existing neutral geometry,
+recipe identity and saved assets are unchanged. Use the normal preview/apply path;
+this does not rewrite artist data or automatically regenerate weights.
+
+Example semantic operation:
+`{"operation":"shape","target":"glutes","arguments":{"profile":"full","amount":0.6}}`
+
+Reproduction with Blender background/factory-startup:
+- scripts/render_human_review.py -- --glute-fullness 1 --modes clay --output artifacts/shared-anatomy/human-glute-review/neutral-full.png
+- Repeat without --glute-fullness for neutral-base.png.
+- scripts/review_semantic_deformation.py -- --providers human --human-target glutes --render --output artifacts/shared-anatomy/human-glute-review
+
+The saved report passes all 16 default/contrasting hip poses (amounts 0.6/1.5),
+with paired edge ratios 0.698280..1.661431 and unchanged skin weights. Local core
+checks cover locality, monotonic strength, topology/UV preservation and relocated
+hands. The actual Model JSON operator proof covers preview, cancel, apply and
+blocking subsequent artist-edited geometry.
+
+Visual limitation: neutral rear projection increases, but the baseline pelvis
+outline remains angular. More importantly, BOTH combined hip/knee images show
+severe baseline hip-junction folding (upper_leg.left X=0.95, lower_leg.left
+X=-1.2). The relative screen passes because it compares against that already
+poor baseline. This is not visual or motion acceptance. Diagnose hip weighting
+before further foot polish; foot length/instep/heel and final glute anatomy remain
+open. The paired images and report above preserve this evidence.

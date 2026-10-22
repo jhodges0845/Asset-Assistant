@@ -40,6 +40,7 @@ class ModelJsonContractTests(unittest.TestCase):
 
         semantics = {target["key"]: target for target in payload["semantic_vocabulary"]["targets"]}
         self.assertIn("shoulders", semantics)
+        self.assertEqual(["full"], semantics["glutes"]["operation_contracts"]["shape"]["arguments"]["profile"]["values"])
         shoulder_scale = semantics["shoulders"]["operation_contracts"]["scale"]
         self.assertEqual(0.1, shoulder_scale["arguments"]["x"]["minimum"])
         self.assertEqual(4.0, shoulder_scale["arguments"]["x"]["maximum"])

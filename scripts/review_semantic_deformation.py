@@ -58,11 +58,19 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
-def review_case(key, sample, amount, *, enforce_limits=True):
+def review_case(key, sample, amount, *, enforce_limits=True, human_target="shoulders"):
     if key not in POSES or sample not in ('default','contrasting'):
         raise ValueError('Unsupported deformation review case')
     if not isfinite(amount) or not 0 < amount <= 1.5:
         raise ValueError('Amount must be finite and in (0, 1.5]')
+    if human_target not in ('shoulders', 'glutes'):
+        raise ValueError('Unsupported Human target')
+    poses = POSES[key]
+    if key == 'human' and human_target == 'glutes':
+        poses = {'hip-forward': [('upper_leg.left', 'x', .95)],
+                 'hip-back': [('upper_leg.left', 'x', -.6)],
+                 'hip-right': [('upper_leg.right', 'x', .95)],
+                 'combined': [('upper_leg.left', 'x', .95), ('lower_leg.left', 'x', -1.2)]}
     previous = bpy.context.window.scene
     kinds = ('objects','meshes','armatures','collections','materials','actions')
     existing = {kind:set(getattr(bpy.data,kind)) for kind in kinds}
@@ -88,12 +96,12 @@ def review_case(key, sample, amount, *, enforce_limits=True):
         weights = tuple(tuple((g.group,g.weight) for g in v.groups) for v in body.data.vertices)
         neutral = evaluated(body)
         baseline = {}
-        for name,rotations in POSES[key].items():
+        for name,rotations in poses.items():
             pose(rig,rotations)
             baseline[name] = evaluated(body)
         pose(rig,[])
-        target = 'shoulders' if key=='human' else 'chest'
-        profile = 'powerful' if key=='avian' else 'broad'
+        target = human_target if key=='human' else 'chest'
+        profile = 'full' if target=='glutes' else ('powerful' if key=='avian' else 'broad')
         operation = SemanticOperation('shape',target,(('profile',profile),('amount',amount)))
         plan = plan_modification(inspect_generated_asset(root),ModificationRequest(semantic_operations=(operation,)))
         require(plan.safe_to_apply,'Semantic apply must remain safe')
@@ -107,7 +115,7 @@ def review_case(key, sample, amount, *, enforce_limits=True):
         faces = mesh.parts[0].faces
         edges = {tuple(sorted((a,b))) for face in faces for a,b in zip(face,face[1:]+face[:1])}
         reports, parts = [], {}
-        for name,rotations in POSES[key].items():
+        for name,rotations in poses.items():
             pose(rig,rotations)
             points = evaluated(body)
             require(all(isfinite(c) for point in points for c in point),'Nonfinite posed surface')
@@ -137,7 +145,7 @@ def review_case(key, sample, amount, *, enforce_limits=True):
                                 worst_edges=[edge_rows[0],edge_rows[-1]]))
             if name=='combined':
                 parts = dict(before=MeshPart('before',baseline[name],faces),after=MeshPart('after',points,faces))
-        return dict(provider=key,sample=sample,amount=amount,profile=profile,parameters=values,
+        return dict(provider=key,sample=sample,amount=amount,target=target,profile=profile,parameters=values,
                     unchanged_vertices=len(unchanged),poses=reports), parts
     finally:
         bpy.context.window.scene = previous
@@ -195,6 +203,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--render',action='store_true')
+    parser.add_argument('--human-target', choices=('shoulders', 'glutes'), default='shoulders')
     parser.add_argument('--providers',nargs='+',choices=tuple(POSES),default=list(POSES))
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
     args.output = args.output.resolve()
@@ -203,7 +212,7 @@ def main():
     for key in dict.fromkeys(args.providers):
         for sample in ('default','contrasting'):
             for amount in (.6,1.5):
-                report,parts = review_case(key,sample,amount,enforce_limits=False)
+                report,parts = review_case(key,sample,amount,enforce_limits=False,human_target=args.human_target)
                 reports.append(report)
                 if args.render and sample=='default' and amount==.6:
                     render_pair(key,parts,args.output)

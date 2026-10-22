@@ -43,6 +43,9 @@ def _selected(target, vertex, proportions, bounds):
     shoulder_z = bounds["shoulder_z"]
     chin_z = bounds["chin_z"]
 
+    if target == "glutes":
+        radius = proportions.standing_height_cm * .066
+        return y < 0 and abs(z - (hip_z - proportions.standing_height_cm * .014)) < radius and abs(x) < bounds["hip_x"] * 2
     if target == "body":
         return True
     if target == "torso":
@@ -99,6 +102,20 @@ def _profile(vertices, indices, target, arguments, proportions, bounds, faces):
     if not 0.0 <= amount <= 1.5:
         raise ValueError("profile amount must be between 0.0 and 1.5")
 
+    if target == "glutes" and profile == "full":
+        from ..geometry.surface_pelvis import _compact
+        result = list(vertices)
+        height = proportions.standing_height_cm
+        center_z = bounds["hip_z"] - height * .014
+        hip_x = max(bounds["hip_x"], 1e-9)
+        for index in indices:
+            x, y, z = vertices[index]
+            rear = max(0., min(1., -y / max(proportions.hip_depth_cm * .5, 1e-9)))
+            rear = rear * rear * (3 - 2 * rear)
+            fullness = (_compact(abs(x), hip_x, hip_x)
+                        * _compact(z, center_z, height * .066) * rear)
+            result[index] = (x, y - amount * height * .02 * fullness, z)
+        return result
     if target == "torso" and profile == "athletic":
         return _transform(vertices, indices, {
             "x": 1.0 + amount * 0.10,
@@ -172,8 +189,16 @@ def apply_human_semantic_operations(mesh, proportions, operations, *, skeleton=N
         if indices is None:
             indices = [index for index, vertex in enumerate(vertices)
                        if _selected(operation.target, vertex, proportions, bounds)]
+        if operation.target == "glutes":
+            # Hands can lie beside the pelvis, including after prior semantic edits.
+            arms = set(regions.get("arm.left", ())) | set(regions.get("arm.right", ()))
+            indices = [index for index in indices if index not in arms]
+        if not indices:
+            raise ValueError("Semantic target did not resolve to generated vertices")
         arguments = operation.argument_values()
-        vertices = _transform(vertices, indices, arguments)
+        transform_keys = {"factor", "x", "y", "z", "scale_x", "scale_y", "scale_z", "offset_x", "offset_y", "offset_z"}
+        if operation.target != "glutes" or transform_keys.intersection(arguments):
+            vertices = _transform(vertices, indices, arguments)
         if operation.operation == "shape":
             vertices = _profile(vertices, indices, operation.target, arguments, proportions, bounds, part.faces)
 
