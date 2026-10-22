@@ -267,3 +267,25 @@ locomotion. Do not mask these defects with global floor offsets or weaken screen
 The sampler is diagnostic (exit success means measurement completed); it does
 not mark these failing motion results as acceptance. Samples cannot bound peaks
 between samples, prove contact slip, or replace visual review.
+
+## Walk knee direction repair (2026-10-22)
+
+The Walk generator previously alternated each lower-leg X rotation between
+negative and positive values, bending the knee forward for half the cycle.
+Generated Walk now retains backward flexion only, with the right leg half a
+cycle out of phase. Hip/arm tracks, timing, peak backward flexion and strength
+scaling are unchanged. Existing saved Actions are not rewritten.
+
+Fourteen focused core tests and three Blender action tests pass. The new action
+regression samples 65 phases at maximum strength, including between authored
+keys, and rejects forward knee rotation on either side. This is a joint-direction
+repair, not grounded-locomotion acceptance. Neck/distal-arm deformation and
+contact scheduling remain open; no global floor offset or relaxed screen was used.
+
+The 64-interval actual-action audit completed at
+artifacts/shared-anatomy/human-motion-review/knee-direction.json. Loop closure
+remains exact and whole-mesh edge extrema are unchanged. Walk minimum foot Z
+worsens from -0.1881 to -0.7619 cm (180/95), and -0.0908 to -0.3316 cm (160/55).
+Maximum lowest-foot height becomes 2.8866 / 3.8286 cm. Run is unchanged.
+This contact regression blocks acceptance/merge of the knee-only candidate;
+retain it in the draft while coordinating the next grounded gait repair.

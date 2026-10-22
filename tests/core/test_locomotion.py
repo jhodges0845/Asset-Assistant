@@ -24,6 +24,17 @@ class LocomotionTests(unittest.TestCase):
             self.assertTrue(all(a[0] < b[0] for a, b in zip(track.keys, track.keys[1:])))
             self.assertAlmostEqual(doubled.keys[0][1], 2 * track.keys[0][1])
 
+    def test_walk_knees_flex_backward_with_opposite_phase(self):
+        for strength in (.1, 1., 2.):
+            tracks = {track.bone: track for track in generate_walk(strength=strength).tracks}
+            left = [angle for _, angle in tracks['lower_leg.left'].keys]
+            right = [angle for _, angle in tracks['lower_leg.right'].keys]
+            self.assertTrue(all(angle <= 0 for angle in left + right))
+            self.assertLess(min(left), 0)
+            self.assertEqual(left[0], left[-1])
+            self.assertEqual(right[0], right[-1])
+            self.assertEqual(right[:4], left[2:4] + left[:2])
+
     def test_walk_rejects_invalid_settings(self):
         for value in (True, '1.2', None, float('nan'), 0.1, 5):
             with self.subTest(value=value), self.assertRaises((TypeError, ValueError)):
