@@ -121,3 +121,13 @@ class DeformationReviewTests(unittest.TestCase):
                     report, _ = review_case('human', sample, amount)
                     self.assertEqual(len(report['poses']), 4)
                     self.assertTrue(all(row['edge_limit_passed'] for row in report['poses']))
+
+    def test_human_glute_profile_under_hip_bends(self):
+        from scripts.review_semantic_deformation import review_case
+        for sample in ('default', 'contrasting'):
+            for amount in (.6, 1.5):
+                with self.subTest(sample=sample, amount=amount):
+                    report, _ = review_case('human', sample, amount, human_target='glutes')
+                    self.assertEqual(report['target'], 'glutes')
+                    self.assertEqual(len(report['poses']), 4)
+                    self.assertTrue(all(row['edge_limit_passed'] for row in report['poses']))

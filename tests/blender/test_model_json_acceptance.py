@@ -129,6 +129,8 @@ class ModelJSONAcceptanceTests(unittest.TestCase):
         self.assertNotIn('asset_assistant_model_preview_root',self.scene)
 
 
+    def test_human_external_glute_edit(self): self.prove('human','glutes','full')
+
     def test_human_external_shoulders_edit(self): self.prove('human','shoulders','broad')
     def test_canine_external_chest_edit(self): self.prove('quadruped','chest','broad')
     def test_avian_external_chest_edit(self): self.prove('avian','chest','powerful')

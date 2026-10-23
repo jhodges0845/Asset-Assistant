@@ -42,6 +42,7 @@ HUMAN_PARAMETERS = (
 HUMAN_SEMANTIC_TARGETS = (
     SemanticTarget("body", "Body", "region", ("shape", "scale", "surface")),
     SemanticTarget("torso", "Torso", "region", ("shape", "scale")),
+    SemanticTarget("glutes", "Glutes", "region", ("shape", "scale")),
     SemanticTarget("shoulders", "Shoulders", "region", ("shape", "scale")),
     SemanticTarget("head", "Head", "region", ("shape", "scale", "surface")),
     SemanticTarget("face", "Face", "region", ("shape", "surface", "add_detail")),
@@ -75,6 +76,7 @@ _HUMAN_GEOMETRY_TARGETS = (
     "body",
     "torso",
     "shoulders",
+    "glutes",
     "head",
     "face",
     "jaw",

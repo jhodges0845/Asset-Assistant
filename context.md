@@ -22,7 +22,7 @@ Short-wide Canine diagnosis: current-main neutral and Walk renders confirm the d
 
 ## Active Avian work
 
-Avian recipe 17 completes the current bird implementation pass: tapered beak, thin tail fan, grounded clawed feet, folded Idle/Walk wings and articulated Flight. Walk has reach-bounded stride, bounded lift/body compression and head/tail response. Flight caps wing excursion and uses 64 intervals. All 72 shape/clip/strength cases pass sampled crossing/contact/closure checks; canonical folded-to-Flight blends pass. Both reference shapes have three-cycle review artifacts and Godot skeletal playback proofs. See `docs/avian-review.md` for metrics, explicit regeneration and limits. Artistic review, cross-provider Modify acceptance and release hardening remain separate gates. Human feedback remains deferred in `docs/human-review-notes.md`.
+Avian recipe 17 completes the current bird implementation pass: tapered beak, thin tail fan, grounded clawed feet, folded Idle/Walk wings and articulated Flight. Walk has reach-bounded stride, bounded lift/body compression and head/tail response. Flight caps wing excursion and uses 64 intervals. All 72 shape/clip/strength cases pass sampled crossing/contact/closure checks; canonical folded-to-Flight blends pass. Both reference shapes have three-cycle review artifacts and Godot skeletal playback proofs. See `docs/avian-review.md` for metrics, explicit regeneration and limits. Artistic review, cross-provider Modify acceptance and release hardening remain separate gates. Human quality work is active; see `docs/human-review-notes.md`.
 
 ## Cross-provider acceptance
 
@@ -31,6 +31,10 @@ External Model JSON preview/apply, ownership blocking, parameter/semantic integr
 Edited Avian validation covers 144 action cases and four Godot fixtures through rest, skeletal, posed-skin and saved-scene checks. The local gallery contains 48 phase sheets and 12 verified three-cycle videos. Final artistic acceptance remains open; Human baseline weight leakage is repaired below; silhouette feedback remains open. See [docs/cross-provider-acceptance.md](docs/cross-provider-acceptance.md) for evidence, limits and reproduction commands.
 
 Packaged acceptance: `scripts/test_blender_package.py` covers isolated ZIP Human/Box workflows plus Avian external chest preview/apply, rig preservation and Idle/Walk/Flight. Remaining candidate lifecycle and publication gates are in `docs/publish-readiness-audit.md`.
+
+## Human glute control and hip review (2026-10-21)
+
+Modify exposes glutes/full through Model JSON preview/apply, preserving neutral generation and independent waist/width/arm ownership. The 16-pose relative screen passes, but paired renders reveal severe pre-existing hip-junction folding in the unedited baseline. Hip-weight diagnosis precedes further foot polish; final anatomy/motion acceptance remains open. See docs/human-review-notes.md and scripts/review_semantic_deformation.py --human-target glutes.
 
 ## Human shoulder refinement (2026-10-21)
 
