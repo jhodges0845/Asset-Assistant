@@ -66,3 +66,48 @@ class DeformationReviewTests(unittest.TestCase):
             self.assertLess(bone.tail.y, before_tail.y - .1)
         finally:
             review._clear_scene()
+
+
+    def test_neck_and_shoulder_poses_leave_lower_body_stationary(self):
+        from scripts import inspect_human_deformation as review
+        from object_core.objects import get_provider
+        from object_core.providers.human import _human_anatomy
+        from blender_adapter.adapter import create_asset
+        provider = get_provider('human')
+        try:
+            for height, weight in ((180, 95), (160, 55)):
+                review._clear_scene()
+                values = dict(height_cm=height, weight_kg=weight, body_type='average')
+                mesh = provider.mesh(values)
+                skeleton = provider.skeleton(values)
+                root = create_asset(mesh, name='UpperBodyIsolation', skeleton=skeleton,
+                                    skin_weights=provider.skin_weights(mesh, values))
+                body = next(o for o in root.children if o.type == 'MESH')
+                rig = next(o for o in root.children if o.type == 'ARMATURE')
+                anatomy = _human_anatomy(**values)
+                arms = {i for r in anatomy.regions if r.name.startswith('arm.')
+                        for i in r.vertex_indices}
+                # Independent anatomical region: pelvis and lower half of torso.
+                torso = next(b for b in skeleton.bones if b.name == 'torso')
+                cutoff = (torso.head[2] + torso.tail[2]) * .5
+                protected = [i for i, v in enumerate(mesh.parts[0].vertices)
+                             if i not in arms and v[2] <= cutoff]
+                self.assertGreater(len(protected), 100)
+                bpy.context.view_layer.update()
+                before = review._evaluated_local_points(body)
+                for names in (('neck',), ('upper_arm.left', 'forearm.left'),
+                              ('upper_arm.right', 'forearm.right')):
+                    for sign in (-1, 1):
+                        for bone in rig.pose.bones:
+                            bone.rotation_mode = 'XYZ'
+                            bone.rotation_euler = (0, 0, 0)
+                        for name in names:
+                            axis, angle = (0, .85) if name == 'neck' else (2, 1.05)
+                            rig.pose.bones[name].rotation_euler[axis] = sign * angle
+                        bpy.context.view_layer.update()
+                        after = review._evaluated_local_points(body)
+                        with self.subTest(height=height, bones=names, sign=sign):
+                            self.assertLess(max((after[i]-before[i]).length for i in protected), 1e-6)
+                            self.assertGreater(max((a-b).length for a,b in zip(after,before)), .01)
+        finally:
+            review._clear_scene()

@@ -21,7 +21,7 @@ class HumanRecipeTests(unittest.TestCase):
         anatomy = mesh_builder.call_args.args[1]
         self.assertIs(anatomy, rig_builder.call_args.args[0])
         self.assertTrue(anatomy is human._human_anatomy(**values), "normalized calls must reuse anatomy")
-        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '1'))
+        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '2'))
         self.assertEqual(dict(anatomy.parameters), values)
         self.assertEqual(16, sum(len(chain.bones) for chain in anatomy.chains))
 
@@ -82,6 +82,32 @@ class HumanRecipeTests(unittest.TestCase):
             HumanRecipe(regions[:-1])
         with self.assertRaises(ValueError):
             HumanRecipe((replace(regions[0], mesh_part='other'),) + regions[1:])
+
+
+    def test_weight_locality_preserves_authored_arm_and_shoulder_join(self):
+        values = dict(height_cm=180, weight_kg=95, body_type='average')
+        mesh = human._human_mesh(**values)
+        skeleton = human._human_skeleton(**values)
+        anatomy = human._human_anatomy(**values)
+        with patch.object(human, 'localize_upper_body_weights',
+                          side_effect=lambda mesh, skeleton, weights, owners: weights):
+            original = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
+        repaired = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
+        arms = {i for r in anatomy.regions if r.name.startswith('arm.') for i in r.vertex_indices}
+        for i in arms:
+            self.assertEqual(repaired.vertices[i], original.vertices[i])
+        joins = set()
+        for face in mesh.parts[0].faces:
+            for a, b in zip(face, face[1:] + face[:1]):
+                if (a in arms) != (b in arms):
+                    joins.add(b if a in arms else a)
+        self.assertGreater(len(joins), 0)
+        for i in joins:
+            before = {w.bone_name:w.weight for w in original.vertices[i]}
+            after = {w.bone_name:w.weight for w in repaired.vertices[i]}
+            for side in ('left', 'right'):
+                name = 'upper_arm.' + side
+                self.assertAlmostEqual(before.get(name, 0), after.get(name, 0), places=12)
 
 
 if __name__ == '__main__':

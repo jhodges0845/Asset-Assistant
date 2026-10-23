@@ -36,7 +36,7 @@ class HumanRecipe:
     """One Human resolution; regions come from audited neutral topology."""
     regions: tuple = ()
     recipe_id = 'human'
-    recipe_version = '1'
+    recipe_version = '2'
 
     def __post_init__(self):
         regions = tuple(self.regions)
