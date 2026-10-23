@@ -289,3 +289,65 @@ worsens from -0.1881 to -0.7619 cm (180/95), and -0.0908 to -0.3316 cm (160/55).
 Maximum lowest-foot height becomes 2.8866 / 3.8286 cm. Run is unchanged.
 This contact regression blocks acceptance/merge of the knee-only candidate;
 retain it in the draft while coordinating the next grounded gait repair.
+
+## Human recipe 6 and contact motion (2026-10-22)
+
+Recipe 6 keeps the recipe-5 mesh, UVs and rest bones. It replaces discontinuous
+neck, shoulder, elbow, wrist and knee weight transitions with local continuous
+fields. Shoulder relaxation is anchored to unchanged surrounding rows, then
+attachment constraints are re-applied. Arm rows retain only their authored
+chain and torso; head influence is excluded below the neck attachment. Final
+rows are normalized and limited by anatomy to four influences, so GLB export
+need not silently truncate the new shoulder blend.
+
+Human Walk/Run now receive saved provider parameters and use the existing
+host-independent weighted contact solver. Walk uses 65% duty and alternating
+support; Run uses 42% duty with short flight intervals. Stride scales with
+strength; lift, compression and arm drive saturate to keep blockout joints
+within useful ranges. The root has authored compression, not a global floor
+correction. Foot pitch compensates hip/knee rotation to keep stance soles
+level. Liftoff is keyed explicitly, and higher strengths use denser contact
+samples. These remain in-place clips with declared reference travel, not a
+physical balance simulation or generated root motion.
+
+The shared solver now reduces identical-weight vertex groups to their planar
+convex hull. The existing weighted evaluator and reach validation still apply;
+a deterministic 100-pose regression compares the result with exhaustive rows.
+A Human leg's envelope decreases from 7,873 to 5,587 candidates in the default
+shape. The previous quaternion-driven knee test incorrectly inspected Euler
+values; it now measures the actual quaternion axis/angle.
+
+Adoption is explicit: rebuild saved rigs to obtain recipe-6 weights, and
+regenerate clips to obtain contact motion. Existing artist meshes, weights and
+Actions are not rewritten automatically. Silhouette feedback is addressed by
+the existing glutes/full control and recipe-5 foot refinement; artistic approval
+remains a separate user decision.
+
+Review tools: scripts/review_human_motion.py reports actual-action whole-mesh
+edge ratios, closure and scheduled stance-target error; scripts/render_human_review.py
+supports --clip/--phase; scripts/create_human_motion_review.py creates four-view,
+three-cycle editable scenes and optional MP4s using --render and --stills.
+Validation completed in Blender 5.2.1: the full portable suite passed 490 tests
+and the full Blender suite passed 289. After the final localized weight and
+sampling refinements, 14 focused core and 31 focused Blender tests passed.
+Isolated ZIP smoke covers Human Idle/Walk/Run; all three providers passed
+fresh-process Model JSON persistence checks. GLB export no longer reports
+more than four skin influences for the Human mesh.
+
+The final actual-action matrix samples 127 intervals per cycle: Walk/Run at
+180 cm / 95 kg and 160 cm / 55 kg, plus strength 0.1 and 2.0 at 180/95.
+All eight loops close exactly; minimum foot height is at least 0.01798 cm;
+maximum scheduled stance-target error is 0.002011 cm. Whole-mesh edge ratios
+remain within 0.5706..1.7176. Walk retains support and Run includes scheduled
+stance and flight. This supersedes the blocked knee-only candidate above.
+These are sampled regression screens, not certification of every possible
+body parameter or an artistic acceptance decision.
+
+Local evidence: artifacts/shared-anatomy/human-motion-review/acceptance-final.json
+and index.html. Four three-cycle, four-view MP4s and editable blends cover
+default 180/95 and the visual reference 155/65 (distinct from numerical 160/55).
+Frame counts and selected phase sheets were checked; continuous video artistic
+review remains for the user. Reproduce the default-strength four-case matrix with Blender background
+--python scripts/review_human_motion.py -- --output artifacts/human-motion.json
+--intervals 127 --strength 1. See each script's --help for output options.
+Saved rigs and clips require explicit rebuild/regeneration to adopt this work.

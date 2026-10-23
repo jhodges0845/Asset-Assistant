@@ -51,7 +51,10 @@ class RunAnimationBlenderTests(unittest.TestCase):
             frame = self.scene.frame_start + 1.2 * self.scene.render.fps / self.scene.render.fps_base * sample / 64
             self.scene.frame_set(floor(frame), subframe=frame-floor(frame))
             for side in ('left', 'right'):
-                angle = rig.pose.bones['lower_leg.'+side].rotation_euler.x
+                bone = rig.pose.bones['lower_leg.'+side]
+                axis, angle = bone.rotation_quaternion.to_axis_angle()
+                axis = bone.bone.matrix_local.to_3x3() @ axis
+                angle *= axis.x
                 self.assertLessEqual(angle, 1e-7, (sample, side))
 
     def test_human_run_creates_named_generated_action(self):

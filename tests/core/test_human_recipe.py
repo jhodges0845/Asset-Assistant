@@ -21,7 +21,7 @@ class HumanRecipeTests(unittest.TestCase):
         anatomy = mesh_builder.call_args.args[1]
         self.assertIs(anatomy, rig_builder.call_args.args[0])
         self.assertTrue(anatomy is human._human_anatomy(**values), "normalized calls must reuse anatomy")
-        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '5'))
+        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '6'))
         self.assertEqual(dict(anatomy.parameters), values)
         self.assertEqual(16, sum(len(chain.bones) for chain in anatomy.chains))
 
@@ -172,6 +172,25 @@ class HumanRecipeTests(unittest.TestCase):
                     jump = abs(rows[a].get('upper_leg.left',0)-rows[b].get('upper_leg.left',0))
                     self.assertLess(jump/length, .25)
 
+
+    def test_neck_and_wrist_have_no_remote_joint_membership_switch(self):
+        values = dict(height_cm=180,weight_kg=95,body_type='average')
+        mesh = human._human_mesh(**values)
+        skeleton = human._human_skeleton(**values)
+        weights = human._surface_skin_weights(mesh,skeleton,human._human_anatomy(**values))[0]
+        for index in (4878,4879,4909,4910):
+            names = {w.bone_name for w in weights.vertices[index]}
+            self.assertTrue(names <= {'torso','neck','head'})
+        for index in (38941,38942):
+            names = {w.bone_name for w in weights.vertices[index]}
+            self.assertTrue(names <= {'forearm.right','hand.right'})
+        for index in (14781,14782,22593,22594):
+            names={w.bone_name for w in weights.vertices[index]}
+            side='left' if mesh.parts[0].vertices[index][0]>0 else 'right'
+            self.assertTrue(names <= {'upper_leg.'+side,'lower_leg.'+side})
+        for row in weights.vertices:
+            self.assertLessEqual(len(row),4)
+            self.assertAlmostEqual(sum(w.weight for w in row),1.)
 
     def test_ankle_blend_preserves_knees_body_and_authored_arms(self):
         values = dict(height_cm=180,weight_kg=95,body_type='average')

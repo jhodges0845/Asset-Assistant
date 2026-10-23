@@ -55,6 +55,8 @@ def _parse_args():
     parser.add_argument("--foot-bend", type=float, default=0.0,
                         help="Left ankle X rotation in radians (-1.2 to 1.2).")
     parser.add_argument("--region", choices=("full", "left-foot"), default="full")
+    parser.add_argument("--clip",choices=("walk","run"))
+    parser.add_argument("--phase",type=float,default=0.)
     parser.add_argument("--samples", type=int, default=32)
     parser.add_argument("--resolution-x", type=int, default=1800)
     parser.add_argument("--resolution-y", type=int, default=900)
@@ -95,7 +97,8 @@ def _human_part(args):
     bend = getattr(args, "foot_bend", 0.)
     if not math.isfinite(bend) or not -1.2 <= bend <= 1.2:
         raise ValueError("Foot bend must be finite and in [-1.2, 1.2]")
-    if bend:
+    clip = getattr(args,"clip",None)
+    if bend or clip:
         from blender_adapter.adapter import create_character
         from scripts.review_semantic_deformation import evaluated, pose
         from object_core.models import MeshPart
@@ -104,7 +107,17 @@ def _human_part(args):
         try:
             body = next(o for o in root.children if o.type == "MESH")
             rig = next(o for o in root.children if o.type == "ARMATURE")
-            pose(rig,[("foot.left","x",bend)])
+            if clip:
+                from blender_adapter.animation import add_locomotion, add_run
+                duration = 1.2 if clip == "walk" else .72
+                root['object_type']='human'
+                for key,value in values.items(): root[key]=value
+                (add_locomotion if clip == "walk" else add_run)(root,bpy.context.scene,duration,1.)
+                frame = bpy.context.scene.frame_start+duration*bpy.context.scene.render.fps/bpy.context.scene.render.fps_base*args.phase
+                bpy.context.scene.frame_set(math.floor(frame),subframe=frame-math.floor(frame))
+                bpy.context.view_layer.update()
+            else:
+                pose(rig,[("foot.left","x",bend)])
             part = MeshPart(part.name,evaluated(body),part.faces,part.uvs)
         finally:
             _clear_scene()

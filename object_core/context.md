@@ -10,11 +10,9 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 Plan: [../docs/shared-anatomy-alpha-plan.md](../docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now resolve shared anatomy contracts; Avian implementation is complete for the documented review shapes; artistic review and final canine visual acceptance remain open. The plan supersedes older Human-only milestone sequencing.
 
-## Human actual-action baseline (2026-10-22)
+## Human contact motion and recipe 6 (2026-10-22)
 
-Foot PR #309 has six green CI jobs. Actual Walk/Run sampling still exposes neck-base compression, distal-arm stretching, Walk floor penetration and an entirely airborne Run cycle. Motion acceptance remains blocked. Tool: scripts/review_human_motion.py; measured values and next repair order: docs/human-review-notes.md.
-
-Walk knee-direction candidate removes forward knee bends and passes sampled action checks, but worsens default floor penetration to 0.7619 cm. It remains draft-only pending coordinated contact repair; see the knee repair section in Human review notes.
+Human now has parameter-aware Walk/Run contact solving plus continuous neck, shoulder, elbow, wrist and knee weights. Geometry/rest bones remain recipe-5 compatible; saved rigs/clips require explicit rebuilding/regeneration. Eight dense actual-action cases pass contact, closure and deformation screens; core/Blender suites, final focused checks, isolated ZIP smoke and fresh-process preservation pass. Artistic review remains open. See docs/human-review-notes.md for evidence and limits; scripts/review_human_motion.py measures actual contact/deformation and scripts/create_human_motion_review.py creates editable three-cycle review scenes.
 
 ## Human foot refinement (2026-10-21)
 

@@ -60,6 +60,12 @@ with tempfile.TemporaryDirectory() as directory:
         assert rig.animation_data.action is not None
         assert bpy.ops.humanoid.preview_idle() == {"FINISHED"}
         assert scene.frame_current > scene.frame_start
+        for clip in ("WALK", "RUN"):
+            scene.humanoid_settings.animation_clip = clip
+            assert bpy.ops.humanoid.select_animation_clip() == {"FINISHED"}, clip
+            assert bpy.ops.humanoid.preview_idle() == {"FINISHED"}
+            posed = meshes[0].evaluated_get(bpy.context.evaluated_depsgraph_get())
+            assert all(math.isfinite(c) for vertex in posed.data.vertices for c in vertex.co)
 
         scene.humanoid_settings.asset_use = "ANIMATED"
         scene.humanoid_settings.workflow_tab = "VALIDATION"

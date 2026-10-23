@@ -25,7 +25,7 @@ from scripts import render_human_review as sheets
 def main(provider_key="quadruped"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--gait', choices=('walk', 'run') if provider_key == 'quadruped' else ('idle','walk','flight'), default='walk')
+    parser.add_argument('--gait', choices=('idle','walk','run') if provider_key == 'human' else ('walk','run') if provider_key == 'quadruped' else ('idle','walk','flight'), default='walk')
     parser.add_argument('--sample', choices=('default', 'contrasting', 'short-wide') if provider_key == 'quadruped' else ('default', 'contrasting'), default='default')
     parser.add_argument('--render', action='store_true')
     parser.add_argument('--stills', action='store_true', help='Render four cycle phase PNGs')
@@ -33,7 +33,7 @@ def main(provider_key="quadruped"):
     if args.output.suffix.lower() != '.blend':
         parser.error('--output must end in .blend')
     provider = get_provider(provider_key)
-    label = 'Canine' if provider_key == 'quadruped' else 'Avian'
+    label = {'quadruped':'Canine','avian':'Avian','human':'Human'}[provider_key]
     values = {p.key:p.default for p in provider.parameters}
     if args.sample == 'contrasting':
         from scripts.anatomy_baseline import SAMPLES
@@ -48,7 +48,12 @@ def main(provider_key="quadruped"):
     bpy.context.window.scene = scene
     material = sheets._configure_scene(SimpleNamespace(resolution_x=1200, resolution_y=500, samples=4), meters)
     placeholders = [o for o in scene.objects if o.type == 'MESH']
-    duration = {'walk':1.2, 'run':.64, 'idle':4., 'flight':1.2}[args.gait]
+    if provider_key == 'human':
+        # Reserve room for forward arm swing in the side and three-quarter views.
+        for obj in scene.objects:
+            if obj.type in ('MESH','FONT'): obj.location.x *= 1.6
+        scene.camera.data.ortho_scale *= 1.6
+    duration = {'walk':1.2, 'run':.72 if provider_key == 'human' else .64, 'idle':4., 'flight':1.2}[args.gait]
     scene.render.fps = 25
     scene.render.fps_base = 1
     scene.frame_start = 1

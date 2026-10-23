@@ -179,3 +179,131 @@ def blend_ankle_weights(mesh, skeleton, weights, leg_owners):
             rows[index] = tuple(BoneWeight(name,value/total) for name,value in row.items() if value>0.)
         result.append(SkinWeights(skin.part_name,tuple(rows)))
     return tuple(result)
+
+
+def blend_neck_and_wrist_weights(mesh, skeleton, weights, arm_owners):
+    """Continuous attachment fields above shoulders and through distal forearms."""
+    bones = {b.name:b for b in skeleton.bones}
+    def smooth(t):
+        t = max(0., min(1., t))
+        return t*t*(3.-2.*t)
+    neck, head = bones['neck'], bones['head']
+    span = head.head[2]-neck.head[2]
+    result = []
+    for part, skin in zip(mesh.parts, weights):
+        rows = []
+        for i, (point, original) in enumerate(zip(part.vertices, skin.vertices)):
+            side = arm_owners.get(i)
+            if side is not None:
+                allowed = {'torso','upper_arm.'+side,'forearm.'+side,'hand.'+side}
+                row = {w.bone_name:w.weight for w in original if w.bone_name in allowed}
+                remote = sum(w.weight for w in original if w.bone_name not in allowed)
+                if remote:
+                    row['torso'] = row.get('torso',0.)+remote
+                    original=tuple(BoneWeight(name,value) for name,value in row.items())
+                fore = bones['forearm.'+side]
+                axis = tuple(b-a for a,b in zip(fore.head, fore.tail))
+                t = sum((p-a)*d for p,a,d in zip(point,fore.head,axis))/sum(d*d for d in axis)
+                elbow_blend = 1.-smooth((abs(t)-.30)/.15)
+                if elbow_blend:
+                    forearm = smooth((t+.30)/.60)
+                    row = {w.bone_name:w.weight*(1.-elbow_blend) for w in original}
+                    for name,value in (('upper_arm.'+side,1.-forearm),('forearm.'+side,forearm)):
+                        row[name]=row.get(name,0.)+elbow_blend*value
+                    original=tuple(BoneWeight(name,value) for name,value in row.items() if value>0.)
+                blend = smooth((t-.25)/.4)
+                hand = smooth((t-.8)/.4)
+                target = {'forearm.'+side:1.-hand, 'hand.'+side:hand}
+            else:
+                z = point[2]
+                if z < neck.head[2]:
+                    row = {w.bone_name:w.weight for w in original}
+                    remote = row.pop('head',0.)
+                    if remote:
+                        row['neck']=row.get('neck',0.)+remote
+                        original=tuple(BoneWeight(name,value) for name,value in row.items())
+                blend = smooth((z-(neck.head[2]-.3*span))/(.3*span))
+                neck_weight = smooth((z-(neck.head[2]-.3*span))/(.9*span))
+                head_weight = smooth((z-(head.head[2]-.2*span))/(.6*span))
+                target = {'torso':1.-neck_weight,
+                          'neck':neck_weight*(1.-head_weight),
+                          'head':neck_weight*head_weight}
+            if blend == 0.:
+                rows.append(original)
+                continue
+            row = {w.bone_name:w.weight*(1.-blend) for w in original}
+            for name,value in target.items():
+                row[name] = row.get(name,0.) + blend*value
+            rows.append(tuple(BoneWeight(name,value) for name,value in row.items() if value > 0.))
+        result.append(SkinWeights(skin.part_name,tuple(rows)))
+    return tuple(result)
+
+
+def smooth_shoulder_weights(mesh, skeleton, weights, arm_owners):
+    """Relax nearest-bone membership jumps across the connected shoulder surface.
+
+    Only the upper torso and proximal arm participate; fixed surrounding rows
+    anchor the blend so remote anatomy and distal limb ownership are preserved.
+    """
+    bones = {b.name:b for b in skeleton.bones}
+    shoulder_z = bones['neck'].head[2]
+    span = shoulder_z-bones['torso'].head[2]
+    def smooth(t):
+        t = max(0.,min(1.,t))
+        return t*t*(3.-2.*t)
+    result=[]
+    for part,skin in zip(mesh.parts,weights):
+        factors=[]
+        for i,point in enumerate(part.vertices):
+            side=arm_owners.get(i)
+            if side is None:
+                factor=smooth((point[2]-(shoulder_z-.5*span))/(.15*span))
+                factor*=1.-smooth((point[2]-shoulder_z)/(.15*span))
+            else:
+                b=bones['upper_arm.'+side]
+                axis=tuple(y-x for x,y in zip(b.head,b.tail))
+                t=sum((p-a)*d for p,a,d in zip(point,b.head,axis))/sum(d*d for d in axis)
+                factor=1.-smooth((t-.15)/.3)
+            factors.append(factor)
+        neighbors=[set() for _ in part.vertices]
+        for face in part.faces:
+            for a,b in zip(face,face[1:]+face[:1]):
+                neighbors[a].add(b); neighbors[b].add(a)
+        rows=[{w.bone_name:w.weight for w in row} for row in skin.vertices]
+        for _ in range(24):
+            updated=list(rows)
+            for i,factor in enumerate(factors):
+                if factor==0. or not neighbors[i]: continue
+                row={name:value*(1.-.5*factor) for name,value in rows[i].items()}
+                scale=.5*factor/len(neighbors[i])
+                for j in neighbors[i]:
+                    for name,value in rows[j].items():
+                        row[name]=row.get(name,0.)+scale*value
+                updated[i]=row
+            rows=updated
+        result.append(SkinWeights(skin.part_name,tuple(tuple(BoneWeight(n,w) for n,w in row.items() if w>0.) for row in rows)))
+    return tuple(result)
+
+
+def blend_knee_weights(mesh, skeleton, weights, leg_owners):
+    """Keep distant ankle rotation out of the knee's continuous thigh/shin blend."""
+    bones={b.name:b for b in skeleton.bones}
+    def smooth(t):
+        t=max(0.,min(1.,t))
+        return t*t*(3.-2.*t)
+    result=[]
+    for part,skin in zip(mesh.parts,weights):
+        rows=list(skin.vertices)
+        for i,side in leg_owners.items():
+            upper,lower=bones['upper_leg.'+side],bones['lower_leg.'+side]
+            length=upper.head[2]-upper.tail[2]
+            offset=(part.vertices[i][2]-lower.head[2])/length
+            blend=1.-smooth((abs(offset)-.28)/.12)
+            if blend==0.: continue
+            thigh=smooth((offset+.28)/.56)
+            row={w.bone_name:w.weight*(1.-blend) for w in rows[i]}
+            for name,value in (('upper_leg.'+side,thigh),('lower_leg.'+side,1.-thigh)):
+                row[name]=row.get(name,0.)+blend*value
+            rows[i]=tuple(BoneWeight(name,value) for name,value in row.items() if value>0.)
+        result.append(SkinWeights(skin.part_name,tuple(rows)))
+    return tuple(result)

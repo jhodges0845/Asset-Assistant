@@ -13,6 +13,38 @@ def paw_roll_forward_offset(sole_yz, toe_yz, pitch):
             - sin(pitch) * (sole_yz[1] - toe_yz[1]))
 
 
+def _envelope_indices(vertices, weights, indices):
+    """Discard only planar interior points with exactly identical skin weights.
+
+    For each weight group, posed height is an affine function of rest Y/Z.
+    Its minimum is therefore attained on that group's convex hull for every
+    pose. The ordinary weighted evaluator still evaluates all retained rows.
+    """
+    groups = {}
+    for i in indices:
+        key = tuple(sorted((w.bone_name,w.weight) for w in weights.vertices[i]))
+        groups.setdefault(key, []).append((vertices[i][1],vertices[i][2],i))
+    retained = []
+    def cross(a,b,c):
+        return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
+    for group in groups.values():
+        points = sorted({(y,z):i for y,z,i in group}.items())
+        points = [(yz[0],yz[1],i) for yz,i in points]
+        if len(points) <= 2:
+            retained.extend(p[2] for p in points)
+            continue
+        hulls=[]
+        for order in (points,list(reversed(points))):
+            hull=[]
+            for point in order:
+                while len(hull)>=2 and cross(hull[-2],hull[-1],point)<=0.:
+                    hull.pop()
+                hull.append(point)
+            hulls.extend(hull[:-1])
+        retained.extend(p[2] for p in hulls)
+    return tuple(sorted(set(retained)))
+
+
 class LimbSurface:
     """Exact planar linear-blend skinning for this limb's contact solve."""
     def __init__(self, mesh, weights, region, bones, crouch):
@@ -26,7 +58,7 @@ class LimbSurface:
         # overlook a higher rest vertex that rotates below the neutral sole.
         self.rows = tuple(tuple((names.get(w.bone_name, -1), w.weight,
                                 vertices[i][1] * w.weight, vertices[i][2] * w.weight)
-                               for w in weights.vertices[i]) for i in indices)
+                               for w in weights.vertices[i]) for i in _envelope_indices(vertices,weights,indices))
         sole = tuple(i for i in indices if 0 <= vertices[i][2] <= .1)
         if not sole:
             raise ValueError('Contact gait requires a grounded neutral sole')
