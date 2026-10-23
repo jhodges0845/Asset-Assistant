@@ -12,7 +12,7 @@ Reconciled against repository source on 2026-10-19. Status: **pre-alpha quality 
 
 ## Remaining quality and candidate gates
 
-1. Complete the outstanding artistic reviews in the shared anatomy plan. Automated Avian motion, destination skin and saved-scene proofs are documented in [cross-provider acceptance](cross-provider-acceptance.md); they do not replace continuous visual approval. Human feedback remains deferred, and final canine visual acceptance remains open.
+1. Complete the outstanding artistic reviews in the shared anatomy plan. Automated Avian motion, destination skin and saved-scene proofs are documented in [cross-provider acceptance](cross-provider-acceptance.md); they do not replace continuous visual approval. Human feedback repairs and actual-action motion diagnosis are active in [Human review notes](human-review-notes.md); Human motion and final canine visual acceptance remain open.
 2. Repeat the isolated packaged smoke on the chosen candidate. The Avian semantic-edit, rig and Idle/Walk/Flight path now passes locally in Blender 5.2.1, alongside the existing Human/Box checks. This covers packaged functionality, not artistic motion approval.
 3. On the chosen candidate ZIP, record clean install, upgrade, disable/re-enable and uninstall behavior in Blender 5.2.1. Automated registration/unregistration alone is not this manual lifecycle proof.
 4. Reconcile README capabilities, supported runtime, known limitations and release notes with that candidate. Capture representative images/clips and repeat destination spot checks on its exact commit.

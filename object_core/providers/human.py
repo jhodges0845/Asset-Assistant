@@ -8,14 +8,18 @@ explicit rig/animation operators. See docs/human-workflow.md for the full flow.
 
 from functools import lru_cache
 
-from ..animation import generate_idle, generate_run, generate_walk
+from ..animation import generate_idle
 from ..geometry import generate_mesh
 from ..geometry.surface_human import SurfaceHumanSpec
 from ..geometry.deformable import _generate_face_atlas_uvs
 from ..geometry.surface_human_builder import HumanSurfaceBuilder
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
 from ..models.mesh import MeshPart, ObjectMesh
-from ..rigging.surface_human import surface_skeleton, localize_upper_body_weights
+from ..rigging.surface_human import (
+    surface_skeleton, localize_upper_body_weights, localize_arm_joint_weights,
+    blend_hip_weights, blend_ankle_weights, blend_neck_and_wrist_weights,
+    smooth_shoulder_weights, blend_knee_weights,
+)
 from ..geometry.human_shaping import shape_human_surface
 from ..proportions import generate_proportions
 from ..rigging import generate_skin_weights, generate_skeleton
@@ -42,6 +46,7 @@ HUMAN_PARAMETERS = (
 HUMAN_SEMANTIC_TARGETS = (
     SemanticTarget("body", "Body", "region", ("shape", "scale", "surface")),
     SemanticTarget("torso", "Torso", "region", ("shape", "scale")),
+    SemanticTarget("glutes", "Glutes", "region", ("shape", "scale")),
     SemanticTarget("shoulders", "Shoulders", "region", ("shape", "scale")),
     SemanticTarget("head", "Head", "region", ("shape", "scale", "surface")),
     SemanticTarget("face", "Face", "region", ("shape", "surface", "add_detail")),
@@ -75,6 +80,7 @@ _HUMAN_GEOMETRY_TARGETS = (
     "body",
     "torso",
     "shoulders",
+    "glutes",
     "head",
     "face",
     "jaw",
@@ -200,7 +206,17 @@ def _surface_skin_weights(mesh, skeleton, anatomy):
         return groups[side]
 
     weights = generate_skin_weights(mesh, skeleton, bone_filter=bone_filter)
-    return localize_upper_body_weights(mesh, skeleton, weights, owners)
+    weights = localize_upper_body_weights(mesh, skeleton, weights, owners)
+    weights = localize_arm_joint_weights(mesh, skeleton, weights, owners)
+    weights = smooth_shoulder_weights(mesh, skeleton, weights, owners)
+    weights = localize_arm_joint_weights(mesh, skeleton, weights, owners)
+    weights = blend_neck_and_wrist_weights(mesh, skeleton, weights, owners)
+    weights = blend_hip_weights(mesh, skeleton, weights, owners)
+    legs = {index: region.name.split(".")[-1]
+            for region in anatomy.regions if region.name.startswith("leg.")
+            for index in region.vertex_indices}
+    weights = blend_knee_weights(mesh, skeleton, weights, legs)
+    return blend_ankle_weights(mesh, skeleton, weights, legs)
 
 
 def _human_mesh(height_cm, weight_kg=95.0, body_type="average"):
@@ -253,6 +269,7 @@ class HumanProvider:
     """
 
     key, label = "human", "Human"
+    animation_uses_parameters = True
     supports_rig = supports_materials = supports_idle = supports_locomotion = (
         supports_run
     ) = True
@@ -301,14 +318,26 @@ class HumanProvider:
                                      _human_anatomy(float(values["height_cm"]),
                                                     float(values["weight_kg"]), values["body_type"]))
 
-    def idle(self, duration, strength):
-        return generate_idle(duration, strength)
+    def idle(self, duration, strength, *, values=None):
+        from .human_gait import HumanIdleClip
+        from ..animation.idle import TranslationTrack
+        base = generate_idle(duration, strength)
+        # Reset contact compression when selecting Idle after either gait.
+        reset = TranslationTrack('root', ((0., (0., 0., 0.)),
+                                         (base.duration, (0., 0., 0.))))
+        return HumanIdleClip(base.duration, base.tracks, (reset,))
 
-    def locomotion(self, duration, strength):
-        return generate_walk(duration, strength)
+    def locomotion(self, duration, strength, *, values=None):
+        return self._contact_motion(duration, strength, False, values)
 
-    def run(self, duration, strength):
-        return generate_run(duration, strength)
+    def run(self, duration, strength, *, values=None):
+        return self._contact_motion(duration, strength, True, values)
+
+    def _contact_motion(self, duration, strength, running, values):
+        from .human_gait import generate_contact_motion
+        values = values if values is not None else {p.key:p.default for p in self.parameters}
+        return generate_contact_motion(duration, strength, running,
+                                       tuple(sorted(values.items())), HumanRecipe.recipe_version)
 
     def materials(self, values):
         # This tiny warm texture is a portable UV/texturing proof and artist starting

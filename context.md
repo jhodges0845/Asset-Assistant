@@ -22,7 +22,7 @@ Short-wide Canine diagnosis: current-main neutral and Walk renders confirm the d
 
 ## Active Avian work
 
-Avian recipe 17 completes the current bird implementation pass: tapered beak, thin tail fan, grounded clawed feet, folded Idle/Walk wings and articulated Flight. Walk has reach-bounded stride, bounded lift/body compression and head/tail response. Flight caps wing excursion and uses 64 intervals. All 72 shape/clip/strength cases pass sampled crossing/contact/closure checks; canonical folded-to-Flight blends pass. Both reference shapes have three-cycle review artifacts and Godot skeletal playback proofs. See `docs/avian-review.md` for metrics, explicit regeneration and limits. Artistic review, cross-provider Modify acceptance and release hardening remain separate gates. Human feedback remains deferred in `docs/human-review-notes.md`.
+Avian recipe 17 completes the current bird implementation pass: tapered beak, thin tail fan, grounded clawed feet, folded Idle/Walk wings and articulated Flight. Walk has reach-bounded stride, bounded lift/body compression and head/tail response. Flight caps wing excursion and uses 64 intervals. All 72 shape/clip/strength cases pass sampled crossing/contact/closure checks; canonical folded-to-Flight blends pass. Both reference shapes have three-cycle review artifacts and Godot skeletal playback proofs. See `docs/avian-review.md` for metrics, explicit regeneration and limits. Artistic review, cross-provider Modify acceptance and release hardening remain separate gates. Human quality work is active; see `docs/human-review-notes.md`.
 
 ## Cross-provider acceptance
 
@@ -31,6 +31,26 @@ External Model JSON preview/apply, ownership blocking, parameter/semantic integr
 Edited Avian validation covers 144 action cases and four Godot fixtures through rest, skeletal, posed-skin and saved-scene checks. The local gallery contains 48 phase sheets and 12 verified three-cycle videos. Final artistic acceptance remains open; Human baseline weight leakage is repaired below; silhouette feedback remains open. See [docs/cross-provider-acceptance.md](docs/cross-provider-acceptance.md) for evidence, limits and reproduction commands.
 
 Packaged acceptance: `scripts/test_blender_package.py` covers isolated ZIP Human/Box workflows plus Avian external chest preview/apply, rig preservation and Idle/Walk/Flight. Remaining candidate lifecycle and publication gates are in `docs/publish-readiness-audit.md`.
+
+## Human contact motion and recipe 6 (2026-10-22)
+
+Human now has parameter-aware Walk/Run contact solving plus continuous neck, shoulder, elbow, wrist and knee weights. Geometry/rest bones remain recipe-5 compatible; saved rigs/clips require explicit rebuilding/regeneration. Eight dense actual-action cases pass contact, closure and deformation screens; core/Blender suites, final focused checks, isolated ZIP smoke and fresh-process preservation pass. Human Idle explicitly resets contact root compression when switching clips; scripts/create_human_clip_library.py builds a fresh editable three-clip library. Artistic review remains open. See docs/human-review-notes.md for evidence and limits; scripts/review_human_motion.py measures actual contact/deformation and scripts/create_human_motion_review.py creates editable three-cycle review scenes.
+
+## Human foot refinement (2026-10-21)
+
+Recipe 5 shares the foot surface/toe profile, shortens default feet by 13.45%, raises instep/heel volume and adds a local ankle weight blend. Heel/ball grounding, unchanged body topology, toe-bone alignment, ankle poses and legacy-mesh preservation have focused regressions. Explicit fresh generation/rebuilding is required; saved artist assets are preserved. Review: docs/human-review-notes.md; scripts/render_human_review.py supports --region left-foot and --foot-bend. Final artistic/continuous-motion approval remains open.
+
+## Human hip-weight repair (2026-10-21)
+
+Recipe 4 replaces abrupt pelvis side/radius weight switches with a local continuous torso/thigh field. Absolute hip-edge ratios improve from up to 34.91x stretching to 0.529..1.442 across 12 reference poses; neutral geometry, rest bones, authored arms and distal weights are preserved. Existing saved weights require explicit rebuilding. Evidence and remaining foot/motion work: docs/human-review-notes.md; regression tool: scripts/review_human_hip_deformation.py.
+
+## Human glute control and hip review (2026-10-21)
+
+Modify exposes glutes/full through Model JSON preview/apply, preserving neutral generation and independent waist/width/arm ownership. The 16-pose relative screen passes, but paired renders reveal severe pre-existing hip-junction folding in the unedited baseline. The hip defect is repaired in recipe 4 above; final anatomy/motion acceptance remains open. See docs/human-review-notes.md and scripts/review_semantic_deformation.py --human-target glutes.
+
+## Human shoulder refinement (2026-10-21)
+
+Recipe 3 builds on the recipe-2 lower-body isolation repair: authored arm weights now exclude distant elbow influence near shoulders. The broad shoulder profile smoothly bounds displacement gradients while retaining its selected region and monotonic strength. All 16 paired shoulder poses pass the unchanged screen; 25 core and 14 focused Blender tests pass. Old saved profiles/weights are preserved; incompatible old edits cannot be automatically reconstructed. See docs/human-review-notes.md (root-relative) and tests/blender/test_deformation_review.py.
 
 ## Human deformation repair (2026-10-20)
 

@@ -38,8 +38,11 @@ Within `providers/human.py`, read `_neutral_surface_anatomy_data`, `_human_anato
 `_human_skeleton`, `_surface_skin_weights`, then `HumanProvider`.
 The caches share immutable core data keyed by recipe/version and normalized controls. Edited meshes recompute weights; arm
 ownership follows topology so wrist movement cannot pull nearby hip vertices.
-Human recipe 2 also tapers remote neck/upper-arm weights into torso below their
-attachments; saved weights require explicit rebuilding.
+Human recipe 6 retains lower-body isolation and smooths neck, shoulder, elbow,
+wrist, hip, knee and ankle weight transitions. Parameter-aware Walk/Run solve
+contact against the canonical weighted leg surface. Saved weights require explicit rebuilding. The
+broad shoulder profile uses a smooth displacement-gradient bound; previous
+incompatible profile geometry is preserved and blocked from regeneration.
 
 The geometry builder (`HumanSurfaceBuilder`) is an implementation detail, not a
 registered asset provider. Standalone investigation scripts can call it directly.
@@ -60,3 +63,19 @@ The surface, joint deformation and provisional UVs remain experimental; a passin
 test suite is not anatomical or animation-quality approval.
 See [integration evidence](visual-testing-integration.md) for the implementation
 checkpoint and [standalone geometry guide](mathematical-human-plugin.md) for study controls.
+
+## Fresh rig and clip library
+
+`scripts/create_human_clip_library.py` creates a new default Human with the
+current rig and editable Idle (4 s), Walk (1.2 s), and Run (0.72 s) Actions.
+Run Blender in background mode with `--python scripts/create_human_clip_library.py
+-- --output artifacts/human-library.blend`. The output must not already exist.
+The saved scene opens on Walk with its one-cycle playback range; selecting
+another clip uses the normal animation workflow. This helper creates a fresh
+review asset and does not migrate or replace existing artist assets.
+
+The three-cycle motion gallery remains separate from this single-character
+editable library. Check saved playback in a fresh process with
+`blender --background artifacts/human-library.blend --python
+scripts/verify_human_clip_library.py`; this does not save changes to the file.
+See `human-review-notes.md` for numerical and visual limits.

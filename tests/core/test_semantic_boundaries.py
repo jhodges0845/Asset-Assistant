@@ -70,3 +70,26 @@ class SemanticBoundaryTests(unittest.TestCase):
         result = _blend_region_transform(vertices,faces,(0,3,4,5),{'offset_z':2.})
         self.assertEqual(result[:3],list(vertices[:3]))
         self.assertEqual(result[3:],[(x,y,z+2.) for x,y,z in vertices[3:]])
+
+
+    def test_human_broad_profile_is_strain_bounded_and_monotonic(self):
+        from math import dist
+        provider = get_provider('human')
+        values = {f.key:f.default for f in provider.parameters}
+        mesh = provider.mesh(values)
+        part = mesh.parts[0]
+        totals = []
+        for amount in (.2, .6, 1.5):
+            operation = SemanticOperation('shape', 'shoulders', (('profile','broad'),('amount',amount)))
+            changed = provider.semantic_mesh(mesh, values, (operation,)).parts[0]
+            totals.append(sum(dist(a,b) for a,b in zip(part.vertices, changed.vertices)))
+            for face in part.faces:
+                for a,b in zip(face, face[1:]+face[:1]):
+                    length = dist(part.vertices[a], part.vertices[b])
+                    if length > 1e-9:
+                        ratio = dist(changed.vertices[a], changed.vertices[b])/length
+                        self.assertGreater(ratio, .55)
+                        self.assertLess(ratio, 1.45)
+        self.assertGreater(totals[0], 0.)
+        self.assertGreater(totals[1], totals[0])
+        self.assertGreater(totals[2], totals[1])

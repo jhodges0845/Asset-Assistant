@@ -21,7 +21,7 @@ class HumanRecipeTests(unittest.TestCase):
         anatomy = mesh_builder.call_args.args[1]
         self.assertIs(anatomy, rig_builder.call_args.args[0])
         self.assertTrue(anatomy is human._human_anatomy(**values), "normalized calls must reuse anatomy")
-        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '2'))
+        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '6'))
         self.assertEqual(dict(anatomy.parameters), values)
         self.assertEqual(16, sum(len(chain.bones) for chain in anatomy.chains))
 
@@ -90,9 +90,13 @@ class HumanRecipeTests(unittest.TestCase):
         skeleton = human._human_skeleton(**values)
         anatomy = human._human_anatomy(**values)
         with patch.object(human, 'localize_upper_body_weights',
+                          side_effect=lambda mesh, skeleton, weights, owners: weights), \
+             patch.object(human, 'localize_arm_joint_weights',
                           side_effect=lambda mesh, skeleton, weights, owners: weights):
             original = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
-        repaired = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
+        owners = {i:r.name.split('.')[-1] for r in anatomy.regions
+                  if r.name.startswith('arm.') for i in r.vertex_indices}
+        repaired = human.localize_upper_body_weights(mesh, skeleton, (original,), owners)[0]
         arms = {i for r in anatomy.regions if r.name.startswith('arm.') for i in r.vertex_indices}
         for i in arms:
             self.assertEqual(repaired.vertices[i], original.vertices[i])
@@ -108,6 +112,106 @@ class HumanRecipeTests(unittest.TestCase):
             for side in ('left', 'right'):
                 name = 'upper_arm.' + side
                 self.assertAlmostEqual(before.get(name, 0), after.get(name, 0), places=12)
+
+
+    def test_shoulder_collar_has_no_remote_forearm_influence(self):
+        values = dict(height_cm=180, weight_kg=95, body_type='average')
+        mesh = human._human_mesh(**values)
+        skeleton = human._human_skeleton(**values)
+        anatomy = human._human_anatomy(**values)
+        weights = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
+        bones = {b.name:b for b in skeleton.bones}
+        collars = 0
+        blended_elbows = 0
+        for region in anatomy.regions:
+            if not region.name.startswith('arm.'):
+                continue
+            side = region.name.split('.')[-1]
+            bone = bones['upper_arm.'+side]
+            axis = tuple(b-a for a,b in zip(bone.head, bone.tail))
+            for i in region.vertex_indices:
+                point = mesh.parts[0].vertices[i]
+                t = sum((p-a)*d for p,a,d in zip(point,bone.head,axis))/sum(d*d for d in axis)
+                row = {w.bone_name:w.weight for w in weights.vertices[i]}
+                if t <= .5:
+                    self.assertNotIn('forearm.'+side, row)
+                    collars += 1
+                if t >= .5:
+                    self.assertNotIn('torso', row)
+                if .9 < t < 1.1 and 'upper_arm.'+side in row and 'forearm.'+side in row:
+                    blended_elbows += 1
+        self.assertGreater(collars, 100)
+        self.assertGreater(blended_elbows, 10)
+
+
+    def test_hip_weights_are_continuous_and_preserve_unrelated_regions(self):
+        from math import dist
+        for height, weight in ((180,95),(160,55)):
+            values = dict(height_cm=height, weight_kg=weight, body_type='average')
+            mesh = human._human_mesh(**values)
+            skeleton = human._human_skeleton(**values)
+            anatomy = human._human_anatomy(**values)
+            with patch.object(human, 'blend_hip_weights', side_effect=lambda m,s,w,o:w):
+                original = human._surface_skin_weights(mesh, skeleton, anatomy)[0]
+            owners = {i:r.name.split('.')[-1] for r in anatomy.regions
+                      if r.name.startswith('arm.') for i in r.vertex_indices}
+            repaired = human.blend_hip_weights(mesh,skeleton,(original,),owners)[0]
+            rows = [{w.bone_name:w.weight for w in row} for row in repaired.vertices]
+            part = mesh.parts[0]
+            for i,point in enumerate(part.vertices):
+                if i in owners or point[2] < .36*height or point[2] > .71*height:
+                    self.assertEqual(original.vertices[i], repaired.vertices[i])
+                self.assertAlmostEqual(sum(rows[i].values()), 1.)
+            edges = {tuple(sorted((a,b))) for f in part.faces for a,b in zip(f,f[1:]+f[:1])
+                     if a not in owners and b not in owners
+                     and .44*height < part.vertices[a][2] < .64*height
+                     and .44*height < part.vertices[b][2] < .64*height}
+            for a,b in edges:
+                length = dist(part.vertices[a],part.vertices[b])
+                if length > 1e-7:
+                    jump = abs(rows[a].get('upper_leg.left',0)-rows[b].get('upper_leg.left',0))
+                    self.assertLess(jump/length, .25)
+
+
+    def test_neck_and_wrist_have_no_remote_joint_membership_switch(self):
+        values = dict(height_cm=180,weight_kg=95,body_type='average')
+        mesh = human._human_mesh(**values)
+        skeleton = human._human_skeleton(**values)
+        weights = human._surface_skin_weights(mesh,skeleton,human._human_anatomy(**values))[0]
+        for index in (4878,4879,4909,4910):
+            names = {w.bone_name for w in weights.vertices[index]}
+            self.assertTrue(names <= {'torso','neck','head'})
+        for index in (38941,38942):
+            names = {w.bone_name for w in weights.vertices[index]}
+            self.assertTrue(names <= {'forearm.right','hand.right'})
+        for index in (14781,14782,22593,22594):
+            names={w.bone_name for w in weights.vertices[index]}
+            side='left' if mesh.parts[0].vertices[index][0]>0 else 'right'
+            self.assertTrue(names <= {'upper_leg.'+side,'lower_leg.'+side})
+        for row in weights.vertices:
+            self.assertLessEqual(len(row),4)
+            self.assertAlmostEqual(sum(w.weight for w in row),1.)
+
+    def test_ankle_blend_preserves_knees_body_and_authored_arms(self):
+        values = dict(height_cm=180,weight_kg=95,body_type='average')
+        mesh=human._human_mesh(**values)
+        skeleton=human._human_skeleton(**values)
+        anatomy=human._human_anatomy(**values)
+        with patch.object(human,'blend_ankle_weights',side_effect=lambda m,s,w,o:w):
+            original=human._surface_skin_weights(mesh,skeleton,anatomy)[0]
+        owners={i:r.name.split('.')[-1] for r in anatomy.regions
+                if r.name.startswith('leg.') for i in r.vertex_indices}
+        repaired=human.blend_ankle_weights(mesh,skeleton,(original,),owners)[0]
+        sole_count=0
+        for i,p in enumerate(mesh.parts[0].vertices):
+            if i not in owners or p[2]>25.:
+                self.assertEqual(original.vertices[i],repaired.vertices[i])
+            self.assertAlmostEqual(sum(w.weight for w in repaired.vertices[i]),1.)
+            if p[2]<.9:
+                row={w.bone_name:w.weight for w in repaired.vertices[i]}
+                self.assertGreater(row['foot.'+owners[i]],.9)
+                sole_count+=1
+        self.assertGreater(sole_count,10)
 
 
 if __name__ == '__main__':

@@ -21,6 +21,9 @@ from object_core.objects import get_provider
 
 @unittest.skipIf(bpy is None, 'requires Blender')
 class CanineGLBPlaybackTests(unittest.TestCase):
+    provider_key = "quadruped"
+    run_duration = .64
+
     def setUp(self):
         self.previous = bpy.context.window.scene
         self.before = {name: set(getattr(bpy.data, name)) for name in
@@ -40,18 +43,18 @@ class CanineGLBPlaybackTests(unittest.TestCase):
                 data.remove(item, do_unlink=True)
 
     def test_owned_clip_library_retains_fractional_duration_contact_and_loop(self):
-        provider = get_provider('quadruped')
+        provider = get_provider(self.provider_key)
         values = {p.key: p.default for p in provider.parameters}
         mesh = provider.mesh(values)
         root = create_character(mesh, scene=self.scene, skeleton=provider.skeleton(values),
                                 skin_weights=provider.skin_weights(mesh, values))
-        root['object_type'] = 'quadruped'
+        root['object_type'] = self.provider_key
         for key, value in values.items():
             root[key] = value
         prepare_materials(root)
         add_idle(root, self.scene, 4., 1.)
         add_locomotion(root, self.scene, 1.2, 1.)
-        add_run(root, self.scene, .64, 1.)
+        add_run(root, self.scene, self.run_duration, 1.)
         set_clip_export_name(root, 'Walk', 'CanineStep')
         source_rig = next(o for o in root.children if o.type == 'ARMATURE')
         active_action = source_rig.animation_data.action
@@ -74,7 +77,7 @@ class CanineGLBPlaybackTests(unittest.TestCase):
             size, kind = struct.unpack_from('<II', data, 12)
             self.assertEqual(kind, 0x4E4F534A)
             document = json.loads(data[20:20 + size].decode('utf8'))
-            durations = {'Idle': 4., 'CanineStep': 1.2, 'Run': .64}
+            durations = {'Idle': 4., 'CanineStep': 1.2, 'Run': self.run_duration}
             for animation in document['animations']:
                 inputs = [document['accessors'][s['input']] for s in animation['samplers']]
                 self.assertAlmostEqual(min(a['min'][0] for a in inputs), 0., places=6)
@@ -94,7 +97,7 @@ class CanineGLBPlaybackTests(unittest.TestCase):
         # to reset when switching the imported action library.
         for label, source_label, duration in (('CanineStep', 'Walk', 1.2),
                                               ('Idle', 'Idle', 4.),
-                                              ('Run', 'Run', .64),
+                                              ('Run', 'Run', self.run_duration),
                                               ('Idle', 'Idle', 4.)):
             with self.subTest(clip=label):
                 action = next(a for a in actions if a.name.startswith(label))

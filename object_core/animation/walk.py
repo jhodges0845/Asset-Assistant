@@ -28,6 +28,12 @@ def _keys(duration, degrees, strength):
     )
 
 
+def _knee_keys(duration, degrees, strength):
+    """Flex backward only; phase comes from the hip cycle, never bend sign."""
+    return tuple((time, min(0.0, angle))
+                 for time, angle in _keys(duration, degrees, strength))
+
+
 def generate_walk(duration=1.2, strength=1.0):
     """Return a closed in-place walk cycle with opposing arm/leg swing."""
     for name, value, lower, upper in (("duration", duration, 0.5, 4), ("strength", strength, 0.1, 2)):
@@ -39,8 +45,8 @@ def generate_walk(duration=1.2, strength=1.0):
     tracks = (
         RotationTrack("upper_leg.left", (1.0, 0.0, 0.0), _keys(duration, 24.0, strength)),
         RotationTrack("upper_leg.right", (1.0, 0.0, 0.0), _keys(duration, -24.0, strength)),
-        RotationTrack("lower_leg.left", (1.0, 0.0, 0.0), _keys(duration, -14.0, strength)),
-        RotationTrack("lower_leg.right", (1.0, 0.0, 0.0), _keys(duration, 14.0, strength)),
+        RotationTrack("lower_leg.left", (1.0, 0.0, 0.0), _knee_keys(duration, -14.0, strength)),
+        RotationTrack("lower_leg.right", (1.0, 0.0, 0.0), _knee_keys(duration, 14.0, strength)),
         RotationTrack("upper_arm.left", (1.0, 0.0, 0.0), _keys(duration, -18.0, strength)),
         RotationTrack("upper_arm.right", (1.0, 0.0, 0.0), _keys(duration, 18.0, strength)),
         RotationTrack("torso", (0.0, 0.0, 1.0), _keys(duration, 3.0, strength)),

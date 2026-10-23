@@ -41,6 +41,22 @@ class RunAnimationBlenderTests(unittest.TestCase):
         add_basic_rig(root, bpy.context)
         return root
 
+    def test_walk_knees_never_reverse_between_authored_keys(self):
+        from blender_adapter.animation import add_locomotion
+        from math import floor
+        root = self._make('human', 'WalkKneeDirection')
+        add_locomotion(root, self.scene, 1.2, 2.)
+        rig = next(obj for obj in root.children if obj.type == 'ARMATURE')
+        for sample in range(65):
+            frame = self.scene.frame_start + 1.2 * self.scene.render.fps / self.scene.render.fps_base * sample / 64
+            self.scene.frame_set(floor(frame), subframe=frame-floor(frame))
+            for side in ('left', 'right'):
+                bone = rig.pose.bones['lower_leg.'+side]
+                axis, angle = bone.rotation_quaternion.to_axis_angle()
+                axis = bone.bone.matrix_local.to_3x3() @ axis
+                angle *= axis.x
+                self.assertLessEqual(angle, 1e-7, (sample, side))
+
     def test_human_run_creates_named_generated_action(self):
         root = self._make('human', 'RunHuman')
         action, end = add_run(root, self.scene)
