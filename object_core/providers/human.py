@@ -15,7 +15,7 @@ from ..geometry.deformable import _generate_face_atlas_uvs
 from ..geometry.surface_human_builder import HumanSurfaceBuilder
 from ..models import BodyType, HumanoidSpec, ImageTextureSpec, MaterialSpec
 from ..models.mesh import MeshPart, ObjectMesh
-from ..rigging.surface_human import surface_skeleton, localize_upper_body_weights, localize_arm_joint_weights, blend_hip_weights
+from ..rigging.surface_human import surface_skeleton, localize_upper_body_weights, localize_arm_joint_weights, blend_hip_weights, blend_ankle_weights
 from ..geometry.human_shaping import shape_human_surface
 from ..proportions import generate_proportions
 from ..rigging import generate_skin_weights, generate_skeleton
@@ -204,7 +204,11 @@ def _surface_skin_weights(mesh, skeleton, anatomy):
     weights = generate_skin_weights(mesh, skeleton, bone_filter=bone_filter)
     weights = localize_upper_body_weights(mesh, skeleton, weights, owners)
     weights = localize_arm_joint_weights(mesh, skeleton, weights, owners)
-    return blend_hip_weights(mesh, skeleton, weights, owners)
+    weights = blend_hip_weights(mesh, skeleton, weights, owners)
+    legs = {index: region.name.split(".")[-1]
+            for region in anatomy.regions if region.name.startswith("leg.")
+            for index in region.vertex_indices}
+    return blend_ankle_weights(mesh, skeleton, weights, legs)
 
 
 def _human_mesh(height_cm, weight_kg=95.0, body_type="average"):

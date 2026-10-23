@@ -21,7 +21,7 @@ class HumanRecipeTests(unittest.TestCase):
         anatomy = mesh_builder.call_args.args[1]
         self.assertIs(anatomy, rig_builder.call_args.args[0])
         self.assertTrue(anatomy is human._human_anatomy(**values), "normalized calls must reuse anatomy")
-        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '4'))
+        self.assertEqual((anatomy.recipe_id, anatomy.recipe_version), ('human', '5'))
         self.assertEqual(dict(anatomy.parameters), values)
         self.assertEqual(16, sum(len(chain.bones) for chain in anatomy.chains))
 
@@ -171,6 +171,28 @@ class HumanRecipeTests(unittest.TestCase):
                 if length > 1e-7:
                     jump = abs(rows[a].get('upper_leg.left',0)-rows[b].get('upper_leg.left',0))
                     self.assertLess(jump/length, .25)
+
+
+    def test_ankle_blend_preserves_knees_body_and_authored_arms(self):
+        values = dict(height_cm=180,weight_kg=95,body_type='average')
+        mesh=human._human_mesh(**values)
+        skeleton=human._human_skeleton(**values)
+        anatomy=human._human_anatomy(**values)
+        with patch.object(human,'blend_ankle_weights',side_effect=lambda m,s,w,o:w):
+            original=human._surface_skin_weights(mesh,skeleton,anatomy)[0]
+        owners={i:r.name.split('.')[-1] for r in anatomy.regions
+                if r.name.startswith('leg.') for i in r.vertex_indices}
+        repaired=human.blend_ankle_weights(mesh,skeleton,(original,),owners)[0]
+        sole_count=0
+        for i,p in enumerate(mesh.parts[0].vertices):
+            if i not in owners or p[2]>25.:
+                self.assertEqual(original.vertices[i],repaired.vertices[i])
+            self.assertAlmostEqual(sum(w.weight for w in repaired.vertices[i]),1.)
+            if p[2]<.9:
+                row={w.bone_name:w.weight for w in repaired.vertices[i]}
+                self.assertGreater(row['foot.'+owners[i]],.9)
+                sole_count+=1
+        self.assertGreater(sole_count,10)
 
 
 if __name__ == '__main__':

@@ -199,3 +199,42 @@ are still open; foot silhouette is the next geometry task.
 Validation: all 14 focused core tests and 17 Blender deformation/Model JSON
 tests pass. The rendered 16-pose glute screen also passes with recipe-4 weights.
 Full CI remains the merge gate.
+
+## Foot profile and ankle refinement (2026-10-21)
+
+Human recipe 5 replaces the long thin foot tube with a shorter forefoot, a raised
+instep, a fuller heel and separate heel/ball ground-contact stations. One shared
+human_foot_profile in geometry/surface_human.py now supplies surface rings and
+toe rest landmarks. The established floor datum, body vertices above the feet,
+ring counts, topology and bone names remain unchanged. A local vertical ankle
+weight blend supports the new shape and preserves knees, body and authored arms.
+
+The first candidate exposed an ankle/instep fold in close-up despite passing the
+closed-mesh audit. The final profile has monotonic upper/lower forward contours
+and a continuously descending upper surface; a regression protects that seam.
+The old distance weights also compressed the revised feet during strong bends.
+The final local blend passes all eight left/right ankle cases at X=1.05/-0.6 on
+180/95 and 160/55 bodies, with absolute edge ratios 0.632447..1.390993 and no
+opposite-foot movement. Neutral heel and ball stations remain on the floor.
+
+Default 180 cm / 95 kg foot bounds: length 20.5587 -> 17.7926 cm (13.45% shorter),
+width 9.2565 -> 9.0504 cm, floor 0 cm before and after. Source fingerprints and
+measurements are in artifacts/shared-anatomy/human-foot-review/measurements.json.
+The local before.png / after.png four-view close-ups were visually inspected.
+They are auto-framed diagnostic crops, not pixel-registered overlays.
+
+Reproduce neutral and bent views with Blender background/factory-startup:
+--python scripts/render_human_review.py -- --region left-foot --modes clay
+--output artifacts/shared-anatomy/human-foot-review/after.png
+Add --foot-bend 1.05 for ankle-bend.png. The initial before.png used recipe 4.
+The close-up crops the shin for inspection; it does not change asset topology.
+
+Saved recipe-4 geometry and artist data remain intact. Because both surface and
+toe landmarks changed, use explicit fresh generation/rebuilding to adopt recipe 5;
+do not silently replace an existing mesh or rig. A Blender regression reconstructs
+the old feet and proves ownership blocks automatic semantic regeneration.
+Detailed toe anatomy, collision-free continuous gait and final artistic approval
+remain outside this blockout-foot refinement.
+
+Validation (2026-10-22): 26 focused core tests and all 19 Blender deformation /
+Model JSON acceptance tests pass. Full CI remains the merge gate.
