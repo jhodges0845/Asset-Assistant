@@ -12,7 +12,7 @@ Plan: [../docs/shared-anatomy-alpha-plan.md](../docs/shared-anatomy-alpha-plan.m
 
 ## Human contact motion and recipe 6 (2026-10-22)
 
-Human now has parameter-aware Walk/Run contact solving plus continuous neck, shoulder, elbow, wrist and knee weights. Geometry/rest bones remain recipe-5 compatible; saved rigs/clips require explicit rebuilding/regeneration. Eight dense actual-action cases pass contact, closure and deformation screens; core/Blender suites, final focused checks, isolated ZIP smoke and fresh-process preservation pass. Artistic review remains open. See docs/human-review-notes.md for evidence and limits; scripts/review_human_motion.py measures actual contact/deformation and scripts/create_human_motion_review.py creates editable three-cycle review scenes.
+Human now has parameter-aware Walk/Run contact solving plus continuous neck, shoulder, elbow, wrist and knee weights. Geometry/rest bones remain recipe-5 compatible; saved rigs/clips require explicit rebuilding/regeneration. Eight dense actual-action cases pass contact, closure and deformation screens; core/Blender suites, final focused checks, isolated ZIP smoke and fresh-process preservation pass. Human Idle explicitly resets contact root compression when switching clips; scripts/create_human_clip_library.py builds a fresh editable three-clip library. Artistic review remains open. See docs/human-review-notes.md for evidence and limits; scripts/review_human_motion.py measures actual contact/deformation and scripts/create_human_motion_review.py creates editable three-cycle review scenes.
 
 ## Human foot refinement (2026-10-21)
 

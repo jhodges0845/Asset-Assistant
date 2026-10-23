@@ -20,3 +20,8 @@ class HumanContactTests(unittest.TestCase):
                 if track.bone.startswith('lower_leg.'):
                     self.assertTrue(all(angle<0 for _,angle in track.keys))
             self.assertEqual(clip.translations[0].keys[0][1],clip.translations[0].keys[-1][1])
+
+    def test_idle_explicitly_resets_contact_root_translation(self):
+        clip = get_provider('human').idle(4., 1.)
+        self.assertEqual([(t.bone,t.keys) for t in clip.translations],
+                         [('root',((0.,(0.,0.,0.)),(4.,(0.,0.,0.))))])

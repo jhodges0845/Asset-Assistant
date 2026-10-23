@@ -319,7 +319,13 @@ class HumanProvider:
                                                     float(values["weight_kg"]), values["body_type"]))
 
     def idle(self, duration, strength, *, values=None):
-        return generate_idle(duration, strength)
+        from .human_gait import HumanIdleClip
+        from ..animation.idle import TranslationTrack
+        base = generate_idle(duration, strength)
+        # Reset contact compression when selecting Idle after either gait.
+        reset = TranslationTrack('root', ((0., (0., 0., 0.)),
+                                         (base.duration, (0., 0., 0.))))
+        return HumanIdleClip(base.duration, base.tracks, (reset,))
 
     def locomotion(self, duration, strength, *, values=None):
         return self._contact_motion(duration, strength, False, values)

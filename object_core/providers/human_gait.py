@@ -4,10 +4,15 @@ from dataclasses import dataclass
 from functools import lru_cache
 from math import ceil, cos, pi
 from ..animation.contact import ContactCycle
-from ..animation.idle import RotationTrack, TranslationTrack
+from ..animation.idle import IdleClip, RotationTrack, TranslationTrack
 from ..animation.walk import WalkClip, generate_walk
 from ..animation.run import generate_run
 from ..animation.weighted_contact import LimbSurface
+
+
+@dataclass(frozen=True)
+class HumanIdleClip(IdleClip):
+    translations: tuple
 
 
 @dataclass(frozen=True)

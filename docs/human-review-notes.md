@@ -351,3 +351,29 @@ review remains for the user. Reproduce the default-strength four-case matrix wit
 --python scripts/review_human_motion.py -- --output artifacts/human-motion.json
 --intervals 127 --strength 1. See each script's --help for output options.
 Saved rigs and clips require explicit rebuild/regeneration to adopt this work.
+
+
+## Rig and clip handoff (2026-10-23)
+
+Actual GLB export/reimport testing exposed a missing Human Idle translation
+track: switching from Walk or Run retained 5.04 / 9.54 cm of root compression.
+Idle now explicitly keys root translation to zero at both endpoints. The
+shared raw Idle generator and other providers remain unchanged. Regenerate
+saved Human Idle clips to adopt the reset; existing artist Actions are preserved.
+
+`tests/blender/test_human_glb_playback.py` reuses the Canine surface-parity
+fixture for Human Idle/Walk/Run. It checks fractional timing, owned clip export,
+fixed vertex correspondence through motion, loop closure, positive gait floor
+clearance, export cleanup and Walk/Idle/Run/Idle switching. A direct regression
+also asserts zero root translation after switching from each gait.
+
+`scripts/create_human_clip_library.py` writes a fresh default Human rig with all
+three editable clips and refuses existing output paths. The final local library
+is artifacts/shared-anatomy/human-motion-review/human-rig-and-clips.blend.
+The Human GLB playback and explicit root-reset checks pass in Blender 5.2.1:
+exported/source surface error remains below 0.002 cm with fixed correspondence;
+loop closure remains below 0.001 cm. The final library was reopened in a fresh
+process and sampled over Walk/Idle/Run/Idle: all positions are finite, gait floor
+clearance is positive, loops close, and Idle root translation is zero. Three
+focused core tests and all three Human/Canine Blender playback tests pass. These checks complete the technical Human rig/clip
+handoff; artistic motion approval remains separate.

@@ -34,7 +34,7 @@ Generated and adopted first-class Actions are also scoped to the owning Asset As
 
 The existing animation export-name workflow updates the portable record and the legacy Action property together. Legacy generated Actions from older `.blend` files that do not yet carry animation-record metadata remain usable and renameable; malformed new record metadata is not silently ignored.
 
-Current generated Idle/Walk-or-locomotion/Flight/Run clips are recorded as looping, in-place animations because the current provider generators create cyclic rotational motion without root translation.
+Current generated Idle/Walk-or-locomotion/Flight/Run clips are recorded as looping, in-place animations with no accumulated root travel. Contact gaits can include cyclic root compression or sway; these offsets return to their starting values at the loop boundary.
 
 ## Action registration and lifecycle
 
