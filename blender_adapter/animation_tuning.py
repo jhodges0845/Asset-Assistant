@@ -10,6 +10,7 @@ from .animation import (
     add_locomotion,
     add_run,
     generated_actions,
+    validate_clip_destination,
 )
 from .animation_records import animation_record, has_animation_record, inspect_animation_record, persist_animation_record
 from .core import AnimationRecord, AnimationSource
@@ -182,6 +183,9 @@ def preview_animation_request(root, document):
             other_name = str(other.get(_EXPORT_NAME) or other.get(_GENERATED_CLIP) or other.name).strip()
             if other_name == export_name:
                 raise ValueError("Animation export names must remain unique")
+
+    if duration != current_duration or not isinstance(current_strength, (int, float)) or strength != float(current_strength):
+        validate_clip_destination(root)
 
     return {
         "animation_id": record.animation_id,

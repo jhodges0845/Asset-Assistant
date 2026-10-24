@@ -128,3 +128,22 @@ key values, handles, interpolation and stable identity. Timing/strength Apply
 produces the requested duration/strength with the same stable identity. Both
 paths preserve unrelated clip Actions and their curves. This is operator-level
 acceptance, not live UI or NLA/save/reopen/destination certification.
+
+
+## NLA preservation and preview boundary (2026-10-24)
+
+Timing/strength regeneration already rejected rigs with NLA tracks or drivers at
+Apply, but Preview incorrectly accepted those requests. Preview now shares the
+same artist-animation validation as generation. Rename-only requests remain
+available and preserve the original Action and NLA arrangement. The workflow
+does not retime or replace artist-arranged NLA strips automatically.
+
+New regressions reproduced the missing Preview blocker on all three providers.
+`scripts/test_animation_nla_reopen.py` passes separate Blender-process checks for
+Human, Canine and Avian: stable animation identity, renamed export name, keys,
+NLA Action reference, placement, repeat and influence survive save/reopen. The
+script is included in CI. These checks cover arranged Idle clips; destination
+playback and arbitrary edited multi-track arrangements remain open.
+
+Validation: 21 tuning/operator tests passed in 139.94 seconds; all three
+fresh-process NLA checks and five architecture-boundary tests passed.
