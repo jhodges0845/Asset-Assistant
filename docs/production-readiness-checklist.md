@@ -4,6 +4,8 @@ Current evidence: [workflow and UI/UX audit](workflow-acceptance-audit.md). Earl
 
 This document is the current manual and product-readiness gate for Asset Assistant before a production/public-alpha decision. Passing automated CI is necessary but is not sufficient. The installed Blender UI and artist workflow must be exercised end to end.
 
+Required implementation and acceptance milestones are tracked in the [release roadmap](shared-anatomy-alpha-plan.md#required-workflow-release-gates-2026-10-24), including LOD implementation and live UI/UX. These gates must not be inferred complete from the historical checklist below.
+
 ## Release principle
 
 Do not call the current workflow production-ready until every item below has either passed or been explicitly deferred with a documented reason.

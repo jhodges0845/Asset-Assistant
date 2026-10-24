@@ -163,6 +163,41 @@ class BlenderAnimationTuningTests(unittest.TestCase):
         self.assertEqual(before,tuple(tuple(k.co) for curve in curves for k in curve.keyframe_points))
         self.assertEqual(result.export_name,'Edited breathing')
 
+    def test_nla_rename_preserves_arrangement_and_preview_blocks_regeneration(self, checkpoint=None):
+        root = self._human()
+        action, _ = add_idle(root, bpy.context.scene, duration=2.)
+        rig = next(obj for obj in root.children if obj.type == 'ARMATURE')
+        track = rig.animation_data.nla_tracks.new()
+        track.name = 'Artist arrangement'
+        strip = track.strips.new('Artist breathing', 40, action)
+        strip.repeat = 2.
+        strip.influence = .65
+        snapshot = (strip.frame_start, strip.frame_end, strip.repeat, strip.influence)
+        identity = animation_record(action).animation_id
+        apply_animation_request(root, bpy.context.scene,
+            self._request(root, identity, export_name='Arranged breathing'))
+        self.assertEqual(strip.action, action)
+        self.assertEqual(snapshot, (strip.frame_start, strip.frame_end, strip.repeat, strip.influence))
+        request = self._request(root, identity, strength=.8)
+        with self.assertRaisesRegex(ValueError, 'NLA tracks'):
+            preview_animation_request(root, request)
+        with self.assertRaisesRegex(ValueError, 'NLA tracks'):
+            apply_animation_request(root, bpy.context.scene, request)
+        self.assertEqual(generated_action(root, 'Idle'), action)
+        self.assertEqual(strip.action, action)
+        self.assertEqual(snapshot, (strip.frame_start, strip.frame_end, strip.repeat, strip.influence))
+
+        if checkpoint is not None:
+            import json
+            from pathlib import Path
+            from blender_adapter.animation import action_curves
+            expected = dict(provider=self.provider_key, animation_id=identity,
+                            export_name='Arranged breathing', strip=list(snapshot),
+                            keys=[list(key.co) for curve in action_curves(action, action.slots[0])
+                                  for key in curve.keyframe_points])
+            Path(str(checkpoint) + '.json').write_text(json.dumps(expected))
+            bpy.ops.wm.save_as_mainfile(filepath=str(checkpoint))
+
 
 class CanineAnimationTuningTests(BlenderAnimationTuningTests):
     provider_key = 'quadruped'

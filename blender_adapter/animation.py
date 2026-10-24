@@ -108,6 +108,15 @@ def activate_generated_action(root, clip_name):
     return action
 
 
+def validate_clip_destination(root):
+    """Share artist-animation blockers between refinement preview and generation."""
+    data = _rig(root).animation_data
+    if data and (data.nla_tracks or data.drivers):
+        raise ValueError('Existing animation preserved. NLA tracks and drivers require manual preparation.')
+    if data and data.action and not (data.action.get(_GENERATED) and data.action in generated_actions(root)):
+        raise ValueError('Existing animation preserved. Use a fresh rig or keep the artist action active.')
+
+
 def _add_clip(root, scene, clip, suffix, capability, strength):
     import bpy
     from mathutils import Vector, Quaternion, Matrix
@@ -117,10 +126,7 @@ def _add_clip(root, scene, clip, suffix, capability, strength):
     data = rig.animation_data
     if generated_action(root, suffix) is not None:
         raise ValueError('Existing animation preserved. ' + suffix + ' already exists; select that clip instead of overwriting it.')
-    if data and (data.nla_tracks or data.drivers):
-        raise ValueError('Existing animation preserved. NLA tracks and drivers require manual preparation.')
-    if data and data.action and not (data.action.get(_GENERATED) and data.action in generated_actions(root)):
-        raise ValueError('Existing animation preserved. Use a fresh rig or keep the artist action active.')
+    validate_clip_destination(root)
 
     previous_action = data.action if data else None
     previous_slot = getattr(data, 'action_slot', None) if data else None

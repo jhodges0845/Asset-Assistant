@@ -8,7 +8,7 @@ Read `human-workflow.md` for the user workflow and code ownership map.
 
 ## Current workflow and UI audit (2026-10-23)
 
-See [workflow-acceptance-audit.md](workflow-acceptance-audit.md) for model/animation Modify, LOD, import/export and UI acceptance evidence. Human rig/clip work is merged; workflow and UX validation are active. LOD support and live UI review remain open. Blender tests use pytest so function-based UI tests run alongside unittest classes.
+See [workflow-acceptance-audit.md](workflow-acceptance-audit.md) for model/animation Modify, LOD, import/export and UI acceptance evidence. Human rig/clip work is merged; workflow and UX validation are active. LOD support and live UI review remain open. Required release gates are listed in shared-anatomy-alpha-plan.md (Required workflow release gates). Blender tests use pytest so function-based UI tests run alongside unittest classes.
 
 ## Active pre-alpha direction (2026-09-21)
 

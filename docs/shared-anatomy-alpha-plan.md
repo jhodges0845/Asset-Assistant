@@ -106,6 +106,42 @@ Begin final motion tuning after each provider's anatomy and rest rig are accepte
 - Reconcile stale release audits, supported Blender version, public docs and known limitations. Publish comparison images and short clips showing the actual candidate.
 - Choose consistent version metadata and explicitly configure a GitHub prerelease. Tag/publish only with user approval.
 
+
+### Required workflow release gates (2026-10-24)
+
+These are required before release, not optional post-release polish. Evidence and
+remaining limitations live in [workflow acceptance](workflow-acceptance-audit.md).
+A gate stays open until the candidate commit and results are recorded.
+
+- [ ] **Generated-model modification:** Human/Canine/Avian external JSON preview,
+  cancel/apply, manual-edit protection, component/rig preservation, checkpoint
+  reopening, and edited-model export/reimport with accepted silhouettes.
+- [ ] **Animation modification:** all nine generated clip families through actual
+  operators, manual-key and NLA preservation, save/reopen, and destination
+  playback. Operator and arranged-Idle persistence proofs pass; destination and
+  broader artist-arrangement checks remain open.
+- [ ] **Imports and exports:** static and animated .blend/GLB/GLTF, Unity FBX and
+  Unreal FBX through inspect/adopt, supported Modify, components, checkpoint and
+  re-export. Verify scale, orientation, materials, rig/skin, clip names/timing and
+  failure cleanup. Record actual engine playback and Cura slicing for advertised
+  destinations; importer success alone does not close this gate.
+- [ ] **LOD implementation:** define static/skinned level generation and explicit
+  preview/apply ownership, implement reduction and export grouping, then verify
+  triangle budgets, silhouette, UV/material/weight preservation, animated playback
+  and engine level selection. No LOD pipeline exists yet; target reminders do not
+  count as implementation. Artist source geometry must remain preserved.
+- [ ] **Live UI/UX:** exercise installed Create/Animate/Components/Export at 280,
+  360 and 480 pixel sidebar widths, including no-asset, imported/generated,
+  manually edited, blocked and successful states. Check keyboard navigation,
+  long names/paths, cancellation, errors, undo and saved-file reopening. Record
+  screenshots, candidate build and resolved defects; draw tests are insufficient.
+- [ ] **Integration and candidate:** merge regular PRs only after passing checks,
+  then verify the combined candidate package, clean install/disable/re-enable/
+  uninstall and documented limitations. Release/tag approval remains separate.
+
+Execution order: integrate validated fixes; finish modified/animated exchange
+matrices; deliver LODs; complete live UI and final candidate/destination review.
+
 ## Delivery discipline
 
 Use reviewable PRs for the shared contract, Human migration, Quadruped anatomy, Avian anatomy, semantic integration, motion tools, each provider's animation tuning, and release hardening. Split further when needed. Each anatomy PR includes reproducible visual evidence and relevant regression checks; avoid one all-provider rewrite.
