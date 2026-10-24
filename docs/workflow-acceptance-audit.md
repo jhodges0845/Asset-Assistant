@@ -162,3 +162,21 @@ focused Unreal check passed (38.85 seconds). This proves structural reimport,
 not engine playback, exact skin/pose parity, all providers or the complete
 imported-asset Modify/checkpoint/re-export workflow. Those remain release gates
 in [the roadmap](shared-anatomy-alpha-plan.md#required-workflow-release-gates-2026-10-24).
+
+
+## Edited Human/Canine GLB skin parity (2026-10-24)
+
+`tests/blender/test_edited_glb_playback.py` applies broad shoulders to Human and
+broad chest to Canine (amount 0.6) through the semantic modification planner.
+Both edits change geometry while preserving skin weights and generated ownership.
+The resulting Idle/Walk/Run library then uses the actual GLB export/import path.
+
+Both provider cases passed in 179.05 seconds (six Blender API deprecation
+warnings). At 34 phase samples per Walk/Idle/Run/Idle segment, a fixed vertex
+correspondence keeps imported evaluated skin within 0.002 cm of the edited
+source. The shared harness also checks exported names/fractional durations,
+exclusion of unrelated Actions, loop closure and sampled gait ground clearance.
+
+This is Blender reimport parity for two default-proportion edits, not independent
+engine playback or artistic approval. Edited FBX, other supported shapes and
+arbitrary artist-authored geometry remain part of the release matrix.
