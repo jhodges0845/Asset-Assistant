@@ -198,3 +198,20 @@ that the semantic operation actually changed the source geometry first.
 This extends edited-model structural acceptance; it does not establish FBX posed
 skin parity, engine playback, arbitrary manual edits or all provider shapes.
 Those remain open release gates.
+
+
+## Edited Human FBX sampled motion parity (2026-10-24)
+
+The edited exchange test now compares Unity and Unreal FBX evaluated skin against
+the source Idle/Walk clips at five integer baked-frame offsets per clip, using
+one fixed rest-pose vertex correspondence. Both paths stay below 0.002 cm error;
+imported duration may differ by up to one frame because FBX endpoints are rounded.
+The final four-format run passed in 73.36 seconds (24 API deprecation warnings).
+
+Initial failures were test-harness assumptions: Unity FBX Actions contain separate
+root-object and rig slots, while Unreal per-clip Actions can use generic scene
+names. The test now selects the slot belonging to each imported rig and uses the
+Unreal clip file's identity. Tolerance and correspondence were not relaxed.
+
+This covers one edited Human and two clips at sampled baked frames, not subframe
+interpolation, all providers, engine runtime playback or visual approval.

@@ -76,6 +76,7 @@ class GLBImportRoundTripTests(unittest.TestCase):
         self.assertTrue(result.success, result.issues)
 
         imported_root = _import_external(str(path), extension, bpy.context)
+        imported_clips = [(imported_root, None)]
         report = inspect_selected_asset(imported_root)
 
         self.assertEqual("REVIEW", report["status"])
@@ -88,9 +89,12 @@ class GLBImportRoundTripTests(unittest.TestCase):
                 clip_path = path.with_name(path.stem + "_" + clip + extension)
                 self.assertTrue(clip_path.is_file())
                 clip_root = _import_external(str(clip_path), extension, bpy.context)
+                imported_clips.append((clip_root, clip))
                 clip_report = inspect_selected_asset(clip_root)
                 self.assertEqual(1, clip_report["metrics"]["armatures"])
                 self.assertEqual(1, clip_report["metrics"]["animations"])
+
+        return imported_clips
 
 
 if __name__ == "__main__":

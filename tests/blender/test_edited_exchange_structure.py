@@ -20,7 +20,11 @@ class EditedHumanExchangeTests(exchange.GLBImportRoundTripTests):
 
     def _prove_exchange(self, target, extension):
         before = set(bpy.data.objects)
-        super()._prove_exchange(target, extension)
+        before_actions = set(bpy.data.actions)
+        imported_clips = super()._prove_exchange(target, extension)
+        from blender_adapter.targets import base_asset_rig
+        labels = {base_asset_rig(root): label for root, label in imported_clips}
+        imported_actions = set(bpy.data.actions) - before_actions
         imported_rigs = [obj for obj in set(bpy.data.objects) - before if obj.type == "ARMATURE"]
         source_rig = next(obj for obj in self.root.children if obj.type == "ARMATURE")
         source_mode = source_rig.data.pose_position
@@ -45,9 +49,57 @@ class EditedHumanExchangeTests(exchange.GLBImportRoundTripTests):
                     for vertex in body.data.vertices:
                         weight = sum(group.weight for group in vertex.groups if group.group in groups)
                         self.assertAlmostEqual(weight, 1., delta=.001)
+                if extension == ".fbx" and (target != "UNREAL" or labels[rig]):
+                    self._verify_fbx_motion(rig, bodies, source_rig, source_points, imported_actions, labels[rig])
+                    source_rig.data.pose_position = "REST"
+                    rig.data.pose_position = "REST"
+                    bpy.context.view_layer.update()
         finally:
             source_rig.data.pose_position = source_mode
             bpy.context.view_layer.update()
+
+    def _verify_fbx_motion(self, rig, bodies, source_rig, source_points, imported_actions, clip_label):
+        from mathutils.kdtree import KDTree
+        from blender_adapter.animation import activate_generated_action
+        import math
+        data = rig.animation_data
+        self.assertIsNotNone(data)
+        actions = [(action, slot) for action in imported_actions for slot in action.slots
+                   if slot.identifier == "OB" + rig.name]
+        self.assertEqual(len(actions), 1 if clip_label else 2)
+        tree = KDTree(len(source_points))
+        for index, point in enumerate(source_points):
+            tree.insert(point, index)
+        tree.balance()
+        mapping = [tree.find(point)[1] for point in self._points(bodies)]
+        for track in data.nla_tracks:
+            track.mute = True
+        rig.data.pose_position = "POSE"
+        for action, slot in actions:
+            label = clip_label or next((name for name in ("Idle", "Walk") if name in action.name), None)
+            self.assertIsNotNone(label, action.name)
+            source = activate_generated_action(self.root, label)
+            data.action = action
+            data.action_slot = slot
+            duration = source.frame_range[1] - source.frame_range[0]
+            self.assertAlmostEqual(action.frame_range[1] - action.frame_range[0], duration, delta=1.)
+            offsets = sorted({int(duration * fraction) for fraction in (0., .25, .5, .75, .95)})
+            maximum = 0.
+            for offset in offsets:
+                frame = action.frame_range[0] + offset
+                self.scene.frame_set(math.floor(frame), subframe=frame % 1)
+                bpy.context.view_layer.update()
+                depsgraph = bpy.context.evaluated_depsgraph_get()
+                imported = [obj.evaluated_get(depsgraph) for obj in bodies]
+                points = self._points(imported)
+                frame = source.frame_range[0] + offset
+                self.scene.frame_set(math.floor(frame), subframe=frame % 1)
+                bpy.context.view_layer.update()
+                original = self._points([obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                                         for obj in asset_meshes(self.root)])
+                maximum = max(maximum, max((point-original[index]).length * 100
+                                          for point, index in zip(points, mapping)))
+            self.assertLess(maximum, .002, (action.name, maximum))
 
     @staticmethod
     def _points(objects):
