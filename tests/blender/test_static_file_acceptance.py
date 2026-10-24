@@ -79,3 +79,60 @@ def test_open_game_surface_does_not_relax_print_or_degenerate_checks():
     finally:
         bpy.data.objects.remove(obj,do_unlink=True)
         bpy.data.meshes.remove(mesh)
+
+
+@pytest.mark.parametrize("extension", ["gltf", "glb"])
+def test_multiscene_import_rejection_restores_artist_scene(extension, tmp_path):
+    import json
+    import struct
+    document = {
+        "asset": {"version": "2.0"}, "scene": 0,
+        "scenes": [{"nodes": [0]}, {"nodes": [1]}],
+        "nodes": [{"name": "First scene object"}, {"name": "Other scene object"}],
+    }
+    payload = json.dumps(document).encode("utf-8")
+    path = tmp_path / ("multiple-scenes." + extension)
+    if extension == "glb":
+        payload += b" " * (-len(payload) % 4)
+        path.write_bytes(struct.pack("<4sII", b"glTF", 2, 20 + len(payload))
+                         + struct.pack("<I4s", len(payload), b"JSON") + payload)
+    else:
+        path.write_bytes(payload)
+    scene = bpy.context.window.scene
+    layer = bpy.context.window.view_layer
+    selected = set(bpy.context.selected_objects)
+    active = layer.objects.active
+    before = {kind: set(getattr(bpy.data, kind)) for kind in files._IMPORT_DATA_KINDS}
+    with pytest.raises(ValueError, match="Export one scene"):
+        files._import_external(str(path), "." + extension, bpy.context)
+    assert bpy.context.window.scene == scene
+    assert bpy.context.window.view_layer == layer
+    assert set(bpy.context.selected_objects) == selected
+    assert layer.objects.active == active
+    for kind, original in before.items():
+        assert set(getattr(bpy.data, kind)) == original, kind
+
+
+def test_import_activation_failure_removes_partial_data(monkeypatch, tmp_path):
+    import json
+    path = tmp_path / "single.gltf"
+    path.write_text(json.dumps({
+        "asset": {"version": "2.0"}, "scene": 0,
+        "scenes": [{"nodes": [0]}], "nodes": [{"name": "Imported empty"}],
+    }))
+    before = {kind: set(getattr(bpy.data, kind)) for kind in files._IMPORT_DATA_KINDS}
+    selected = set(bpy.context.selected_objects)
+    active = bpy.context.view_layer.objects.active
+
+    def fail_activation(*args, **kwargs):
+        bpy.data.materials.new("Partial import material")
+        bpy.data.actions.new("Partial import action")
+        raise RuntimeError("Injected activation failure")
+
+    monkeypatch.setattr(files, "_activate_imported_object", fail_activation)
+    with pytest.raises(RuntimeError, match="Injected activation failure"):
+        files._import_external(str(path), ".gltf", bpy.context)
+    for kind, original in before.items():
+        assert set(getattr(bpy.data, kind)) == original, kind
+    assert set(bpy.context.selected_objects) == selected
+    assert bpy.context.view_layer.objects.active == active

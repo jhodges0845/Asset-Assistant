@@ -212,23 +212,55 @@ def _finalize_import_replacement(scene, active, previous_group, remove_group=_re
     return new_group
 
 
+# Datablocks created by supported exchange importers, removed only on failure.
+_IMPORT_DATA_KINDS = (
+    "scenes", "objects", "collections", "meshes", "armatures", "materials",
+    "textures", "images", "actions", "cameras", "lights", "node_groups",
+)
+
+
 def _import_external(filepath, extension, context):
-    before = set(bpy.data.objects)
-    if extension in {".glb", ".gltf"}:
-        result = bpy.ops.import_scene.gltf(filepath=filepath)
-    elif extension == ".fbx":
-        if hasattr(bpy.ops.wm, "fbx_import"):
-            result = bpy.ops.wm.fbx_import(filepath=filepath)
+    before = {kind: set(getattr(bpy.data, kind)) for kind in _IMPORT_DATA_KINDS}
+    scene = context.window.scene
+    view_layer = context.window.view_layer
+    selected = tuple(context.selected_objects)
+    active = view_layer.objects.active
+    try:
+        if extension in {".glb", ".gltf"}:
+            result = bpy.ops.import_scene.gltf(filepath=filepath)
+        elif extension == ".fbx":
+            if hasattr(bpy.ops.wm, "fbx_import"):
+                result = bpy.ops.wm.fbx_import(filepath=filepath)
+            else:
+                result = bpy.ops.import_scene.fbx(filepath=filepath)
         else:
-            result = bpy.ops.import_scene.fbx(filepath=filepath)
-    else:
-        raise ValueError("Unsupported external asset format: " + extension)
-    if "FINISHED" not in result:
-        raise RuntimeError("Blender did not finish importing the selected asset.")
-    imported = tuple(obj for obj in bpy.data.objects if obj not in before)
-    if not imported:
-        raise RuntimeError("The file imported without creating any Blender objects.")
-    return _activate_imported_object(context, imported, source=extension[1:].upper())
+            raise ValueError("Unsupported external asset format: " + extension)
+        if "FINISHED" not in result:
+            raise RuntimeError("Blender did not finish importing the selected asset.")
+        imported = tuple(obj for obj in bpy.data.objects if obj not in before["objects"])
+        if not imported:
+            raise RuntimeError("The file imported without creating any Blender objects.")
+        context.window.scene = scene
+        context.window.view_layer = view_layer
+        if any(obj.name not in view_layer.objects for obj in imported):
+            raise ValueError(
+                "This file contains objects outside the current scene/view layer. "
+                "Export one scene as a separate asset and import it again. "
+                "The attempted import has been removed."
+            )
+        return _activate_imported_object(context, imported, source=extension[1:].upper())
+    except Exception:
+        context.window.scene = scene
+        context.window.view_layer = view_layer
+        created = [item for kind in _IMPORT_DATA_KINDS
+                   for item in getattr(bpy.data, kind) if item not in before[kind]]
+        if created:
+            bpy.data.batch_remove(ids=created)
+        _clear_selection(context)
+        for obj in selected:
+            obj.select_set(True)
+        view_layer.objects.active = active
+        raise
 
 
 def _import_blend_collection(filepath, collection_name, context):

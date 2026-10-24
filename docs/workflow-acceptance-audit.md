@@ -71,10 +71,18 @@ UI behavior were verified. Source/draw tests cannot certify visual usability.
 
 A multi-scene GLB/GLTF fixture can create objects outside the active view layer;
 `_import_external` then attempts to select a root from all new datablocks and
-raises an error. This is an open import-boundary defect, not a passed workflow.
-The static format matrix deliberately exports a single active scene and does
-not establish multi-scene import support. Add explicit scene selection or a
-transactional rejection/cleanup path before claiming that broader scope.
+previously raised an error after leaving partial imported data behind. The
+follow-up now rejects objects outside the original view layer with a request to
+export one scene separately. Failure removes only newly created exchange-import
+datablocks and restores the original scene, view layer, selection and active
+object. Real two-scene GLB/GLTF fixtures verify rejection and exact datablock
+preservation; an injected activation failure checks partial material/Action
+cleanup. Single-scene imports remain supported. Scene selection and multi-scene
+asset import remain unsupported; rejection is not broader import support.
+
+Follow-up validation: 22 focused Blender tests passed (11 API deprecation
+warnings), covering the static format matrix, multi-scene rejection, partial
+activation failure, animated Human GLB round-trip and file-import UI helpers.
 
 ## Order of remaining work
 
