@@ -64,7 +64,7 @@ after updating an already loaded add-on to avoid stale modules.
 
 ## Test
 
-GitHub Actions configures Python 3.9 through 3.12 and Blender 2.92.0/5.2.1 jobs on
+GitHub Actions configures Python 3.9 through 3.12 and Blender 5.2.1 jobs on
 pull requests, pushes to main, and manual runs. Blender jobs verify the official
 archive checksum and run `scripts/test_blender.py` headlessly. Remote CI results
 must be checked on the PR.
@@ -72,13 +72,14 @@ must be checked on the PR.
 Ordinary Python tests skip Blender integration tests explicitly:
 
 ```powershell
-python -m unittest discover -s tests -v
+python -m unittest discover -s tests/core -v
 ```
 
 Run the full suite with the installed Blender:
 
 ```powershell
-& 'C:\Program Files\Blender Foundation\Blender 2.92\blender.exe' --background --factory-startup --python-exit-code 1 --python scripts/test_blender.py
+python -m pip install --target artifacts/test-dependencies pytest==8.4.2
+& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --factory-startup --python-exit-code 1 --python scripts/test_blender.py
 ```
 
 This uses a separate Blender process and does not alter your open scene or saved
@@ -102,7 +103,7 @@ system or scale.
 After building, run the isolated package check in a separate Blender process:
 
 ```powershell
-& 'C:\Program Files\Blender Foundation\Blender 2.92\blender.exe' --background --factory-startup --python-exit-code 1 --python scripts/test_blender_package.py
+& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --factory-startup --python-exit-code 1 --python scripts/test_blender_package.py
 ```
 
 This extracts `dist/asset_assistant.zip` into a temporary folder, removes checkout

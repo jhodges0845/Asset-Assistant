@@ -175,7 +175,7 @@ class BlenderOutputAdapter:
         raise NotImplementedError
 
     def inspect(self, objects, context):
-        return inspect_objects(objects)
+        return inspect_objects(objects, require_manifold_geometry=self.profile.require_manifold_geometry)
 
     def validate(self, root, context):
         context.view_layer.update()

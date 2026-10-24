@@ -61,15 +61,19 @@ def test_install_moves_legacy_rig_create_state_to_modify_and_draws_rig_before_an
     settings = SimpleNamespace(asset_assistant_create_view="RIG")
     context = SimpleNamespace(scene=SimpleNamespace(humanoid_settings=settings))
 
-    monkeypatch.setattr(rig_animate_ui, "asset_rigs", lambda _root: ())
-    rig_animate_ui.install(Workflow, WorkspaceCreate, Normalized)
+    from blender_adapter.presentation_registry import PresentationRegistry
+    from blender_adapter import workflow_ui
+    registry = PresentationRegistry()
+    monkeypatch.setattr(workflow_ui, '_section_header', Workflow._section_header)
+    monkeypatch.setattr(workflow_ui, '_stage_proxy', Workflow._stage_proxy)
+    rig_animate_ui.install(registry, WorkspaceCreate)
 
     assert WorkspaceCreate._CREATE_MODES == rig_animate_ui._CREATE_MODES
 
-    Workflow._draw_create(_Panel(), context, ui, None, None)
+    registry.resolve("workspace.create", Workflow._draw_create)(_Panel(), context, ui, None, None)
     assert settings.asset_assistant_create_view == "MODIFY"
     assert ("create", "MODIFY") in calls
 
-    Workflow._draw_animate(_Panel(), context, ui, None, None)
+    registry.resolve("workspace.animate", Workflow._draw_animate)(_Panel(), context, ui, None, None)
     assert calls.index(("stage", "RIGGING")) < calls.index(("animate",))
     assert any(call[0:2] == ("header", "RIG & POSE") for call in calls)

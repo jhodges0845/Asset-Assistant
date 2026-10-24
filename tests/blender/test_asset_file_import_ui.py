@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -64,7 +65,7 @@ def test_blend_with_one_collection_and_no_scene_signals_is_asset_candidate(monke
         assert link is False
         yield _DataFrom(), object()
 
-    monkeypatch.setattr(asset_file_import_ui.bpy.data.libraries, "load", _load)
+    monkeypatch.setattr(asset_file_import_ui, "bpy", SimpleNamespace(data=SimpleNamespace(libraries=SimpleNamespace(load=_load))))
 
     report = asset_file_import_ui.preflight_asset_file(filepath)
 
@@ -92,7 +93,7 @@ def test_blend_with_multiple_collections_returns_explicit_choices(monkeypatch, t
     def _load(_filepath, link=False):
         yield _DataFrom(), object()
 
-    monkeypatch.setattr(asset_file_import_ui.bpy.data.libraries, "load", _load)
+    monkeypatch.setattr(asset_file_import_ui, "bpy", SimpleNamespace(data=SimpleNamespace(libraries=SimpleNamespace(load=_load))))
 
     report = asset_file_import_ui.preflight_asset_file(filepath)
 

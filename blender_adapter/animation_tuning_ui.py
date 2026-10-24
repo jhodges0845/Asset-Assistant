@@ -75,7 +75,8 @@ def _summary(plan):
     changes = [key for key, changed in plan["changes"].items() if changed]
     if not changes:
         return plan["clip_id"] + ": no effective changes"
-    return plan["clip_id"] + ": " + ", ".join(changes)
+    effect = " (regenerates keys)" if any(plan["changes"].get(k) for k in ('duration_seconds','strength')) else " (keeps keyframes)"
+    return plan["clip_id"] + ": " + ", ".join(changes) + effect
 
 
 class ASSET_ASSISTANT_OT_preview_animation_changes(bpy.types.Operator):
@@ -103,7 +104,7 @@ class ASSET_ASSISTANT_OT_preview_animation_changes(bpy.types.Operator):
 class ASSET_ASSISTANT_OT_apply_animation_changes(bpy.types.Operator):
     bl_idname = "asset_assistant.apply_animation_changes"
     bl_label = "Apply / Save Animation Changes"
-    bl_description = "Regenerate the owned clip from the reviewed request and keep its stable animation identity"
+    bl_description = "Apply the reviewed request; timing or strength changes regenerate keys, while rename-only changes preserve them"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod

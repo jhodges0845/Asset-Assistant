@@ -100,7 +100,7 @@ Presets are slim, average, muscular, overweight, and obese. They are artistic co
 ## Tests
 
 ```powershell
-python -m unittest discover -s tests -v
+python -m unittest discover -s tests/core -v
 ```
 
 Ordinary Python discovery runs core tests and skips Blender-only integration tests. CI additionally runs the suite inside Blender 5.2.1, including deforming providers, workflow, validation, export, and isolated packaged-add-on coverage. The Blender runtime is cached between CI runs.
