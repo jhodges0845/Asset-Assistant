@@ -9,7 +9,7 @@ are historical: the current interface has Create, Animate, Components and Export
 | Workflow | Existing or new automated evidence | Remaining acceptance work |
 | --- | --- | --- |
 | Generated model Modify | Human/Canine/Avian Model JSON import, non-mutating preview, cancel/apply equality, parameter edits, component blocking, artist-geometry blocking and fresh-process persistence | Repeat the final edited silhouettes and continuous motion through the UI; extend representative edited exports beyond the existing Avian destination proofs |
-| Animation Modify | Duration/strength preview and regeneration, stable IDs, other-clip preservation; tuning tests now cover all three providers; rename-only requests preserve manually edited keys | Full operator-driven external JSON flow for each clip family; manual-key/NLA continuity through save and destination; timing/strength still explicitly regenerates owned curves |
+| Animation Modify | Duration/strength preview and regeneration, stable IDs, other-clip preservation; tuning tests now cover all three providers; rename-only requests preserve manually edited keys | Operator-driven external JSON flow now covers all nine provider/clip pairs; manual-key/NLA continuity through save and destination remains open; timing/strength still explicitly regenerates owned curves |
 | LOD | No generation, ownership, export grouping or LOD-specific tests found; target notes merely advise destination review | Define static and skinned LOD scope, then implement and verify reduction, silhouette, weights/UV/material preservation, clip playback, export and engine selection; not a completed feature |
 | Export | GLB surface parity and switching for Human/Canine, Avian destination evidence, FBX clip staging/naming, static target and package smoke tests | Final-candidate Unity/Unreal/GLTF destination checks, edited-character exports, representative Human Cura slicing; no blanket engine certification |
 | Import | GLB round-trip; asset boundary/rig/material/clip discovery; explicit adoption, component and checkpoint tests; previously skipped file-picker/preflight tests now run | Complete real-file .blend/GLB/GLTF/Unity-FBX/Unreal-FBX matrix through Modify, animation, save/reopen and re-export; new single-scene static .blend/GLB/GLTF/FBX fixtures pass actual inspection/adoption/re-export; this does not prove animated or multi-scene imports |
@@ -86,7 +86,7 @@ activation failure, animated Human GLB round-trip and file-import UI helpers.
 
 ## Order of remaining work
 
-1. Close animation manual-edit preservation and all-clip operator acceptance.
+1. Extend animation manual-edit/NLA preservation through save/reopen and destination playback; all-clip operator acceptance now passes.
 2. Exercise real imported files and edited-model export/reimport matrices.
 3. Define and implement the LOD workflow; do not label destination reminders support.
 4. Complete live UI/UX and continuous visual review, then candidate package/install
@@ -114,3 +114,17 @@ edited states. Do not substitute screenshots of a mockup for the installed UI.
   stale preview recovery, error messages, undo, and saved-file reopening. Record
   screenshots and exact reproduction steps for defects; keep visual approval
   separate from API/operator assertions.
+
+
+## Animation operator acceptance (2026-10-24)
+
+`tests/blender/test_animation_operator_acceptance.py` runs registered Export
+Inspection, Import Changes, Preview and Apply operators for Human and Canine
+Idle/Walk/Run and Avian Idle/Walk/Flight. Three provider cases passed in 115.28
+seconds, covering nine clips and both rename-only and timing/strength requests.
+
+Preview leaves keys unchanged. Rename-only Apply preserves the Action, edited
+key values, handles, interpolation and stable identity. Timing/strength Apply
+produces the requested duration/strength with the same stable identity. Both
+paths preserve unrelated clip Actions and their curves. This is operator-level
+acceptance, not live UI or NLA/save/reopen/destination certification.
