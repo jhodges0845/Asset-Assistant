@@ -162,3 +162,56 @@ focused Unreal check passed (38.85 seconds). This proves structural reimport,
 not engine playback, exact skin/pose parity, all providers or the complete
 imported-asset Modify/checkpoint/re-export workflow. Those remain release gates
 in [the roadmap](shared-anatomy-alpha-plan.md#required-workflow-release-gates-2026-10-24).
+
+
+## Edited Human/Canine GLB skin parity (2026-10-24)
+
+`tests/blender/test_edited_glb_playback.py` applies broad shoulders to Human and
+broad chest to Canine (amount 0.6) through the semantic modification planner.
+Both edits change geometry while preserving skin weights and generated ownership.
+The resulting Idle/Walk/Run library then uses the actual GLB export/import path.
+
+Both provider cases passed in 179.05 seconds (six Blender API deprecation
+warnings). At 34 phase samples per Walk/Idle/Run/Idle segment, a fixed vertex
+correspondence keeps imported evaluated skin within 0.002 cm of the edited
+source. The shared harness also checks exported names/fractional durations,
+exclusion of unrelated Actions, loop closure and sampled gait ground clearance.
+
+This is Blender reimport parity for two default-proportion edits, not independent
+engine playback or artistic approval. Edited FBX, other supported shapes and
+arbitrary artist-authored geometry remain part of the release matrix.
+
+
+## Edited Human exchange structure (2026-10-24)
+
+`tests/blender/test_edited_exchange_structure.py` applies broad shoulders (0.6)
+before generating Idle/Walk, then exports/reimports GLB, separate GLTF, Unity FBX
+and the Unreal model-plus-per-clip FBX package. All four tests passed in 68.56
+seconds, with 24 Blender API deprecation warnings.
+
+For every imported rig, the test requires a bound mesh, rest dimensions matching
+the edited source within 0.0001 Blender units (0.1 mm in the metre-scale fixture),
+and per-vertex bone-weight sums within 0.001 of one. Existing exchange assertions
+also require materials and the target-specific clip counts. The test confirms
+that the semantic operation actually changed the source geometry first.
+
+This extends edited-model structural acceptance; it does not establish FBX posed
+skin parity, engine playback, arbitrary manual edits or all provider shapes.
+Those remain open release gates.
+
+
+## Edited Human FBX sampled motion parity (2026-10-24)
+
+The edited exchange test now compares Unity and Unreal FBX evaluated skin against
+the source Idle/Walk clips at five integer baked-frame offsets per clip, using
+one fixed rest-pose vertex correspondence. Both paths stay below 0.002 cm error;
+imported duration may differ by up to one frame because FBX endpoints are rounded.
+The final four-format run passed in 73.36 seconds (24 API deprecation warnings).
+
+Initial failures were test-harness assumptions: Unity FBX Actions contain separate
+root-object and rig slots, while Unreal per-clip Actions can use generic scene
+names. The test now selects the slot belonging to each imported rig and uses the
+Unreal clip file's identity. Tolerance and correspondence were not relaxed.
+
+This covers one edited Human and two clips at sampled baked frames, not subframe
+interpolation, all providers, engine runtime playback or visual approval.

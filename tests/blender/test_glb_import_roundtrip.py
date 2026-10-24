@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Verify a real exported GLB is recognized after Blender imports it."""
+"""Verify animated exchange files are recognized after Blender imports them."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -22,6 +22,9 @@ from object_core.objects import get_provider
 
 @unittest.skipIf(bpy is None, "requires Blender; use scripts/test_blender.py")
 class GLBImportRoundTripTests(unittest.TestCase):
+    def prepare_asset(self):
+        """Optional model edit before materials and clips are created."""
+
     def setUp(self):
         self.previous_scene = bpy.context.window.scene
         self.before = {name: set(getattr(bpy.data, name)) for name in
@@ -35,6 +38,7 @@ class GLBImportRoundTripTests(unittest.TestCase):
         for key, value in values.items():
             self.root[key] = value
         add_basic_rig(self.root, bpy.context)
+        self.prepare_asset()
         prepare_materials(self.root)
         add_idle(self.root, self.scene)
         add_locomotion(self.root, self.scene)
@@ -72,6 +76,7 @@ class GLBImportRoundTripTests(unittest.TestCase):
         self.assertTrue(result.success, result.issues)
 
         imported_root = _import_external(str(path), extension, bpy.context)
+        imported_clips = [(imported_root, None)]
         report = inspect_selected_asset(imported_root)
 
         self.assertEqual("REVIEW", report["status"])
@@ -84,9 +89,12 @@ class GLBImportRoundTripTests(unittest.TestCase):
                 clip_path = path.with_name(path.stem + "_" + clip + extension)
                 self.assertTrue(clip_path.is_file())
                 clip_root = _import_external(str(clip_path), extension, bpy.context)
+                imported_clips.append((clip_root, clip))
                 clip_report = inspect_selected_asset(clip_root)
                 self.assertEqual(1, clip_report["metrics"]["armatures"])
                 self.assertEqual(1, clip_report["metrics"]["animations"])
+
+        return imported_clips
 
 
 if __name__ == "__main__":

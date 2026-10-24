@@ -24,6 +24,10 @@ class CanineGLBPlaybackTests(unittest.TestCase):
     provider_key = "quadruped"
     run_duration = .64
 
+    def prepare_asset(self, root):
+        """Optional artist workflow before generating the exported clip library."""
+        return root
+
     def setUp(self):
         self.previous = bpy.context.window.scene
         self.before = {name: set(getattr(bpy.data, name)) for name in
@@ -51,6 +55,7 @@ class CanineGLBPlaybackTests(unittest.TestCase):
         root['object_type'] = self.provider_key
         for key, value in values.items():
             root[key] = value
+        self.prepare_asset(root)
         prepare_materials(root)
         add_idle(root, self.scene, 4., 1.)
         add_locomotion(root, self.scene, 1.2, 1.)
