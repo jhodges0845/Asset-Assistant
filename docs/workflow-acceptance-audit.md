@@ -215,3 +215,39 @@ Unreal clip file's identity. Tolerance and correspondence were not relaxed.
 
 This covers one edited Human and two clips at sampled baked frames, not subframe
 interpolation, all providers, engine runtime playback or visual approval.
+
+
+## Edited Godot destination probes (2026-10-24)
+
+Blender 5.2.1 and Godot 4.7.2 probes now cover default Canine broad chest and
+Human broad shoulders, both amount 0.6. They compare Walk/Idle/Run/Idle at 34
+phases across three cycles, with unchanged 0.002 cm tolerance. The skin probe
+uses fixed neutral correspondence and verifies coverage of every source vertex.
+
+| Fixture | Import mode | Skeletal/skin result |
+| --- | --- | --- |
+| Edited Canine | Verified authored grid | Both pass; skin maximum 0.000788 cm, all 17,218 source vertices covered |
+| Edited Human | 800 fps diagnostic | Both fail for Walk/Run; Idle passes; all 42,186 source vertices covered |
+
+Human maximum bone-head errors are 0.005955 cm (Walk) and 0.039657 cm (Run).
+Skin errors are 0.007865 cm (Walk), 0.053513 cm (Run), and 0.000281 cm (Idle).
+Rest geometry matches. These are open destination-fidelity failures, not visual
+approval or a reason to raise the tolerance. Human contact keys are nonuniform,
+so the fixture deliberately has no authored-grid import rate. Diagnostic 800 fps
+is not a production import setting. Next isolate Godot resampling/interpolation
+from exporter behavior; do not claim the cause is established.
+
+Reproduction (fresh output directories; commands after Blender's `--`):
+
+- `scripts/export_canine_godot_review.py --edit-amount .6 --posed-surface --output artifacts/workflow-godot-canine-edited`
+- `scripts/export_human_godot_review.py --edit-amount .6 --posed-surface --output artifacts/workflow-godot-human-diagnostic`
+- Godot Canine: `--headless --path <fixture> --script review.gd -- --source-aligned`
+- Godot Human: `--headless --path <fixture> --script review.gd`
+- Renderer-backed skin: `--path <fixture> --script skin.gd --rendering-method gl_compatibility`; add `-- --diagnostic-import` for Human.
+
+Each fixture holds `expected.json`, `godot-report.json` and
+`godot-skin-report.json`; generated assets are local artifacts. The scripts retain
+historical canine/avian filenames. Dense probes now index tolerance-near rest
+vertices in spatial cells, preserving distance and coverage checks; the
+bidirectional geometry check retains a full search for out-of-tolerance points.
+Godot used ANGLE on this host after an OpenGL-driver warning.
