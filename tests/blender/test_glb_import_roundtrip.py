@@ -55,18 +55,38 @@ class GLBImportRoundTripTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_exported_animated_glb_reimports_with_mesh_rig_material_and_clips(self):
-        path = Path(self.temp.name) / "human.glb"
-        result = get_adapter("GODOT", asset_use="ANIMATED").export(self.root, bpy.context, path)
+        self._prove_exchange("GODOT", ".glb")
+
+    def test_animated_gltf_reimport(self):
+        self._prove_exchange("GODOT", ".gltf")
+
+    def test_animated_unity_fbx_reimport(self):
+        self._prove_exchange("UNITY", ".fbx")
+
+    def test_animated_unreal_fbx_reimport(self):
+        self._prove_exchange("UNREAL", ".fbx")
+
+    def _prove_exchange(self, target, extension):
+        path = Path(self.temp.name) / ("human" + extension)
+        result = get_adapter(target, asset_use="ANIMATED").export(self.root, bpy.context, path)
         self.assertTrue(result.success, result.issues)
 
-        imported_root = _import_external(str(path), ".glb", bpy.context)
+        imported_root = _import_external(str(path), extension, bpy.context)
         report = inspect_selected_asset(imported_root)
 
         self.assertEqual("REVIEW", report["status"])
         self.assertGreaterEqual(report["metrics"]["meshes"], 1)
         self.assertEqual(1, report["metrics"]["armatures"])
         self.assertGreaterEqual(report["metrics"]["materials"], 1)
-        self.assertEqual(2, report["metrics"]["animations"])
+        self.assertEqual(0 if target == "UNREAL" else 2, report["metrics"]["animations"])
+        if target == "UNREAL":
+            for clip in ("Idle", "Walk"):
+                clip_path = path.with_name(path.stem + "_" + clip + extension)
+                self.assertTrue(clip_path.is_file())
+                clip_root = _import_external(str(clip_path), extension, bpy.context)
+                clip_report = inspect_selected_asset(clip_root)
+                self.assertEqual(1, clip_report["metrics"]["armatures"])
+                self.assertEqual(1, clip_report["metrics"]["animations"])
 
 
 if __name__ == "__main__":

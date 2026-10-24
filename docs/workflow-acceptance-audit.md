@@ -147,3 +147,18 @@ playback and arbitrary edited multi-track arrangements remain open.
 
 Validation: 21 tuning/operator tests passed in 139.94 seconds; all three
 fresh-process NLA checks and five architecture-boundary tests passed.
+
+
+## Animated exchange matrix (2026-10-24)
+
+Human Idle/Walk exports now have Blender reimport checks for GLB, separate GLTF,
+Unity FBX and Unreal FBX. GLB/GLTF/Unity retain a mesh, one rig, materials and both
+clips. Unreal intentionally writes a model without animation plus one file per
+clip; both Idle and Walk files reimport with one rig and one clip each.
+
+The first run passed three formats and exposed an incorrect single-file Unreal
+test assumption. After matching the documented exporter package contract, the
+focused Unreal check passed (38.85 seconds). This proves structural reimport,
+not engine playback, exact skin/pose parity, all providers or the complete
+imported-asset Modify/checkpoint/re-export workflow. Those remain release gates
+in [the roadmap](shared-anatomy-alpha-plan.md#required-workflow-release-gates-2026-10-24).
