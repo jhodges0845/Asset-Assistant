@@ -180,3 +180,21 @@ exclusion of unrelated Actions, loop closure and sampled gait ground clearance.
 This is Blender reimport parity for two default-proportion edits, not independent
 engine playback or artistic approval. Edited FBX, other supported shapes and
 arbitrary artist-authored geometry remain part of the release matrix.
+
+
+## Edited Human exchange structure (2026-10-24)
+
+`tests/blender/test_edited_exchange_structure.py` applies broad shoulders (0.6)
+before generating Idle/Walk, then exports/reimports GLB, separate GLTF, Unity FBX
+and the Unreal model-plus-per-clip FBX package. All four tests passed in 68.56
+seconds, with 24 Blender API deprecation warnings.
+
+For every imported rig, the test requires a bound mesh, rest dimensions matching
+the edited source within 0.0001 Blender units (0.1 mm in the metre-scale fixture),
+and per-vertex bone-weight sums within 0.001 of one. Existing exchange assertions
+also require materials and the target-specific clip counts. The test confirms
+that the semantic operation actually changed the source geometry first.
+
+This extends edited-model structural acceptance; it does not establish FBX posed
+skin parity, engine playback, arbitrary manual edits or all provider shapes.
+Those remain open release gates.

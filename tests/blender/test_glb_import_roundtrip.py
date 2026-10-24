@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Verify a real exported GLB is recognized after Blender imports it."""
+"""Verify animated exchange files are recognized after Blender imports them."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -22,6 +22,9 @@ from object_core.objects import get_provider
 
 @unittest.skipIf(bpy is None, "requires Blender; use scripts/test_blender.py")
 class GLBImportRoundTripTests(unittest.TestCase):
+    def prepare_asset(self):
+        """Optional model edit before materials and clips are created."""
+
     def setUp(self):
         self.previous_scene = bpy.context.window.scene
         self.before = {name: set(getattr(bpy.data, name)) for name in
@@ -35,6 +38,7 @@ class GLBImportRoundTripTests(unittest.TestCase):
         for key, value in values.items():
             self.root[key] = value
         add_basic_rig(self.root, bpy.context)
+        self.prepare_asset()
         prepare_materials(self.root)
         add_idle(self.root, self.scene)
         add_locomotion(self.root, self.scene)
