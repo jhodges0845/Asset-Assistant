@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from blender_adapter import asset_structure
 
 
@@ -27,7 +28,7 @@ class _Modifier:
 class _AnimationData:
     def __init__(self, action=None, tracks=()):
         self.action = action
-        self.nla_tracks = tuple(tracks)
+        self.nla_tracks = tuple(SimpleNamespace(strips=(SimpleNamespace(action=action),)) for action in tracks)
 
 
 def test_generated_hierarchy_uses_complete_tree_not_only_direct_children():

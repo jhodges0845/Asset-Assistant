@@ -1,5 +1,7 @@
 # Post-Modify / UI regression and architecture audit
 
+Current evidence: [workflow and UI/UX audit](workflow-acceptance-audit.md). Earlier checkpoints below are historical or incomplete; unchecked items are not evidence of missing implementation, and passing tests are not live UI approval.
+
 This audit is the release checkpoint after the first usable Modify workflow and the unified Asset Assistant sidebar landed.
 
 ## Scope reviewed

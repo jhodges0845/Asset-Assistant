@@ -97,6 +97,9 @@ jobs:
           tar -xf "$archive" -C "$cache_root"
           test -x "$cache_root/${{ matrix.directory }}/blender"
 
+      - name: Install Blender test dependencies
+        run: python -m pip install --target artifacts/test-dependencies pytest==8.4.2
+
       - name: Run Blender integration tests
         run: |
           "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \

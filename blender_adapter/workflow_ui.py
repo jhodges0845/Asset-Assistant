@@ -193,7 +193,7 @@ def _draw_components(panel, context, component_adoption_ui, hair_component_ui, c
 
 def _draw_export(panel, context, ui, working_asset_ui):
     layout = panel.layout; settings = context.scene.humanoid_settings
-    _section_header(layout, "EXPORT", "Validate once, then ship to your target", "EXPORT")
+    _section_header(layout, "EXPORT", "Check readiness, save and export", "EXPORT")
     target_box = layout.box(); target_box.prop(settings, "target", text="Asset")
     target = getattr(settings, "target", None)
     if target is None:
@@ -209,17 +209,21 @@ def _draw_export(panel, context, ui, working_asset_ui):
     if snapshot:
         errors = sum(row.status == "ERROR" for row in snapshot); warnings = sum(row.status == "WARN" for row in snapshot); passes = sum(row.status == "PASS" for row in snapshot)
         validation.label(text=f"{errors} errors  â€¢  {warnings} warnings  â€¢  {passes} passed", icon="CHECKMARK" if errors == 0 else "ERROR")
-        ui._draw_validation_results(validation, snapshot, max(24, int(context.region.width / 7) - 6))
     else: validation.label(text="Run validation to check readiness.", icon="INFO")
     readiness_rows = snapshot if settings.output_target == "CURA" else ui._export_issues(context)
     ready = ui.is_ready(readiness_rows)
     confidence = layout.box(); confidence.label(text="READY TO EXPORT" if ready else "NOT READY YET", icon="CHECKMARK" if ready else "ERROR")
     export_row = confidence.row(); export_row.scale_y = 1.6; export_row.enabled = ready
     export_row.operator("humanoid.export_asset", text="Export Asset", icon="EXPORT")
+    if not ready: confidence.label(text="Run validation and resolve issues below.", icon="INFO")
     if settings.last_export: confidence.label(text="Saved: " + settings.last_export, icon="CHECKMARK")
     if working_asset_ui is not None:
         checkpoint = layout.box(); checkpoint.label(text="EDITABLE WORKING STATE", icon="FILE_BLEND")
         checkpoint.operator("asset_assistant.save_editable_checkpoint", text="Validate + Save Checkpoint", icon="FILE_TICK")
+    if snapshot:
+        details = layout.box()
+        details.label(text="VALIDATION DETAILS", icon="INFO")
+        ui._draw_validation_results(details, snapshot, max(24, int(context.region.width / 7) - 6))
 
 
 def _draw_workspace_nav(layout, settings):

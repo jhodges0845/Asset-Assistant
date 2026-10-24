@@ -81,7 +81,9 @@ def test_imported_animate_bypasses_generated_provider_stage(monkeypatch):
 
     identity_ui = SimpleNamespace(_draw_summary=lambda *args: None, _component_label=lambda count: f"{count} Components")
     ui = SimpleNamespace()
-    normalized_ui.install(workflow_ui, identity_ui, ui)
+    from blender_adapter.presentation_registry import PresentationRegistry
+    registry = PresentationRegistry()
+    normalized_ui.install(registry, identity_ui)
 
     layout = _Node()
     panel = SimpleNamespace(layout=layout)
@@ -93,9 +95,8 @@ def test_imported_animate_bypasses_generated_provider_stage(monkeypatch):
             return None
 
     animation_names = SimpleNamespace(ASSET_ASSISTANT_PT_animation_names=_ClipPanel)
-    workflow_ui._draw_animate(panel, context, ui, animation_names, object())
+    registry.resolve("workspace.animate", workflow_ui._draw_animate)(panel, context, ui, animation_names, object())
 
     assert original_calls == []
     flattened_operators = [op for child in layout.children for op in child.operators]
-    assert any(op[0] == "asset_assistant.select_base_rig" for op in flattened_operators)
-    assert any(op[0] == "asset_assistant.pose_base_rig" for op in flattened_operators)
+    assert any(op[0] == "asset_assistant.adopt_animation_action" for child in layout.children for row in child.children for op in row.operators)

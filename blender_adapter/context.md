@@ -4,6 +4,10 @@ Scope: Blender-specific host behavior. `object_core` remains the portable source
 
 Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
+## Current workflow and UI audit (2026-10-23)
+
+See [../docs/workflow-acceptance-audit.md](../docs/workflow-acceptance-audit.md) for model/animation Modify, LOD, import/export and UI acceptance evidence. Human rig/clip work is merged; workflow and UX validation are active. LOD support and live UI review remain open. Blender tests use pytest so function-based UI tests run alongside unittest classes.
+
 ## Current Human V2 integration (2026-09-20)
 
 Create > Human is the single Human UI path. `HumanProvider` uses key `human` and

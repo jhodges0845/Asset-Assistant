@@ -1,5 +1,7 @@
 # Production Readiness Checklist
 
+Current evidence: [workflow and UI/UX audit](workflow-acceptance-audit.md). Earlier checkpoints below are historical or incomplete; unchecked items are not evidence of missing implementation, and passing tests are not live UI approval.
+
 This document is the current manual and product-readiness gate for Asset Assistant before a production/public-alpha decision. Passing automated CI is necessary but is not sufficient. The installed Blender UI and artist workflow must be exercised end to end.
 
 ## Release principle

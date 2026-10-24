@@ -246,6 +246,12 @@ def apply_animation_request(root, scene, document):
     old_action, old_record = _action_for_id(root, plan["animation_id"])
     if old_action is None:
         raise ValueError("Requested animation disappeared before apply")
+    if not plan["changes"]["duration_seconds"] and not plan["changes"]["strength"]:
+        # Metadata-only requests must not regenerate or replace edited curves.
+        from .animation import set_clip_export_name
+        if plan["changes"]["export_name"]:
+            set_clip_export_name(root, plan["clip_id"], plan["export_name"])
+        return inspect_animation_record(root, old_action)
     clip_id = plan["clip_id"]
     original_clip_marker = old_action.get(_GENERATED_CLIP)
     original_name = old_action.name

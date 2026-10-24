@@ -1,4 +1,5 @@
-from blender_adapter import asset_inspection_ui
+from types import SimpleNamespace
+from blender_adapter import asset_inspection_ui, asset_structure
 
 
 class _Object:
@@ -36,7 +37,7 @@ class _Slot:
 class _AnimationData:
     def __init__(self, action=None, tracks=()):
         self.action = action
-        self.nla_tracks = tuple(tracks)
+        self.nla_tracks = tuple(SimpleNamespace(strips=(SimpleNamespace(action=action),)) for action in tracks)
 
 
 def test_generated_asset_is_reported_ready_without_using_display_name_as_identity():
@@ -79,7 +80,7 @@ def test_import_group_inspection_uses_whole_file_when_child_is_selected(monkeypa
     material = object()
     mesh.material_slots.append(_Slot(material))
     sibling_mesh.material_slots.append(_Slot(material))
-    monkeypatch.setattr(asset_inspection_ui.bpy.data, "objects", (root, mesh, sibling_mesh, rig))
+    monkeypatch.setattr(asset_structure, "bpy", SimpleNamespace(data=SimpleNamespace(objects=(root, mesh, sibling_mesh, rig))))
 
     report = asset_inspection_ui.inspect_selected_asset(mesh)
 
@@ -96,7 +97,7 @@ def test_import_group_inspection_is_stable_when_rig_is_selected(monkeypatch):
     rig = _Object("Rig", type="ARMATURE", asset_assistant_import_group=group)
     rig.animation_data = _AnimationData(action=object(), tracks=(object(),))
     mesh.modifiers.append(_Modifier(rig))
-    monkeypatch.setattr(asset_inspection_ui.bpy.data, "objects", (root, mesh, rig))
+    monkeypatch.setattr(asset_structure, "bpy", SimpleNamespace(data=SimpleNamespace(objects=(root, mesh, rig))))
 
     from_mesh = asset_inspection_ui.inspect_selected_asset(mesh)
     from_rig = asset_inspection_ui.inspect_selected_asset(rig)
@@ -114,7 +115,7 @@ def test_adopt_external_asset_sets_only_workflow_metadata_and_clears_completed_m
     rig = _Object("Rig", type="ARMATURE", asset_assistant_import_group=group)
     rig.animation_data = _AnimationData(action=object())
     mesh.modifiers.append(_Modifier(rig))
-    monkeypatch.setattr(asset_inspection_ui.bpy.data, "objects", (root, mesh, rig))
+    monkeypatch.setattr(asset_structure, "bpy", SimpleNamespace(data=SimpleNamespace(objects=(root, mesh, rig))))
 
     class _Settings:
         target = None
@@ -163,7 +164,7 @@ def test_multiple_external_armatures_block_base_asset_adoption(monkeypatch):
     mesh = _Object("Body", type="MESH", asset_assistant_import_group=group)
     rig_a = _Object("RigA", type="ARMATURE", asset_assistant_import_group=group)
     rig_b = _Object("RigB", type="ARMATURE", asset_assistant_import_group=group)
-    monkeypatch.setattr(asset_inspection_ui.bpy.data, "objects", (root, mesh, rig_a, rig_b))
+    monkeypatch.setattr(asset_structure, "bpy", SimpleNamespace(data=SimpleNamespace(objects=(root, mesh, rig_a, rig_b))))
 
     report = asset_inspection_ui.inspect_selected_asset(mesh)
 

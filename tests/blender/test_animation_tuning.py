@@ -21,6 +21,8 @@ from object_core.objects import get_provider
 
 @unittest.skipIf(bpy is None, "requires Blender; use scripts/test_blender.py")
 class BlenderAnimationTuningTests(unittest.TestCase):
+    provider_key = "human"
+
     def setUp(self):
         if bpy.context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
@@ -38,7 +40,7 @@ class BlenderAnimationTuningTests(unittest.TestCase):
                 data.remove(item, do_unlink=True)
 
     def _human(self):
-        provider = get_provider("human")
+        provider = get_provider(self.provider_key)
         values = {field.key: field.default for field in provider.parameters}
         mesh = provider.mesh(values)
         root = create_character(
@@ -57,7 +59,7 @@ class BlenderAnimationTuningTests(unittest.TestCase):
         document = {
             "schema": REQUEST_SCHEMA,
             "asset_id": str(root["asset_assistant_asset_id"]),
-            "provider_key": "human",
+            "provider_key": self.provider_key,
             "operations": [{"animation_id": animation_id}],
         }
         document["operations"][0].update(changes)
@@ -143,6 +145,31 @@ class BlenderAnimationTuningTests(unittest.TestCase):
         self.assertEqual(action_count, len(bpy.data.actions))
         self.assertIs(action, generated_action(root, "Idle"))
         self.assertEqual(animation_id, animation_record(action).animation_id)
+
+    def test_rename_only_preserves_manual_keyframes_and_action(self):
+        from blender_adapter.animation import action_curves
+        root = self._human()
+        action, _ = add_idle(root, bpy.context.scene, duration=2.)
+        rig = next(o for o in root.children if o.type == 'ARMATURE')
+        curves = action_curves(action, rig.animation_data.action_slot)
+        key = curves[0].keyframe_points[1]
+        key.co.y += .17
+        before = tuple(tuple(k.co) for curve in curves for k in curve.keyframe_points)
+        record = animation_record(action)
+        result = apply_animation_request(root, bpy.context.scene,
+            self._request(root, record.animation_id, export_name='Edited breathing'))
+        self.assertIs(action, generated_action(root,'Idle'))
+        self.assertEqual(result.animation_id,record.animation_id)
+        self.assertEqual(before,tuple(tuple(k.co) for curve in curves for k in curve.keyframe_points))
+        self.assertEqual(result.export_name,'Edited breathing')
+
+
+class CanineAnimationTuningTests(BlenderAnimationTuningTests):
+    provider_key = 'quadruped'
+
+
+class AvianAnimationTuningTests(BlenderAnimationTuningTests):
+    provider_key = 'avian'
 
 
 if __name__ == "__main__":

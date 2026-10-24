@@ -1,5 +1,7 @@
 # Publish readiness audit
 
+Current evidence: [workflow and UI/UX audit](workflow-acceptance-audit.md). Earlier checkpoints below are historical or incomplete; unchecked items are not evidence of missing implementation, and passing tests are not live UI approval.
+
 Reconciled against repository source on 2026-10-19. Status: **pre-alpha quality gates remain open**. The [shared anatomy plan](shared-anatomy-alpha-plan.md) controls sequencing; this inventory does not authorize a tag or publication.
 
 ## Existing release infrastructure

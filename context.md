@@ -6,6 +6,10 @@ Last structural rescan: 2026-09-15
 
 Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
+## Current workflow and UI audit (2026-10-23)
+
+See [docs/workflow-acceptance-audit.md](docs/workflow-acceptance-audit.md) for model/animation Modify, LOD, import/export and UI acceptance evidence. Human rig/clip work is merged; workflow and UX validation are active. LOD support and live UI review remain open. Blender tests use pytest so function-based UI tests run alongside unittest classes.
+
 ## Active pre-alpha direction (2026-09-21)
 
 Plan: [docs/shared-anatomy-alpha-plan.md](docs/shared-anatomy-alpha-plan.md). Shared anatomy construction with Human, Quadruped and Avian recipes, then a cross-provider animation quality pass, precedes alpha release hardening. Human, Quadruped and Avian now resolve shared anatomy contracts; Avian implementation is complete for the documented review shapes; artistic review and final canine visual acceptance remain open. The plan supersedes older Human-only milestone sequencing.

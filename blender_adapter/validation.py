@@ -25,8 +25,13 @@ def inspect_character(root):
     return inspect_objects([root] + list(root.children) if root is not None else [])
 
 
-def inspect_objects(objects):
-    """Inspect an explicit scope without modifying scene data."""
+def inspect_objects(objects, *, require_manifold_geometry=True):
+    """Inspect an explicit scope without modifying scene data.
+
+    Closed surfaces remain the conservative default. Game target profiles can
+    accept boundary edges (including imported UV/normal seams); non-finite,
+    degenerate, loose-edge and over-shared-edge geometry remains invalid.
+    """
     import bpy
     objects = tuple(objects)
     meshes = [obj for obj in objects if obj.type == "MESH"]
@@ -40,7 +45,7 @@ def inspect_objects(objects):
         bad = (not data.vertices or not data.polygons
                or any(not isfinite(v) for vertex in data.vertices for v in vertex.co)
                or any(not isfinite(face.area) or face.area <= 0 for face in data.polygons)
-               or any(count != 2 for count in edges.values())
+               or any(count > 2 or (require_manifold_geometry and count != 2) for count in edges.values())
                or len(edges) != len(data.edges))
         if bad:
             invalid.append(obj.name)
