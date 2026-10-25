@@ -78,3 +78,17 @@ tests pass, including actual preview/apply/discard operator calls, duplicate and
 stale-source rejection, and selection preservation. Five architecture checks and
 two full add-on registration/unregistration cycles pass. These checks do not
 establish narrow-panel layout quality or engine export support.
+
+## Undo snapshot evidence (2026-10-25)
+
+`scripts/test_lod_undo.py` invokes the LOD operators and exercises Blender undo /
+redo across Apply and Discard. Restored previews recover their source and level
+references; source geometry remains unchanged. The isolated Blender 5.2.1 check
+passes and runs as a separate CI step. Background scripts explicitly push undo
+snapshots, so this does not certify automatic UI event pushes or Ctrl-Z behavior.
+
+Fourteen focused Blender tests pass. Discard now rejects level meshes in Edit
+Mode before deleting anything. Live UI review remains blocked locally: the
+computer-use Node runtime failed initialization twice with a Windows sandbox
+helper setup error. Layout, confirmation-dialog interaction and keyboard undo
+still need live acceptance; they are not counted as passed by these tests.

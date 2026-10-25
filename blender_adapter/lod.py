@@ -59,6 +59,8 @@ class StaticLODPreview:
             if set(self.collection.objects) != set(self.objects) or self.collection.children:
                 raise ValueError("Preview collection changed; preserve its contents before rebuilding")
             for index, obj in enumerate(self.objects):
+                if obj.mode != 'OBJECT':
+                    raise ValueError("Return to Object Mode before changing a LOD preview")
                 if obj.data != self.collection.get('lod_mesh_' + str(index)) or tuple(obj.users_collection) != (self.collection,):
                     raise ValueError("Preview ownership changed; preserve the edits before rebuilding")
         except ReferenceError as exc:

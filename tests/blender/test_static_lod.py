@@ -198,3 +198,23 @@ def test_lod_operator_cancel_and_stale_apply(source, lod_operators):
     assert bpy.ops.asset_assistant.lod_finish(collection_name=preview.name, action='CANCEL') == {'FINISHED'}
     assert not _previews(bpy.context.scene)
     assert bpy.context.active_object == source
+
+
+def test_discard_blocks_preview_in_edit_mode(source):
+    preview = preview_static_lods(source, bpy.context.scene)
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+    level = preview.objects[0]
+    level.select_set(True)
+    bpy.context.view_layer.objects.active = level
+    bpy.ops.object.mode_set(mode='EDIT')
+    try:
+        with pytest.raises(ValueError, match='Object Mode'):
+            preview.cancel()
+        assert preview.state == 'PREVIEW'
+        assert level.name in bpy.data.objects
+    finally:
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.context.view_layer.objects.active = source
+        source.select_set(True)
+        preview.cancel()
