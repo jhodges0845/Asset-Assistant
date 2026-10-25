@@ -128,3 +128,138 @@ texture assessment or automatic acceptance threshold. Unsampled detail may be
 missed, and large meshes can take longer to inspect. No diagnostic work runs in
 the panel draw callback. Twenty-two focused Blender tests pass, including equal
 surfaces, translated surfaces, reduced spheres and non-mutating operator inspection.
+
+## Static multi-mesh orchestration (2026-10-25)
+
+`lod_sets.preview_static_lod_set` accepts an explicit list of distinct static
+meshes in the active scene. It reuses the existing reduction and validation path,
+applying budgets per mesh. Invalid members are rejected before staging; a failed
+member removes completed staged previews. Apply and Cancel preflight every member
+before changing any member, preventing partial completion on validation failures.
+
+Twenty-six focused Blender tests pass, including second-member failure cleanup,
+stale-source apply blocking, cancellation ownership blocking and source preservation.
+This is backend orchestration: explicit member references now persist in a
+separate record collection, and no asset membership is inferred.
+Live multi-mesh UI acceptance, skinned LODs and export grouping remain
+open. It does not yet implement an engine LOD hierarchy or whole-asset budget.
+
+## Saved multi-mesh groups (2026-10-25)
+
+`recover_static_lod_set` restores group membership using versioned collection ID
+references. Renames are supported; missing/duplicate members and resolved records
+are rejected without mutation. Group record collections must remain empty of
+artist objects and child collections before Apply/Cancel. Individual preview
+recovery remains available, but resolving a member independently blocks subsequent
+group operations rather than partially completing the rest.
+
+Twenty-eight focused Blender tests pass. `scripts/test_lod_set_reopen.py` also
+passes in a fresh Blender 5.2.1 process: two two-mesh groups recover and complete
+Apply/Cancel while preserving all four sources. This check is included in CI.
+
+## Multi-mesh workspace controls (2026-10-25)
+
+Enable All Selected Meshes in the preview dialog to create one group from the
+explicit selection. Every selected object must satisfy the static mesh contract;
+non-mesh selections are rejected rather than silently omitted. Ratios apply per
+mesh, not to a pooled asset budget. Active-mesh mode remains the default.
+
+The Export workspace lists group Apply/Discard controls and member diagnostics.
+Individual member completion is blocked while its group is active. Group Discard
+uses the existing confirmation flow. Thirty focused Blender tests pass, including
+real selected-mesh operators, selection preservation, member blocking and group
+cleanup. Live dialog layout and interactive undo acceptance remain open.
+
+## Multi-mesh undo and selection checks (2026-10-25)
+
+The existing CI undo script now covers group Apply and Discard as well as single
+previews. Undo restores both members and their source references; redo restores
+completion/removal, preserving source signatures and the explicit selection.
+These Blender 5.2.1 snapshot checks pass; they still use explicit background undo
+pushes and do not certify interactive keyboard dispatch.
+
+Thirty-two focused Blender tests pass. Selected groups reject non-mesh helpers
+without staging data and reject sources already carrying a preview. Live UI
+acceptance, skinned reduction and destination/export support remain open.
+
+## Skinned source admission (2026-10-25)
+
+`lod_skin.inspect_skin_lod_source` reads normalized deform-bone weights and the
+single enabled Armature binding without altering source data or pose. It rejects
+missing/unnormalized weights, non-deform artist groups, envelope/masked deformation,
+extra modifiers, mesh animation and shape keys. Four focused Blender tests pass.
+This is admission validation only: skinned reduction, weight transfer, pose/clip
+comparison and UI integration remain unimplemented.
+
+## Packaged core resolution repair (2026-10-25)
+
+PR #318 CI exposed a direct `object_core` import that failed when the add-on was
+loaded from its isolated ZIP. LOD contracts now resolve through `core_gateway`,
+including the multi-mesh backend. The repaired single-mesh branch passed the full
+isolated package generation/rigging/animation/validation/export test locally; seven
+core/architecture checks also passed. Remote CI must pass before merging.
+
+## Rest-surface weight transfer planning (2026-10-25)
+
+`lod_skin.plan_skin_lod_weights` computes normalized weights for an independent
+static target without mutating either mesh. For each target vertex it locates the
+nearest source triangle in world-space rest geometry, interpolates the triangle's
+authored bone weights, and normalizes the result. The live armature pose is not
+baked into the correspondence. Non-finite geometry and degenerate correspondence
+triangles are rejected.
+
+Six focused skinned-LOD checks pass, including analytically known two-bone weights
+and source-pose/data preservation. This remains a planning API: it does not bind
+or reduce the target, enforce a maximum correspondence distance, or establish
+articulated motion quality. Closely adjacent surfaces may need constrained
+correspondence before this can be accepted for character LODs.
+
+## Bound skin candidates (2026-10-25)
+
+`build_skin_lod_candidate` creates a new mesh/object from an independent static
+derivative, transfers normalized weights, and binds it to the original armature.
+It preserves effective target materials and the source preserve-volume setting.
+Both inputs remain unchanged. The caller must provide a finite nonnegative
+maximum rest-surface transfer distance; out-of-range targets fail before staging.
+Construction failures clean up the new candidate only.
+
+Eight focused Blender tests pass, including identical single-bone deformation at
+three poses and distant-target rejection without leftover objects/meshes. This is
+an internal candidate builder, not a completed preview/apply workflow. Actual
+reduction, multi-bone character deformation, saved ownership, UI, and destination
+acceptance remain open; nearby opposing surfaces can still need correspondence
+constraints beyond distance alone.
+
+## Reduced skinned candidates (2026-10-25)
+
+`build_reduced_skin_lod_candidates` builds independent rest proxies, calls the
+existing validated static reduction pipeline, and binds separate candidates using
+the bounded transfer planner. Temporary proxies/previews are removed on success
+or failure; a failed later level also removes completed candidates. Source mesh,
+weights and rig remain artist-owned and unchanged.
+
+The combined focused suite passes 43 tests (11 skin, 32 static/group). Actual
+reduced candidates meet triangle budgets; a two-bone blended fixture matches
+analytical linear-blend deformation at three poses within 1e-5 Blender units.
+This checks binding mathematics, not fidelity to the unreduced animated surface.
+Generated Human/Canine/Avian motion comparisons, persistent candidate preview/apply,
+UI, visual acceptance and destination exports remain open.
+
+## Generated-character Walk diagnostics (2026-10-25)
+
+`scripts/review_skinned_lod.py -- <report.json>` generates default Human, Canine
+and Avian assets, builds a 50% skinned candidate, and compares both posed triangle
+surfaces at five Walk phases. Blender 5.2.1 completed all three cases:
+
+| Provider | Source / reduced triangles | Largest sampled distance (Blender units) |
+| --- | --- | --- |
+| Human | 84,368 / 42,184 | 0.0158981 |
+| Canine | 34,432 / 17,216 | 0.00391644 |
+| Avian | 620 / 310 | 0.00926770 |
+
+These are diagnostic observations, not accepted quality limits. Five sampled
+phases do not prove continuous motion fidelity, contact preservation, silhouettes,
+UV quality or other clips. The script records per-phase max/RMS values and reports
+provider failures explicitly. Broader shapes/clips and visual review remain open.
+After merging validated main, all 43 focused Blender and seven core/architecture
+checks passed. PR #318 is merged; this branch preserves its packaged-import fix.

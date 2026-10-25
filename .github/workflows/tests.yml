@@ -130,6 +130,12 @@ jobs:
             --background --factory-startup --python-exit-code 1 \
             --python scripts/test_lod_undo.py
 
+      - name: Test multi-mesh LOD save/reopen
+        run: |
+          "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
+            --background --factory-startup --python-exit-code 1 \
+            --python scripts/test_lod_set_reopen.py
+
       - name: Test animation NLA save/reopen
         run: |
           "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \

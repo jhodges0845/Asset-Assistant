@@ -78,7 +78,7 @@ class StaticLODPreview:
                 bpy.data.meshes.remove(mesh)
         self.state = 'CANCELLED'
 
-    def apply(self):
+    def validate_apply(self):
         if self.state != 'PREVIEW':
             raise ValueError("Only an active preview can be applied")
         self._check_structure()
@@ -89,6 +89,9 @@ class StaticLODPreview:
             _validate_source(obj)
         if tuple(_signature(obj) for obj in self.objects) != self.preview_signatures:
             raise ValueError("Preview changed; preserve the edits separately and rebuild before applying")
+
+    def apply(self):
+        self.validate_apply()
         self.collection.name = self.source.name + ' LODs'
         self.collection['asset_assistant_lod_state'] = 'APPLIED'
         self.state = 'APPLIED'
