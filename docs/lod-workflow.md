@@ -323,3 +323,19 @@ geometry. It reports maximum/RMS distance in world-space Blender units; samples
 are not continuous surface or motion bounds. Forty-nine focused Blender tests
 pass after integrating main, including operator inspection with source/pose/frame
 preservation. PR #321 passed all six checks and is merged.
+
+## Explicit export scopes (2026-10-25)
+
+`lod_export.plan_lod_export` reads applied single-mesh, grouped static and skinned
+records into separate LOD0/source and reduced-level scopes. Each scope lists its
+meshes, required armatures and current triangle count. Reduced scopes exclude
+source meshes; multi-mesh groups combine matching level indices. No objects are
+reparented and no files are written by this planning stage.
+
+The planner requires current scene membership, intact saved references, applied
+state, unchanged source/level signatures, supported geometry/skin bindings and
+valid ordering/budgets. Artist edits are preserved but conservatively block this
+path until the set is rebuilt/reviewed; no silent regeneration is performed.
+Fifty-two focused Blender tests pass, covering group source exclusion, skinned rig
+inclusion and edited-applied-data rejection. Destination serialization, engine LOD
+thresholds/selection and artist-facing export controls remain open.

@@ -458,3 +458,28 @@ def test_selected_group_rejects_existing_member_preview(source, second_source, l
         bpy.ops.asset_assistant.lod_preview(use_selection=True)
     assert set(bpy.data.objects) == before
     preview.cancel()
+
+
+def test_export_plan_separates_source_and_reduced_levels(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set
+    from blender_adapter.lod_export import plan_lod_export
+    group = preview_static_lod_set([source, second_source], bpy.context.scene)
+    with pytest.raises(ValueError, match='Apply'):
+        plan_lod_export(group.record, bpy.context.scene)
+    group.apply()
+    before = set(bpy.data.objects)
+    levels = plan_lod_export(group.record, bpy.context.scene)
+    assert levels[0].meshes == (source, second_source)
+    assert len(levels) == 3
+    assert all(len(level.meshes) == 2 for level in levels)
+    assert not any(obj in (source, second_source) for level in levels[1:] for obj in level.meshes)
+    assert set(bpy.data.objects) == before
+
+
+def test_export_plan_rejects_edited_applied_mesh(source):
+    from blender_adapter.lod_export import plan_lod_export
+    preview = preview_static_lods(source, bpy.context.scene)
+    preview.apply()
+    preview.objects[0].data.vertices[0].co.x += .2
+    with pytest.raises(ValueError, match='data changed'):
+        plan_lod_export(preview.collection, bpy.context.scene)
