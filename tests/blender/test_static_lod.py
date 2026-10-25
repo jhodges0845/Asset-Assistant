@@ -321,3 +321,140 @@ def test_inspect_operator_preserves_preview(source, lod_operators):
     assert tuple(_signature(obj) for obj in (source,) + preview.objects) == before
     assert preview.collection['asset_assistant_lod_state'] == 'PREVIEW'
     preview.cancel()
+
+
+@pytest.fixture
+def second_source(source):
+    obj = bpy.data.objects.new('Second static source', source.data.copy())
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
+def test_static_set_apply_preflights_every_member(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set
+    group = preview_static_lod_set([source, second_source], bpy.context.scene)
+    second_source.data.vertices[0].co.x += .2
+    with pytest.raises(ValueError, match='Source changed'):
+        group.apply()
+    assert all(p.collection['asset_assistant_lod_state'] == 'PREVIEW' for p in group.previews)
+    assert group.state == 'PREVIEW'
+    group.cancel()
+
+
+def test_static_set_failure_rolls_back_completed_members(source, second_source, monkeypatch):
+    from blender_adapter import lod_sets
+    original = lod_sets.preview_static_lods
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes', 'collections')}
+    def fail_second(obj, *args):
+        if obj == second_source:
+            raise ValueError('Injected second member failure')
+        return original(obj, *args)
+    monkeypatch.setattr(lod_sets, 'preview_static_lods', fail_second)
+    with pytest.raises(ValueError, match='Injected'):
+        lod_sets.preview_static_lod_set([source, second_source], bpy.context.scene)
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected
+
+
+def test_static_set_apply_preserves_both_sources(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set
+    sources = (source, second_source)
+    before = tuple(_signature(obj) for obj in sources)
+    group = preview_static_lod_set(sources, bpy.context.scene)
+    assert [len(levels) for levels in group.apply()] == [2, 2]
+    assert tuple(_signature(obj) for obj in sources) == before
+    with pytest.raises(ValueError, match='active LOD set'):
+        group.cancel()
+
+
+def test_static_set_cancel_preflights_every_member(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set
+    group = preview_static_lod_set([source, second_source], bpy.context.scene)
+    group.previews[1].collection.objects.link(source)
+    before = set(bpy.data.objects)
+    with pytest.raises(ValueError, match='collection changed'):
+        group.cancel()
+    assert set(bpy.data.objects) == before
+    assert all(p.state == 'PREVIEW' for p in group.previews)
+    group.previews[1].collection.objects.unlink(source)
+    group.cancel()
+
+
+def test_static_set_recovery_uses_member_references(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set, recover_static_lod_set
+    group = preview_static_lod_set([source, second_source], bpy.context.scene)
+    group.previews[0].collection.name = 'Renamed member'
+    recovered = recover_static_lod_set(group.record)
+    assert tuple(p.source for p in recovered.previews) == (source, second_source)
+    recovered.apply()
+    with pytest.raises(ValueError, match='active LOD set'):
+        group.cancel()
+
+
+def test_static_set_recovery_rejects_missing_member(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set, recover_static_lod_set
+    group = preview_static_lod_set([source, second_source], bpy.context.scene)
+    del group.record['member_1']
+    before = set(bpy.data.objects)
+    with pytest.raises(ValueError, match='missing or duplicated'):
+        recover_static_lod_set(group.record)
+    assert set(bpy.data.objects) == before
+    group.record['member_1'] = group.previews[1].collection
+    group.cancel()
+
+
+def test_selected_mesh_group_operators(source, second_source, lod_operators):
+    from blender_adapter.lod_ui import _groups
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+    source.select_set(True)
+    second_source.select_set(True)
+    selected = set(bpy.context.selected_objects)
+    assert bpy.ops.asset_assistant.lod_preview(use_selection=True) == {'FINISHED'}
+    group, = _groups(bpy.context.scene)
+    assert group['lod_set_count'] == 2
+    assert set(bpy.context.selected_objects) == selected
+    member = group['member_0']
+    with pytest.raises(RuntimeError, match='complete LOD group'):
+        bpy.ops.asset_assistant.lod_finish(collection_name=member.name, action='APPLY')
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=group.name, action='APPLY') == {'FINISHED'}
+    assert group['lod_set_state'] == 'APPLIED'
+
+
+def test_selected_mesh_group_discard(source, second_source, lod_operators):
+    from blender_adapter.lod_ui import _groups
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+    source.select_set(True)
+    second_source.select_set(True)
+    before = set(bpy.data.objects)
+    bpy.ops.asset_assistant.lod_preview(use_selection=True)
+    group, = _groups(bpy.context.scene)
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=group.name, action='CANCEL') == {'FINISHED'}
+    assert set(bpy.data.objects) == before
+    assert not _groups(bpy.context.scene)
+
+
+def test_selected_group_rejects_non_mesh_without_staging(source, lod_operators):
+    empty = bpy.data.objects.new('Artist helper', None)
+    bpy.context.scene.collection.objects.link(empty)
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+    source.select_set(True)
+    empty.select_set(True)
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes', 'collections')}
+    with pytest.raises(RuntimeError, match='static mesh'):
+        bpy.ops.asset_assistant.lod_preview(use_selection=True)
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected
+
+
+def test_selected_group_rejects_existing_member_preview(source, second_source, lod_operators):
+    preview = preview_static_lods(second_source, bpy.context.scene)
+    source.select_set(True)
+    second_source.select_set(True)
+    before = set(bpy.data.objects)
+    with pytest.raises(RuntimeError, match='existing preview'):
+        bpy.ops.asset_assistant.lod_preview(use_selection=True)
+    assert set(bpy.data.objects) == before
+    preview.cancel()
