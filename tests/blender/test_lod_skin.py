@@ -259,3 +259,42 @@ def test_skin_preview_rest_bone_edit_blocks_apply(skinned):
     with pytest.raises(ValueError, match='rest rig changed'):
         preview.apply()
     preview.cancel()
+
+
+@pytest.fixture
+def skin_operators():
+    from blender_adapter import lod_ui
+    lod_ui.register()
+    try:
+        yield
+    finally:
+        lod_ui.unregister()
+
+
+def test_skin_preview_operators_preserve_selection_and_apply(skinned, skin_operators):
+    from blender_adapter.lod_ui import _skin_previews
+    source, _ = skinned
+    selected = set(bpy.context.selected_objects)
+    assert bpy.ops.asset_assistant.skin_lod_preview(max_distance=.3) == {'FINISHED'}
+    preview, = _skin_previews(bpy.context.scene)
+    assert set(bpy.context.selected_objects) == selected
+    assert bpy.context.active_object == source
+    with pytest.raises(RuntimeError, match='existing preview'):
+        bpy.ops.asset_assistant.skin_lod_preview(max_distance=.3)
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=preview.name, action='APPLY') == {'FINISHED'}
+    assert preview['asset_assistant_lod_state'] == 'APPLIED'
+
+
+def test_skin_preview_operator_discard_and_wrong_selection(skinned, skin_operators):
+    from blender_adapter.lod_ui import _skin_previews
+    source, rig = skinned
+    before = set(bpy.data.objects)
+    bpy.context.view_layer.objects.active = rig
+    with pytest.raises(RuntimeError, match='skinned mesh'):
+        bpy.ops.asset_assistant.skin_lod_preview(max_distance=.3)
+    assert set(bpy.data.objects) == before
+    bpy.context.view_layer.objects.active = source
+    bpy.ops.asset_assistant.skin_lod_preview(max_distance=.3)
+    preview, = _skin_previews(bpy.context.scene)
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=preview.name, action='CANCEL') == {'FINISHED'}
+    assert set(bpy.data.objects) == before

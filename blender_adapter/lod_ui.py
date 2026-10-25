@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Explicit static LOD controls in the Export workspace."""
 import bpy
-from bpy.props import StringProperty, IntProperty, FloatVectorProperty, BoolProperty
+from bpy.props import StringProperty, IntProperty, FloatVectorProperty, BoolProperty, FloatProperty
 from .lod import preview_static_lods, recover_static_lod_preview
 
 
@@ -9,6 +9,11 @@ def _previews(scene):
     return [collection for collection in scene.collection.children_recursive
             if collection.get('asset_assistant_lod_state') == 'PREVIEW'
             and not collection.get('lod_skin_preview')]
+
+
+def _skin_previews(scene):
+    return [c for c in scene.collection.children_recursive
+            if c.get('asset_assistant_lod_state') == 'PREVIEW' and c.get('lod_skin_preview')]
 
 
 def _groups(scene):
@@ -66,6 +71,39 @@ class ASSETASSISTANT_OT_lod_preview(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class ASSETASSISTANT_OT_skin_lod_preview(bpy.types.Operator):
+    bl_idname = 'asset_assistant.skin_lod_preview'
+    bl_label = 'Preview Skinned LOD'
+    bl_description = 'Build an experimental reduced copy bound to the existing rig'
+    bl_options = {'REGISTER', 'UNDO'}
+    ratio: FloatProperty(name='Triangle Ratio', default=.5, min=.001, max=.999)
+    max_distance: FloatProperty(name='Max Transfer Distance', default=.02, min=0,
+        description='Maximum rest-surface distance in world-space Blender units')
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        self.layout.prop(self, 'ratio')
+        self.layout.prop(self, 'max_distance')
+        self.layout.label(text='Distance is in Blender world units.')
+        self.layout.label(text='Review motion before applying.')
+
+    def execute(self, context):
+        from .lod_skin_preview import preview_skin_lods
+        source = context.active_object
+        if any(c.get('lod_source') == source for c in _previews(context.scene) + _skin_previews(context.scene)):
+            self.report({'ERROR'}, 'Apply or discard the existing preview first')
+            return {'CANCELLED'}
+        try:
+            preview_skin_lods(source, context.scene, ratios=(self.ratio,), max_distance=self.max_distance)
+        except (ValueError, ReferenceError) as exc:
+            self.report({'ERROR'}, str(exc))
+            return {'CANCELLED'}
+        self.report({'INFO'}, 'Skinned preview created; review motion before Apply')
+        return {'FINISHED'}
+
+
 class ASSETASSISTANT_OT_lod_finish(bpy.types.Operator):
     bl_idname = 'asset_assistant.lod_finish'
     bl_label = 'Finish LOD Preview'
@@ -81,11 +119,14 @@ class ASSETASSISTANT_OT_lod_finish(bpy.types.Operator):
 
     def execute(self, context):
         collection = bpy.data.collections.get(self.collection_name)
-        if collection not in _previews(context.scene) + _groups(context.scene):
+        if collection not in _previews(context.scene) + _groups(context.scene) + _skin_previews(context.scene):
             self.report({'ERROR'}, 'Choose an active preview in this scene')
             return {'CANCELLED'}
         try:
-            if collection in _groups(context.scene):
+            if collection in _skin_previews(context.scene):
+                from .lod_skin_preview import recover_skin_lod_preview
+                preview = recover_skin_lod_preview(collection)
+            elif collection in _groups(context.scene):
                 from .lod_sets import recover_static_lod_set
                 preview = recover_static_lod_set(collection)
             else:
@@ -167,14 +208,29 @@ def draw(next_renderer, panel, context, *args):
             op = row.operator('asset_assistant.lod_finish', text=label)
             op.collection_name = record.name
             op.action = action
-    box.label(text='Engine LOD export is not yet supported.')
+    skin = panel.layout.box()
+    skin.label(text='Skinned LOD (Experimental)', icon='ARMATURE_DATA')
+    row = skin.row()
+    row.enabled = context.active_object is not None and context.mode == 'OBJECT'
+    row.operator('asset_assistant.skin_lod_preview')
+    skin.label(text='Select the skinned mesh, not the rig.')
+    for collection in _skin_previews(context.scene):
+        item = skin.box()
+        item.label(text=collection.name)
+        item.label(text='Inspect animation before Apply.')
+        row = item.row(align=True)
+        for action, label in (('APPLY', 'Apply'), ('CANCEL', 'Discard Preview')):
+            op = row.operator('asset_assistant.lod_finish', text=label)
+            op.collection_name = collection.name
+            op.action = action
+    skin.label(text='Engine LOD export is not yet supported.')
 
 
 def install(registry):
     registry.decorate('workspace.export', draw, owner=__name__)
 
 
-_CLASSES = (ASSETASSISTANT_OT_lod_preview, ASSETASSISTANT_OT_lod_finish, ASSETASSISTANT_OT_lod_inspect)
+_CLASSES = (ASSETASSISTANT_OT_skin_lod_preview, ASSETASSISTANT_OT_lod_preview, ASSETASSISTANT_OT_lod_finish, ASSETASSISTANT_OT_lod_inspect)
 
 
 def register():

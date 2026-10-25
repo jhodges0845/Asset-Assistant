@@ -275,6 +275,20 @@ static preview ownership/cleanup checks and never replaces the source.
 
 Fourteen skinned tests pass. `scripts/test_skin_lod_reopen.py` passes Apply/Cancel
 in a fresh Blender process and is included in CI. Experimental skinned collections
-are excluded from the static UI until dedicated controls are implemented. Animation
+use dedicated controls, separate from the static preview list. Animation
 curve edits are not fingerprinted; this is a derivative workflow, not ownership of
 the shared rig/actions. Live UI, broader clip quality and export gates remain open.
+
+## Experimental skinned workspace controls (2026-10-25)
+
+Export now offers Preview Skinned LOD for the active mesh. The dialog exposes a
+single triangle ratio and maximum rest-transfer distance in Blender world units.
+Candidates remain bound to the original rig so artists can inspect motion before
+explicit Apply or confirmed Discard. Duplicate previews for the same source are
+blocked. The static path remains separate and still rejects skinned meshes.
+
+The combined focused suite passes 48 tests, including operator Apply/Discard,
+selection preservation, duplicate blocking and wrong-selection rejection without
+staged data. UI layout, confirmation interaction and keyboard undo are still
+unverified live. Experimental controls do not close the motion/visual or export
+release gates.
