@@ -90,6 +90,8 @@ def _stage_generated_animation_tracks(root, *, zero_start=False):
                             key.handle_left.x -= offset
                             key.handle_right.x -= offset
                         curve.update()
+                    from .gltf_animation import densify_linear_quaternions
+                    densify_linear_quaternions(action_curves(action, slot))
                 if action.use_frame_range:
                     action.frame_start -= offset
                     action.frame_end -= offset
