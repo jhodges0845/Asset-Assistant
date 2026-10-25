@@ -181,3 +181,12 @@ pushes and do not certify interactive keyboard dispatch.
 Thirty-two focused Blender tests pass. Selected groups reject non-mesh helpers
 without staging data and reject sources already carrying a preview. Live UI
 acceptance, skinned reduction and destination/export support remain open.
+
+## Skinned source admission (2026-10-25)
+
+`lod_skin.inspect_skin_lod_source` reads normalized deform-bone weights and the
+single enabled Armature binding without altering source data or pose. It rejects
+missing/unnormalized weights, non-deform artist groups, envelope/masked deformation,
+extra modifiers, mesh animation and shape keys. Four focused Blender tests pass.
+This is admission validation only: skinned reduction, weight transfer, pose/clip
+comparison and UI integration remain unimplemented.
