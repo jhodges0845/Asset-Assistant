@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest a workflow improvement or new capability
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or artist workflow
+      description: What are you trying to accomplish, and what currently gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the desired user experience, not just the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and examples
+      description: Mention workarounds, examples, or reference workflows.
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Editing, compatibility, and export considerations
+      description: Note any impact on artist edits, Blender versions, saved assets, or downstream engines.
