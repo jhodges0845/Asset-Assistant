@@ -136,6 +136,12 @@ jobs:
             --background --factory-startup --python-exit-code 1 \
             --python scripts/test_lod_set_reopen.py
 
+      - name: Test skinned LOD preview save/reopen
+        run: |
+          "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
+            --background --factory-startup --python-exit-code 1 \
+            --python scripts/test_skin_lod_reopen.py
+
       - name: Test animation NLA save/reopen
         run: |
           "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
@@ -156,6 +162,12 @@ jobs:
 
       - name: Build Asset Assistant release ZIP
         run: python -m scripts.build_blender_addon
+
+      - name: Test packaged skinned LOD controls
+        run: |
+          "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
+            --background --factory-startup --python-exit-code 1 \
+            --python scripts/test_skin_lod_package.py
 
       - name: Test isolated Asset Assistant release ZIP
         run: |

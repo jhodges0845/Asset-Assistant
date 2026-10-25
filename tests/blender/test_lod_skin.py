@@ -220,3 +220,101 @@ def test_reduced_two_bone_candidate_matches_weighted_deformation(skinned):
         for vertex, row, actual in zip(candidate.data.vertices, weights, evaluated.data.vertices):
             expected = sum((transforms[name] @ vertex.co * weight for name, weight in row), Vector((0, 0, 0)))
             assert (expected - actual.co).length < 1e-5
+
+
+def test_skin_preview_apply_and_cancel_lifecycle(skinned):
+    from blender_adapter.lod_skin_preview import preview_skin_lods, recover_skin_lod_preview
+    source, rig = skinned
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes', 'collections')}
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    recover_skin_lod_preview(preview.collection).cancel()
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    rig.pose.bones[0].rotation_mode = 'XYZ'
+    rig.pose.bones[0].rotation_euler.x = .4
+    preview.apply()
+    assert preview.collection['asset_assistant_lod_state'] == 'APPLIED'
+
+
+def test_skin_preview_weight_edit_blocks_apply(skinned):
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    source, _ = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    preview.objects[0].vertex_groups[0].add([0], .5, 'REPLACE')
+    with pytest.raises(ValueError, match='normalized'):
+        preview.apply()
+    assert preview.collection['asset_assistant_lod_state'] == 'PREVIEW'
+    preview.cancel()
+
+
+def test_skin_preview_rest_bone_edit_blocks_apply(skinned):
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    source, rig = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    rig.data.edit_bones[0].tail.z += .1
+    bpy.ops.object.mode_set(mode='OBJECT')
+    with pytest.raises(ValueError, match='rest rig changed'):
+        preview.apply()
+    preview.cancel()
+
+
+@pytest.fixture
+def skin_operators():
+    from blender_adapter import lod_ui
+    lod_ui.register()
+    try:
+        yield
+    finally:
+        lod_ui.unregister()
+
+
+def test_skin_preview_operators_preserve_selection_and_apply(skinned, skin_operators):
+    from blender_adapter.lod_ui import _skin_previews
+    source, _ = skinned
+    selected = set(bpy.context.selected_objects)
+    assert bpy.ops.asset_assistant.skin_lod_preview(max_distance=.3) == {'FINISHED'}
+    preview, = _skin_previews(bpy.context.scene)
+    assert set(bpy.context.selected_objects) == selected
+    assert bpy.context.active_object == source
+    with pytest.raises(RuntimeError, match='existing preview'):
+        bpy.ops.asset_assistant.skin_lod_preview(max_distance=.3)
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=preview.name, action='APPLY') == {'FINISHED'}
+    assert preview['asset_assistant_lod_state'] == 'APPLIED'
+
+
+def test_skin_preview_operator_discard_and_wrong_selection(skinned, skin_operators):
+    from blender_adapter.lod_ui import _skin_previews
+    source, rig = skinned
+    before = set(bpy.data.objects)
+    bpy.context.view_layer.objects.active = rig
+    with pytest.raises(RuntimeError, match='skinned mesh'):
+        bpy.ops.asset_assistant.skin_lod_preview(max_distance=.3)
+    assert set(bpy.data.objects) == before
+    bpy.context.view_layer.objects.active = source
+    bpy.ops.asset_assistant.skin_lod_preview(max_distance=.3)
+    preview, = _skin_previews(bpy.context.scene)
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=preview.name, action='CANCEL') == {'FINISHED'}
+    assert set(bpy.data.objects) == before
+
+
+def test_posed_skin_inspection_preserves_frame_pose_and_geometry(skinned, skin_operators):
+    from blender_adapter.lod_skin_preview import preview_skin_lods, _skin_signature
+    from blender_adapter.lod_quality import inspect_posed_skin_lod
+    source, rig = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, ratios=(.5,), max_distance=.3)
+    rig.pose.bones[0].rotation_mode = 'XYZ'
+    rig.pose.bones[0].rotation_euler.x = .6
+    bpy.context.view_layer.update()
+    before = _skin_signature(source)
+    frame = bpy.context.scene.frame_current
+    result = inspect_posed_skin_lod(source, preview.objects[0], bpy.context.evaluated_depsgraph_get())
+    assert 0 < result['max_distance'] < .3
+    assert bpy.ops.asset_assistant.lod_inspect(collection_name=preview.collection.name,
+                                            object_name=preview.objects[0].name) == {'FINISHED'}
+    assert _skin_signature(source) == before
+    assert bpy.context.scene.frame_current == frame
+    assert rig.pose.bones[0].rotation_euler.x == pytest.approx(.6)
+    preview.cancel()

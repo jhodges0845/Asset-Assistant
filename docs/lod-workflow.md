@@ -263,3 +263,63 @@ UV quality or other clips. The script records per-phase max/RMS values and repor
 provider failures explicitly. Broader shapes/clips and visual review remain open.
 After merging validated main, all 43 focused Blender and seven core/architecture
 checks passed. PR #318 is merged; this branch preserves its packaged-import fix.
+
+## Persistent skinned preview lifecycle (2026-10-25)
+
+`lod_skin_preview.preview_skin_lods` stages candidates in an independent collection
+with explicit Apply/Cancel and recoverable source/rig/object/mesh references.
+Apply checks geometry, effective materials, normalized weights, armature identity,
+rest-bone definitions, world transforms and preserve-volume mode. Pose changes are
+allowed for inspection; rest-rig or weight edits block Apply. The lifecycle reuses
+static preview ownership/cleanup checks and never replaces the source.
+
+Fourteen skinned tests pass. `scripts/test_skin_lod_reopen.py` passes Apply/Cancel
+in a fresh Blender process and is included in CI. Experimental skinned collections
+use dedicated controls, separate from the static preview list. Animation
+curve edits are not fingerprinted; this is a derivative workflow, not ownership of
+the shared rig/actions. Live UI, broader clip quality and export gates remain open.
+
+## Experimental skinned workspace controls (2026-10-25)
+
+Export now offers Preview Skinned LOD for the active mesh. The dialog exposes a
+single triangle ratio and maximum rest-transfer distance in Blender world units.
+Candidates remain bound to the original rig so artists can inspect motion before
+explicit Apply or confirmed Discard. Duplicate previews for the same source are
+blocked. The static path remains separate and still rejects skinned meshes.
+
+The combined focused suite passes 48 tests, including operator Apply/Discard,
+selection preservation, duplicate blocking and wrong-selection rejection without
+staged data. UI layout, confirmation interaction and keyboard undo are still
+unverified live. Experimental controls do not close the motion/visual or export
+release gates.
+
+## Skinned undo, packaging and nine-clip diagnostics (2026-10-25)
+
+The CI undo snapshot script now covers skinned operator Apply/Discard, recovering
+valid rig references after undo and preserving the source skin signature after
+redo. The isolated ZIP skinned preview/discard smoke test passes and has its own
+CI step after package creation. Neither check certifies live UI keyboard behavior.
+
+The diagnostic report schema is now version 2 with `clip_samples`. At 50%
+triangles, five phases per clip completed for all nine default provider/clip pairs.
+Largest sampled distances in world-space Blender units:
+
+| Provider | Idle | Walk | Run / Flight |
+| --- | --- | --- | --- |
+| Human | 0.00206146 | 0.0158981 | Run 0.0188531 |
+| Canine | 0.00231071 | 0.00391644 | Run 0.00391644 |
+| Avian | 0.00789842 | 0.00926770 | Flight 0.0125554 |
+
+These measurements are diagnostic, not pass/fail quality thresholds. Additional
+shapes, denser sampling, contact/UV/silhouette review and engine playback remain
+required. The generated report is local at artifacts/skinned-lod-all-clips.json.
+
+## Current-pose inspection (2026-10-25)
+
+Skinned preview levels offer Measure Pose, reusing the sampled surface-distance
+calculation on evaluated source/candidate meshes at the current animation frame.
+Both must bind to the same rig. The action does not change frame, pose, action or
+geometry. It reports maximum/RMS distance in world-space Blender units; samples
+are not continuous surface or motion bounds. Forty-nine focused Blender tests
+pass after integrating main, including operator inspection with source/pose/frame
+preservation. PR #321 passed all six checks and is merged.

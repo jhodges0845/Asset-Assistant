@@ -45,6 +45,7 @@ def main():
     assert _signature(bpy.data.objects[source_name]) == signature
     print('LOD snapshot undo/redo passed for apply and discard')
     check_group_undo()
+    check_skin_undo()
     lod_ui.unregister()
 
 
@@ -85,6 +86,41 @@ def check_group_undo():
     assert tuple(_signature(bpy.data.objects[name]) for name in names) == signatures
     assert {obj.name for obj in bpy.context.selected_objects} == set(names)
     print('Multi-mesh LOD snapshot undo/redo passed for apply and discard')
+
+
+def check_skin_undo():
+    from blender_adapter.lod_skin_preview import recover_skin_lod_preview, _skin_signature
+    bpy.ops.object.armature_add()
+    rig = bpy.context.object
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=8)
+    source = bpy.context.object
+    source.vertex_groups.new(name=rig.data.bones[0].name).add(list(range(len(source.data.vertices))), 1, 'REPLACE')
+    source.modifiers.new('Skin', 'ARMATURE').object = rig
+    source_name = source.name
+    before = _skin_signature(source)
+    bpy.ops.ed.undo_push(message='Skin source')
+    bpy.ops.asset_assistant.skin_lod_preview(max_distance=.3)
+    preview, = lod_ui._skin_previews(bpy.context.scene)
+    name = preview.name
+    bpy.ops.ed.undo_push(message='Skin preview')
+    bpy.ops.asset_assistant.lod_finish(collection_name=name, action='APPLY')
+    applied_name = next(c.name for c in bpy.data.collections
+                        if c.get('lod_skin_preview') and c.get('asset_assistant_lod_state') == 'APPLIED')
+    bpy.ops.ed.undo_push(message='Skin applied')
+    bpy.ops.ed.undo()
+    recover_skin_lod_preview(bpy.data.collections[name]).validate_apply()
+    bpy.ops.ed.redo()
+    assert bpy.data.collections[applied_name]['asset_assistant_lod_state'] == 'APPLIED'
+    bpy.ops.ed.undo()
+    bpy.ops.asset_assistant.lod_finish(collection_name=name, action='CANCEL')
+    bpy.ops.ed.undo_push(message='Skin discarded')
+    assert name not in bpy.data.collections
+    bpy.ops.ed.undo()
+    recover_skin_lod_preview(bpy.data.collections[name]).validate_apply()
+    bpy.ops.ed.redo()
+    assert name not in bpy.data.collections
+    assert _skin_signature(bpy.data.objects[source_name]) == before
+    print('Skinned LOD snapshot undo/redo passed for apply and discard')
 
 
 if __name__ == '__main__':
