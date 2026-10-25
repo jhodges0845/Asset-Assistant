@@ -263,3 +263,18 @@ UV quality or other clips. The script records per-phase max/RMS values and repor
 provider failures explicitly. Broader shapes/clips and visual review remain open.
 After merging validated main, all 43 focused Blender and seven core/architecture
 checks passed. PR #318 is merged; this branch preserves its packaged-import fix.
+
+## Persistent skinned preview lifecycle (2026-10-25)
+
+`lod_skin_preview.preview_skin_lods` stages candidates in an independent collection
+with explicit Apply/Cancel and recoverable source/rig/object/mesh references.
+Apply checks geometry, effective materials, normalized weights, armature identity,
+rest-bone definitions, world transforms and preserve-volume mode. Pose changes are
+allowed for inspection; rest-rig or weight edits block Apply. The lifecycle reuses
+static preview ownership/cleanup checks and never replaces the source.
+
+Fourteen skinned tests pass. `scripts/test_skin_lod_reopen.py` passes Apply/Cancel
+in a fresh Blender process and is included in CI. Experimental skinned collections
+are excluded from the static UI until dedicated controls are implemented. Animation
+curve edits are not fingerprinted; this is a derivative workflow, not ownership of
+the shared rig/actions. Live UI, broader clip quality and export gates remain open.

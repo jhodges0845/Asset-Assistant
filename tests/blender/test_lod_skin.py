@@ -220,3 +220,42 @@ def test_reduced_two_bone_candidate_matches_weighted_deformation(skinned):
         for vertex, row, actual in zip(candidate.data.vertices, weights, evaluated.data.vertices):
             expected = sum((transforms[name] @ vertex.co * weight for name, weight in row), Vector((0, 0, 0)))
             assert (expected - actual.co).length < 1e-5
+
+
+def test_skin_preview_apply_and_cancel_lifecycle(skinned):
+    from blender_adapter.lod_skin_preview import preview_skin_lods, recover_skin_lod_preview
+    source, rig = skinned
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes', 'collections')}
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    recover_skin_lod_preview(preview.collection).cancel()
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    rig.pose.bones[0].rotation_mode = 'XYZ'
+    rig.pose.bones[0].rotation_euler.x = .4
+    preview.apply()
+    assert preview.collection['asset_assistant_lod_state'] == 'APPLIED'
+
+
+def test_skin_preview_weight_edit_blocks_apply(skinned):
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    source, _ = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    preview.objects[0].vertex_groups[0].add([0], .5, 'REPLACE')
+    with pytest.raises(ValueError, match='normalized'):
+        preview.apply()
+    assert preview.collection['asset_assistant_lod_state'] == 'PREVIEW'
+    preview.cancel()
+
+
+def test_skin_preview_rest_bone_edit_blocks_apply(skinned):
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    source, rig = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    rig.data.edit_bones[0].tail.z += .1
+    bpy.ops.object.mode_set(mode='OBJECT')
+    with pytest.raises(ValueError, match='rest rig changed'):
+        preview.apply()
+    preview.cancel()

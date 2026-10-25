@@ -7,7 +7,8 @@ from .lod import preview_static_lods, recover_static_lod_preview
 
 def _previews(scene):
     return [collection for collection in scene.collection.children_recursive
-            if collection.get('asset_assistant_lod_state') == 'PREVIEW']
+            if collection.get('asset_assistant_lod_state') == 'PREVIEW'
+            and not collection.get('lod_skin_preview')]
 
 
 def _groups(scene):
