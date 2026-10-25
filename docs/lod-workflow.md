@@ -292,3 +292,24 @@ selection preservation, duplicate blocking and wrong-selection rejection without
 staged data. UI layout, confirmation interaction and keyboard undo are still
 unverified live. Experimental controls do not close the motion/visual or export
 release gates.
+
+## Skinned undo, packaging and nine-clip diagnostics (2026-10-25)
+
+The CI undo snapshot script now covers skinned operator Apply/Discard, recovering
+valid rig references after undo and preserving the source skin signature after
+redo. The isolated ZIP skinned preview/discard smoke test passes and has its own
+CI step after package creation. Neither check certifies live UI keyboard behavior.
+
+The diagnostic report schema is now version 2 with `clip_samples`. At 50%
+triangles, five phases per clip completed for all nine default provider/clip pairs.
+Largest sampled distances in world-space Blender units:
+
+| Provider | Idle | Walk | Run / Flight |
+| --- | --- | --- | --- |
+| Human | 0.00206146 | 0.0158981 | Run 0.0188531 |
+| Canine | 0.00231071 | 0.00391644 | Run 0.00391644 |
+| Avian | 0.00789842 | 0.00926770 | Flight 0.0125554 |
+
+These measurements are diagnostic, not pass/fail quality thresholds. Additional
+shapes, denser sampling, contact/UV/silhouette review and engine playback remain
+required. The generated report is local at artifacts/skinned-lod-all-clips.json.
