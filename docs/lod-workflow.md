@@ -128,3 +128,18 @@ texture assessment or automatic acceptance threshold. Unsampled detail may be
 missed, and large meshes can take longer to inspect. No diagnostic work runs in
 the panel draw callback. Twenty-two focused Blender tests pass, including equal
 surfaces, translated surfaces, reduced spheres and non-mutating operator inspection.
+
+## Static multi-mesh orchestration (2026-10-25)
+
+`lod_sets.preview_static_lod_set` accepts an explicit list of distinct static
+meshes in the active scene. It reuses the existing reduction and validation path,
+applying budgets per mesh. Invalid members are rejected before staging; a failed
+member removes completed staged previews. Apply and Cancel preflight every member
+before changing any member, preventing partial completion on validation failures.
+
+Twenty-six focused Blender tests pass, including second-member failure cleanup,
+stale-source apply blocking, cancellation ownership blocking and source preservation.
+This is backend orchestration: the group handle is session-local, individual saved
+previews remain independently recoverable, and no asset membership is inferred.
+Multi-mesh UI, persistent group recovery, skinned LODs and export grouping remain
+open. It does not yet implement an engine LOD hierarchy or whole-asset budget.

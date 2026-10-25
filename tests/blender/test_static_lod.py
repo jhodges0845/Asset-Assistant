@@ -321,3 +321,60 @@ def test_inspect_operator_preserves_preview(source, lod_operators):
     assert tuple(_signature(obj) for obj in (source,) + preview.objects) == before
     assert preview.collection['asset_assistant_lod_state'] == 'PREVIEW'
     preview.cancel()
+
+
+@pytest.fixture
+def second_source(source):
+    obj = bpy.data.objects.new('Second static source', source.data.copy())
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
+def test_static_set_apply_preflights_every_member(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set
+    group = preview_static_lod_set([source, second_source], bpy.context.scene)
+    second_source.data.vertices[0].co.x += .2
+    with pytest.raises(ValueError, match='Source changed'):
+        group.apply()
+    assert all(p.collection['asset_assistant_lod_state'] == 'PREVIEW' for p in group.previews)
+    assert group.state == 'PREVIEW'
+    group.cancel()
+
+
+def test_static_set_failure_rolls_back_completed_members(source, second_source, monkeypatch):
+    from blender_adapter import lod_sets
+    original = lod_sets.preview_static_lods
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes', 'collections')}
+    def fail_second(obj, *args):
+        if obj == second_source:
+            raise ValueError('Injected second member failure')
+        return original(obj, *args)
+    monkeypatch.setattr(lod_sets, 'preview_static_lods', fail_second)
+    with pytest.raises(ValueError, match='Injected'):
+        lod_sets.preview_static_lod_set([source, second_source], bpy.context.scene)
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected
+
+
+def test_static_set_apply_preserves_both_sources(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set
+    sources = (source, second_source)
+    before = tuple(_signature(obj) for obj in sources)
+    group = preview_static_lod_set(sources, bpy.context.scene)
+    assert [len(levels) for levels in group.apply()] == [2, 2]
+    assert tuple(_signature(obj) for obj in sources) == before
+    with pytest.raises(ValueError, match='active LOD set'):
+        group.cancel()
+
+
+def test_static_set_cancel_preflights_every_member(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set
+    group = preview_static_lod_set([source, second_source], bpy.context.scene)
+    group.previews[1].collection.objects.link(source)
+    before = set(bpy.data.objects)
+    with pytest.raises(ValueError, match='collection changed'):
+        group.cancel()
+    assert set(bpy.data.objects) == before
+    assert all(p.state == 'PREVIEW' for p in group.previews)
+    group.previews[1].collection.objects.unlink(source)
+    group.cancel()
