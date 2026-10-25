@@ -14,9 +14,12 @@ func point(row):
 
 func review():
     var packed_scene = false
+    var diagnostic_import = false
     for argument in OS.get_cmdline_user_args():
         if argument == "--packed-scene":
             packed_scene = true
+        elif argument == "--diagnostic-import":
+            diagnostic_import = true
         else:
             fail("Unknown skin probe option: " + argument)
             return
@@ -25,7 +28,7 @@ func review():
         DirAccess.remove_absolute(report_path)
     var expected = JSON.parse_string(FileAccess.get_file_as_string("res://expected.json"))
     if expected == null or not expected.has("neutral_positions_m"):
-        fail("Generate an Avian fixture with --posed-surface")
+        fail("Generate a character fixture with --posed-surface")
         return
     var asset
     if packed_scene:
@@ -35,7 +38,7 @@ func review():
             return
         asset = saved.instantiate()
     else:
-        asset = load("res://canine_import.gd").load_asset(expected, true)
+        asset = load("res://canine_import.gd").load_asset(expected, not diagnostic_import)
     if asset == null:
         fail("Import failed")
         return
@@ -48,6 +51,18 @@ func review():
     var body = bodies[0]
     var player = players[0]
     player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+    # Index the same tolerance-bounded nearest-vertex search for dense bodies.
+    var cell_size = expected.tolerance_cm / 100.0
+    if not is_finite(cell_size) or cell_size <= 0:
+        fail("Invalid surface tolerance")
+        return
+    var cells = {}
+    for index in range(expected.neutral_positions_m.size()):
+        var position = point(expected.neutral_positions_m[index])
+        var cell = Vector3i((position / cell_size).floor())
+        if not cells.has(cell):
+            cells[cell] = []
+        cells[cell].append(index)
     var mappings = []
     var represented = {}
     var mapping_error = 0.0
@@ -57,11 +72,15 @@ func review():
             var position = body.global_transform * vertex
             var closest = INF
             var selected = -1
-            for index in range(expected.neutral_positions_m.size()):
-                var distance = position.distance_to(point(expected.neutral_positions_m[index])) * 100.0
-                if distance < closest:
-                    closest = distance
-                    selected = index
+            var cell = Vector3i((position / cell_size).floor())
+            for x in range(-1, 2):
+                for y in range(-1, 2):
+                    for z in range(-1, 2):
+                        for index in cells.get(cell + Vector3i(x, y, z), []):
+                            var distance = position.distance_to(point(expected.neutral_positions_m[index])) * 100.0
+                            if distance < closest or (distance == closest and index < selected):
+                                closest = distance
+                                selected = index
             if selected < 0 or not is_finite(closest) or closest > expected.tolerance_cm:
                 fail("Cannot map imported rest vertex")
                 return
@@ -117,7 +136,7 @@ func review():
         passed = passed and clip_passed
         results.append({"clip": label, "passed": clip_passed, "maximum_error_cm": maximum,
             "worst": worst, "cycles": 3, "samples_per_cycle": clip.samples.size()})
-    var report = {"passed": passed, "packed_scene": packed_scene, "godot_version": Engine.get_version_info(),
+    var report = {"passed": passed, "packed_scene": packed_scene, "diagnostic_import": diagnostic_import, "godot_version": Engine.get_version_info(),
         "sample": expected.sample, "semantic_operations": expected.get("semantic_operations", []),
         "source_commit": expected.commit, "tolerance_cm": expected.tolerance_cm,
         "neutral_mapping_error_cm": mapping_error, "source_vertices_covered": represented.size(),

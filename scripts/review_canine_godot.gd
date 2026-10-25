@@ -142,13 +142,32 @@ func compare_neutral_mesh(asset, reference_rows, tolerance_cm):
     # Export may duplicate vertices at UV/normal seams. Compare both directions
     # without treating those duplicates as changed topology or vertex identity.
     var maximum = 0.0
+    var cell_size = tolerance_cm / 100.0
+    if not is_finite(cell_size) or cell_size <= 0:
+        return {"passed": false, "reason": "Invalid tolerance"}
     for pair in [[actual, reference], [reference, actual]]:
+        var cells = {}
+        for other in pair[1]:
+            if not other.is_finite():
+                return {"passed": false, "reason": "Nonfinite rest vertex"}
+            var cell = Vector3i((other / cell_size).floor())
+            if not cells.has(cell):
+                cells[cell] = []
+            cells[cell].append(other)
         for point in pair[0]:
             if not point.is_finite():
                 return {"passed": false, "reason": "Nonfinite rest vertex"}
             var nearest = INF
-            for other in pair[1]:
-                nearest = min(nearest, point.distance_to(other))
+            var cell = Vector3i((point / cell_size).floor())
+            for x in range(-1, 2):
+                for y in range(-1, 2):
+                    for z in range(-1, 2):
+                        for other in cells.get(cell + Vector3i(x, y, z), []):
+                            nearest = min(nearest, point.distance_to(other))
+            # Keep exact failure distances when no tolerance-near match exists.
+            if nearest > cell_size:
+                for other in pair[1]:
+                    nearest = min(nearest, point.distance_to(other))
             maximum = max(maximum, nearest * 100.0)
     return {"passed": maximum <= tolerance_cm, "maximum_nearest_vertex_error_cm": maximum,
         "imported_vertex_count": actual.size(), "source_vertex_count": reference.size(),
