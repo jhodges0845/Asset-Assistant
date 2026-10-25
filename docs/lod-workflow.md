@@ -16,13 +16,16 @@ materials are referenced, not rewritten or duplicated.
 
 This slice supports one static mesh with at least eight source triangles and one
 to four strictly decreasing budgets. It rejects modifiers, constraints, animation,
-shape keys, skin groups and animated/constrained parent hierarchies. Each result
+shape keys, skin groups and animated/constrained parent hierarchies. Mesh-level
+animation is also rejected, and preview/apply require Object Mode so pending
+Edit Mode geometry cannot bypass the checks. Each result
 must meet its triangle budget, pass geometry inspection and retain UV layers and
 material slots. Preserving layers/slots is not proof of visual UV/material quality.
 
-Six Blender checks pass: source preservation/cancel cleanup, explicit apply,
+Eight Blender checks pass: source preservation/cancel cleanup, explicit apply,
 stale-source rejection, unsupported-state rejection, edited-preview preservation,
-and failure rollback. Seven core/architecture checks pass. A UV sphere with an
+failure rollback, mesh-level animation rejection, and Edit Mode preview/apply
+blocking. Seven core/architecture checks pass. A UV sphere with an
 artist material exercises actual Blender reduction. These tests do not establish
 arbitrary-topology, silhouette, texture or skinned-LOD acceptance.
 

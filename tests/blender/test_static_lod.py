@@ -97,3 +97,29 @@ def test_failed_reduction_cleans_only_staging_data(source, monkeypatch):
     for kind, expected in before.items():
         assert set(getattr(bpy.data, kind)) == expected
     assert _signature(source) == signature
+
+
+def test_mesh_animation_is_rejected_without_copies(source):
+    source.data.animation_data_create()
+    before = set(bpy.data.objects)
+    with pytest.raises(ValueError, match='static meshes'):
+        preview_static_lods(source, bpy.context.scene)
+    assert set(bpy.data.objects) == before
+
+
+def test_edit_mode_blocks_preview_and_apply(source):
+    preview = preview_static_lods(source, bpy.context.scene)
+    bpy.context.view_layer.objects.active = source
+    source.select_set(True)
+    bpy.ops.object.mode_set(mode='EDIT')
+    before = set(bpy.data.objects)
+    try:
+        with pytest.raises(ValueError, match='Object Mode'):
+            preview_static_lods(source, bpy.context.scene)
+        with pytest.raises(ValueError, match='Object Mode'):
+            preview.apply()
+        assert set(bpy.data.objects) == before
+        assert preview.state == 'PREVIEW'
+    finally:
+        bpy.ops.object.mode_set(mode='OBJECT')
+        preview.cancel()

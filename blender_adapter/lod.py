@@ -22,7 +22,9 @@ def _signature(obj):
 def _validate_source(obj):
     if obj is None or obj.type != 'MESH':
         raise ValueError("Choose one static mesh for LOD preview")
-    if obj.modifiers or obj.constraints or obj.animation_data or obj.data.shape_keys or obj.vertex_groups:
+    if obj.mode != 'OBJECT':
+        raise ValueError("Return to Object Mode before building or applying LODs")
+    if obj.modifiers or obj.constraints or obj.animation_data or obj.data.animation_data or obj.data.shape_keys or obj.vertex_groups:
         raise ValueError("This LOD preview supports static meshes without modifiers, constraints, animation, shape keys or skin groups")
     parent = obj.parent
     while parent:
