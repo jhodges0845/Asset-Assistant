@@ -251,3 +251,40 @@ historical canine/avian filenames. Dense probes now index tolerance-near rest
 vertices in spatial cells, preserving distance and coverage checks; the
 bidirectional geometry check retains a full search for out-of-tolerance points.
 Godot used ANGLE on this host after an OpenGL-driver warning.
+
+
+## Human quaternion export repair (2026-10-24)
+
+Increasing the original Godot diagnostic import from 800 to 3,200 fps left Run
+bone-head error essentially unchanged (0.039657 versus 0.039652 cm). A focused
+quaternion regression reproduced the difference between Blender's normalized
+linear component curves and glTF spherical rotation interpolation.
+
+The glTF staging path now densifies linear quaternion curves only on temporary
+export Action copies, evaluating the original components along small rotation
+intervals (0.005 radians). Editable Actions, fractional endpoints and FBX behavior
+are preserved. Nonlinear keys and non-Cycles modifiers are outside this repair.
+The regression checks source preservation and spherical-vs-component agreement
+at 128 samples; existing edited Human/Canine playback and target checks also pass.
+
+Validation so far: 11 focused Blender tests (39 API warnings) and five architecture
+checks passed. With the revised GLB at 800 fps, Godot skeleton checks pass, Walk
+skin error is 0.001435 cm, Idle is 0.000281 cm, and Run remains just outside the
+unchanged limit at 0.002117 cm. The separate 1,600 fps skin experiment passes all clips: Walk 0.000780 cm,
+Idle 0.000281 cm and Run 0.001235 cm. This isolates an additional sampling
+contribution after the quaternion export repair. Neither diagnostic rate is a production
+memory/performance recommendation.
+
+The edited Human fixture grows from 9,876,068 to 9,943,036 bytes (about 0.7%).
+Evidence: `artifacts/workflow-godot-human-dense/`; the 800 fps skin report is
+preserved as `godot-skin-report-800.json`. Reproduce with the existing Human
+fixture command and add `-- --diagnostic-import --bake-fps=1600` to `skin.gd`
+for the higher-rate comparison.
+
+
+Final repair evidence: the focused interpolation regression passes after proving
+the original sparse mismatch; source keys remain unchanged. Two Godot diagnostic
+argument guards also pass. The fixture was generated from the repair working
+tree; its `commit` field names the pre-repair base, so use this change's PR/commit
+for candidate provenance. Production Godot import settings, performance and live
+visual acceptance remain open; the 800 fps skin Run case is retained as a failure.

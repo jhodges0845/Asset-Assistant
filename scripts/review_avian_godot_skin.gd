@@ -15,14 +15,28 @@ func point(row):
 func review():
     var packed_scene = false
     var diagnostic_import = false
+    var bake_fps = 800.0
+    var explicit_bake_fps = false
     for argument in OS.get_cmdline_user_args():
         if argument == "--packed-scene":
             packed_scene = true
+        elif argument.begins_with("--bake-fps="):
+            bake_fps = float(argument.get_slice("=", 1))
+            explicit_bake_fps = true
         elif argument == "--diagnostic-import":
             diagnostic_import = true
         else:
             fail("Unknown skin probe option: " + argument)
             return
+    if not is_finite(bake_fps) or bake_fps <= 0 or bake_fps > 3200:
+        fail("Bake FPS must be in (0, 3200]")
+        return
+    if explicit_bake_fps and not diagnostic_import:
+        fail("--bake-fps requires --diagnostic-import")
+        return
+    if packed_scene and diagnostic_import:
+        fail("Diagnostic import cannot change a packed scene")
+        return
     var report_path = "res://godot-skin-packed-report.json" if packed_scene else "res://godot-skin-report.json"
     if FileAccess.file_exists(report_path):
         DirAccess.remove_absolute(report_path)
@@ -38,7 +52,7 @@ func review():
             return
         asset = saved.instantiate()
     else:
-        asset = load("res://canine_import.gd").load_asset(expected, not diagnostic_import)
+        asset = load("res://canine_import.gd").load_asset(expected, not diagnostic_import, bake_fps)
     if asset == null:
         fail("Import failed")
         return
@@ -136,7 +150,7 @@ func review():
         passed = passed and clip_passed
         results.append({"clip": label, "passed": clip_passed, "maximum_error_cm": maximum,
             "worst": worst, "cycles": 3, "samples_per_cycle": clip.samples.size()})
-    var report = {"passed": passed, "packed_scene": packed_scene, "diagnostic_import": diagnostic_import, "godot_version": Engine.get_version_info(),
+    var report = {"passed": passed, "packed_scene": packed_scene, "diagnostic_import": diagnostic_import, "bake_fps": bake_fps if diagnostic_import else null, "godot_version": Engine.get_version_info(),
         "sample": expected.sample, "semantic_operations": expected.get("semantic_operations", []),
         "source_commit": expected.commit, "tolerance_cm": expected.tolerance_cm,
         "neutral_mapping_error_cm": mapping_error, "source_vertices_covered": represented.size(),
