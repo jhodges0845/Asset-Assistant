@@ -65,7 +65,8 @@ cancel in a fresh Blender process, preserving both sources. It passed on Blender
 ## Export workspace controls (2026-10-25)
 
 Select an unrigged static mesh, then use Export > Static LODs > Preview Static
-LODs. The initial UI uses fixed 50% and 25% triangle budgets. Separate copies
+LODs. The dialog offers one to four decreasing triangle ratios, defaulting to
+50% and 25%. A ratio of 0.5 retains half the source triangle budget. Separate copies
 retain the source selection. Each active scene preview shows its level triangle
 counts and explicit Apply / Discard Preview controls, including recovered saved
 previews. Discard asks for confirmation because edits to preview copies are lost.
@@ -92,3 +93,11 @@ Mode before deleting anything. Live UI review remains blocked locally: the
 computer-use Node runtime failed initialization twice with a Windows sandbox
 helper setup error. Layout, confirmation-dialog interaction and keyboard undo
 still need live acceptance; they are not counted as passed by these tests.
+
+## Configurable budgets (2026-10-25)
+
+The preview dialog exposes level count and per-level source triangle ratios.
+It calls the same core budget planner as the backend; increasing or duplicate
+budgets are rejected before staging data. Sixteen focused Blender tests pass,
+including a three-level operator preview and rollback-free invalid-input rejection.
+Live dialog layout and keyboard interaction still require visual acceptance.

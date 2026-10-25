@@ -218,3 +218,25 @@ def test_discard_blocks_preview_in_edit_mode(source):
         bpy.context.view_layer.objects.active = source
         source.select_set(True)
         preview.cancel()
+
+
+def test_custom_lod_operator_budgets(source, lod_operators):
+    from blender_adapter.lod_ui import _previews
+    from blender_adapter.lod import recover_static_lod_preview
+    original = _triangles(source.data)
+    assert bpy.ops.asset_assistant.lod_preview(level_count=3, ratios=(.75, .5, .25, .125)) == {'FINISHED'}
+    collection, = _previews(bpy.context.scene)
+    preview = recover_static_lod_preview(collection)
+    assert len(preview.objects) == 3
+    assert [level.triangle_budget for level in preview.levels] == [int(original * r) for r in (.75, .5, .25)]
+    for obj, level in zip(preview.objects, preview.levels):
+        assert _triangles(obj.data) <= level.triangle_budget
+    preview.cancel()
+
+
+def test_invalid_operator_budgets_leave_scene_unchanged(source, lod_operators):
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes', 'collections')}
+    with pytest.raises(RuntimeError, match='smaller triangle budget'):
+        bpy.ops.asset_assistant.lod_preview(level_count=2, ratios=(.25, .5, .125, .0625))
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected

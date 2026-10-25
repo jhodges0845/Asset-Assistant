@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Explicit static LOD controls in the Export workspace."""
 import bpy
-from bpy.props import StringProperty
+from bpy.props import StringProperty, IntProperty, FloatVectorProperty
 from .lod import preview_static_lods, recover_static_lod_preview
 
 
@@ -13,8 +13,23 @@ def _previews(scene):
 class ASSETASSISTANT_OT_lod_preview(bpy.types.Operator):
     bl_idname = 'asset_assistant.lod_preview'
     bl_label = 'Preview Static LODs'
-    bl_description = 'Create separate copies at 50% and 25% of the active mesh triangle count'
+    bl_description = 'Create separate reduced copies using decreasing triangle budgets'
     bl_options = {'REGISTER', 'UNDO'}
+    level_count: IntProperty(name='Levels', default=2, min=1, max=4)
+    ratios: FloatVectorProperty(
+        name='Triangle Ratios', size=4, default=(.5, .25, .125, .0625),
+        min=.001, max=.999,
+        description='Fraction of source triangles retained; each level must decrease')
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        self.layout.prop(self, 'level_count')
+        for index in range(self.level_count):
+            self.layout.prop(self, 'ratios', index=index, text='LOD %d ratio' % (index + 1))
+        self.layout.label(text='0.5 retains half the source triangles.')
+        self.layout.label(text='Each level must have a smaller budget.')
 
     def execute(self, context):
         source = context.active_object
@@ -22,11 +37,11 @@ class ASSETASSISTANT_OT_lod_preview(bpy.types.Operator):
             self.report({'ERROR'}, 'Apply or cancel the existing preview for this source first')
             return {'CANCELLED'}
         try:
-            preview_static_lods(source, context.scene)
+            preview_static_lods(source, context.scene, tuple(self.ratios[:self.level_count]))
         except (ValueError, ReferenceError) as exc:
             self.report({'ERROR'}, str(exc))
             return {'CANCELLED'}
-        self.report({'INFO'}, 'Created separate 50% and 25% LOD previews; source preserved')
+        self.report({'INFO'}, 'Created separate LOD previews; source preserved')
         return {'FINISHED'}
 
 
@@ -66,7 +81,7 @@ def draw(next_renderer, panel, context, *args):
     next_renderer(panel, context, *args)
     box = panel.layout.box()
     box.label(text='Static LODs', icon='MESH_DATA')
-    box.label(text='Separate copies: 50% and 25%')
+    box.label(text='Choose 1-4 decreasing triangle budgets.')
     box.label(text='Select one unrigged static mesh.')
     row = box.row()
     row.enabled = context.active_object is not None and context.mode == 'OBJECT'
