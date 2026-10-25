@@ -64,3 +64,7 @@ inspection_document = _modify_exchange.inspection_document
 inspection_json = _modify_exchange.inspection_json
 request_from_document = _modify_exchange.request_from_document
 request_from_json = _modify_exchange.request_from_json
+
+_lod = import_module(_core_name + '.lod')
+plan_lods = _lod.plan_lods
+LODLevel = _lod.LODLevel

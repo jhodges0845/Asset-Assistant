@@ -4,7 +4,7 @@ from dataclasses import dataclass, asdict
 import json
 from hashlib import sha256
 import bpy
-from object_core.lod import plan_lods, LODLevel
+from .core_gateway import plan_lods, LODLevel
 
 
 def _signature(obj):
