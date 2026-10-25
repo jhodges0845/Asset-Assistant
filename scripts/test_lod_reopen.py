@@ -21,6 +21,9 @@ def main():
             source = preview.source
             before = _signature(source)
             assert before == preview.source_signature
+            assert source.material_slots[0].link == 'OBJECT'
+            assert all(obj.material_slots[0].material == source.material_slots[0].material
+                       for obj in preview.objects)
             if source.name == 'Apply source':
                 preview.apply()
                 assert collection['asset_assistant_lod_state'] == 'APPLIED'
@@ -38,6 +41,8 @@ def main():
             source = bpy.context.object
             source.name = name
             source.data.materials.append(bpy.data.materials.new(name + ' material'))
+            source.material_slots[0].link = 'OBJECT'
+            source.material_slots[0].material = bpy.data.materials.new(name + ' visible override')
             preview_static_lods(source, bpy.context.scene)
         checkpoint = Path(directory) / 'preview.blend'
         bpy.ops.wm.save_as_mainfile(filepath=str(checkpoint))

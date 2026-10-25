@@ -32,8 +32,8 @@ arbitrary-topology, silhouette, texture or skinned-LOD acceptance.
 
 ## Remaining release work
 
-- Add artist-facing preview/apply/cancel and level inspection through the current
-  workspace presentation registry, with selection and undo behavior verified.
+- Validate the Export workspace controls visually and verify interactive undo.
+  Operator selection preservation is tested.
 - Add multi-mesh asset boundaries, quality/silhouette review and material/UV checks
   on representative generated and imported assets.
 - Implement skinned LODs with explicit weight preservation/normalization and
@@ -41,7 +41,7 @@ arbitrary-topology, silhouette, texture or skinned-LOD acceptance.
 - Implement per-target export grouping and verify actual engine LOD selection.
 - Run the release-roadmap visual, save/reopen, import/export and package gates.
 
-No UI command or automatic engine LOD configuration is shipped by this slice.
+Export workspace controls are available; automatic engine LOD configuration is not.
 The LOD release gate remains open.
 
 ## Saved-preview recovery (2026-10-24)
@@ -60,4 +60,71 @@ and rebuilt explicitly. Recovery never automatically applies or deletes objects.
 
 `scripts/test_lod_reopen.py` saves material-bearing previews and verifies apply and
 cancel in a fresh Blender process, preserving both sources. It passed on Blender
-5.2.1 and runs in CI. UI, undo interaction and visual quality remain unverified.
+5.2.1 and runs in CI. Live UI, undo interaction and visual quality remain unverified.
+
+## Export workspace controls (2026-10-25)
+
+Select an unrigged static mesh, then use Export > Static LODs > Preview Static
+LODs. The dialog offers one to four decreasing triangle ratios, defaulting to
+50% and 25%. A ratio of 0.5 retains half the source triangle budget. Separate copies
+retain the source selection. Each active scene preview shows its level triangle
+counts and explicit Apply / Discard Preview controls, including recovered saved
+previews. Discard asks for confirmation because edits to preview copies are lost.
+A second preview for the same source is blocked until the first is resolved.
+
+`lod_ui.py` decorates `workspace.export` through the presentation registry and
+calls the existing validated backend. Operators declare Blender undo support;
+interactive undo correctness still needs live validation. Thirteen focused Blender
+tests pass, including actual preview/apply/discard operator calls, duplicate and
+stale-source rejection, and selection preservation. Five architecture checks and
+two full add-on registration/unregistration cycles pass. These checks do not
+establish narrow-panel layout quality or engine export support.
+
+## Undo snapshot evidence (2026-10-25)
+
+`scripts/test_lod_undo.py` invokes the LOD operators and exercises Blender undo /
+redo across Apply and Discard. Restored previews recover their source and level
+references; source geometry remains unchanged. The isolated Blender 5.2.1 check
+passes and runs as a separate CI step. Background scripts explicitly push undo
+snapshots, so this does not certify automatic UI event pushes or Ctrl-Z behavior.
+
+Fourteen focused Blender tests pass. Discard now rejects level meshes in Edit
+Mode before deleting anything. Live UI review remains blocked locally: the
+computer-use Node runtime failed initialization twice with a Windows sandbox
+helper setup error. Layout, confirmation-dialog interaction and keyboard undo
+still need live acceptance; they are not counted as passed by these tests.
+
+## Configurable budgets (2026-10-25)
+
+The preview dialog exposes level count and per-level source triangle ratios.
+It calls the same core budget planner as the backend; increasing or duplicate
+budgets are rejected before staging data. Sixteen focused Blender tests pass,
+including a three-level operator preview and rollback-free invalid-input rejection.
+Live dialog layout and keyboard interaction still require visual acceptance.
+
+## Material overrides and UV coverage (2026-10-25)
+
+Static LOD copies now use effective object material slots, including OBJECT-linked
+material overrides. Only the independent LOD mesh receives those references;
+source slot links and shared source meshes remain unchanged. Source/preview
+signatures also inspect effective materials, so changing an override blocks Apply.
+Existing previews whose override was previously ignored must be rebuilt explicitly.
+
+Nineteen focused Blender tests pass, including shared-mesh override preservation,
+stale override rejection and two UV layers with multiple face material assignments.
+The fresh-process save/reopen check also passes with object-overridden materials.
+These checks establish data preservation, not visual texture or silhouette quality.
+
+## Surface deviation diagnostics (2026-10-25)
+
+Each active preview level offers Measure Surface Deviation. The read-only action
+samples vertices and triangle centroids from both source and level against the
+opposite triangle surface using BVH nearest-point queries. It reports maximum
+and RMS distances in world-space Blender units, plus sample count. Measurements
+use current geometry, including edits; Apply still enforces stale-preview guards.
+
+This is a finite sample diagnostic, not a Hausdorff bound, silhouette check,
+texture assessment or automatic acceptance threshold. Unsampled detail may be
+missed, and large meshes can take longer to inspect. No diagnostic work runs in
+the panel draw callback. Twenty-two focused Blender tests pass, including equal
+surfaces, translated surfaces, reduced spheres and non-mutating operator inspection.
