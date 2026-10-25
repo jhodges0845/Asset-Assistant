@@ -141,7 +141,7 @@ Twenty-six focused Blender tests pass, including second-member failure cleanup,
 stale-source apply blocking, cancellation ownership blocking and source preservation.
 This is backend orchestration: explicit member references now persist in a
 separate record collection, and no asset membership is inferred.
-Multi-mesh UI, skinned LODs and export grouping remain
+Live multi-mesh UI acceptance, skinned LODs and export grouping remain
 open. It does not yet implement an engine LOD hierarchy or whole-asset budget.
 
 ## Saved multi-mesh groups (2026-10-25)
@@ -156,3 +156,16 @@ group operations rather than partially completing the rest.
 Twenty-eight focused Blender tests pass. `scripts/test_lod_set_reopen.py` also
 passes in a fresh Blender 5.2.1 process: two two-mesh groups recover and complete
 Apply/Cancel while preserving all four sources. This check is included in CI.
+
+## Multi-mesh workspace controls (2026-10-25)
+
+Enable All Selected Meshes in the preview dialog to create one group from the
+explicit selection. Every selected object must satisfy the static mesh contract;
+non-mesh selections are rejected rather than silently omitted. Ratios apply per
+mesh, not to a pooled asset budget. Active-mesh mode remains the default.
+
+The Export workspace lists group Apply/Discard controls and member diagnostics.
+Individual member completion is blocked while its group is active. Group Discard
+uses the existing confirmation flow. Thirty focused Blender tests pass, including
+real selected-mesh operators, selection preservation, member blocking and group
+cleanup. Live dialog layout and interactive undo acceptance remain open.

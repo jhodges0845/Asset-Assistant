@@ -401,3 +401,35 @@ def test_static_set_recovery_rejects_missing_member(source, second_source):
     assert set(bpy.data.objects) == before
     group.record['member_1'] = group.previews[1].collection
     group.cancel()
+
+
+def test_selected_mesh_group_operators(source, second_source, lod_operators):
+    from blender_adapter.lod_ui import _groups
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+    source.select_set(True)
+    second_source.select_set(True)
+    selected = set(bpy.context.selected_objects)
+    assert bpy.ops.asset_assistant.lod_preview(use_selection=True) == {'FINISHED'}
+    group, = _groups(bpy.context.scene)
+    assert group['lod_set_count'] == 2
+    assert set(bpy.context.selected_objects) == selected
+    member = group['member_0']
+    with pytest.raises(RuntimeError, match='complete LOD group'):
+        bpy.ops.asset_assistant.lod_finish(collection_name=member.name, action='APPLY')
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=group.name, action='APPLY') == {'FINISHED'}
+    assert group['lod_set_state'] == 'APPLIED'
+
+
+def test_selected_mesh_group_discard(source, second_source, lod_operators):
+    from blender_adapter.lod_ui import _groups
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+    source.select_set(True)
+    second_source.select_set(True)
+    before = set(bpy.data.objects)
+    bpy.ops.asset_assistant.lod_preview(use_selection=True)
+    group, = _groups(bpy.context.scene)
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=group.name, action='CANCEL') == {'FINISHED'}
+    assert set(bpy.data.objects) == before
+    assert not _groups(bpy.context.scene)

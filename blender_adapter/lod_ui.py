@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Explicit static LOD controls in the Export workspace."""
 import bpy
-from bpy.props import StringProperty, IntProperty, FloatVectorProperty
+from bpy.props import StringProperty, IntProperty, FloatVectorProperty, BoolProperty
 from .lod import preview_static_lods, recover_static_lod_preview
 
 
@@ -10,11 +10,24 @@ def _previews(scene):
             if collection.get('asset_assistant_lod_state') == 'PREVIEW']
 
 
+def _groups(scene):
+    return [c for c in scene.collection.children_recursive if c.get('lod_set_state') == 'PREVIEW']
+
+
+def _group_for(scene, collection):
+    for record in _groups(scene):
+        if any(record.get(key) == collection for key in record.keys() if key.startswith('member_')):
+            return record
+    return None
+
+
 class ASSETASSISTANT_OT_lod_preview(bpy.types.Operator):
     bl_idname = 'asset_assistant.lod_preview'
     bl_label = 'Preview Static LODs'
     bl_description = 'Create separate reduced copies using decreasing triangle budgets'
     bl_options = {'REGISTER', 'UNDO'}
+    use_selection: BoolProperty(name='All Selected Meshes', default=False,
+                                description='Create one group from the explicit selection; budgets apply per mesh')
     level_count: IntProperty(name='Levels', default=2, min=1, max=4)
     ratios: FloatVectorProperty(
         name='Triangle Ratios', size=4, default=(.5, .25, .125, .0625),
@@ -25,6 +38,7 @@ class ASSETASSISTANT_OT_lod_preview(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
+        self.layout.prop(self, 'use_selection')
         self.layout.prop(self, 'level_count')
         for index in range(self.level_count):
             self.layout.prop(self, 'ratios', index=index, text='LOD %d ratio' % (index + 1))
@@ -33,11 +47,17 @@ class ASSETASSISTANT_OT_lod_preview(bpy.types.Operator):
 
     def execute(self, context):
         source = context.active_object
-        if any(c.get('lod_source') == source for c in _previews(context.scene)):
+        sources = tuple(context.selected_objects) if self.use_selection else (source,)
+        if any(c.get('lod_source') in sources for c in _previews(context.scene)):
             self.report({'ERROR'}, 'Apply or cancel the existing preview for this source first')
             return {'CANCELLED'}
         try:
-            preview_static_lods(source, context.scene, tuple(self.ratios[:self.level_count]))
+            ratios = tuple(self.ratios[:self.level_count])
+            if self.use_selection:
+                from .lod_sets import preview_static_lod_set
+                preview_static_lod_set(sources, context.scene, ratios)
+            else:
+                preview_static_lods(source, context.scene, ratios)
         except (ValueError, ReferenceError) as exc:
             self.report({'ERROR'}, str(exc))
             return {'CANCELLED'}
@@ -60,11 +80,17 @@ class ASSETASSISTANT_OT_lod_finish(bpy.types.Operator):
 
     def execute(self, context):
         collection = bpy.data.collections.get(self.collection_name)
-        if collection not in _previews(context.scene):
+        if collection not in _previews(context.scene) + _groups(context.scene):
             self.report({'ERROR'}, 'Choose an active preview in this scene')
             return {'CANCELLED'}
         try:
-            preview = recover_static_lod_preview(collection)
+            if collection in _groups(context.scene):
+                from .lod_sets import recover_static_lod_set
+                preview = recover_static_lod_set(collection)
+            else:
+                if _group_for(context.scene, collection) is not None:
+                    raise ValueError('Apply or discard the complete LOD group')
+                preview = recover_static_lod_preview(collection)
             if self.action == 'APPLY':
                 preview.apply()
             elif self.action == 'CANCEL':
@@ -110,7 +136,7 @@ def draw(next_renderer, panel, context, *args):
     box = panel.layout.box()
     box.label(text='Static LODs', icon='MESH_DATA')
     box.label(text='Choose 1-4 decreasing triangle budgets.')
-    box.label(text='Select one unrigged static mesh.')
+    box.label(text='Active mesh or all selected static meshes.')
     row = box.row()
     row.enabled = context.active_object is not None and context.mode == 'OBJECT'
     row.operator('asset_assistant.lod_preview')
@@ -123,10 +149,22 @@ def draw(next_renderer, panel, context, *args):
                 op = item.operator('asset_assistant.lod_inspect', text='Measure Surface Deviation')
                 op.collection_name = collection.name
                 op.object_name = obj.name
+        if _group_for(context.scene, collection) is not None:
+            item.label(text='Resolve with its LOD group below.')
+            continue
         row = item.row(align=True)
         for action, label in (('APPLY', 'Apply'), ('CANCEL', 'Discard Preview')):
             op = row.operator('asset_assistant.lod_finish', text=label)
             op.collection_name = collection.name
+            op.action = action
+    for record in _groups(context.scene):
+        item = box.box()
+        item.label(text=record.name)
+        item.label(text='%s source meshes' % record.get('lod_set_count', '?'))
+        row = item.row(align=True)
+        for action, label in (('APPLY', 'Apply Group'), ('CANCEL', 'Discard Group')):
+            op = row.operator('asset_assistant.lod_finish', text=label)
+            op.collection_name = record.name
             op.action = action
     box.label(text='Engine LOD export is not yet supported.')
 
