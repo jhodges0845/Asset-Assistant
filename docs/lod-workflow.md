@@ -244,3 +244,22 @@ analytical linear-blend deformation at three poses within 1e-5 Blender units.
 This checks binding mathematics, not fidelity to the unreduced animated surface.
 Generated Human/Canine/Avian motion comparisons, persistent candidate preview/apply,
 UI, visual acceptance and destination exports remain open.
+
+## Generated-character Walk diagnostics (2026-10-25)
+
+`scripts/review_skinned_lod.py -- <report.json>` generates default Human, Canine
+and Avian assets, builds a 50% skinned candidate, and compares both posed triangle
+surfaces at five Walk phases. Blender 5.2.1 completed all three cases:
+
+| Provider | Source / reduced triangles | Largest sampled distance (Blender units) |
+| --- | --- | --- |
+| Human | 84,368 / 42,184 | 0.0158981 |
+| Canine | 34,432 / 17,216 | 0.00391644 |
+| Avian | 620 / 310 | 0.00926770 |
+
+These are diagnostic observations, not accepted quality limits. Five sampled
+phases do not prove continuous motion fidelity, contact preservation, silhouettes,
+UV quality or other clips. The script records per-phase max/RMS values and reports
+provider failures explicitly. Broader shapes/clips and visual review remain open.
+After merging validated main, all 43 focused Blender and seven core/architecture
+checks passed. PR #318 is merged; this branch preserves its packaged-import fix.
