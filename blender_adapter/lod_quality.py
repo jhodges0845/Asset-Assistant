@@ -27,6 +27,10 @@ def inspect_static_lod(source, level):
     """
     _validate_source(source)
     _validate_source(level)
+    return _measure_surfaces(source, level)
+
+
+def _measure_surfaces(source, level):
     source_tree, source_samples = _surface(source)
     level_tree, level_samples = _surface(level)
     distances = []
@@ -44,3 +48,13 @@ def inspect_static_lod(source, level):
         'rms_distance': sqrt(sum(value * value for value in distances) / len(distances)),
         'units': 'world-space Blender units',
     }
+
+
+def inspect_posed_skin_lod(source, level, depsgraph):
+    """Measure the currently evaluated pose without changing frame or actions."""
+    from .lod_skin import inspect_skin_lod_source
+    source_skin = inspect_skin_lod_source(source)
+    level_skin = inspect_skin_lod_source(level)
+    if source_skin.armature != level_skin.armature:
+        raise ValueError('Compare skinned meshes bound to the same rig')
+    return _measure_surfaces(source.evaluated_get(depsgraph), level.evaluated_get(depsgraph))

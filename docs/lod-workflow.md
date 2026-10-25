@@ -313,3 +313,13 @@ Largest sampled distances in world-space Blender units:
 These measurements are diagnostic, not pass/fail quality thresholds. Additional
 shapes, denser sampling, contact/UV/silhouette review and engine playback remain
 required. The generated report is local at artifacts/skinned-lod-all-clips.json.
+
+## Current-pose inspection (2026-10-25)
+
+Skinned preview levels offer Measure Pose, reusing the sampled surface-distance
+calculation on evaluated source/candidate meshes at the current animation frame.
+Both must bind to the same rig. The action does not change frame, pose, action or
+geometry. It reports maximum/RMS distance in world-space Blender units; samples
+are not continuous surface or motion bounds. Forty-nine focused Blender tests
+pass after integrating main, including operator inspection with source/pose/frame
+preservation. PR #321 passed all six checks and is merged.

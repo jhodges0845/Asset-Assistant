@@ -298,3 +298,23 @@ def test_skin_preview_operator_discard_and_wrong_selection(skinned, skin_operato
     preview, = _skin_previews(bpy.context.scene)
     assert bpy.ops.asset_assistant.lod_finish(collection_name=preview.name, action='CANCEL') == {'FINISHED'}
     assert set(bpy.data.objects) == before
+
+
+def test_posed_skin_inspection_preserves_frame_pose_and_geometry(skinned, skin_operators):
+    from blender_adapter.lod_skin_preview import preview_skin_lods, _skin_signature
+    from blender_adapter.lod_quality import inspect_posed_skin_lod
+    source, rig = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, ratios=(.5,), max_distance=.3)
+    rig.pose.bones[0].rotation_mode = 'XYZ'
+    rig.pose.bones[0].rotation_euler.x = .6
+    bpy.context.view_layer.update()
+    before = _skin_signature(source)
+    frame = bpy.context.scene.frame_current
+    result = inspect_posed_skin_lod(source, preview.objects[0], bpy.context.evaluated_depsgraph_get())
+    assert 0 < result['max_distance'] < .3
+    assert bpy.ops.asset_assistant.lod_inspect(collection_name=preview.collection.name,
+                                            object_name=preview.objects[0].name) == {'FINISHED'}
+    assert _skin_signature(source) == before
+    assert bpy.context.scene.frame_current == frame
+    assert rig.pose.bones[0].rotation_euler.x == pytest.approx(.6)
+    preview.cancel()

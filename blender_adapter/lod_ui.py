@@ -154,17 +154,23 @@ class ASSETASSISTANT_OT_lod_inspect(bpy.types.Operator):
     object_name: StringProperty()
 
     def execute(self, context):
-        from .lod_quality import inspect_static_lod
+        from .lod_quality import inspect_static_lod, inspect_posed_skin_lod
         collection = bpy.data.collections.get(self.collection_name)
-        if collection not in _previews(context.scene):
+        if collection not in _previews(context.scene) + _skin_previews(context.scene):
             self.report({'ERROR'}, 'Choose an active preview in this scene')
             return {'CANCELLED'}
         try:
-            preview = recover_static_lod_preview(collection)
+            skinned = bool(collection.get('lod_skin_preview'))
+            if skinned:
+                from .lod_skin_preview import recover_skin_lod_preview
+                preview = recover_skin_lod_preview(collection)
+            else:
+                preview = recover_static_lod_preview(collection)
             level = next((obj for obj in preview.objects if obj.name == self.object_name), None)
             if level is None:
                 raise ValueError('Choose a level belonging to this preview')
-            result = inspect_static_lod(preview.source, level)
+            result = (inspect_posed_skin_lod(preview.source, level, context.evaluated_depsgraph_get())
+                      if skinned else inspect_static_lod(preview.source, level))
         except (ValueError, ReferenceError) as exc:
             self.report({'ERROR'}, str(exc))
             return {'CANCELLED'}
@@ -218,6 +224,10 @@ def draw(next_renderer, panel, context, *args):
         item = skin.box()
         item.label(text=collection.name)
         item.label(text='Inspect animation before Apply.')
+        for obj in collection.objects:
+            op = item.operator('asset_assistant.lod_inspect', text='Measure Pose: ' + obj.name)
+            op.collection_name = collection.name
+            op.object_name = obj.name
         row = item.row(align=True)
         for action, label in (('APPLY', 'Apply'), ('CANCEL', 'Discard Preview')):
             op = row.operator('asset_assistant.lod_finish', text=label)
