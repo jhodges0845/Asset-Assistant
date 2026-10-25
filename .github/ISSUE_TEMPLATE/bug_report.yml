@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible Asset Assistant defect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Please remove personal information and secrets from logs or attachments."
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed problem.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open Blender...\n2. Generate...\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Asset Assistant version or commit
+      placeholder: "Commit SHA or release version"
+  - type: input
+    id: blender
+    attributes:
+      label: Blender version and operating system
+      placeholder: "Blender 5.2.1, Windows/Linux/macOS"
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected workflow
+      options:
+        - Create / Modify
+        - Rig / Animate
+        - Components
+        - Export / Engine import
+        - UI / Installation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots, logs, and additional context
+      description: Include only non-sensitive logs and media; mention the export target if relevant.
