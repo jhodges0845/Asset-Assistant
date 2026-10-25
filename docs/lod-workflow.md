@@ -339,3 +339,20 @@ path until the set is rebuilt/reviewed; no silent regeneration is performed.
 Fifty-two focused Blender tests pass, covering group source exclusion, skinned rig
 inclusion and edited-applied-data rejection. Destination serialization, engine LOD
 thresholds/selection and artist-facing export controls remain open.
+
+## Static GLB exchange bundles (2026-10-25)
+
+`export_static_lod_bundle` writes LOD0 and each reduced scope as separate GLBs plus
+`lod-manifest.json`. Temporary independent meshes use the existing Godot/static
+adapter validation and export path; no hierarchy/metadata from the source is
+reused to broaden the scope. Selection and active object are restored and staging
+objects/meshes are removed. All files are staged before publishing into a new
+directory; existing destinations are rejected. Failed writes remove only files
+created by the operation. Skinned scopes are explicitly blocked for now.
+
+Thirty-six static/group tests pass. Serialized GLB mesh and index-accessor counts
+match each planned level, proving reduced files exclude the full-resolution source.
+Injected export failure leaves no scene staging or destination directory. This is
+an exchange bundle, not engine LOD configuration: the manifest explicitly records
+`engine_lod_configured: false`. UI, destination import/selection, and skinned
+animation export remain open.

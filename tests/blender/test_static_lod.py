@@ -483,3 +483,52 @@ def test_export_plan_rejects_edited_applied_mesh(source):
     preview.objects[0].data.vertices[0].co.x += .2
     with pytest.raises(ValueError, match='data changed'):
         plan_lod_export(preview.collection, bpy.context.scene)
+
+
+def test_static_lod_glb_bundle(source, tmp_path):
+    import json
+    from blender_adapter.lod_export import export_static_lod_bundle
+    preview = preview_static_lods(source, bpy.context.scene)
+    preview.apply()
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes')}
+    selected = set(bpy.context.selected_objects)
+    directory = tmp_path / 'lod-bundle'
+    manifest = export_static_lod_bundle(preview.collection, bpy.context, directory)
+    assert len(manifest['levels']) == 3
+    assert not manifest['engine_lod_configured']
+    assert json.loads((directory / 'lod-manifest.json').read_text()) == manifest
+    for level in manifest['levels']:
+        import struct
+        data = (directory / level['file']).read_bytes()
+        assert data[:4] == b'glTF'
+        length, kind = struct.unpack_from('<II', data, 12)
+        assert kind == 0x4E4F534A
+        document = json.loads(data[20:20+length])
+        assert len(document['meshes']) == level['mesh_count']
+        triangles = sum(document['accessors'][primitive['indices']]['count'] // 3
+                        for mesh in document['meshes'] for primitive in mesh['primitives'])
+        assert triangles == level['triangles']
+    assert set(bpy.context.selected_objects) == selected
+    assert bpy.context.active_object == source
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected
+    with pytest.raises(ValueError, match='new bundle directory'):
+        export_static_lod_bundle(preview.collection, bpy.context, directory)
+
+
+def test_static_lod_bundle_failure_preserves_scene_and_destination(source, tmp_path, monkeypatch):
+    from blender_adapter.lod_export import export_static_lod_bundle
+    from blender_adapter import targets
+    preview = preview_static_lods(source, bpy.context.scene)
+    preview.apply()
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes')}
+    def fail(*args, **kwargs):
+        raise ValueError('Injected export failure')
+    monkeypatch.setattr(targets, 'get_adapter', fail)
+    destination = tmp_path / 'failed-bundle'
+    with pytest.raises(ValueError, match='Injected'):
+        export_static_lod_bundle(preview.collection, bpy.context, destination)
+    assert not destination.exists()
+    assert list(tmp_path.iterdir()) == []
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected
