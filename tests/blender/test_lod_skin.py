@@ -151,3 +151,72 @@ def test_transfer_distance_rejects_candidate_without_staging(skinned):
         build_skin_lod_candidate(source, target, bpy.context.scene, max_distance=.1)
     for kind, expected in before.items():
         assert set(getattr(bpy.data, kind)) == expected
+
+
+def test_actual_skinned_reduction_preserves_source_and_cleans_proxies(skinned):
+    from blender_adapter.lod_skin import build_reduced_skin_lod_candidates
+    from blender_adapter.lod import _signature, _triangles
+    source, rig = skinned
+    before = _signature(source)
+    weights = inspect_skin_lod_source(source).weights
+    objects = set(bpy.data.objects)
+    collections = set(bpy.data.collections)
+    candidates = build_reduced_skin_lod_candidates(source, bpy.context.scene, max_distance=.3)
+    assert set(bpy.data.objects) - objects == set(candidates)
+    assert set(bpy.data.collections) == collections
+    for candidate in candidates:
+        assert _triangles(candidate.data) <= candidate['asset_assistant_lod_budget']
+        assert _triangles(candidate.data) < _triangles(source.data)
+        assert inspect_skin_lod_source(candidate).armature == rig
+    assert _signature(source) == before
+    assert inspect_skin_lod_source(source).weights == weights
+
+
+def test_reduced_skin_failure_cleans_completed_candidates(skinned, monkeypatch):
+    from blender_adapter import lod_skin
+    source, _ = skinned
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes', 'collections')}
+    original = lod_skin.build_skin_lod_candidate
+    calls = []
+    def fail_second(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 2:
+            raise ValueError('Injected second skin failure')
+        return original(*args, **kwargs)
+    monkeypatch.setattr(lod_skin, 'build_skin_lod_candidate', fail_second)
+    with pytest.raises(ValueError, match='Injected'):
+        lod_skin.build_reduced_skin_lod_candidates(source, bpy.context.scene, max_distance=.3)
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected
+
+
+def test_reduced_two_bone_candidate_matches_weighted_deformation(skinned):
+    from mathutils import Vector
+    from blender_adapter.lod_skin import build_reduced_skin_lod_candidates
+    source, rig = skinned
+    first_name = rig.data.bones[0].name
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    second = rig.data.edit_bones.new('Blend bone')
+    second.head, second.tail = (0, 0, 0), (0, 0, 1)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    group = source.vertex_groups.new(name='Blend bone')
+    for vertex in source.data.vertices:
+        weight = max(.1, min(.9, (vertex.co.z + 1) / 2))
+        source.vertex_groups[first_name].add([vertex.index], 1 - weight, 'REPLACE')
+        group.add([vertex.index], weight, 'REPLACE')
+    candidates = build_reduced_skin_lod_candidates(source, bpy.context.scene, ratios=(.5,), max_distance=.3)
+    candidate, = candidates
+    weights = inspect_skin_lod_source(candidate).weights
+    assert any(len(row) == 2 for row in weights)
+    for angle in (0, .4, -.6):
+        for name, factor in ((first_name, 1), ('Blend bone', -1)):
+            rig.pose.bones[name].rotation_mode = 'XYZ'
+            rig.pose.bones[name].rotation_euler.x = angle * factor
+        bpy.context.view_layer.update()
+        transforms = {name: rig.pose.bones[name].matrix @ rig.data.bones[name].matrix_local.inverted()
+                      for name in (first_name, 'Blend bone')}
+        evaluated = candidate.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        for vertex, row, actual in zip(candidate.data.vertices, weights, evaluated.data.vertices):
+            expected = sum((transforms[name] @ vertex.co * weight for name, weight in row), Vector((0, 0, 0)))
+            assert (expected - actual.co).length < 1e-5

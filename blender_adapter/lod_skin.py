@@ -149,3 +149,49 @@ def build_skin_lod_candidate(source, reduced, scene, *, max_distance):
         if mesh.users == 0:
             bpy.data.meshes.remove(mesh)
         raise
+
+
+def build_reduced_skin_lod_candidates(source, scene, ratios=(.5, .25), *, max_distance):
+    """Reduce independent rest copies using the validated static pipeline.
+
+    Temporary rest proxies and static previews are removed on success or failure.
+    Returned bound candidates are experimental derivatives, not applied previews.
+    """
+    import bpy
+    from .lod import preview_static_lods
+    inspect_skin_lod_source(source)
+    if scene != bpy.context.scene or scene.objects.get(source.name) != source:
+        raise ValueError('Skinned LOD source must belong to the active scene')
+    mesh = source.data.copy()
+    proxy = None
+    preview = None
+    candidates = []
+    try:
+        proxy = bpy.data.objects.new(source.name + ' Rest Proxy', mesh)
+        scene.collection.objects.link(proxy)
+        proxy.vertex_groups.clear()
+        proxy.matrix_world = source.matrix_world.copy()
+        for index, slot in enumerate(source.material_slots):
+            mesh.materials[index] = slot.material
+        preview = preview_static_lods(proxy, scene, ratios)
+        for reduced, level in zip(preview.objects, preview.levels):
+            candidate = build_skin_lod_candidate(source, reduced, scene, max_distance=max_distance)
+            candidates.append(candidate)
+            candidate.name = source.name + '_SkinLOD' + str(level.index)
+            candidate['asset_assistant_lod_level'] = level.index
+            candidate['asset_assistant_lod_budget'] = level.triangle_budget
+        return tuple(candidates)
+    except Exception:
+        for candidate in candidates:
+            data = candidate.data
+            bpy.data.objects.remove(candidate, do_unlink=True)
+            if data.users == 0:
+                bpy.data.meshes.remove(data)
+        raise
+    finally:
+        if preview is not None:
+            preview.cancel()
+        if proxy is not None:
+            bpy.data.objects.remove(proxy, do_unlink=True)
+        if mesh.users == 0:
+            bpy.data.meshes.remove(mesh)

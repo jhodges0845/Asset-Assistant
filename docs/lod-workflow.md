@@ -229,3 +229,18 @@ an internal candidate builder, not a completed preview/apply workflow. Actual
 reduction, multi-bone character deformation, saved ownership, UI, and destination
 acceptance remain open; nearby opposing surfaces can still need correspondence
 constraints beyond distance alone.
+
+## Reduced skinned candidates (2026-10-25)
+
+`build_reduced_skin_lod_candidates` builds independent rest proxies, calls the
+existing validated static reduction pipeline, and binds separate candidates using
+the bounded transfer planner. Temporary proxies/previews are removed on success
+or failure; a failed later level also removes completed candidates. Source mesh,
+weights and rig remain artist-owned and unchanged.
+
+The combined focused suite passes 43 tests (11 skin, 32 static/group). Actual
+reduced candidates meet triangle budgets; a two-bone blended fixture matches
+analytical linear-blend deformation at three poses within 1e-5 Blender units.
+This checks binding mathematics, not fidelity to the unreduced animated surface.
+Generated Human/Canine/Avian motion comparisons, persistent candidate preview/apply,
+UI, visual acceptance and destination exports remain open.
