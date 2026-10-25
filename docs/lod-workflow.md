@@ -101,3 +101,16 @@ It calls the same core budget planner as the backend; increasing or duplicate
 budgets are rejected before staging data. Sixteen focused Blender tests pass,
 including a three-level operator preview and rollback-free invalid-input rejection.
 Live dialog layout and keyboard interaction still require visual acceptance.
+
+## Material overrides and UV coverage (2026-10-25)
+
+Static LOD copies now use effective object material slots, including OBJECT-linked
+material overrides. Only the independent LOD mesh receives those references;
+source slot links and shared source meshes remain unchanged. Source/preview
+signatures also inspect effective materials, so changing an override blocks Apply.
+Existing previews whose override was previously ignored must be rebuilt explicitly.
+
+Nineteen focused Blender tests pass, including shared-mesh override preservation,
+stale override rejection and two UV layers with multiple face material assignments.
+The fresh-process save/reopen check also passes with object-overridden materials.
+These checks establish data preservation, not visual texture or silhouette quality.

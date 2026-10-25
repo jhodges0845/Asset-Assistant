@@ -240,3 +240,45 @@ def test_invalid_operator_budgets_leave_scene_unchanged(source, lod_operators):
         bpy.ops.asset_assistant.lod_preview(level_count=2, ratios=(.25, .5, .125, .0625))
     for kind, expected in before.items():
         assert set(getattr(bpy.data, kind)) == expected
+
+
+def test_object_material_override_preserved_without_changing_shared_mesh(source):
+    mesh_material = source.data.materials[0]
+    override = bpy.data.materials.new('Visible object override')
+    source.material_slots[0].link = 'OBJECT'
+    source.material_slots[0].material = override
+    sibling = bpy.data.objects.new('Shared artist mesh', source.data)
+    bpy.context.scene.collection.objects.link(sibling)
+    before = _signature(source)
+    preview = preview_static_lods(source, bpy.context.scene)
+    for obj in preview.objects:
+        assert obj.material_slots[0].material == override
+        assert obj.material_slots[0].link == 'DATA'
+    preview.apply()
+    assert _signature(source) == before
+    assert source.material_slots[0].link == 'OBJECT'
+    assert source.data.materials[0] == mesh_material
+    assert sibling.material_slots[0].material == mesh_material
+
+
+def test_changed_object_override_blocks_apply(source):
+    preview = preview_static_lods(source, bpy.context.scene)
+    source.material_slots[0].link = 'OBJECT'
+    source.material_slots[0].material = bpy.data.materials.new('Edited override')
+    with pytest.raises(ValueError, match='Source changed'):
+        preview.apply()
+    preview.cancel()
+
+
+def test_multiple_uv_layers_and_material_assignments(source):
+    from math import isfinite
+    source.data.uv_layers.new(name='Lightmap')
+    source.data.materials.append(bpy.data.materials.new('Upper material'))
+    for face in source.data.polygons:
+        face.material_index = int(face.center.z > 0)
+    preview = preview_static_lods(source, bpy.context.scene)
+    for obj in preview.objects:
+        assert [layer.name for layer in obj.data.uv_layers] == ['UVMap', 'Lightmap']
+        assert {face.material_index for face in obj.data.polygons} == {0, 1}
+        assert all(isfinite(value) for layer in obj.data.uv_layers for item in layer.data for value in item.uv)
+    preview.cancel()

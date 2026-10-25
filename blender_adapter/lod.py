@@ -15,7 +15,7 @@ def _signature(obj):
         tuple(tuple(e.vertices) for e in mesh.edges),
         tuple((tuple(p.vertices), p.material_index, p.use_smooth) for p in mesh.polygons),
         tuple((layer.name, tuple(tuple(item.uv) for item in layer.data)) for layer in mesh.uv_layers),
-        tuple((material.name_full, material.library.filepath if material.library else None) if material else None for material in mesh.materials),
+        tuple((material.name_full, material.library.filepath if material.library else None) if material else None for material in (slot.material for slot in obj.material_slots)),
     )
     return sha256(repr(payload).encode()).hexdigest()
 
@@ -112,6 +112,9 @@ def preview_static_lods(source, scene, ratios=(.5, .25)):
             objects.append(obj)
             collection.objects.link(obj)
             obj.matrix_world = source.matrix_world.copy()
+            # Bake effective object overrides into the independent LOD mesh only.
+            for index, slot in enumerate(source.material_slots):
+                mesh.materials[index] = slot.material
             modifier = obj.modifiers.new('LOD reduction', 'DECIMATE')
             modifier.ratio = level.triangle_budget / _triangles(source.data)
             modifier.use_collapse_triangulate = True
@@ -127,7 +130,7 @@ def preview_static_lods(source, scene, ratios=(.5, .25)):
                 raise ValueError("LOD reduction produced invalid geometry")
             if _triangles(reduced) > level.triangle_budget:
                 raise ValueError("LOD reduction could not meet the requested triangle budget")
-            if len(reduced.uv_layers) != len(source.data.uv_layers) or tuple(reduced.materials) != tuple(source.data.materials):
+            if len(reduced.uv_layers) != len(source.data.uv_layers) or tuple(reduced.materials) != tuple(slot.material for slot in source.material_slots):
                 raise ValueError("LOD reduction did not preserve UV layers and material slots")
             obj['asset_assistant_lod_level'] = level.index
             obj['asset_assistant_lod_triangles'] = _triangles(reduced)
