@@ -190,3 +190,11 @@ missing/unnormalized weights, non-deform artist groups, envelope/masked deformat
 extra modifiers, mesh animation and shape keys. Four focused Blender tests pass.
 This is admission validation only: skinned reduction, weight transfer, pose/clip
 comparison and UI integration remain unimplemented.
+
+## Packaged core resolution repair (2026-10-25)
+
+PR #318 CI exposed a direct `object_core` import that failed when the add-on was
+loaded from its isolated ZIP. LOD contracts now resolve through `core_gateway`,
+including the multi-mesh backend. The repaired single-mesh branch passed the full
+isolated package generation/rigging/animation/validation/export test locally; seven
+core/architecture checks also passed. Remote CI must pass before merging.

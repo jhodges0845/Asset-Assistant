@@ -2,7 +2,7 @@
 """Transactional orchestration of existing static LOD previews."""
 from dataclasses import dataclass
 import bpy
-from object_core.lod import plan_lods
+from .core_gateway import plan_lods
 from .lod import _validate_source, _triangles, preview_static_lods, recover_static_lod_preview
 
 
