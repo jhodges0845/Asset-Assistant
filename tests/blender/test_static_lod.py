@@ -161,3 +161,40 @@ def test_replaced_preview_mesh_is_preserved(source):
     assert preview.objects[0].data == replacement
     preview.objects[0].data = original
     preview.cancel()
+
+
+@pytest.fixture
+def lod_operators():
+    from blender_adapter import lod_ui
+    lod_ui.register()
+    try:
+        yield
+    finally:
+        lod_ui.unregister()
+
+
+def test_lod_operators_preserve_selection_and_apply(source, lod_operators):
+    from blender_adapter.lod_ui import _previews
+    selected = tuple(bpy.context.selected_objects)
+    assert bpy.ops.asset_assistant.lod_preview() == {'FINISHED'}
+    preview, = _previews(bpy.context.scene)
+    assert tuple(bpy.context.selected_objects) == selected
+    assert bpy.context.active_object == source
+    with pytest.raises(RuntimeError, match='existing preview'):
+        bpy.ops.asset_assistant.lod_preview()
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=preview.name, action='APPLY') == {'FINISHED'}
+    assert preview['asset_assistant_lod_state'] == 'APPLIED'
+    assert source == bpy.context.active_object
+
+
+def test_lod_operator_cancel_and_stale_apply(source, lod_operators):
+    from blender_adapter.lod_ui import _previews
+    bpy.ops.asset_assistant.lod_preview()
+    preview, = _previews(bpy.context.scene)
+    source.data.vertices[0].co.x += .1
+    with pytest.raises(RuntimeError, match='Source changed'):
+        bpy.ops.asset_assistant.lod_finish(collection_name=preview.name, action='APPLY')
+    assert preview['asset_assistant_lod_state'] == 'PREVIEW'
+    assert bpy.ops.asset_assistant.lod_finish(collection_name=preview.name, action='CANCEL') == {'FINISHED'}
+    assert not _previews(bpy.context.scene)
+    assert bpy.context.active_object == source

@@ -32,8 +32,8 @@ arbitrary-topology, silhouette, texture or skinned-LOD acceptance.
 
 ## Remaining release work
 
-- Add artist-facing preview/apply/cancel and level inspection through the current
-  workspace presentation registry, with selection and undo behavior verified.
+- Validate the Export workspace controls visually and verify interactive undo.
+  Operator selection preservation is tested.
 - Add multi-mesh asset boundaries, quality/silhouette review and material/UV checks
   on representative generated and imported assets.
 - Implement skinned LODs with explicit weight preservation/normalization and
@@ -41,7 +41,7 @@ arbitrary-topology, silhouette, texture or skinned-LOD acceptance.
 - Implement per-target export grouping and verify actual engine LOD selection.
 - Run the release-roadmap visual, save/reopen, import/export and package gates.
 
-No UI command or automatic engine LOD configuration is shipped by this slice.
+Export workspace controls are available; automatic engine LOD configuration is not.
 The LOD release gate remains open.
 
 ## Saved-preview recovery (2026-10-24)
@@ -60,4 +60,21 @@ and rebuilt explicitly. Recovery never automatically applies or deletes objects.
 
 `scripts/test_lod_reopen.py` saves material-bearing previews and verifies apply and
 cancel in a fresh Blender process, preserving both sources. It passed on Blender
-5.2.1 and runs in CI. UI, undo interaction and visual quality remain unverified.
+5.2.1 and runs in CI. Live UI, undo interaction and visual quality remain unverified.
+
+## Export workspace controls (2026-10-25)
+
+Select an unrigged static mesh, then use Export > Static LODs > Preview Static
+LODs. The initial UI uses fixed 50% and 25% triangle budgets. Separate copies
+retain the source selection. Each active scene preview shows its level triangle
+counts and explicit Apply / Discard Preview controls, including recovered saved
+previews. Discard asks for confirmation because edits to preview copies are lost.
+A second preview for the same source is blocked until the first is resolved.
+
+`lod_ui.py` decorates `workspace.export` through the presentation registry and
+calls the existing validated backend. Operators declare Blender undo support;
+interactive undo correctness still needs live validation. Thirteen focused Blender
+tests pass, including actual preview/apply/discard operator calls, duplicate and
+stale-source rejection, and selection preservation. Five architecture checks and
+two full add-on registration/unregistration cycles pass. These checks do not
+establish narrow-panel layout quality or engine export support.
