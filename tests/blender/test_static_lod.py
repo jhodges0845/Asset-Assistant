@@ -433,3 +433,28 @@ def test_selected_mesh_group_discard(source, second_source, lod_operators):
     assert bpy.ops.asset_assistant.lod_finish(collection_name=group.name, action='CANCEL') == {'FINISHED'}
     assert set(bpy.data.objects) == before
     assert not _groups(bpy.context.scene)
+
+
+def test_selected_group_rejects_non_mesh_without_staging(source, lod_operators):
+    empty = bpy.data.objects.new('Artist helper', None)
+    bpy.context.scene.collection.objects.link(empty)
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+    source.select_set(True)
+    empty.select_set(True)
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes', 'collections')}
+    with pytest.raises(RuntimeError, match='static mesh'):
+        bpy.ops.asset_assistant.lod_preview(use_selection=True)
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected
+
+
+def test_selected_group_rejects_existing_member_preview(source, second_source, lod_operators):
+    preview = preview_static_lods(second_source, bpy.context.scene)
+    source.select_set(True)
+    second_source.select_set(True)
+    before = set(bpy.data.objects)
+    with pytest.raises(RuntimeError, match='existing preview'):
+        bpy.ops.asset_assistant.lod_preview(use_selection=True)
+    assert set(bpy.data.objects) == before
+    preview.cancel()

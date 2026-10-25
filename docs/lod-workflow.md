@@ -169,3 +169,15 @@ Individual member completion is blocked while its group is active. Group Discard
 uses the existing confirmation flow. Thirty focused Blender tests pass, including
 real selected-mesh operators, selection preservation, member blocking and group
 cleanup. Live dialog layout and interactive undo acceptance remain open.
+
+## Multi-mesh undo and selection checks (2026-10-25)
+
+The existing CI undo script now covers group Apply and Discard as well as single
+previews. Undo restores both members and their source references; redo restores
+completion/removal, preserving source signatures and the explicit selection.
+These Blender 5.2.1 snapshot checks pass; they still use explicit background undo
+pushes and do not certify interactive keyboard dispatch.
+
+Thirty-two focused Blender tests pass. Selected groups reject non-mesh helpers
+without staging data and reject sources already carrying a preview. Live UI
+acceptance, skinned reduction and destination/export support remain open.
