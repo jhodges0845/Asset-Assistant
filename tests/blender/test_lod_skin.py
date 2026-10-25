@@ -112,3 +112,42 @@ def test_skin_transfer_interpolates_known_triangle(skinned):
     assert first[rig.data.bones[0].name] == pytest.approx(.5)
     assert first['Second'] == pytest.approx(.5)
     assert all(sum(weight for _, weight in row) == pytest.approx(1) for row in result.weights)
+
+
+def test_bound_candidate_matches_single_bone_motion(skinned):
+    from blender_adapter.lod_skin import build_skin_lod_candidate
+    source, rig = skinned
+    target = bpy.data.objects.new('Reduced input', source.data.copy())
+    bpy.context.scene.collection.objects.link(target)
+    target.vertex_groups.clear()
+    source.modifiers[0].use_deform_preserve_volume = True
+    before = set(bpy.data.objects)
+    candidate = build_skin_lod_candidate(source, target, bpy.context.scene, max_distance=.001)
+    assert set(bpy.data.objects) - before == {candidate}
+    assert candidate.data != target.data
+    assert not target.modifiers and not target.vertex_groups
+    assert candidate.modifiers[0].use_deform_preserve_volume
+    for angle in (0, .4, -.7):
+        rig.pose.bones[0].rotation_mode = 'XYZ'
+        rig.pose.bones[0].rotation_euler.x = angle
+        bpy.context.view_layer.update()
+        graph = bpy.context.evaluated_depsgraph_get()
+        left = source.evaluated_get(graph)
+        right = candidate.evaluated_get(graph)
+        assert max((left.matrix_world @ a.co - right.matrix_world @ b.co).length
+                   for a, b in zip(left.data.vertices, right.data.vertices)) < 1e-5
+
+
+def test_transfer_distance_rejects_candidate_without_staging(skinned):
+    from blender_adapter.lod_skin import build_skin_lod_candidate
+    source, _ = skinned
+    target = bpy.data.objects.new('Distant input', source.data.copy())
+    bpy.context.scene.collection.objects.link(target)
+    target.vertex_groups.clear()
+    target.location.x = 10
+    bpy.context.view_layer.update()
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes')}
+    with pytest.raises(ValueError, match='maximum skin transfer distance'):
+        build_skin_lod_candidate(source, target, bpy.context.scene, max_distance=.1)
+    for kind, expected in before.items():
+        assert set(getattr(bpy.data, kind)) == expected

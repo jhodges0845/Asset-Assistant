@@ -213,3 +213,19 @@ and source-pose/data preservation. This remains a planning API: it does not bind
 or reduce the target, enforce a maximum correspondence distance, or establish
 articulated motion quality. Closely adjacent surfaces may need constrained
 correspondence before this can be accepted for character LODs.
+
+## Bound skin candidates (2026-10-25)
+
+`build_skin_lod_candidate` creates a new mesh/object from an independent static
+derivative, transfers normalized weights, and binds it to the original armature.
+It preserves effective target materials and the source preserve-volume setting.
+Both inputs remain unchanged. The caller must provide a finite nonnegative
+maximum rest-surface transfer distance; out-of-range targets fail before staging.
+Construction failures clean up the new candidate only.
+
+Eight focused Blender tests pass, including identical single-bone deformation at
+three poses and distant-target rejection without leftover objects/meshes. This is
+an internal candidate builder, not a completed preview/apply workflow. Actual
+reduction, multi-bone character deformation, saved ownership, UI, and destination
+acceptance remain open; nearby opposing surfaces can still need correspondence
+constraints beyond distance alone.

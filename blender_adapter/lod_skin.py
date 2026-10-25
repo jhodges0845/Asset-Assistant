@@ -58,7 +58,7 @@ def inspect_skin_lod_source(source):
     return SkinLODSource(rig, tuple(weights), bones)
 
 
-def plan_skin_lod_weights(source, reduced):
+def plan_skin_lod_weights(source, reduced, *, max_distance=None):
     """Plan barycentric transfer on rest surfaces without modifying either mesh.
 
     The target must be an independent, unrigged static mesh. Each target vertex
@@ -67,6 +67,8 @@ def plan_skin_lod_weights(source, reduced):
     """
     from mathutils.bvhtree import BVHTree
     from .lod import _validate_source
+    if max_distance is not None and (isinstance(max_distance, bool) or not isinstance(max_distance, (int, float)) or not isfinite(max_distance) or max_distance < 0):
+        raise ValueError('Maximum transfer distance must be finite and nonnegative')
     contract = inspect_skin_lod_source(source)
     _validate_source(reduced)
     if reduced.data == source.data:
@@ -85,7 +87,9 @@ def plan_skin_lod_weights(source, reduced):
         nearest = tree.find_nearest(point)
         if nearest is None or nearest[0] is None:
             raise ValueError('Could not locate a source triangle for skin transfer')
-        location, _, index, _ = nearest
+        location, _, index, distance = nearest
+        if max_distance is not None and distance > max_distance:
+            raise ValueError('Target exceeds the maximum skin transfer distance')
         triangle = triangles[index]
         a, b, c = (vertices[i] for i in triangle)
         ab, ac, ap = b - a, c - a, location - a
@@ -106,3 +110,42 @@ def plan_skin_lod_weights(source, reduced):
             raise ValueError('Skin transfer produced invalid weights')
         weights.append(tuple(sorted((name, value / total) for name, value in row.items() if value > 0)))
     return SkinLODSource(contract.armature, tuple(weights), contract.deform_bones)
+
+
+def build_skin_lod_candidate(source, reduced, scene, *, max_distance):
+    """Create a separate bound candidate; neither input is changed.
+
+    Callers must supply an explicit rest-surface distance limit. This low-level
+    builder does not apply a preview, replace source geometry, or certify motion.
+    """
+    import bpy
+    if scene != bpy.context.scene:
+        raise ValueError('Skin LOD candidate requires the active scene')
+    if any(scene.objects.get(obj.name) != obj for obj in (source, reduced)):
+        raise ValueError('Skin LOD inputs must belong to the active scene')
+    plan = plan_skin_lod_weights(source, reduced, max_distance=max_distance)
+    mesh = reduced.data.copy()
+    candidate = None
+    try:
+        candidate = bpy.data.objects.new(reduced.name + ' Skin Candidate', mesh)
+        scene.collection.objects.link(candidate)
+        candidate.matrix_world = reduced.matrix_world.copy()
+        for index, slot in enumerate(reduced.material_slots):
+            mesh.materials[index] = slot.material
+        for name in plan.deform_bones:
+            candidate.vertex_groups.new(name=name)
+        for index, row in enumerate(plan.weights):
+            for name, weight in row:
+                candidate.vertex_groups[name].add([index], weight, 'REPLACE')
+        modifier = candidate.modifiers.new('LOD Skin', 'ARMATURE')
+        modifier.object = plan.armature
+        modifier.use_deform_preserve_volume = source.modifiers[0].use_deform_preserve_volume
+        inspect_skin_lod_source(candidate)
+        candidate['asset_assistant_skin_lod_candidate'] = True
+        return candidate
+    except Exception:
+        if candidate is not None:
+            bpy.data.objects.remove(candidate, do_unlink=True)
+        if mesh.users == 0:
+            bpy.data.meshes.remove(mesh)
+        raise
