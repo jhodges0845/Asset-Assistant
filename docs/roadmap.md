@@ -18,6 +18,24 @@ Implementation plan and acceptance criteria: [Shared anatomy and animation alpha
 
 This sequence supersedes the older Human-only near-term milestone and release-hardening-only scope below. Earlier checkpoints describe evidence and history, not additional prerequisites for this alpha. Current branch status and validation: [shared anatomy implementation](shared-anatomy-implementation.md). Human and Quadruped use the shared contracts; Avian migration remains pending.
 
+## Alpha release decision: independent reviews, then owner experience sign-off
+
+The alpha is **not** approved merely because implementation is complete, automated checks are green, or AI reviewers report no blocking issues. The final release decision follows this order:
+
+1. **Complete the agreed alpha implementation and acceptance scope.** Close or explicitly resolve the outstanding model, animation, import/export, LOD, UI, destination, documentation and packaging gates. Produce a frozen candidate build and reproducible evidence. Do not start final sign-off on a moving target.
+2. **Run fresh, independent specialist-agent reviews with no project memory.** Give each reviewer only the candidate repository snapshot, current documentation, acceptance criteria, reproducible fixtures and relevant artifacts; do not seed them with previous agent conclusions, conversation history, or assumptions about prior success. Assign distinct specialties (architecture/maintainability, Blender integration/UI and artist workflow, procedural geometry/anatomy and deformation, rigging/animation, import/export and engine interoperability, tests/reliability/security and packaging, and documentation/onboarding). Require evidence-backed findings with severity, reproduction steps and proposed fixes. Reviewers should test and challenge claims, not merely restate the roadmap.
+3. **Resolve and re-review findings.** Triage all reports, fix release-blocking defects, record any accepted non-blocking limitations transparently, and rerun affected tests and independent checks on the updated candidate. An agent's “looks good” is not sufficient without evidence; any material candidate change invalidates affected sign-offs.
+4. **Owner's final hands-on experience pass — the decisive alpha gate.** Only after specialist reviews are satisfactory, the project owner installs the actual candidate and personally exercises the end-to-end first-user experience: discovery/install, first launch, Generate and Import/Adopt, semantic Modify and preview/apply/cancel, components, rigging, all relevant animation workflows, save/reopen, LOD, validation and export, with representative Human/Canine/Avian and static assets and destination checks. Evaluate discoverability, UI clarity, visual appeal, performance, errors/recovery and whether the result feels alpha-worthy, not just technically correct.
+5. **Explicit release approval.** Record the owner's accept/reject decision and any blockers. If the experience fails, return to implementation, repeat affected independent reviews and run another hands-on pass. Publish/tag alpha **only** after explicit owner approval.
+
+This process is sequential: **implementation complete → memory-free specialist review → findings fixed and independently cleared → owner's hands-on experience test → explicit alpha approval**. The owner experience pass is the final authority on readiness, and cannot be replaced by AI consensus or CI.
+
+- [ ] Implementation scope and candidate evidence complete.
+- [ ] Memory-free specialist reviews completed on a frozen candidate.
+- [ ] All release-blocking findings fixed and independently rechecked.
+- [ ] Owner personally completes and accepts the installed candidate experience.
+- [ ] Owner explicitly authorizes alpha tag/publication.
+
 ## Product vision
 
 Asset Assistant is an open-source, artist-first 3D workflow assistant. Generation is optional: artists can generate, reopen, or import existing work and adopt it into the same preservation-aware workflow.
