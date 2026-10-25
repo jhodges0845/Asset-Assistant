@@ -378,3 +378,26 @@ def test_static_set_cancel_preflights_every_member(source, second_source):
     assert all(p.state == 'PREVIEW' for p in group.previews)
     group.previews[1].collection.objects.unlink(source)
     group.cancel()
+
+
+def test_static_set_recovery_uses_member_references(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set, recover_static_lod_set
+    group = preview_static_lod_set([source, second_source], bpy.context.scene)
+    group.previews[0].collection.name = 'Renamed member'
+    recovered = recover_static_lod_set(group.record)
+    assert tuple(p.source for p in recovered.previews) == (source, second_source)
+    recovered.apply()
+    with pytest.raises(ValueError, match='active LOD set'):
+        group.cancel()
+
+
+def test_static_set_recovery_rejects_missing_member(source, second_source):
+    from blender_adapter.lod_sets import preview_static_lod_set, recover_static_lod_set
+    group = preview_static_lod_set([source, second_source], bpy.context.scene)
+    del group.record['member_1']
+    before = set(bpy.data.objects)
+    with pytest.raises(ValueError, match='missing or duplicated'):
+        recover_static_lod_set(group.record)
+    assert set(bpy.data.objects) == before
+    group.record['member_1'] = group.previews[1].collection
+    group.cancel()

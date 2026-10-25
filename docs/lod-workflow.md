@@ -139,7 +139,20 @@ before changing any member, preventing partial completion on validation failures
 
 Twenty-six focused Blender tests pass, including second-member failure cleanup,
 stale-source apply blocking, cancellation ownership blocking and source preservation.
-This is backend orchestration: the group handle is session-local, individual saved
-previews remain independently recoverable, and no asset membership is inferred.
-Multi-mesh UI, persistent group recovery, skinned LODs and export grouping remain
+This is backend orchestration: explicit member references now persist in a
+separate record collection, and no asset membership is inferred.
+Multi-mesh UI, skinned LODs and export grouping remain
 open. It does not yet implement an engine LOD hierarchy or whole-asset budget.
+
+## Saved multi-mesh groups (2026-10-25)
+
+`recover_static_lod_set` restores group membership using versioned collection ID
+references. Renames are supported; missing/duplicate members and resolved records
+are rejected without mutation. Group record collections must remain empty of
+artist objects and child collections before Apply/Cancel. Individual preview
+recovery remains available, but resolving a member independently blocks subsequent
+group operations rather than partially completing the rest.
+
+Twenty-eight focused Blender tests pass. `scripts/test_lod_set_reopen.py` also
+passes in a fresh Blender 5.2.1 process: two two-mesh groups recover and complete
+Apply/Cancel while preserving all four sources. This check is included in CI.
