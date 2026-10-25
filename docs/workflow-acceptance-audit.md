@@ -10,7 +10,7 @@ are historical: the current interface has Create, Animate, Components and Export
 | --- | --- | --- |
 | Generated model Modify | Human/Canine/Avian Model JSON import, non-mutating preview, cancel/apply equality, parameter edits, component blocking, artist-geometry blocking and fresh-process persistence | Repeat the final edited silhouettes and continuous motion through the UI; extend representative edited exports beyond the existing Avian destination proofs |
 | Animation Modify | Duration/strength preview and regeneration, stable IDs, other-clip preservation; tuning tests now cover all three providers; rename-only requests preserve manually edited keys | Operator-driven external JSON flow now covers all nine provider/clip pairs; manual-key/NLA continuity through save and destination remains open; timing/strength still explicitly regenerates owned curves |
-| LOD | Static single-mesh preview/apply/cancel backend and triangle-budget tests now exist; UI, persistence, skinned generation and export grouping remain open | Define static and skinned LOD scope, then implement and verify reduction, silhouette, weights/UV/material preservation, clip playback, export and engine selection; not a completed feature |
+| LOD | Static single-mesh preview/apply/cancel backend and triangle-budget tests now exist; Saved-preview recovery is implemented; UI, skinned generation and export grouping remain open | Define static and skinned LOD scope, then implement and verify reduction, silhouette, weights/UV/material preservation, clip playback, export and engine selection; not a completed feature |
 | Export | GLB surface parity and switching for Human/Canine, Avian destination evidence, FBX clip staging/naming, static target and package smoke tests | Final-candidate Unity/Unreal/GLTF destination checks, edited-character exports, representative Human Cura slicing; no blanket engine certification |
 | Import | GLB round-trip; asset boundary/rig/material/clip discovery; explicit adoption, component and checkpoint tests; previously skipped file-picker/preflight tests now run | Complete real-file .blend/GLB/GLTF/Unity-FBX/Unreal-FBX matrix through Modify, animation, save/reopen and re-export; new single-scene static .blend/GLB/GLTF/FBX fixtures pass actual inspection/adoption/re-export; this does not prove animated or multi-scene imports |
 | UI/UX | Four-workspace navigation, imported Animate, rig placement, asset identity and Create controls now included in CI; Export and checkpoint controls precede verbose validation details | Live Blender review at narrow/normal sidebar widths, no-asset/blocked/success states, keyboard navigation, long names, generated/imported/manual-edit flows and error recovery |
@@ -291,5 +291,5 @@ visual acceptance remain open; the 800 fps skin Run case is retained as a failur
 
 
 LOD implementation has begun with the [static preview backend](lod-workflow.md).
-Six Blender and seven core/architecture checks pass; this does not close the
+Eleven Blender and seven core/architecture checks pass, plus fresh-process apply/cancel; this does not close the
 LOD release gate or expose an artist-facing workflow yet.

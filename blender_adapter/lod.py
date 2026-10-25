@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Static LOD preview backend; source geometry is never replaced."""
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+import json
 from hashlib import sha256
 import bpy
-from object_core.lod import plan_lods
+from object_core.lod import plan_lods, LODLevel
 
 
 def _signature(obj):
@@ -14,7 +15,7 @@ def _signature(obj):
         tuple(tuple(e.vertices) for e in mesh.edges),
         tuple((tuple(p.vertices), p.material_index, p.use_smooth) for p in mesh.polygons),
         tuple((layer.name, tuple(tuple(item.uv) for item in layer.data)) for layer in mesh.uv_layers),
-        tuple(material.as_pointer() if material else None for material in mesh.materials),
+        tuple((material.name_full, material.library.filepath if material.library else None) if material else None for material in mesh.materials),
     )
     return sha256(repr(payload).encode()).hexdigest()
 
@@ -51,20 +52,34 @@ class StaticLODPreview:
     preview_signatures: tuple
     state: str = 'PREVIEW'
 
+    def _check_structure(self):
+        try:
+            if self.collection.get('asset_assistant_lod_state') != 'PREVIEW':
+                raise ValueError("Only an active preview can be changed")
+            if set(self.collection.objects) != set(self.objects) or self.collection.children:
+                raise ValueError("Preview collection changed; preserve its contents before rebuilding")
+            for index, obj in enumerate(self.objects):
+                if obj.data != self.collection.get('lod_mesh_' + str(index)) or tuple(obj.users_collection) != (self.collection,):
+                    raise ValueError("Preview ownership changed; preserve the edits before rebuilding")
+        except ReferenceError as exc:
+            raise ValueError("Preview data was removed; preserve remaining objects before rebuilding") from exc
+
     def cancel(self):
         if self.state != 'PREVIEW':
             raise ValueError("Only an active preview can be cancelled")
+        self._check_structure()
+        bpy.data.collections.remove(self.collection)
         for obj in self.objects:
             mesh = obj.data
             bpy.data.objects.remove(obj, do_unlink=True)
             if mesh.users == 0:
                 bpy.data.meshes.remove(mesh)
-        bpy.data.collections.remove(self.collection)
         self.state = 'CANCELLED'
 
     def apply(self):
         if self.state != 'PREVIEW':
             raise ValueError("Only an active preview can be applied")
+        self._check_structure()
         _validate_source(self.source)
         if _signature(self.source) != self.source_signature:
             raise ValueError("Source changed; cancel and build a new LOD preview")
@@ -114,13 +129,50 @@ def preview_static_lods(source, scene, ratios=(.5, .25)):
                 raise ValueError("LOD reduction did not preserve UV layers and material slots")
             obj['asset_assistant_lod_level'] = level.index
             obj['asset_assistant_lod_triangles'] = _triangles(reduced)
-        return StaticLODPreview(source, signature, collection, tuple(objects), levels,
-                                tuple(_signature(obj) for obj in objects))
+        signatures = tuple(_signature(obj) for obj in objects)
+        collection['lod_source'] = source
+        for index, obj in enumerate(objects):
+            collection['lod_object_' + str(index)] = obj
+            collection['lod_mesh_' + str(index)] = obj.data
+        collection['lod_manifest'] = json.dumps({
+            'version': 1, 'source_signature': signature,
+            'levels': [asdict(level) for level in levels],
+            'preview_signatures': signatures,
+        })
+        return StaticLODPreview(source, signature, collection, tuple(objects), levels, signatures)
     except Exception:
+        bpy.data.collections.remove(collection)
         for obj in objects:
             mesh = obj.data
             bpy.data.objects.remove(obj, do_unlink=True)
             if mesh.users == 0:
                 bpy.data.meshes.remove(mesh)
-        bpy.data.collections.remove(collection)
         raise
+
+
+def recover_static_lod_preview(collection):
+    """Recover a saved preview through Blender ID references, never object names."""
+    if collection.get('asset_assistant_lod_state') != 'PREVIEW':
+        raise ValueError("Choose an active LOD preview collection")
+    try:
+        manifest = json.loads(collection['lod_manifest'])
+        if manifest['version'] != 1:
+            raise ValueError("Unsupported LOD preview version")
+        levels = tuple(LODLevel(**item) for item in manifest['levels'])
+        if not 1 <= len(levels) <= 4:
+            raise ValueError("Invalid LOD preview level count")
+        source = collection['lod_source']
+        if not isinstance(source, bpy.types.Object):
+            raise ValueError("LOD preview source is missing")
+        objects = tuple(collection['lod_object_' + str(index)] for index in range(len(levels)))
+        if any(not isinstance(obj, bpy.types.Object) for obj in objects) or source in objects:
+            raise ValueError("LOD preview objects are missing or invalid")
+        signatures = tuple(manifest['preview_signatures'])
+        if len(signatures) != len(objects):
+            raise ValueError("Invalid LOD preview signatures")
+        preview = StaticLODPreview(source, manifest['source_signature'], collection,
+                                   objects, levels, signatures)
+        preview._check_structure()
+        return preview
+    except (KeyError, TypeError, AttributeError, json.JSONDecodeError) as exc:
+        raise ValueError("LOD preview metadata is missing or damaged; preserve its objects") from exc

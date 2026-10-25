@@ -129,7 +129,7 @@ A gate stays open until the candidate commit and results are recorded.
   preview/apply ownership, implement reduction and export grouping, then verify
   triangle budgets, silhouette, UV/material/weight preservation, animated playback
   and engine level selection. A static preview backend now exists; see [LOD workflow](lod-workflow.md).
-  UI, persistence, skinned levels and target export integration remain open. Artist source geometry must remain preserved.
+  Saved-preview recovery is implemented; UI, skinned levels and target export integration remain open. Artist source geometry must remain preserved.
 - [ ] **Live UI/UX:** exercise installed Create/Animate/Components/Export at 280,
   360 and 480 pixel sidebar widths, including no-asset, imported/generated,
   manually edited, blocked and successful states. Check keyboard navigation,

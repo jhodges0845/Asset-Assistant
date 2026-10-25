@@ -8,7 +8,7 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 ## LOD implementation (2026-10-24)
 
-Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. UI, persistence, skinned levels and engine export remain open. See [../docs/lod-workflow.md](../docs/lod-workflow.md).
+Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery is implemented; UI, skinned levels and engine export remain open. See [../docs/lod-workflow.md](../docs/lod-workflow.md).
 
 ## Active pre-alpha direction (2026-09-21)
 

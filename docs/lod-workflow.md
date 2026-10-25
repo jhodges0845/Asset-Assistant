@@ -8,7 +8,7 @@ imports. `blender_adapter/lod.py` builds separate reduced copies in an independe
 collection. Source objects and meshes are not replaced or parented into LOD sets.
 
 `preview_static_lods(mesh_object, active_scene, ratios=(0.5, 0.25))` returns a
-session-local preview with explicit `apply()` and `cancel()`. Apply verifies the
+persisted preview with explicit `apply()` and `cancel()`. Apply verifies the
 source and preview geometry, world transform, UV data and material slots have not
 changed, then retains the copies. Cancel removes only that preview's objects,
 meshes and collection. Generation failures clean up staging data. Existing artist
@@ -22,10 +22,11 @@ Edit Mode geometry cannot bypass the checks. Each result
 must meet its triangle budget, pass geometry inspection and retain UV layers and
 material slots. Preserving layers/slots is not proof of visual UV/material quality.
 
-Eight Blender checks pass: source preservation/cancel cleanup, explicit apply,
+Eleven Blender checks pass: source preservation/cancel cleanup, explicit apply,
 stale-source rejection, unsupported-state rejection, edited-preview preservation,
 failure rollback, mesh-level animation rejection, and Edit Mode preview/apply
-blocking. Seven core/architecture checks pass. A UV sphere with an
+blocking, renamed-reference recovery, foreign-content rejection and replaced-mesh
+preservation. Seven core/architecture checks pass. A UV sphere with an
 artist material exercises actual Blender reduction. These tests do not establish
 arbitrary-topology, silhouette, texture or skinned-LOD acceptance.
 
@@ -33,9 +34,6 @@ arbitrary-topology, silhouette, texture or skinned-LOD acceptance.
 
 - Add artist-facing preview/apply/cancel and level inspection through the current
   workspace presentation registry, with selection and undo behavior verified.
-- Define persistent source identity, saved-preview recovery and explicit rebuild
-  rules. Current Python preview handles are session-local; no reopen workflow is
-  promised yet. Applied meshes remain ordinary editable Blender objects.
 - Add multi-mesh asset boundaries, quality/silhouette review and material/UV checks
   on representative generated and imported assets.
 - Implement skinned LODs with explicit weight preservation/normalization and
@@ -45,3 +43,21 @@ arbitrary-topology, silhouette, texture or skinned-LOD acceptance.
 
 No UI command or automatic engine LOD configuration is shipped by this slice.
 The LOD release gate remains open.
+
+## Saved-preview recovery (2026-10-24)
+
+Preview collections store a versioned manifest and Blender ID references to the
+source, level objects and original level meshes. `recover_static_lod_preview`
+reconstructs the handle after reopening, including renamed objects. Apply still
+checks geometry signatures. Signatures use material names/library paths rather
+than process-local pointers; renaming a material conservatively blocks apply.
+Material node content is not fingerprinted.
+
+Missing metadata, changed collection contents, relinked objects or replaced meshes
+block recovery/mutation without deleting artist data. A handle cannot cancel a
+preview applied through another handle. Unsupported old previews must be preserved
+and rebuilt explicitly. Recovery never automatically applies or deletes objects.
+
+`scripts/test_lod_reopen.py` saves material-bearing previews and verifies apply and
+cancel in a fresh Blender process, preserving both sources. It passed on Blender
+5.2.1 and runs in CI. UI, undo interaction and visual quality remain unverified.

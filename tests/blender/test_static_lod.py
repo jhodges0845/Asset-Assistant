@@ -123,3 +123,41 @@ def test_edit_mode_blocks_preview_and_apply(source):
     finally:
         bpy.ops.object.mode_set(mode='OBJECT')
         preview.cancel()
+
+
+def test_recovery_uses_references_and_rejects_stale_handles(source):
+    from blender_adapter.lod import recover_static_lod_preview
+    preview = preview_static_lods(source, bpy.context.scene)
+    source.name = 'Renamed artist source'
+    preview.objects[0].name = 'Renamed level'
+    recovered = recover_static_lod_preview(preview.collection)
+    assert recovered.source == source
+    assert recovered.objects == preview.objects
+    recovered.apply()
+    with pytest.raises(ValueError, match='active preview'):
+        preview.cancel()
+
+
+def test_recovery_preserves_foreign_collection_contents(source):
+    from blender_adapter.lod import recover_static_lod_preview
+    preview = preview_static_lods(source, bpy.context.scene)
+    preview.collection.objects.link(source)
+    with pytest.raises(ValueError, match='collection changed'):
+        recover_static_lod_preview(preview.collection)
+    with pytest.raises(ValueError, match='collection changed'):
+        preview.cancel()
+    assert source.name in bpy.data.objects
+    preview.collection.objects.unlink(source)
+    preview.cancel()
+
+
+def test_replaced_preview_mesh_is_preserved(source):
+    preview = preview_static_lods(source, bpy.context.scene)
+    original = preview.objects[0].data
+    replacement = original.copy()
+    preview.objects[0].data = replacement
+    with pytest.raises(ValueError, match='ownership changed'):
+        preview.cancel()
+    assert preview.objects[0].data == replacement
+    preview.objects[0].data = original
+    preview.cancel()
