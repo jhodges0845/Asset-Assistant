@@ -6,6 +6,10 @@ Last structural rescan: 2026-09-15
 
 Read `human-workflow.md` for the user workflow and code ownership map.
 
+## LOD implementation (2026-10-24)
+
+Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. UI, persistence, skinned levels and engine export remain open. See [lod-workflow.md](lod-workflow.md).
+
 ## Current workflow and UI audit (2026-10-23)
 
 See [workflow-acceptance-audit.md](workflow-acceptance-audit.md) for model/animation Modify, LOD, import/export and UI acceptance evidence. Human rig/clip work is merged; workflow and UX validation are active. LOD support and live UI review remain open. Required release gates are listed in shared-anatomy-alpha-plan.md (Required workflow release gates). Blender tests use pytest so function-based UI tests run alongside unittest classes.
