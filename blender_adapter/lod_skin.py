@@ -56,3 +56,53 @@ def inspect_skin_lod_source(source):
     if not weights:
         raise ValueError('Skinned LOD source has no vertices')
     return SkinLODSource(rig, tuple(weights), bones)
+
+
+def plan_skin_lod_weights(source, reduced):
+    """Plan barycentric transfer on rest surfaces without modifying either mesh.
+
+    The target must be an independent, unrigged static mesh. Each target vertex
+    uses the closest source triangle in world-space rest geometry; source pose
+    evaluation is deliberately excluded. This is a plan, not a deformation proof.
+    """
+    from mathutils.bvhtree import BVHTree
+    from .lod import _validate_source
+    contract = inspect_skin_lod_source(source)
+    _validate_source(reduced)
+    if reduced.data == source.data:
+        raise ValueError('Skin transfer requires an independent target mesh')
+    source.data.calc_loop_triangles()
+    triangles = [tuple(face.vertices) for face in source.data.loop_triangles]
+    vertices = [source.matrix_world @ vertex.co for vertex in source.data.vertices]
+    targets = [reduced.matrix_world @ vertex.co for vertex in reduced.data.vertices]
+    if any(not isfinite(value) for point in vertices + targets for value in point):
+        raise ValueError('Skin transfer requires finite world-space geometry')
+    if not triangles or not targets:
+        raise ValueError('Skin transfer requires source triangles and target vertices')
+    tree = BVHTree.FromPolygons(vertices, triangles, all_triangles=True)
+    weights = []
+    for point in targets:
+        nearest = tree.find_nearest(point)
+        if nearest is None or nearest[0] is None:
+            raise ValueError('Could not locate a source triangle for skin transfer')
+        location, _, index, _ = nearest
+        triangle = triangles[index]
+        a, b, c = (vertices[i] for i in triangle)
+        ab, ac, ap = b - a, c - a, location - a
+        aa, bb, cc = ab.dot(ab), ab.dot(ac), ac.dot(ac)
+        denominator = aa * cc - bb * bb
+        if denominator <= 0:
+            raise ValueError('Skin transfer encountered a degenerate source triangle')
+        v = (cc * ap.dot(ab) - bb * ap.dot(ac)) / denominator
+        w = (aa * ap.dot(ac) - bb * ap.dot(ab)) / denominator
+        factors = [max(0.0, min(1.0, value)) for value in (1 - v - w, v, w)]
+        factor_total = sum(factors)
+        row = {}
+        for vertex_index, factor in zip(triangle, factors):
+            for name, weight in contract.weights[vertex_index]:
+                row[name] = row.get(name, 0.0) + weight * factor / factor_total
+        total = sum(row.values())
+        if not isfinite(total) or total <= 0:
+            raise ValueError('Skin transfer produced invalid weights')
+        weights.append(tuple(sorted((name, value / total) for name, value in row.items() if value > 0)))
+    return SkinLODSource(contract.armature, tuple(weights), contract.deform_bones)

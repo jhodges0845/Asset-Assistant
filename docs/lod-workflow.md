@@ -198,3 +198,18 @@ loaded from its isolated ZIP. LOD contracts now resolve through `core_gateway`,
 including the multi-mesh backend. The repaired single-mesh branch passed the full
 isolated package generation/rigging/animation/validation/export test locally; seven
 core/architecture checks also passed. Remote CI must pass before merging.
+
+## Rest-surface weight transfer planning (2026-10-25)
+
+`lod_skin.plan_skin_lod_weights` computes normalized weights for an independent
+static target without mutating either mesh. For each target vertex it locates the
+nearest source triangle in world-space rest geometry, interpolates the triangle's
+authored bone weights, and normalizes the result. The live armature pose is not
+baked into the correspondence. Non-finite geometry and degenerate correspondence
+triangles are rejected.
+
+Six focused skinned-LOD checks pass, including analytically known two-bone weights
+and source-pose/data preservation. This remains a planning API: it does not bind
+or reduce the target, enforce a maximum correspondence distance, or establish
+articulated motion quality. Closely adjacent surfaces may need constrained
+correspondence before this can be accepted for character LODs.
