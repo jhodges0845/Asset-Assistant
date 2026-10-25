@@ -114,3 +114,17 @@ Nineteen focused Blender tests pass, including shared-mesh override preservation
 stale override rejection and two UV layers with multiple face material assignments.
 The fresh-process save/reopen check also passes with object-overridden materials.
 These checks establish data preservation, not visual texture or silhouette quality.
+
+## Surface deviation diagnostics (2026-10-25)
+
+Each active preview level offers Measure Surface Deviation. The read-only action
+samples vertices and triangle centroids from both source and level against the
+opposite triangle surface using BVH nearest-point queries. It reports maximum
+and RMS distances in world-space Blender units, plus sample count. Measurements
+use current geometry, including edits; Apply still enforces stale-preview guards.
+
+This is a finite sample diagnostic, not a Hausdorff bound, silhouette check,
+texture assessment or automatic acceptance threshold. Unsampled detail may be
+missed, and large meshes can take longer to inspect. No diagnostic work runs in
+the panel draw callback. Twenty-two focused Blender tests pass, including equal
+surfaces, translated surfaces, reduced spheres and non-mutating operator inspection.

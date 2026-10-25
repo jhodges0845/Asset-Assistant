@@ -282,3 +282,42 @@ def test_multiple_uv_layers_and_material_assignments(source):
         assert {face.material_index for face in obj.data.polygons} == {0, 1}
         assert all(isfinite(value) for layer in obj.data.uv_layers for item in layer.data for value in item.uv)
     preview.cancel()
+
+
+def test_surface_diagnostics_are_read_only_and_detect_translation(source):
+    from blender_adapter.lod_quality import inspect_static_lod
+    copy = bpy.data.objects.new('Quality copy', source.data.copy())
+    bpy.context.scene.collection.objects.link(copy)
+    bpy.context.view_layer.update()
+    source_before, copy_before = _signature(source), _signature(copy)
+    report = inspect_static_lod(source, copy)
+    assert report['max_distance'] < 1e-6
+    assert report['sample_count'] > len(source.data.vertices) * 2
+    assert (_signature(source), _signature(copy)) == (source_before, copy_before)
+    copy.location.x = 3
+    bpy.context.view_layer.update()
+    moved = inspect_static_lod(source, copy)
+    assert moved['max_distance'] > 2.9
+    assert moved['rms_distance'] > 0
+
+
+def test_reduced_surface_diagnostics(source):
+    from blender_adapter.lod_quality import inspect_static_lod
+    preview = preview_static_lods(source, bpy.context.scene)
+    for obj, level in zip(preview.objects, preview.levels):
+        before = _signature(obj)
+        report = inspect_static_lod(source, obj)
+        assert 0 < report['max_distance'] < .2
+        assert report['level_triangles'] <= level.triangle_budget
+        assert _signature(obj) == before
+    preview.cancel()
+
+
+def test_inspect_operator_preserves_preview(source, lod_operators):
+    preview = preview_static_lods(source, bpy.context.scene)
+    before = tuple(_signature(obj) for obj in (source,) + preview.objects)
+    assert bpy.ops.asset_assistant.lod_inspect(collection_name=preview.collection.name,
+                                             object_name=preview.objects[0].name) == {'FINISHED'}
+    assert tuple(_signature(obj) for obj in (source,) + preview.objects) == before
+    assert preview.collection['asset_assistant_lod_state'] == 'PREVIEW'
+    preview.cancel()

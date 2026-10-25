@@ -77,6 +77,34 @@ class ASSETASSISTANT_OT_lod_finish(bpy.types.Operator):
         return {'FINISHED'}
 
 
+
+class ASSETASSISTANT_OT_lod_inspect(bpy.types.Operator):
+    bl_idname = 'asset_assistant.lod_inspect'
+    bl_label = 'Measure Surface Deviation'
+    bl_description = 'Sample vertices and triangle centers in both directions; not a visual quality guarantee'
+    collection_name: StringProperty()
+    object_name: StringProperty()
+
+    def execute(self, context):
+        from .lod_quality import inspect_static_lod
+        collection = bpy.data.collections.get(self.collection_name)
+        if collection not in _previews(context.scene):
+            self.report({'ERROR'}, 'Choose an active preview in this scene')
+            return {'CANCELLED'}
+        try:
+            preview = recover_static_lod_preview(collection)
+            level = next((obj for obj in preview.objects if obj.name == self.object_name), None)
+            if level is None:
+                raise ValueError('Choose a level belonging to this preview')
+            result = inspect_static_lod(preview.source, level)
+        except (ValueError, ReferenceError) as exc:
+            self.report({'ERROR'}, str(exc))
+            return {'CANCELLED'}
+        self.report({'INFO'}, 'Sampled deviation: max %.6g, RMS %.6g Blender units (%d samples)' %
+                    (result['max_distance'], result['rms_distance'], result['sample_count']))
+        return {'FINISHED'}
+
+
 def draw(next_renderer, panel, context, *args):
     next_renderer(panel, context, *args)
     box = panel.layout.box()
@@ -92,6 +120,9 @@ def draw(next_renderer, panel, context, *args):
         for obj in collection.objects:
             if 'asset_assistant_lod_triangles' in obj:
                 item.label(text='%s: %s triangles' % (obj.name, obj['asset_assistant_lod_triangles']))
+                op = item.operator('asset_assistant.lod_inspect', text='Measure Surface Deviation')
+                op.collection_name = collection.name
+                op.object_name = obj.name
         row = item.row(align=True)
         for action, label in (('APPLY', 'Apply'), ('CANCEL', 'Discard Preview')):
             op = row.operator('asset_assistant.lod_finish', text=label)
@@ -104,7 +135,7 @@ def install(registry):
     registry.decorate('workspace.export', draw, owner=__name__)
 
 
-_CLASSES = (ASSETASSISTANT_OT_lod_preview, ASSETASSISTANT_OT_lod_finish)
+_CLASSES = (ASSETASSISTANT_OT_lod_preview, ASSETASSISTANT_OT_lod_finish, ASSETASSISTANT_OT_lod_inspect)
 
 
 def register():
