@@ -356,3 +356,16 @@ Injected export failure leaves no scene staging or destination directory. This i
 an exchange bundle, not engine LOD configuration: the manifest explicitly records
 `engine_lod_configured: false`. UI, destination import/selection, and skinned
 animation export remain open.
+
+## Bundle export controls and Blender reimport (2026-10-25)
+
+Applied static previews/groups expose Export Static LOD Bundle. Choose an existing
+parent directory and a new bundle folder name; existing destinations and path
+traversal are rejected. Group members are listed through their group export entry.
+The operator uses the same validated bundle backend and keeps skinned export blocked.
+
+Thirty-nine static/group tests pass. Actual GLB reimport of all three levels
+preserves mesh counts, triangle counts and translated world bounds within 1e-5
+Blender units. The existing unapplied-scale export guard remains enforced and
+leaves source transforms unchanged. These checks do not establish engine LOD
+selection or live file-dialog acceptance; both remain open.

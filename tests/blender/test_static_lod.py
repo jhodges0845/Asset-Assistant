@@ -532,3 +532,57 @@ def test_static_lod_bundle_failure_preserves_scene_and_destination(source, tmp_p
     assert list(tmp_path.iterdir()) == []
     for kind, expected in before.items():
         assert set(getattr(bpy.data, kind)) == expected
+
+
+def test_bundle_export_operator_and_glb_reimport(source, tmp_path, lod_operators):
+    from blender_adapter.lod_export import plan_lod_export
+    source.location = (2, -1, .5)
+    bpy.context.view_layer.update()
+    preview = preview_static_lods(source, bpy.context.scene)
+    preview.apply()
+    levels = plan_lod_export(preview.collection, bpy.context.scene)
+    def bounds(objects):
+        points = [obj.matrix_world @ v.co for obj in objects for v in obj.data.vertices]
+        return tuple(value for axis in range(3) for value in
+                     (min(p[axis] for p in points), max(p[axis] for p in points)))
+    expected = [bounds(level.meshes) for level in levels]
+    assert bpy.ops.asset_assistant.lod_export_bundle(collection_name=preview.collection.name,
+            directory=str(tmp_path), bundle_name='exchange') == {'FINISHED'}
+    original = bpy.context.scene
+    imported_scene = bpy.data.scenes.new('LOD reimport')
+    try:
+        bpy.context.window.scene = imported_scene
+        for level, box in zip(levels, expected):
+            before = set(bpy.data.objects)
+            assert bpy.ops.import_scene.gltf(filepath=str(tmp_path / 'exchange' / ('LOD%d.glb' % level.index))) == {'FINISHED'}
+            imported = set(bpy.data.objects) - before
+            meshes = [obj for obj in imported if obj.type == 'MESH']
+            assert len(meshes) == len(level.meshes)
+            assert sum(_triangles(obj.data) for obj in meshes) == level.triangle_count
+            assert bounds(meshes) == pytest.approx(box, abs=1e-5)
+            for obj in imported:
+                bpy.data.objects.remove(obj, do_unlink=True)
+    finally:
+        bpy.context.window.scene = original
+        bpy.data.scenes.remove(imported_scene)
+
+
+def test_bundle_operator_rejects_parent_traversal(source, tmp_path, lod_operators):
+    preview = preview_static_lods(source, bpy.context.scene)
+    preview.apply()
+    with pytest.raises(RuntimeError, match='simple new folder'):
+        bpy.ops.asset_assistant.lod_export_bundle(collection_name=preview.collection.name,
+            directory=str(tmp_path), bundle_name='../outside')
+    assert not list(tmp_path.iterdir())
+
+
+def test_bundle_export_rejects_unapplied_scale(source, tmp_path):
+    from blender_adapter.lod_export import export_static_lod_bundle
+    source.scale = (1.2, .8, 1.1)
+    bpy.context.view_layer.update()
+    preview = preview_static_lods(source, bpy.context.scene)
+    preview.apply()
+    with pytest.raises(ValueError, match='unapplied scale'):
+        export_static_lod_bundle(preview.collection, bpy.context, tmp_path / 'scaled')
+    assert not list(tmp_path.iterdir())
+    assert tuple(source.scale) == pytest.approx((1.2, .8, 1.1))

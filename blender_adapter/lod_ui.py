@@ -179,6 +179,42 @@ class ASSETASSISTANT_OT_lod_inspect(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class ASSETASSISTANT_OT_lod_export(bpy.types.Operator):
+    bl_idname = 'asset_assistant.lod_export_bundle'
+    bl_label = 'Export Static LOD Bundle'
+    bl_description = 'Write separate GLBs and a manifest; engine LOD switching must be configured separately'
+    collection_name: StringProperty(options={'HIDDEN'})
+    directory: StringProperty(name='Parent Directory', subtype='DIR_PATH')
+    bundle_name: StringProperty(name='New Bundle Folder', default='LOD_bundle')
+    filter_folder: BoolProperty(default=True, options={'HIDDEN'})
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+        from pathlib import Path
+        from .lod_export import export_static_lod_bundle
+        name = self.bundle_name.strip()
+        if not name or name in ('.', '..') or any(c in name for c in '/\\:'):
+            self.report({'ERROR'}, 'Choose a simple new folder name')
+            return {'CANCELLED'}
+        collection = bpy.data.collections.get(self.collection_name)
+        if collection is None:
+            self.report({'ERROR'}, 'LOD collection no longer exists')
+            return {'CANCELLED'}
+        if not self.directory:
+            self.report({'ERROR'}, 'Choose an existing parent directory')
+            return {'CANCELLED'}
+        try:
+            result = export_static_lod_bundle(collection, context, Path(bpy.path.abspath(self.directory)) / name)
+        except (ValueError, OSError, ReferenceError) as exc:
+            self.report({'ERROR'}, str(exc))
+            return {'CANCELLED'}
+        self.report({'INFO'}, 'Exported %d GLB levels; configure engine LOD switching separately' % len(result['levels']))
+        return {'FINISHED'}
+
+
 def draw(next_renderer, panel, context, *args):
     next_renderer(panel, context, *args)
     box = panel.layout.box()
@@ -214,6 +250,18 @@ def draw(next_renderer, panel, context, *args):
             op = row.operator('asset_assistant.lod_finish', text=label)
             op.collection_name = record.name
             op.action = action
+    applied = [c for c in context.scene.collection.children_recursive
+               if (c.get('asset_assistant_lod_state') == 'APPLIED' and not c.get('lod_skin_preview'))
+               or c.get('lod_set_state') == 'APPLIED']
+    grouped = {c.get(key) for c in applied if c.get('lod_set_state') == 'APPLIED'
+               for key in c.keys() if key.startswith('member_')}
+    for collection in applied:
+        if collection in grouped:
+            continue
+        item = box.box()
+        item.label(text=collection.name)
+        op = item.operator('asset_assistant.lod_export_bundle')
+        op.collection_name = collection.name
     skin = panel.layout.box()
     skin.label(text='Skinned LOD (Experimental)', icon='ARMATURE_DATA')
     row = skin.row()
@@ -240,7 +288,7 @@ def install(registry):
     registry.decorate('workspace.export', draw, owner=__name__)
 
 
-_CLASSES = (ASSETASSISTANT_OT_skin_lod_preview, ASSETASSISTANT_OT_lod_preview, ASSETASSISTANT_OT_lod_finish, ASSETASSISTANT_OT_lod_inspect)
+_CLASSES = (ASSETASSISTANT_OT_lod_export, ASSETASSISTANT_OT_skin_lod_preview, ASSETASSISTANT_OT_lod_preview, ASSETASSISTANT_OT_lod_finish, ASSETASSISTANT_OT_lod_inspect)
 
 
 def register():
