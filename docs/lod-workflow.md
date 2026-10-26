@@ -388,3 +388,51 @@ exit code 1. The probe removes any old success report before running and writes
 This validates direct GLB ingestion, not Godot editor import settings, automatic
 LOD selection, screen thresholds, materials/UV appearance or visual acceptance.
 Skinned bundle export and live UI review remain open.
+
+## Skinned export staging (2026-10-26)
+
+`lod_skin_export.stage_skin_lod_level` creates temporary independent mesh and rig
+data for one validated export scope. Armature modifiers target the copied rig;
+weights and current-pose evaluated geometry are preserved. The source hierarchy
+and data remain unchanged, and temporary datablocks are removed on success or
+failure. Rigs with parents, constraints or drivers are conservatively rejected
+because their external dependencies need an explicit export policy.
+
+This is an internal staging helper, not a skinned bundle exporter. Active actions
+and NLA are deliberately cleared on the temporary rig; clip selection and
+serialization remain unimplemented here. Twenty focused skinned tests pass,
+including posed-geometry parity, injected-failure cleanup and dependency rejection.
+
+## Single-level generated clip serialization (2026-10-26)
+
+`export_skin_lod_level` uses the existing Godot ANIMATED adapter to serialize one
+staged skinned scope. Opt-in generated-clip staging retains only stable rig-ID
+association, activates a generated action on the copy for normal validation,
+and reuses the existing multi-clip staging/export path. Artist active actions,
+NLA, drivers and unsupported rig dependencies are blocked rather than discarded.
+
+Twenty-one focused tests pass. The serialized GLB contains one reduced mesh,
+one skin, joint/weight attributes and both generated test clips. Source action,
+slot, NLA and datablock sets are preserved. One run emitted a Windows access
+violation diagnostic while still completing; a fresh repeat passed cleanly.
+
+This is a single-level internal API. Bundle publication, generated rigs with
+parent dependencies, playback parity, UI exposure and engine switching remain
+open. It does not complete the skinned export release gate.
+
+## Skinned bundle publication (2026-10-26)
+
+`export_skin_lod_bundle` now routes each validated level through the generated-clip
+serializer and shares static export staging/publication. Each level receives its
+own GLB plus the existing manifest. Existing destinations are rejected and a
+serializer failure, including one that writes a partial staged file, publishes
+nothing. PR #324 passed all six checks and is merged.
+
+The combined static/skinned suite passes 61 tests. Both source and reduced GLBs
+contain the two expected test clips, skin joint/weight attributes, one mesh and
+the exact manifest triangle count. Source action/slot/NLA and datablock sets are
+preserved. Static export regression tests continue to pass.
+
+This remains an internal API: parented rigs, engine playback parity, live UI and
+artist-facing skinned export are not yet accepted. The manifest still reports
+`engine_lod_configured: false`; separate files do not configure LOD switching.

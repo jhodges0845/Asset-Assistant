@@ -99,12 +99,23 @@ def export_static_lod_bundle(collection, context, directory):
 
     This exchange bundle does not configure automatic engine LOD switching.
     """
+    return _export_lod_bundle(collection, context, directory, skinned=False)
+
+
+def export_skin_lod_bundle(collection, context, directory):
+    """Export generated clips and skins for every level into a new directory."""
+    return _export_lod_bundle(collection, context, directory, skinned=True)
+
+
+def _export_lod_bundle(collection, context, directory, *, skinned):
     from pathlib import Path
     from tempfile import TemporaryDirectory
     from .targets import get_adapter
     levels = plan_lod_export(collection, context.scene)
-    if any(level.armatures for level in levels):
-        raise ValueError('Skinned LOD bundle export is not implemented')
+    if not skinned and any(level.armatures for level in levels):
+        raise ValueError('Use the skinned LOD bundle exporter for rigs')
+    if skinned and any(not level.armatures for level in levels):
+        raise ValueError('Skinned LOD bundles require a rig at every level')
     destination = Path(directory).resolve()
     if destination.exists() or not destination.parent.is_dir():
         raise ValueError('Choose a new bundle directory inside an existing directory')
@@ -115,21 +126,25 @@ def export_static_lod_bundle(collection, context, directory):
         for level in levels:
             objects, meshes = [], []
             try:
-                root = bpy.data.objects.new('LOD' + str(level.index), None)
-                objects.append(root)
-                context.scene.collection.objects.link(root)
-                for source in level.meshes:
-                    mesh = source.data.copy()
-                    meshes.append(mesh)
-                    obj = bpy.data.objects.new(source.name + ' Export', mesh)
-                    objects.append(obj)
-                    context.scene.collection.objects.link(obj)
-                    obj.parent = root
-                    obj.matrix_world = source.matrix_world.copy()
-                    for index, slot in enumerate(source.material_slots):
-                        mesh.materials[index] = slot.material
                 filename = 'LOD%d.glb' % level.index
-                result = get_adapter('GODOT', asset_use='STATIC').export(root, context, Path(staging) / filename)
+                if skinned:
+                    from .lod_skin_export import export_skin_lod_level
+                    result = export_skin_lod_level(level, context, Path(staging) / filename)
+                else:
+                    root = bpy.data.objects.new('LOD' + str(level.index), None)
+                    objects.append(root)
+                    context.scene.collection.objects.link(root)
+                    for source in level.meshes:
+                        mesh = source.data.copy()
+                        meshes.append(mesh)
+                        obj = bpy.data.objects.new(source.name + ' Export', mesh)
+                        objects.append(obj)
+                        context.scene.collection.objects.link(obj)
+                        obj.parent = root
+                        obj.matrix_world = source.matrix_world.copy()
+                        for index, slot in enumerate(source.material_slots):
+                            mesh.materials[index] = slot.material
+                    result = get_adapter('GODOT', asset_use='STATIC').export(root, context, Path(staging) / filename)
                 if not result.success:
                     raise ValueError('LOD export failed: ' + '; '.join(issue.message for issue in result.issues if issue.status in ('ERROR', 'WARN')))
                 manifest['levels'].append({'index': level.index, 'file': filename,

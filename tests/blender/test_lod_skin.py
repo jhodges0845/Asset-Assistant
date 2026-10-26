@@ -330,3 +330,128 @@ def test_skin_export_plan_keeps_rig_without_source_in_reduced_level(skinned):
     assert levels[0].meshes == (source,)
     assert all(level.armatures == (rig,) for level in levels)
     assert all(source not in level.meshes for level in levels[1:])
+
+
+def test_skin_export_staging_preserves_binding_pose_and_cleanup(skinned):
+    from blender_adapter.lod_export import plan_lod_export
+    from blender_adapter.lod_skin_preview import preview_skin_lods, _skin_signature
+    from blender_adapter.lod_skin_export import stage_skin_lod_level
+    source, rig = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    preview.apply()
+    rig.pose.bones[0].rotation_mode = 'XYZ'
+    rig.pose.bones[0].rotation_euler.x = .4
+    bpy.context.view_layer.update()
+    signature = _skin_signature(source)
+    before = {key: set(getattr(bpy.data, key)) for key in ('objects', 'meshes', 'armatures')}
+    level = plan_lod_export(preview.collection, bpy.context.scene)[1]
+    with pytest.raises(RuntimeError, match='Injected'):
+        with stage_skin_lod_level(level, bpy.context.scene) as root:
+            children = list(root.children)
+            mesh = next(obj for obj in children if obj.type == 'MESH')
+            copied_rig = next(obj for obj in children if obj.type == 'ARMATURE')
+            assert mesh.data != level.meshes[0].data
+            assert copied_rig.data != rig.data
+            assert mesh.modifiers[0].object == copied_rig
+            assert source not in children
+            assert inspect_skin_lod_source(mesh).weights == inspect_skin_lod_source(level.meshes[0]).weights
+            graph = bpy.context.evaluated_depsgraph_get()
+            expected = level.meshes[0].evaluated_get(graph)
+            actual = mesh.evaluated_get(graph)
+            for a, b in zip(expected.data.vertices, actual.data.vertices):
+                assert (expected.matrix_world @ a.co - actual.matrix_world @ b.co).length < 1e-6
+            raise RuntimeError('Injected')
+    assert _skin_signature(source) == signature
+    assert rig.pose.bones[0].rotation_euler.x == pytest.approx(.4)
+    for key, values in before.items():
+        assert set(getattr(bpy.data, key)) == values
+
+
+def test_skin_export_staging_rejects_external_dependencies(skinned):
+    from blender_adapter.lod_export import plan_lod_export
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter.lod_skin_export import stage_skin_lod_level
+    source, rig = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    preview.apply()
+    level = plan_lod_export(preview.collection, bpy.context.scene)[1]
+    rig.pose.bones[0].constraints.new('COPY_LOCATION')
+    before = set(bpy.data.objects)
+    with pytest.raises(ValueError, match='external dependencies'):
+        with stage_skin_lod_level(level, bpy.context.scene):
+            pytest.fail('Unsupported rig was staged')
+    assert set(bpy.data.objects) == before
+    assert len(rig.pose.bones[0].constraints) == 1
+
+
+def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, tmp_path):
+    import json
+    import struct
+    from blender_adapter.lod_export import plan_lod_export
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter.lod_export import export_skin_lod_bundle
+    source, rig = skinned
+    source.data.materials.append(bpy.data.materials.new('LOD test material'))
+    rig['asset_assistant_rig_id'] = 'lod-export-test'
+    bone = rig.pose.bones[0]
+    bone.rotation_mode = 'XYZ'
+    for frame, angle in ((1, 0), (12, .5), (24, 0)):
+        bone.rotation_euler.x = angle
+        bone.keyframe_insert('rotation_euler', frame=frame)
+    action = rig.animation_data.action
+    action['asset_assistant_generated'] = True
+    action['asset_assistant_rig_id'] = 'lod-export-test'
+    action['asset_assistant_clip'] = 'TestMotion'
+    second = action.copy()
+    second['asset_assistant_clip'] = 'SecondMotion'
+    try:
+        preview = preview_skin_lods(source, bpy.context.scene, ratios=(.5,), max_distance=.3)
+        preview.apply()
+        level = plan_lod_export(preview.collection, bpy.context.scene)[1]
+        original_slot = rig.animation_data.action_slot
+        before = {key: set(getattr(bpy.data, key)) for key in ('objects', 'meshes', 'armatures', 'actions')}
+        destination = tmp_path / 'skin-bundle'
+        manifest = export_skin_lod_bundle(preview.collection, bpy.context, destination)
+        assert len(manifest['levels']) == 2
+        assert not manifest['engine_lod_configured']
+        for entry in manifest['levels']:
+            raw = (destination / entry['file']).read_bytes()
+            length = struct.unpack_from('<I', raw, 12)[0]
+            document = json.loads(raw[20:20+length])
+            assert len(document['skins']) == 1
+            assert len(document['meshes']) == 1
+            assert {clip['name'] for clip in document['animations']} == {'TestMotion', 'SecondMotion'}
+            triangles = sum(document['accessors'][primitive['indices']]['count'] // 3
+                            for primitive in document['meshes'][0]['primitives'])
+            assert triangles == entry['triangles']
+            assert all('JOINTS_0' in primitive['attributes'] and 'WEIGHTS_0' in primitive['attributes']
+                       for primitive in document['meshes'][0]['primitives'])
+        with pytest.raises(ValueError, match='new bundle directory'):
+            export_skin_lod_bundle(preview.collection, bpy.context, destination)
+        assert rig.animation_data.action == action
+        assert rig.animation_data.action_slot == original_slot
+        assert not rig.animation_data.nla_tracks
+        for key, values in before.items():
+            assert set(getattr(bpy.data, key)) == values
+    finally:
+        rig.animation_data_clear()
+        bpy.data.actions.remove(action)
+        bpy.data.actions.remove(second)
+
+
+def test_skin_bundle_failure_does_not_publish(skinned, tmp_path, monkeypatch):
+    from blender_adapter.lod_export import export_skin_lod_bundle
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter import lod_skin_export
+    source, rig = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    preview.apply()
+    before = set(bpy.data.objects)
+    def fail(level, context, path):
+        path.write_bytes(b'partial')
+        raise ValueError('Injected serializer failure')
+    monkeypatch.setattr(lod_skin_export, 'export_skin_lod_level', fail)
+    with pytest.raises(ValueError, match='Injected'):
+        export_skin_lod_bundle(preview.collection, bpy.context, tmp_path / 'failed')
+    assert not list(tmp_path.iterdir())
+    assert set(bpy.data.objects) == before
