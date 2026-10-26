@@ -402,3 +402,20 @@ This is an internal staging helper, not a skinned bundle exporter. Active action
 and NLA are deliberately cleared on the temporary rig; clip selection and
 serialization remain unimplemented here. Twenty focused skinned tests pass,
 including posed-geometry parity, injected-failure cleanup and dependency rejection.
+
+## Single-level generated clip serialization (2026-10-26)
+
+`export_skin_lod_level` uses the existing Godot ANIMATED adapter to serialize one
+staged skinned scope. Opt-in generated-clip staging retains only stable rig-ID
+association, activates a generated action on the copy for normal validation,
+and reuses the existing multi-clip staging/export path. Artist active actions,
+NLA, drivers and unsupported rig dependencies are blocked rather than discarded.
+
+Twenty-one focused tests pass. The serialized GLB contains one reduced mesh,
+one skin, joint/weight attributes and both generated test clips. Source action,
+slot, NLA and datablock sets are preserved. One run emitted a Windows access
+violation diagnostic while still completing; a fresh repeat passed cleanly.
+
+This is a single-level internal API. Bundle publication, generated rigs with
+parent dependencies, playback parity, UI exposure and engine switching remain
+open. It does not complete the skinned export release gate.

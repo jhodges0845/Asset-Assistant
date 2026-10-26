@@ -6,11 +6,12 @@ from .lod_skin import inspect_skin_lod_source
 
 
 @contextmanager
-def stage_skin_lod_level(level, scene):
+def stage_skin_lod_level(level, scene, *, generated_clips=False):
     """Copy skin and current pose without copying animation dependencies.
 
-    Animation serialization must supply its own explicit policy. This staging
-    helper does not export clips or alter the original hierarchy.
+    With generated_clips enabled, stable owned generated actions are associated
+    with the copy for the shared exporter. Artist actions/NLA remain blocked.
+    The original hierarchy is never altered.
     """
     if not level.armatures or not level.meshes:
         raise ValueError('Choose a skinned LOD export level')
@@ -22,6 +23,18 @@ def stage_skin_lod_level(level, scene):
     for mesh in level.meshes:
         if inspect_skin_lod_source(mesh).armature not in level.armatures:
             raise ValueError('Skin binding lies outside the export level')
+    if generated_clips:
+        from types import SimpleNamespace
+        from .animation import generated_actions, _RIG_ID
+        if len(level.armatures) != 1:
+            raise ValueError('Generated clip export requires exactly one rig')
+        rig = level.armatures[0]
+        actions = generated_actions(SimpleNamespace(children=(rig,)))
+        data = rig.animation_data
+        if not rig.get(_RIG_ID) or not actions:
+            raise ValueError('Generated clip export requires stable rig ownership and generated clips')
+        if data and (data.nla_tracks or (data.action and data.action not in actions)):
+            raise ValueError('Artist actions and NLA require explicit manual export preparation')
     objects, meshes, armatures = [], [], []
     try:
         root = bpy.data.objects.new('LOD%d' % level.index, None)
@@ -36,6 +49,12 @@ def stage_skin_lod_level(level, scene):
             copy.animation_data_clear()
             for key in list(copy.keys()):
                 del copy[key]
+            if generated_clips:
+                copy[_RIG_ID] = rig[_RIG_ID]
+                animation = copy.animation_data_create()
+                animation.action = actions[0]
+                if hasattr(actions[0], 'slots') and len(actions[0].slots):
+                    animation.action_slot = actions[0].slots[0]
             scene.collection.objects.link(copy)
             copy.parent = root
             copy.matrix_world = rig.matrix_world.copy()
@@ -62,3 +81,13 @@ def stage_skin_lod_level(level, scene):
         for rig in armatures:
             if rig.users == 0:
                 bpy.data.armatures.remove(rig)
+
+
+def export_skin_lod_level(level, context, filepath):
+    """Export one generated-clip skin scope through the normal Godot adapter.
+
+    Caller owns bundle staging/publication. No automatic LOD switching is implied.
+    """
+    from .targets import get_adapter
+    with stage_skin_lod_level(level, context.scene, generated_clips=True) as root:
+        return get_adapter('GODOT', asset_use='ANIMATED').export(root, context, filepath)

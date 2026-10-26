@@ -382,3 +382,51 @@ def test_skin_export_staging_rejects_external_dependencies(skinned):
             pytest.fail('Unsupported rig was staged')
     assert set(bpy.data.objects) == before
     assert len(rig.pose.bones[0].constraints) == 1
+
+
+def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, tmp_path):
+    import json
+    import struct
+    from blender_adapter.lod_export import plan_lod_export
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter.lod_skin_export import export_skin_lod_level
+    source, rig = skinned
+    source.data.materials.append(bpy.data.materials.new('LOD test material'))
+    rig['asset_assistant_rig_id'] = 'lod-export-test'
+    bone = rig.pose.bones[0]
+    bone.rotation_mode = 'XYZ'
+    for frame, angle in ((1, 0), (12, .5), (24, 0)):
+        bone.rotation_euler.x = angle
+        bone.keyframe_insert('rotation_euler', frame=frame)
+    action = rig.animation_data.action
+    action['asset_assistant_generated'] = True
+    action['asset_assistant_rig_id'] = 'lod-export-test'
+    action['asset_assistant_clip'] = 'TestMotion'
+    second = action.copy()
+    second['asset_assistant_clip'] = 'SecondMotion'
+    try:
+        preview = preview_skin_lods(source, bpy.context.scene, ratios=(.5,), max_distance=.3)
+        preview.apply()
+        level = plan_lod_export(preview.collection, bpy.context.scene)[1]
+        original_slot = rig.animation_data.action_slot
+        before = {key: set(getattr(bpy.data, key)) for key in ('objects', 'meshes', 'armatures', 'actions')}
+        path = tmp_path / 'skin.glb'
+        result = export_skin_lod_level(level, bpy.context, path)
+        assert result.success, [(issue.code, issue.message) for issue in result.issues if issue.status in ('ERROR', 'WARN')]
+        raw = path.read_bytes()
+        length = struct.unpack_from('<I', raw, 12)[0]
+        document = json.loads(raw[20:20+length])
+        assert len(document['skins']) == 1
+        assert len(document['meshes']) == 1
+        assert {clip['name'] for clip in document['animations']} == {'TestMotion', 'SecondMotion'}
+        assert any('JOINTS_0' in primitive['attributes'] and 'WEIGHTS_0' in primitive['attributes']
+                   for primitive in document['meshes'][0]['primitives'])
+        assert rig.animation_data.action == action
+        assert rig.animation_data.action_slot == original_slot
+        assert not rig.animation_data.nla_tracks
+        for key, values in before.items():
+            assert set(getattr(bpy.data, key)) == values
+    finally:
+        rig.animation_data_clear()
+        bpy.data.actions.remove(action)
+        bpy.data.actions.remove(second)
