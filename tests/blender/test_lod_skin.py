@@ -389,7 +389,7 @@ def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, t
     import struct
     from blender_adapter.lod_export import plan_lod_export
     from blender_adapter.lod_skin_preview import preview_skin_lods
-    from blender_adapter.lod_skin_export import export_skin_lod_level
+    from blender_adapter.lod_export import export_skin_lod_bundle
     source, rig = skinned
     source.data.materials.append(bpy.data.materials.new('LOD test material'))
     rig['asset_assistant_rig_id'] = 'lod-export-test'
@@ -410,17 +410,24 @@ def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, t
         level = plan_lod_export(preview.collection, bpy.context.scene)[1]
         original_slot = rig.animation_data.action_slot
         before = {key: set(getattr(bpy.data, key)) for key in ('objects', 'meshes', 'armatures', 'actions')}
-        path = tmp_path / 'skin.glb'
-        result = export_skin_lod_level(level, bpy.context, path)
-        assert result.success, [(issue.code, issue.message) for issue in result.issues if issue.status in ('ERROR', 'WARN')]
-        raw = path.read_bytes()
-        length = struct.unpack_from('<I', raw, 12)[0]
-        document = json.loads(raw[20:20+length])
-        assert len(document['skins']) == 1
-        assert len(document['meshes']) == 1
-        assert {clip['name'] for clip in document['animations']} == {'TestMotion', 'SecondMotion'}
-        assert any('JOINTS_0' in primitive['attributes'] and 'WEIGHTS_0' in primitive['attributes']
-                   for primitive in document['meshes'][0]['primitives'])
+        destination = tmp_path / 'skin-bundle'
+        manifest = export_skin_lod_bundle(preview.collection, bpy.context, destination)
+        assert len(manifest['levels']) == 2
+        assert not manifest['engine_lod_configured']
+        for entry in manifest['levels']:
+            raw = (destination / entry['file']).read_bytes()
+            length = struct.unpack_from('<I', raw, 12)[0]
+            document = json.loads(raw[20:20+length])
+            assert len(document['skins']) == 1
+            assert len(document['meshes']) == 1
+            assert {clip['name'] for clip in document['animations']} == {'TestMotion', 'SecondMotion'}
+            triangles = sum(document['accessors'][primitive['indices']]['count'] // 3
+                            for primitive in document['meshes'][0]['primitives'])
+            assert triangles == entry['triangles']
+            assert all('JOINTS_0' in primitive['attributes'] and 'WEIGHTS_0' in primitive['attributes']
+                       for primitive in document['meshes'][0]['primitives'])
+        with pytest.raises(ValueError, match='new bundle directory'):
+            export_skin_lod_bundle(preview.collection, bpy.context, destination)
         assert rig.animation_data.action == action
         assert rig.animation_data.action_slot == original_slot
         assert not rig.animation_data.nla_tracks
@@ -430,3 +437,21 @@ def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, t
         rig.animation_data_clear()
         bpy.data.actions.remove(action)
         bpy.data.actions.remove(second)
+
+
+def test_skin_bundle_failure_does_not_publish(skinned, tmp_path, monkeypatch):
+    from blender_adapter.lod_export import export_skin_lod_bundle
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter import lod_skin_export
+    source, rig = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    preview.apply()
+    before = set(bpy.data.objects)
+    def fail(level, context, path):
+        path.write_bytes(b'partial')
+        raise ValueError('Injected serializer failure')
+    monkeypatch.setattr(lod_skin_export, 'export_skin_lod_level', fail)
+    with pytest.raises(ValueError, match='Injected'):
+        export_skin_lod_bundle(preview.collection, bpy.context, tmp_path / 'failed')
+    assert not list(tmp_path.iterdir())
+    assert set(bpy.data.objects) == before

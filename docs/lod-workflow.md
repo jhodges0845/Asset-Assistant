@@ -419,3 +419,20 @@ violation diagnostic while still completing; a fresh repeat passed cleanly.
 This is a single-level internal API. Bundle publication, generated rigs with
 parent dependencies, playback parity, UI exposure and engine switching remain
 open. It does not complete the skinned export release gate.
+
+## Skinned bundle publication (2026-10-26)
+
+`export_skin_lod_bundle` now routes each validated level through the generated-clip
+serializer and shares static export staging/publication. Each level receives its
+own GLB plus the existing manifest. Existing destinations are rejected and a
+serializer failure, including one that writes a partial staged file, publishes
+nothing. PR #324 passed all six checks and is merged.
+
+The combined static/skinned suite passes 61 tests. Both source and reduced GLBs
+contain the two expected test clips, skin joint/weight attributes, one mesh and
+the exact manifest triangle count. Source action/slot/NLA and datablock sets are
+preserved. Static export regression tests continue to pass.
+
+This remains an internal API: parented rigs, engine playback parity, live UI and
+artist-facing skinned export are not yet accepted. The manifest still reports
+`engine_lod_configured: false`; separate files do not configure LOD switching.
