@@ -490,3 +490,21 @@ introduced. All 62 combined static/skinned tests pass.
 This fixture does not establish arbitrary-clip, scale-animation, Godot playback,
 visual or UI acceptance. Bezier support requires a verified interpolation policy
 before it can be enabled.
+
+## Godot skinned bone-head probe (2026-10-26)
+
+Run Blender background with `--python scripts/export_skin_lod_review.py -- NEW_DIR`
+to create a two-level animated fixture, world-space oracle and minimal project.
+Run Godot headless with `--path NEW_DIR --script` and the absolute path to
+`scripts/review_skin_lod_godot.gd`. The probe uses direct GLTFDocument ingestion
+with an explicit 800 Hz animation bake and retained reset tracks.
+
+Blender 5.2.1 / Godot 4.7.2 pass 49 sample times on each of LOD0 and LOD1.
+Maximum bone-head error is 2.4575624e-7 world units against a 1e-5 tolerance.
+A deliberately displaced oracle head fails with exit code 1; restoring the oracle
+passes. Old success reports are removed before each run.
+
+The result covers one translated/rotated static-parent fixture and bone-head
+playback only. It does not verify bone orientation, evaluated skin, arbitrary
+providers/clips, editor import defaults, looping or visual quality. Those remain
+separate release acceptance work.
