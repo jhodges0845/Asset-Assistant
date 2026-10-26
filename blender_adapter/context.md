@@ -6,7 +6,7 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 ## LOD implementation (2026-10-24)
 
-Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export implemented. Internal skinned staging/clip serialization is in lod_skin_export.py and bundle publication in lod_export.py. Parented rigs, playback acceptance, live UI/undo and engine LOD switching remain open. See [../docs/lod-workflow.md](../docs/lod-workflow.md).
+Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export implemented. Internal skinned staging/clip serialization is in lod_skin_export.py and bundle publication in lod_export.py. Single rigs under static Empty parents are supported; animated parent dependencies, playback acceptance, live UI/undo and engine LOD switching remain open. See [../docs/lod-workflow.md](../docs/lod-workflow.md).
 
 ## Current workflow and UI audit (2026-10-23)
 

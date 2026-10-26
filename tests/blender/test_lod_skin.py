@@ -455,3 +455,67 @@ def test_skin_bundle_failure_does_not_publish(skinned, tmp_path, monkeypatch):
         export_skin_lod_bundle(preview.collection, bpy.context, tmp_path / 'failed')
     assert not list(tmp_path.iterdir())
     assert set(bpy.data.objects) == before
+
+
+def test_parented_skin_staging_preserves_animated_world_space(skinned, tmp_path):
+    from blender_adapter.lod_export import plan_lod_export
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter.lod_skin_export import stage_skin_lod_level
+    from mathutils import Matrix
+    source, rig = skinned
+    parent = bpy.data.objects.new('Static artist root', None)
+    bpy.context.scene.collection.objects.link(parent)
+    parent.location = (3, -2, .7)
+    parent.rotation_euler.z = .6
+    rig.parent = parent
+    rig.matrix_parent_inverse = Matrix.Translation((-.3, .2, 0))
+    rig['asset_assistant_rig_id'] = 'parent-lod-test'
+    for frame, offset in ((1, 0), (12, .4), (24, 0)):
+        rig.location.x = offset
+        rig.keyframe_insert('location', frame=frame)
+    action = rig.animation_data.action
+    action['asset_assistant_generated'] = True
+    action['asset_assistant_rig_id'] = 'parent-lod-test'
+    action['asset_assistant_clip'] = 'RootMotion'
+    scene = bpy.context.scene
+    frame, subframe = scene.frame_current, scene.frame_subframe
+    try:
+        scene.frame_set(1)
+        preview = preview_skin_lods(source, scene, ratios=(.5,), max_distance=.3)
+        preview.apply()
+        level = plan_lod_export(preview.collection, scene)[1]
+        with stage_skin_lod_level(level, scene, generated_clips=True) as root:
+            copied_rig = next(obj for obj in root.children if obj.type == 'ARMATURE')
+            mesh = next(obj for obj in root.children if obj.type == 'MESH')
+            for sample in (1, 6, 12, 18, 24):
+                scene.frame_set(sample)
+                for a, b in zip(rig.matrix_world, copied_rig.matrix_world):
+                    assert tuple(a) == pytest.approx(tuple(b), abs=1e-6)
+                graph = bpy.context.evaluated_depsgraph_get()
+                expected = level.meshes[0].evaluated_get(graph)
+                actual = mesh.evaluated_get(graph)
+                for a, b in zip(expected.data.vertices, actual.data.vertices):
+                    assert (expected.matrix_world @ a.co - actual.matrix_world @ b.co).length < 1e-5
+        assert rig.parent == parent
+        assert rig.animation_data.action == action
+        # Exercise the real writer with the same nontrivial parent transform.
+        scene.frame_set(1)
+        source.data.materials.append(bpy.data.materials.new('Parent export material'))
+        # This material edit requires an explicitly rebuilt preview.
+        rebuilt = preview_skin_lods(source, scene, ratios=(.5,), max_distance=.3)
+        rebuilt.apply()
+        from blender_adapter.lod_export import export_skin_lod_bundle
+        result = export_skin_lod_bundle(rebuilt.collection, bpy.context, tmp_path / 'parented')
+        assert len(result['levels']) == 2
+        parent.keyframe_insert('location', frame=1)
+        with pytest.raises(ValueError, match='static empty'):
+            with stage_skin_lod_level(level, scene):
+                pytest.fail('Animated parent accepted')
+    finally:
+        parent_action = parent.animation_data.action if parent.animation_data else None
+        parent.animation_data_clear()
+        if parent_action:
+            bpy.data.actions.remove(parent_action)
+        rig.animation_data_clear()
+        bpy.data.actions.remove(action)
+        scene.frame_set(frame, subframe=subframe)

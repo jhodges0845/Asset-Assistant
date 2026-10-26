@@ -436,3 +436,18 @@ preserved. Static export regression tests continue to pass.
 This remains an internal API: parented rigs, engine playback parity, live UI and
 artist-facing skinned export are not yet accepted. The manifest still reports
 `engine_lod_configured: false`; separate files do not configure LOD switching.
+
+## Static-parent skinned export support (2026-10-26)
+
+A single rig may now have a chain of static Empty object parents. Export staging
+places the effective parent transform (including the rig parent-inverse matrix)
+on the temporary root and keeps the rig's local animation space unchanged.
+Animated/constrained parents, non-Empty parents, bone parenting and multiple
+parented rigs remain blocked. Source parent links are not changed.
+
+Twenty-three focused skinned tests pass. A translated/rotated parent with a
+nonidentity parent inverse preserves rig world matrices and evaluated mesh
+vertices at five root-motion frames (1e-6 / 1e-5 tolerances). Both source/reduced
+GLBs also export through the production bundle writer. An animated parent is
+rejected. These checks establish staging parity and successful serialization,
+not downstream engine playback parity; that remains open with UI acceptance.
