@@ -388,3 +388,17 @@ exit code 1. The probe removes any old success report before running and writes
 This validates direct GLB ingestion, not Godot editor import settings, automatic
 LOD selection, screen thresholds, materials/UV appearance or visual acceptance.
 Skinned bundle export and live UI review remain open.
+
+## Skinned export staging (2026-10-26)
+
+`lod_skin_export.stage_skin_lod_level` creates temporary independent mesh and rig
+data for one validated export scope. Armature modifiers target the copied rig;
+weights and current-pose evaluated geometry are preserved. The source hierarchy
+and data remain unchanged, and temporary datablocks are removed on success or
+failure. Rigs with parents, constraints or drivers are conservatively rejected
+because their external dependencies need an explicit export policy.
+
+This is an internal staging helper, not a skinned bundle exporter. Active actions
+and NLA are deliberately cleared on the temporary rig; clip selection and
+serialization remain unimplemented here. Twenty focused skinned tests pass,
+including posed-geometry parity, injected-failure cleanup and dependency rejection.
