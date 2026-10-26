@@ -369,3 +369,22 @@ preserves mesh counts, triangle counts and translated world bounds within 1e-5
 Blender units. The existing unapplied-scale export guard remains enforced and
 leaves source transforms unchanged. These checks do not establish engine LOD
 selection or live file-dialog acceptance; both remain open.
+
+## Godot static exchange probe (2026-10-26)
+
+PR #323 passed all six checks and is merged. The repeatable fixture script
+`scripts/export_static_lod_review.py` runs in Blender background mode with
+`-- OUTPUT_DIRECTORY` (a new directory). It exports an applied two-mesh group
+through the production bundle writer and adds a minimal Godot project.
+Run Godot headless with `--path OUTPUT_DIRECTORY --script` followed by the
+absolute path to `scripts/review_static_lod_godot.gd`.
+
+Blender 5.2.1 / Godot 4.7.2 completed all three levels: two meshes per level,
+1,056 / 528 / 264 triangles. Direct GLTFDocument scene ingestion matches the
+manifest; intentionally changing the expected LOD1 triangle count fails with
+exit code 1. The probe removes any old success report before running and writes
+`godot-lod-report.json` only after all levels pass.
+
+This validates direct GLB ingestion, not Godot editor import settings, automatic
+LOD selection, screen thresholds, materials/UV appearance or visual acceptance.
+Skinned bundle export and live UI review remain open.

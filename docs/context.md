@@ -8,7 +8,7 @@ Read `human-workflow.md` for the user workflow and code ownership map.
 
 ## LOD implementation (2026-10-24)
 
-Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, while live UI/undo, skinned quality acceptance and engine export remain open. See [lod-workflow.md](lod-workflow.md).
+Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export and a Godot direct-import probe implemented. Live UI/undo, skinned quality/export acceptance and engine LOD switching remain open. See [lod-workflow.md](lod-workflow.md).
 
 ## Current workflow and UI audit (2026-10-23)
 
