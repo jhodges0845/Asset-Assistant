@@ -471,3 +471,22 @@ world units in this fixture); the passing test uses linear keys, matching the
 intended generated-clip path. Bezier parity, additional rotation/scale clips,
 Godot playback and live UI acceptance remain open; no broad playback acceptance
 is claimed.
+
+## Dense rotation round trip and interpolation admission (2026-10-26)
+
+Skinned LOD clip admission now requires LINEAR or CONSTANT keys and rejects
+non-CYCLES curve modifiers. Bezier keys are explicitly blocked following the
+observed intermediate playback difference; the source interpolation remains
+unchanged. This restriction applies to this internal LOD path, not the general
+animation exporter. Non-bone channels remain blocked.
+
+The parented reduced-level GLB round trip now combines linear bone translation
+with quaternion rotation and checks 49 fractional-frame samples. Bidirectional
+nearest-vertex distances remain below 1e-5 world units after reimport, allowing
+GLB seam splits without assuming identical vertex indexing. The shared exporter
+continues to provide quaternion densification; no alternative serializer was
+introduced. All 62 combined static/skinned tests pass.
+
+This fixture does not establish arbitrary-clip, scale-animation, Godot playback,
+visual or UI acceptance. Bezier support requires a verified interpolation policy
+before it can be enabled.

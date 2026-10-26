@@ -48,6 +48,14 @@ def stage_skin_lod_level(level, scene, *, generated_clips=False):
             if any(not curve.data_path.startswith('pose.bones[')
                    for slot in slots for curve in action_curves(action, slot)):
                 raise ValueError('Skinned LOD clips require bone channels; object motion needs playback preparation')
+        for action in actions:
+            slots = tuple(action.slots) if hasattr(action, 'slots') else (None,)
+            for slot in slots:
+                for curve in action_curves(action, slot):
+                    if (any(key.interpolation not in ('LINEAR', 'CONSTANT')
+                            for key in curve.keyframe_points) or
+                            any(mod.type != 'CYCLES' for mod in curve.modifiers)):
+                        raise ValueError('Skinned LOD clips require linear or constant keys without unsupported modifiers')
         if data and (data.nla_tracks or (data.action and data.action not in actions)):
             raise ValueError('Artist actions and NLA require explicit manual export preparation')
     objects, meshes, armatures = [], [], []

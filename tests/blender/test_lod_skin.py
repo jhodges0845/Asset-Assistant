@@ -402,6 +402,10 @@ def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, t
     action['asset_assistant_generated'] = True
     action['asset_assistant_rig_id'] = 'lod-export-test'
     action['asset_assistant_clip'] = 'TestMotion'
+    from blender_adapter.animation import action_curves
+    for curve in action_curves(action, rig.animation_data.action_slot):
+        for key in curve.keyframe_points:
+            key.interpolation = 'LINEAR'
     second = action.copy()
     second['asset_assistant_clip'] = 'SecondMotion'
     try:
@@ -461,7 +465,7 @@ def test_parented_skin_staging_preserves_animated_world_space(skinned, tmp_path)
     from blender_adapter.lod_export import plan_lod_export
     from blender_adapter.lod_skin_preview import preview_skin_lods
     from blender_adapter.lod_skin_export import stage_skin_lod_level
-    from mathutils import Matrix
+    from mathutils import Matrix, Quaternion
     source, rig = skinned
     parent = bpy.data.objects.new('Static artist root', None)
     bpy.context.scene.collection.objects.link(parent)
@@ -473,6 +477,9 @@ def test_parented_skin_staging_preserves_animated_world_space(skinned, tmp_path)
     for frame, offset in ((1, 0), (12, .4), (24, 0)):
         rig.pose.bones[0].location.x = offset
         rig.pose.bones[0].keyframe_insert('location', frame=frame)
+        rig.pose.bones[0].rotation_mode = 'QUATERNION'
+        rig.pose.bones[0].rotation_quaternion = Quaternion((0, 0, 1), offset * 2)
+        rig.pose.bones[0].keyframe_insert('rotation_quaternion', frame=frame)
     action = rig.animation_data.action
     action['asset_assistant_generated'] = True
     action['asset_assistant_rig_id'] = 'parent-lod-test'
@@ -511,13 +518,13 @@ def test_parented_skin_staging_preserves_animated_world_space(skinned, tmp_path)
         from blender_adapter.lod_export import export_skin_lod_bundle
         result = export_skin_lod_bundle(rebuilt.collection, bpy.context, tmp_path / 'parented')
         assert len(result['levels']) == 2
-        samples = (1, 6, 12, 18, 24)
+        samples = tuple(1 + step * 23 / 48 for step in range(49))
         def world_points(obj):
             evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
             return [evaluated.matrix_world @ vertex.co for vertex in evaluated.data.vertices]
         expected = {}
         for sample in samples:
-            scene.frame_set(sample)
+            scene.frame_set(int(sample), subframe=sample - int(sample))
             expected[sample] = world_points(rebuilt.objects[0])
         before_objects = set(bpy.data.objects)
         before_actions = set(bpy.data.actions)
@@ -541,7 +548,8 @@ def test_parented_skin_staging_preserves_animated_world_space(skinned, tmp_path)
             from mathutils.kdtree import KDTree
             for sample in samples:
                 # Export clips start at zero; align the imported action start.
-                scene.frame_set(int(start + sample - 1))
+                aligned = start + sample - 1
+                scene.frame_set(int(aligned), subframe=aligned - int(aligned))
                 actual = world_points(imported_mesh)
                 # GLB may split vertices at UV/normal seams; compare both ways.
                 for left, right in ((actual, expected[sample]), (expected[sample], actual)):
@@ -555,6 +563,14 @@ def test_parented_skin_staging_preserves_animated_world_space(skinned, tmp_path)
                 bpy.data.objects.remove(obj, do_unlink=True)
             for imported_action in set(bpy.data.actions) - before_actions:
                 bpy.data.actions.remove(imported_action)
+        curve = action_curves(action, rig.animation_data.action_slot)[0]
+        key = curve.keyframe_points[0]
+        key.interpolation = 'BEZIER'
+        with pytest.raises(ValueError, match='linear or constant'):
+            with stage_skin_lod_level(level, scene, generated_clips=True):
+                pytest.fail('Unverified Bezier animation accepted')
+        assert key.interpolation == 'BEZIER'
+        key.interpolation = 'LINEAR'
         rig.keyframe_insert('location', frame=1)
         with pytest.raises(ValueError, match='bone channels'):
             with stage_skin_lod_level(level, scene, generated_clips=True):
