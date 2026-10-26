@@ -35,7 +35,7 @@ def stage_skin_lod_level(level, scene, *, generated_clips=False):
             raise ValueError('Skin binding lies outside the export level')
     if generated_clips:
         from types import SimpleNamespace
-        from .animation import generated_actions, _RIG_ID
+        from .animation import generated_actions, action_curves, _RIG_ID
         if len(level.armatures) != 1:
             raise ValueError('Generated clip export requires exactly one rig')
         rig = level.armatures[0]
@@ -43,6 +43,11 @@ def stage_skin_lod_level(level, scene, *, generated_clips=False):
         data = rig.animation_data
         if not rig.get(_RIG_ID) or not actions:
             raise ValueError('Generated clip export requires stable rig ownership and generated clips')
+        for action in actions:
+            slots = tuple(action.slots) if hasattr(action, 'slots') else (None,)
+            if any(not curve.data_path.startswith('pose.bones[')
+                   for slot in slots for curve in action_curves(action, slot)):
+                raise ValueError('Skinned LOD clips require bone channels; object motion needs playback preparation')
         if data and (data.nla_tracks or (data.action and data.action not in actions)):
             raise ValueError('Artist actions and NLA require explicit manual export preparation')
     objects, meshes, armatures = [], [], []

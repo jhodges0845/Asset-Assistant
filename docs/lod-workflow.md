@@ -451,3 +451,23 @@ vertices at five root-motion frames (1e-6 / 1e-5 tolerances). Both source/reduce
 GLBs also export through the production bundle writer. An animated parent is
 rejected. These checks establish staging parity and successful serialization,
 not downstream engine playback parity; that remains open with UI acceptance.
+
+## Skinned Blender playback round trip (2026-10-26)
+
+The parented fixture now reimports its reduced GLB and compares evaluated
+world-space vertex positions in both directions at five aligned clip frames.
+Linear bone translation passes within 1e-5, including static parent rotation,
+translation and parent-inverse offsets. Imported bone-display meshes are excluded
+by selecting the mesh with an Armature modifier. Twenty-three skinned tests pass.
+
+This test exposed a real armature-object animation mismatch: serialized object
+motion can move imported skin differently from the unparented Blender source
+mesh. Generated skinned LOD export now rejects non-bone action channels until an
+explicit playback policy exists. Source actions remain untouched. The earlier
+static-parent staging evidence alone did not prove this serialization behavior.
+
+Bezier bone interpolation also differed at intermediate samples (about 0.00564
+world units in this fixture); the passing test uses linear keys, matching the
+intended generated-clip path. Bezier parity, additional rotation/scale clips,
+Godot playback and live UI acceptance remain open; no broad playback acceptance
+is claimed.
