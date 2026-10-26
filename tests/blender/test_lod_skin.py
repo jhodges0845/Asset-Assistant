@@ -402,6 +402,10 @@ def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, t
     action['asset_assistant_generated'] = True
     action['asset_assistant_rig_id'] = 'lod-export-test'
     action['asset_assistant_clip'] = 'TestMotion'
+    from blender_adapter.animation import action_curves
+    for curve in action_curves(action, rig.animation_data.action_slot):
+        for key in curve.keyframe_points:
+            key.interpolation = 'LINEAR'
     second = action.copy()
     second['asset_assistant_clip'] = 'SecondMotion'
     try:
@@ -455,3 +459,131 @@ def test_skin_bundle_failure_does_not_publish(skinned, tmp_path, monkeypatch):
         export_skin_lod_bundle(preview.collection, bpy.context, tmp_path / 'failed')
     assert not list(tmp_path.iterdir())
     assert set(bpy.data.objects) == before
+
+
+def test_parented_skin_staging_preserves_animated_world_space(skinned, tmp_path):
+    from blender_adapter.lod_export import plan_lod_export
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter.lod_skin_export import stage_skin_lod_level
+    from mathutils import Matrix, Quaternion
+    source, rig = skinned
+    parent = bpy.data.objects.new('Static artist root', None)
+    bpy.context.scene.collection.objects.link(parent)
+    parent.location = (3, -2, .7)
+    parent.rotation_euler.z = .6
+    rig.parent = parent
+    rig.matrix_parent_inverse = Matrix.Translation((-.3, .2, 0))
+    rig['asset_assistant_rig_id'] = 'parent-lod-test'
+    for frame, offset in ((1, 0), (12, .4), (24, 0)):
+        rig.pose.bones[0].location.x = offset
+        rig.pose.bones[0].keyframe_insert('location', frame=frame)
+        rig.pose.bones[0].rotation_mode = 'QUATERNION'
+        rig.pose.bones[0].rotation_quaternion = Quaternion((0, 0, 1), offset * 2)
+        rig.pose.bones[0].keyframe_insert('rotation_quaternion', frame=frame)
+    action = rig.animation_data.action
+    action['asset_assistant_generated'] = True
+    action['asset_assistant_rig_id'] = 'parent-lod-test'
+    action['asset_assistant_clip'] = 'RootMotion'
+    from blender_adapter.animation import action_curves
+    for curve in action_curves(action, rig.animation_data.action_slot):
+        for key in curve.keyframe_points:
+            key.interpolation = 'LINEAR'
+    scene = bpy.context.scene
+    frame, subframe = scene.frame_current, scene.frame_subframe
+    try:
+        scene.frame_set(1)
+        preview = preview_skin_lods(source, scene, ratios=(.5,), max_distance=.3)
+        preview.apply()
+        level = plan_lod_export(preview.collection, scene)[1]
+        with stage_skin_lod_level(level, scene, generated_clips=True) as root:
+            copied_rig = next(obj for obj in root.children if obj.type == 'ARMATURE')
+            mesh = next(obj for obj in root.children if obj.type == 'MESH')
+            for sample in (1, 6, 12, 18, 24):
+                scene.frame_set(sample)
+                for a, b in zip(rig.matrix_world, copied_rig.matrix_world):
+                    assert tuple(a) == pytest.approx(tuple(b), abs=1e-6)
+                graph = bpy.context.evaluated_depsgraph_get()
+                expected = level.meshes[0].evaluated_get(graph)
+                actual = mesh.evaluated_get(graph)
+                for a, b in zip(expected.data.vertices, actual.data.vertices):
+                    assert (expected.matrix_world @ a.co - actual.matrix_world @ b.co).length < 1e-5
+        assert rig.parent == parent
+        assert rig.animation_data.action == action
+        # Exercise the real writer with the same nontrivial parent transform.
+        scene.frame_set(1)
+        source.data.materials.append(bpy.data.materials.new('Parent export material'))
+        # This material edit requires an explicitly rebuilt preview.
+        rebuilt = preview_skin_lods(source, scene, ratios=(.5,), max_distance=.3)
+        rebuilt.apply()
+        from blender_adapter.lod_export import export_skin_lod_bundle
+        result = export_skin_lod_bundle(rebuilt.collection, bpy.context, tmp_path / 'parented')
+        assert len(result['levels']) == 2
+        samples = tuple(1 + step * 23 / 48 for step in range(49))
+        def world_points(obj):
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            return [evaluated.matrix_world @ vertex.co for vertex in evaluated.data.vertices]
+        expected = {}
+        for sample in samples:
+            scene.frame_set(int(sample), subframe=sample - int(sample))
+            expected[sample] = world_points(rebuilt.objects[0])
+        before_objects = set(bpy.data.objects)
+        before_actions = set(bpy.data.actions)
+        bpy.ops.import_scene.gltf(filepath=str(tmp_path / 'parented' / 'LOD1.glb'))
+        imported = set(bpy.data.objects) - before_objects
+        try:
+            imported_mesh = next(obj for obj in imported if obj.type == 'MESH'
+                                 and any(mod.type == 'ARMATURE' for mod in obj.modifiers))
+            imported_rig = next(obj for obj in imported if obj.type == 'ARMATURE')
+            data = imported_rig.animation_data
+            assert data is not None
+            if data.action is None:
+                strips = [strip for track in data.nla_tracks for strip in track.strips]
+                assert len(strips) == 1
+                data.action = strips[0].action
+                if hasattr(strips[0], 'action_slot'):
+                    data.action_slot = strips[0].action_slot
+            for track in data.nla_tracks:
+                track.mute = True
+            start = data.action.frame_range[0]
+            from mathutils.kdtree import KDTree
+            for sample in samples:
+                # Export clips start at zero; align the imported action start.
+                aligned = start + sample - 1
+                scene.frame_set(int(aligned), subframe=aligned - int(aligned))
+                actual = world_points(imported_mesh)
+                # GLB may split vertices at UV/normal seams; compare both ways.
+                for left, right in ((actual, expected[sample]), (expected[sample], actual)):
+                    tree = KDTree(len(right))
+                    for index, point in enumerate(right):
+                        tree.insert(point, index)
+                    tree.balance()
+                    assert max(tree.find(point)[2] for point in left) < 1e-5, (sample, start, tuple(imported_rig.location), data.action.name)
+        finally:
+            for obj in imported:
+                bpy.data.objects.remove(obj, do_unlink=True)
+            for imported_action in set(bpy.data.actions) - before_actions:
+                bpy.data.actions.remove(imported_action)
+        curve = action_curves(action, rig.animation_data.action_slot)[0]
+        key = curve.keyframe_points[0]
+        key.interpolation = 'BEZIER'
+        with pytest.raises(ValueError, match='linear or constant'):
+            with stage_skin_lod_level(level, scene, generated_clips=True):
+                pytest.fail('Unverified Bezier animation accepted')
+        assert key.interpolation == 'BEZIER'
+        key.interpolation = 'LINEAR'
+        rig.keyframe_insert('location', frame=1)
+        with pytest.raises(ValueError, match='bone channels'):
+            with stage_skin_lod_level(level, scene, generated_clips=True):
+                pytest.fail('Object animation accepted')
+        parent.keyframe_insert('location', frame=1)
+        with pytest.raises(ValueError, match='static empty'):
+            with stage_skin_lod_level(level, scene):
+                pytest.fail('Animated parent accepted')
+    finally:
+        parent_action = parent.animation_data.action if parent.animation_data else None
+        parent.animation_data_clear()
+        if parent_action:
+            bpy.data.actions.remove(parent_action)
+        rig.animation_data_clear()
+        bpy.data.actions.remove(action)
+        scene.frame_set(frame, subframe=subframe)
