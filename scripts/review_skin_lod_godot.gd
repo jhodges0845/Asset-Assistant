@@ -33,6 +33,7 @@ func review():
             fail("Expected one player and skeleton")
             return
         var player = players[0]
+        player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
         var skeleton = skeletons[0]
         var bone = skeleton.find_bone(expected.bone)
         if bone < 0 or not player.has_animation("ProbeMotion"):
@@ -41,6 +42,7 @@ func review():
         player.play("ProbeMotion")
         player.advance(0)
         var maximum = 0.0
+        var maximum_axis = 0.0
         for sample in expected.samples:
             player.seek(sample.seconds, true)
             skeleton.force_update_all_bone_transforms()
@@ -48,13 +50,17 @@ func review():
             var actual = pose.origin
             var reference = Vector3(sample.head[0], sample.head[1], sample.head[2])
             maximum = max(maximum, actual.distance_to(reference))
-        results.append({"file": level.file, "samples": expected.samples.size(), "maximum_head_error": maximum})
+            for axis in range(3):
+                var row = sample.axes[axis]
+                var reference_axis = Vector3(row[0], row[1], row[2])
+                maximum_axis = max(maximum_axis, pose.basis[axis].distance_to(reference_axis))
+        results.append({"file": level.file, "samples": expected.samples.size(), "maximum_head_error": maximum, "maximum_axis_error": maximum_axis})
         asset.free()
-        if maximum > expected.tolerance:
+        if maximum > expected.tolerance or maximum_axis > expected.tolerance:
             fail("Bone playback mismatch: " + str(results))
             return
     var output = FileAccess.open(report_path, FileAccess.WRITE)
-    output.store_string(JSON.stringify({"levels": results, "scope": "Bone heads only; not evaluated skin or visual acceptance"}, "  "))
+    output.store_string(JSON.stringify({"levels": results, "scope": "Sampled bone heads and basis axes; not evaluated skin or visual acceptance"}, "  "))
     output.close()
     print("Skinned LOD Godot bone playback passed: ", results)
     quit(0)

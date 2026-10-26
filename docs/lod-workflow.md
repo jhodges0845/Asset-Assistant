@@ -508,3 +508,17 @@ The result covers one translated/rotated static-parent fixture and bone-head
 playback only. It does not verify bone orientation, evaluated skin, arbitrary
 providers/clips, editor import defaults, looping or visual quality. Those remain
 separate release acceptance work.
+
+## Godot orientation probe (2026-10-26)
+
+PR #325 is merged; main is integrated into the follow-up branch. The skinned
+fixture now records world-space bone basis columns converted from Blender world
+axes into Godot axes, retaining the bone-local coordinate basis. The Godot probe
+compares all three basis vectors as well as heads at 49 samples per level.
+Both LOD0 and LOD1 pass: maximum head error 2.4575624e-7 world units and basis
+vector error 6.3309113e-7, against 1e-5 tolerances.
+
+An attempted evaluated-skin bake in this headless runtime fails because Godot
+cannot register the mesh skin with a valid rendering skeleton. No skin success
+is claimed and the committed probe remains skeletal only. Use the established
+rendering-enabled skin workflow for that remaining acceptance gate.

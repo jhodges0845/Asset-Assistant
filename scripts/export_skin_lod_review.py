@@ -4,7 +4,7 @@ from pathlib import Path
 import json
 import sys
 import bpy
-from mathutils import Quaternion
+from mathutils import Quaternion, Matrix
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from blender_adapter.animation import action_curves
 from blender_adapter.lod_skin_preview import preview_skin_lods
@@ -53,9 +53,12 @@ def main():
         scene.frame_set(int(frame), subframe=frame - int(frame))
         point = rig.matrix_world @ bone.head
         tip = rig.matrix_world @ bone.tail
+        conversion = Matrix(((1, 0, 0), (0, 0, 1), (0, -1, 0)))
+        basis = conversion @ (rig.matrix_world @ bone.matrix).to_3x3()
         samples.append({'seconds': (frame - 1) / fps,
                         'head': [point.x, point.z, -point.y],
-                        'tail': [tip.x, tip.z, -tip.y]})
+                        'tail': [tip.x, tip.z, -tip.y],
+                        'axes': [list(basis.col[index]) for index in range(3)]})
     (destination / 'expected.json').write_text(json.dumps({
         'bone': bone.name, 'bone_length': bone.length,
         'samples': samples, 'tolerance': 1e-5}))
