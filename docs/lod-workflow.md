@@ -323,3 +323,49 @@ geometry. It reports maximum/RMS distance in world-space Blender units; samples
 are not continuous surface or motion bounds. Forty-nine focused Blender tests
 pass after integrating main, including operator inspection with source/pose/frame
 preservation. PR #321 passed all six checks and is merged.
+
+## Explicit export scopes (2026-10-25)
+
+`lod_export.plan_lod_export` reads applied single-mesh, grouped static and skinned
+records into separate LOD0/source and reduced-level scopes. Each scope lists its
+meshes, required armatures and current triangle count. Reduced scopes exclude
+source meshes; multi-mesh groups combine matching level indices. No objects are
+reparented and no files are written by this planning stage.
+
+The planner requires current scene membership, intact saved references, applied
+state, unchanged source/level signatures, supported geometry/skin bindings and
+valid ordering/budgets. Artist edits are preserved but conservatively block this
+path until the set is rebuilt/reviewed; no silent regeneration is performed.
+Fifty-two focused Blender tests pass, covering group source exclusion, skinned rig
+inclusion and edited-applied-data rejection. Destination serialization, engine LOD
+thresholds/selection and artist-facing export controls remain open.
+
+## Static GLB exchange bundles (2026-10-25)
+
+`export_static_lod_bundle` writes LOD0 and each reduced scope as separate GLBs plus
+`lod-manifest.json`. Temporary independent meshes use the existing Godot/static
+adapter validation and export path; no hierarchy/metadata from the source is
+reused to broaden the scope. Selection and active object are restored and staging
+objects/meshes are removed. All files are staged before publishing into a new
+directory; existing destinations are rejected. Failed writes remove only files
+created by the operation. Skinned scopes are explicitly blocked for now.
+
+Thirty-six static/group tests pass. Serialized GLB mesh and index-accessor counts
+match each planned level, proving reduced files exclude the full-resolution source.
+Injected export failure leaves no scene staging or destination directory. This is
+an exchange bundle, not engine LOD configuration: the manifest explicitly records
+`engine_lod_configured: false`. UI, destination import/selection, and skinned
+animation export remain open.
+
+## Bundle export controls and Blender reimport (2026-10-25)
+
+Applied static previews/groups expose Export Static LOD Bundle. Choose an existing
+parent directory and a new bundle folder name; existing destinations and path
+traversal are rejected. Group members are listed through their group export entry.
+The operator uses the same validated bundle backend and keeps skinned export blocked.
+
+Thirty-nine static/group tests pass. Actual GLB reimport of all three levels
+preserves mesh counts, triangle counts and translated world bounds within 1e-5
+Blender units. The existing unapplied-scale export guard remains enforced and
+leaves source transforms unchanged. These checks do not establish engine LOD
+selection or live file-dialog acceptance; both remain open.

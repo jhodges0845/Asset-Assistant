@@ -318,3 +318,15 @@ def test_posed_skin_inspection_preserves_frame_pose_and_geometry(skinned, skin_o
     assert bpy.context.scene.frame_current == frame
     assert rig.pose.bones[0].rotation_euler.x == pytest.approx(.6)
     preview.cancel()
+
+
+def test_skin_export_plan_keeps_rig_without_source_in_reduced_level(skinned):
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter.lod_export import plan_lod_export
+    source, rig = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, max_distance=.3)
+    preview.apply()
+    levels = plan_lod_export(preview.collection, bpy.context.scene)
+    assert levels[0].meshes == (source,)
+    assert all(level.armatures == (rig,) for level in levels)
+    assert all(source not in level.meshes for level in levels[1:])
