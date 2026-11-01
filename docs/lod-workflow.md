@@ -522,3 +522,23 @@ An attempted evaluated-skin bake in this headless runtime fails because Godot
 cannot register the mesh skin with a valid rendering skeleton. No skin success
 is claimed and the committed probe remains skeletal only. Use the established
 rendering-enabled skin workflow for that remaining acceptance gate.
+
+## Rendering-enabled Godot skin probe (2026-11-01)
+
+PR #326 passed all six checks and is merged. The fixture exporter now records
+world-space evaluated vertices for each level and all 49 sample times. Run the
+Godot probe with `-- --skin`, omit `--headless`, and use
+`--rendering-method gl_compatibility` for the tested rendering path. A hidden,
+off-screen process was used locally. Skin mode explicitly rejects headless mode.
+
+The probe waits for render synchronization, bakes the current skeleton pose and
+compares vertex clouds in both directions, tolerating seam duplicates. Blender
+5.2.1 / Godot 4.7.2 with ANGLE pass both levels: maximum skin distances are
+1.80494828e-6 (LOD0) and 1.69008342e-6 (LOD1), below 1e-5 world units.
+Head and axis checks also pass. The local surface report is
+artifacts/lod-skin-render-review/godot-skin-lod-surface-report.json.
+
+This closes the previously blocked small-fixture rendered-skin probe, not the
+broader release gate: additional providers/clips, fixed vertex correspondence,
+between-sample behavior, visual review, UI acceptance and LOD switching remain
+open. Vertex-cloud distance alone is not proof of topology or vertex identity.

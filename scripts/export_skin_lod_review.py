@@ -55,7 +55,12 @@ def main():
         tip = rig.matrix_world @ bone.tail
         conversion = Matrix(((1, 0, 0), (0, 0, 1), (0, -1, 0)))
         basis = conversion @ (rig.matrix_world @ bone.matrix).to_3x3()
-        samples.append({'seconds': (frame - 1) / fps,
+        positions = {}
+        for index, obj in enumerate((source,) + tuple(preview.objects)):
+            evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            points = [evaluated.matrix_world @ v.co for v in evaluated.data.vertices]
+            positions[str(index)] = [[p.x, p.z, -p.y] for p in points]
+        samples.append({'positions': positions, 'seconds': (frame - 1) / fps,
                         'head': [point.x, point.z, -point.y],
                         'tail': [tip.x, tip.z, -tip.y],
                         'axes': [list(basis.col[index]) for index in range(3)]})
