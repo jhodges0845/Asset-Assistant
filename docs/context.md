@@ -2,13 +2,13 @@
 
 Use this file to find the right source-of-truth document without loading the entire `docs/` tree.
 
-Last structural rescan: 2026-09-15
+Last full structural rescan: 2026-09-15 (historical; not rerun by the 2026-11-01 documentation reconciliation)
 
 Read `human-workflow.md` for the user workflow and code ownership map.
 
-## LOD implementation (2026-10-24)
+## LOD implementation (updated checkpoint 2026-11-01)
 
-Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export and a Godot direct-import probe implemented. Live UI/undo, skinned quality/export acceptance and engine LOD switching remain open. See [lod-workflow.md](lod-workflow.md).
+Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export and a Godot direct-import probe implemented. Internal generated-clip skinned GLB bundle export and synthetic Godot rendered-skin diagnostics are now implemented. Blended two-bone weight precision remains outside the unchanged acceptance tolerance; live UI/undo, broad skinned quality/export acceptance and engine LOD switching remain open. See [lod-workflow.md](lod-workflow.md).
 
 ## Current workflow and UI audit (2026-10-23)
 
@@ -20,8 +20,8 @@ Plan: [shared-anatomy-alpha-plan.md](shared-anatomy-alpha-plan.md). Shared anato
 
 ## Shared anatomy implementation
 
-- `anatomy-recipe-contract.md` — recipe seam and staged proof requirements.
-- `shared-anatomy-implementation.md` — current shared-anatomy behavior and contact-driven gait integration, Blender upgrade steps, checkpoint commits, validation/review commands and remaining work.
+- `anatomy-recipe-contract.md` â€” recipe seam and staged proof requirements.
+- `shared-anatomy-implementation.md` â€” current shared-anatomy behavior and contact-driven gait integration, Blender upgrade steps, checkpoint commits, validation/review commands and remaining work.
 
 ## Current Human V2 integration (2026-09-20)
 
@@ -32,20 +32,20 @@ See `human-workflow.md` for the workflow and code ownership map.
 
 ## Architecture and maintainability
 
-- `architecture.md` — current architecture overview.
-- `architecture-maintainability-review-2026-09-13.md` — stabilization review, risks, and architecture-freeze rationale.
-- `component-architecture.md` — component model and ownership boundaries.
-- `animation-architecture.md` — animation architecture.
+- `architecture.md` â€” current architecture overview.
+- `architecture-maintainability-review-2026-09-13.md` â€” stabilization review, risks, and architecture-freeze rationale.
+- `component-architecture.md` â€” component model and ownership boundaries.
+- `animation-architecture.md` â€” animation architecture.
 
 Architecture remains frozen during Human V2 unless implementation exposes a concrete boundary problem.
 
 ## Current Human quality milestone
 
-- `human-review-notes.md` � current user feedback: glute fullness, flat/long feet, and reported neck-to-glute deformation coupling.
+- `human-review-notes.md` — current user feedback: glute fullness, flat/long feet, and reported neck-to-glute deformation coupling.
 
-- `human-v2-topology-plan.md` — Human V2 quality gates, semantic-control requirements and historical construction sequencing.
-- `deformation-quality.md` — deformation quality expectations; deeper rig/weight work follows topology evidence.
-- `human-1.0-closeout-audit.md` — prior Human milestone closeout; historical context, not current target state.
+- `human-v2-topology-plan.md` â€” Human V2 quality gates, semantic-control requirements and historical construction sequencing.
+- `deformation-quality.md` â€” deformation quality expectations; deeper rig/weight work follows topology evidence.
+- `human-1.0-closeout-audit.md` â€” prior Human milestone closeout; historical context, not current target state.
 
 Current Human uses the mathematical surface and surface-aligned rig.
 `visual-testing-integration.md` is the current implementation checkpoint; the
@@ -54,31 +54,31 @@ standalone pelvis and coarse-mesh refinement notes record earlier experiments.
 ## Model/LLM round-trip and Modify
 
 - `cross-provider-acceptance.md` - Human/Canine/Avian operator, parameter, component-preservation and fresh-process persistence proofs; artistic acceptance remains open.
-- `model-json-roundtrip.md` — model inspection and safe modification round trip.
-- `semantic-modify.md` — semantic modification behavior.
-- `artist-control-contract.md` — artist-control/ownership expectations.
-- `editable-asset-workflow.md` — editable asset workflow.
+- `model-json-roundtrip.md` â€” model inspection and safe modification round trip.
+- `semantic-modify.md` â€” semantic modification behavior.
+- `artist-control-contract.md` â€” artist-control/ownership expectations.
+- `editable-asset-workflow.md` â€” editable asset workflow.
 
 Human V2 must preserve these workflows. Base topology supplies credible neutral anatomy; semantic Modify and JSON round trips supply character identity. Do not interpret anatomy-oriented construction as permission to bypass or reduce Modify.
 
 ## Product and release state
 
-- `roadmap.md` — roadmap and sequencing.
-- `production-readiness-checklist.md` — production readiness criteria.
-- `pre-release-scope-checkpoint.md` — pre-release scope checkpoint.
-- `publish-readiness-audit.md` — publish-readiness audit.
+- `roadmap.md` â€” roadmap and sequencing.
+- `production-readiness-checklist.md` â€” production readiness criteria.
+- `pre-release-scope-checkpoint.md` â€” pre-release scope checkpoint.
+- `publish-readiness-audit.md` â€” publish-readiness audit.
 
 ## Export/engine behavior
 
-- `targets.md` — destination behavior.
-- `target-verification.md` — target verification evidence.
-- `production-character-roundtrip.md` — production character round-trip expectations.
+- `targets.md` â€” destination behavior.
+- `target-verification.md` â€” target verification evidence.
+- `production-character-roundtrip.md` â€” production character round-trip expectations.
 
 ## UI/UX
 
-- `ui-ux.md` — UI/UX direction.
-- `post-modify-ui-audit.md` — UI audit after modification workflow.
-- `ui-overhaul.md` and `ui-ux-create-components.md` — narrower historical UI work.
+- `ui-ux.md` â€” UI/UX direction.
+- `post-modify-ui-audit.md` â€” UI audit after modification workflow.
+- `ui-overhaul.md` and `ui-ux-create-components.md` â€” narrower historical UI work.
 
 Final UI/UX polish remains behind the current Human quality gate unless a concrete workflow blocker requires otherwise.
 
