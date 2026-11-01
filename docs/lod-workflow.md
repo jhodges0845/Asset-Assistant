@@ -588,3 +588,22 @@ units, still failing. Weight-sum deficit contributes but is not sufficient to
 explain or repair the discrepancy. Further work must separate per-influence
 quantization, bind transforms and the evaluated-mesh baking implementation.
 No destination normalization or production exporter change is enabled.
+
+## Corrected displacement-normalization diagnostic (2026-11-01)
+
+`--identity-parent` removes the fixture parent translation/rotation to isolate
+that contribution. The previous whole-position normalization still failed at
+1.525878906e-5 in this configuration; the parent transform was not the sole cause.
+
+Inspection of upstream Godot 4.5 mesh_instance_3d.cpp shows its bake algorithm
+accumulating weighted displacement from each original vertex (lines 733-754):
+https://github.com/godotengine/godot/blob/4.5/scene/3d/mesh_instance_3d.cpp#L733
+This historical source is explanatory, not proof of the installed 4.7.2 build.
+The diagnostic was corrected to use rest + (baked - rest) / weight_sum. The prior
+whole-position experiment must not be interpreted as a valid normalization fix.
+
+With corrected displacement normalization, the transformed-parent two-bone LOD0
+passes initial correspondence and evaluates all 49 samples, but maximum skin
+error is 1.841889571e-5, still above 1e-5. This narrows the remaining investigation
+to per-influence precision and baking behavior; it does not certify acceptance.
+No source weights, normal export behavior or tolerance were changed.

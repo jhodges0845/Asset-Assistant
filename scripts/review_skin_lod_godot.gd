@@ -59,6 +59,7 @@ func review():
         var maximum_axis = 0.0
         var maximum_skin = 0.0
         var weight_sums = []
+        var rest_vertices = []
         var correspondence = []
         var reference_count = 0
         var bodies = asset.find_children("*", "MeshInstance3D", true, false)
@@ -70,6 +71,7 @@ func review():
             var maximum_weight_sum = -INF
             for surface in range(bodies[0].mesh.get_surface_count()):
                 var arrays = bodies[0].mesh.surface_get_arrays(surface)
+                rest_vertices.append_array(arrays[Mesh.ARRAY_VERTEX])
                 var weights = arrays[Mesh.ARRAY_WEIGHTS]
                 var vertex_count = arrays[Mesh.ARRAY_VERTEX].size()
                 var stride = weights.size() / vertex_count
@@ -106,7 +108,8 @@ func review():
                     for vertex in baked.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]:
                         if normalize_diagnostic:
                             # Diagnostic only: not an import fix or acceptance mode.
-                            vertex /= weight_sums[vertex_index]
+                            var rest = rest_vertices[vertex_index]
+                            vertex = rest + (vertex - rest) / weight_sums[vertex_index]
                         actual_points.append(body.global_transform * vertex)
                         vertex_index += 1
                 var reference_points = []

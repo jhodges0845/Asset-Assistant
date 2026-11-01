@@ -29,6 +29,9 @@ def main():
     bpy.context.scene.collection.objects.link(parent)
     parent.location = (2, -1, .5)
     parent.rotation_euler.z = .4
+    if '--identity-parent' in sys.argv[sys.argv.index('--') + 2:]:
+        parent.location = (0, 0, 0)
+        parent.rotation_euler.z = 0
     rig.parent = parent
     rig['asset_assistant_rig_id'] = 'lod-godot-fixture'
     bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=8)
