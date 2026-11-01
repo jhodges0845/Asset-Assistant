@@ -436,3 +436,89 @@ preserved. Static export regression tests continue to pass.
 This remains an internal API: parented rigs, engine playback parity, live UI and
 artist-facing skinned export are not yet accepted. The manifest still reports
 `engine_lod_configured: false`; separate files do not configure LOD switching.
+
+## Static-parent skinned export support (2026-10-26)
+
+A single rig may now have a chain of static Empty object parents. Export staging
+places the effective parent transform (including the rig parent-inverse matrix)
+on the temporary root and keeps the rig's local animation space unchanged.
+Animated/constrained parents, non-Empty parents, bone parenting and multiple
+parented rigs remain blocked. Source parent links are not changed.
+
+Twenty-three focused skinned tests pass. A translated/rotated parent with a
+nonidentity parent inverse preserves rig world matrices and evaluated mesh
+vertices at five root-motion frames (1e-6 / 1e-5 tolerances). Both source/reduced
+GLBs also export through the production bundle writer. An animated parent is
+rejected. These checks establish staging parity and successful serialization,
+not downstream engine playback parity; that remains open with UI acceptance.
+
+## Skinned Blender playback round trip (2026-10-26)
+
+The parented fixture now reimports its reduced GLB and compares evaluated
+world-space vertex positions in both directions at five aligned clip frames.
+Linear bone translation passes within 1e-5, including static parent rotation,
+translation and parent-inverse offsets. Imported bone-display meshes are excluded
+by selecting the mesh with an Armature modifier. Twenty-three skinned tests pass.
+
+This test exposed a real armature-object animation mismatch: serialized object
+motion can move imported skin differently from the unparented Blender source
+mesh. Generated skinned LOD export now rejects non-bone action channels until an
+explicit playback policy exists. Source actions remain untouched. The earlier
+static-parent staging evidence alone did not prove this serialization behavior.
+
+Bezier bone interpolation also differed at intermediate samples (about 0.00564
+world units in this fixture); the passing test uses linear keys, matching the
+intended generated-clip path. Bezier parity, additional rotation/scale clips,
+Godot playback and live UI acceptance remain open; no broad playback acceptance
+is claimed.
+
+## Dense rotation round trip and interpolation admission (2026-10-26)
+
+Skinned LOD clip admission now requires LINEAR or CONSTANT keys and rejects
+non-CYCLES curve modifiers. Bezier keys are explicitly blocked following the
+observed intermediate playback difference; the source interpolation remains
+unchanged. This restriction applies to this internal LOD path, not the general
+animation exporter. Non-bone channels remain blocked.
+
+The parented reduced-level GLB round trip now combines linear bone translation
+with quaternion rotation and checks 49 fractional-frame samples. Bidirectional
+nearest-vertex distances remain below 1e-5 world units after reimport, allowing
+GLB seam splits without assuming identical vertex indexing. The shared exporter
+continues to provide quaternion densification; no alternative serializer was
+introduced. All 62 combined static/skinned tests pass.
+
+This fixture does not establish arbitrary-clip, scale-animation, Godot playback,
+visual or UI acceptance. Bezier support requires a verified interpolation policy
+before it can be enabled.
+
+## Godot skinned bone-head probe (2026-10-26)
+
+Run Blender background with `--python scripts/export_skin_lod_review.py -- NEW_DIR`
+to create a two-level animated fixture, world-space oracle and minimal project.
+Run Godot headless with `--path NEW_DIR --script` and the absolute path to
+`scripts/review_skin_lod_godot.gd`. The probe uses direct GLTFDocument ingestion
+with an explicit 800 Hz animation bake and retained reset tracks.
+
+Blender 5.2.1 / Godot 4.7.2 pass 49 sample times on each of LOD0 and LOD1.
+Maximum bone-head error is 2.4575624e-7 world units against a 1e-5 tolerance.
+A deliberately displaced oracle head fails with exit code 1; restoring the oracle
+passes. Old success reports are removed before each run.
+
+The result covers one translated/rotated static-parent fixture and bone-head
+playback only. It does not verify bone orientation, evaluated skin, arbitrary
+providers/clips, editor import defaults, looping or visual quality. Those remain
+separate release acceptance work.
+
+## Godot orientation probe (2026-10-26)
+
+PR #325 is merged; main is integrated into the follow-up branch. The skinned
+fixture now records world-space bone basis columns converted from Blender world
+axes into Godot axes, retaining the bone-local coordinate basis. The Godot probe
+compares all three basis vectors as well as heads at 49 samples per level.
+Both LOD0 and LOD1 pass: maximum head error 2.4575624e-7 world units and basis
+vector error 6.3309113e-7, against 1e-5 tolerances.
+
+An attempted evaluated-skin bake in this headless runtime fails because Godot
+cannot register the mesh skin with a valid rendering skeleton. No skin success
+is claimed and the committed probe remains skeletal only. Use the established
+rendering-enabled skin workflow for that remaining acceptance gate.
