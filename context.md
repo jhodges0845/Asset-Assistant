@@ -2,13 +2,13 @@
 
 Purpose: fast project navigation for LLM/agent work. This file is an index, not the source of truth.
 
-Last structural rescan: 2026-09-15
+Last full structural rescan: 2026-09-15 (historical; not rerun by the 2026-11-01 documentation reconciliation)
 
 Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
-## LOD implementation (2026-10-24)
+## LOD implementation (updated checkpoint 2026-11-01)
 
-Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export and a Godot direct-import probe implemented. Live UI/undo, skinned quality/export acceptance and engine LOD switching remain open. See [docs/lod-workflow.md](docs/lod-workflow.md).
+Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export and a Godot direct-import probe implemented. Internal generated-clip skinned GLB bundle export and synthetic Godot rendered-skin diagnostics are now implemented. Blended two-bone weight precision remains outside the unchanged acceptance tolerance; live UI/undo, broad skinned quality/export acceptance and engine LOD switching remain open. See [docs/lod-workflow.md](docs/lod-workflow.md).
 
 ## Current workflow and UI audit (2026-10-23)
 
@@ -73,12 +73,12 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
 
 ## Project map
 
-- `object_core/` — host-independent asset model, providers, geometry, rigging, animation, modification contracts, validation.
-- `blender_adapter/` — Blender-specific UI, lifecycle, persistence, import/export, components, rigging/material application, presentation composition.
-- `tests/core/` — portable behavior, architecture boundaries, provider/geometry/rigging/animation contracts.
-- `tests/blender/` — Blender integration and packaged add-on behavior.
-- `docs/` — architecture, workflow, roadmap, quality checkpoints, and design decisions.
-- `scripts/` — development/review/build helpers, including Human and standalone-pelvis visual review rendering.
+- `object_core/` â host-independent asset model, providers, geometry, rigging, animation, modification contracts, validation.
+- `blender_adapter/` â Blender-specific UI, lifecycle, persistence, import/export, components, rigging/material application, presentation composition.
+- `tests/core/` â portable behavior, architecture boundaries, provider/geometry/rigging/animation contracts.
+- `tests/blender/` â Blender integration and packaged add-on behavior.
+- `docs/` â architecture, workflow, roadmap, quality checkpoints, and design decisions.
+- `scripts/` â development/review/build helpers, including Human and standalone-pelvis visual review rendering.
 
 ## Current architecture mental model
 
@@ -103,11 +103,11 @@ surface, surface-aligned skeleton, cached skin weights and semantic controls.
 The mathematical surface builder is internal; Human is the only Human UI option.
 
 Read next:
-- `docs/human-review-notes.md` � user feedback on glute fullness, foot shape and neck/glute deformation.
+- `docs/human-review-notes.md`  user feedback on glute fullness, foot shape and neck/glute deformation.
 - `object_core/context.md`
-- `docs/visual-testing-integration.md` — current behavior, defects repaired, CI timing and limits.
-- `scripts/inspect_human_deformation.py` — projected, independently verified pose cards.
-- `docs/human-v2-topology-plan.md` — quality gates and earlier pelvis-first experiments.
+- `docs/visual-testing-integration.md` â current behavior, defects repaired, CI timing and limits.
+- `scripts/inspect_human_deformation.py` â projected, independently verified pose cards.
+- `docs/human-v2-topology-plan.md` â quality gates and earlier pelvis-first experiments.
 
 Do not repeat the Maxine round trip until neutral anatomy/deformation quality advances.
 
@@ -144,9 +144,9 @@ Do not recursively read every linked file unless the task requires it.
 
 ## Index commands
 
-- `CONTEXT RESCAN` — scan current repo state and synchronize context indexes.
-- `CONTEXT STATUS` — check index freshness/drift without automatically rewriting.
-- `CONTEXT BYPASS` — ignore `context.md` summaries for the current task and inspect primary sources directly.
+- `CONTEXT RESCAN` â scan current repo state and synchronize context indexes.
+- `CONTEXT STATUS` â check index freshness/drift without automatically rewriting.
+- `CONTEXT BYPASS` â ignore `context.md` summaries for the current task and inspect primary sources directly.
 
 See `AGENTS.md` for command semantics and scanner responsibilities.
 
