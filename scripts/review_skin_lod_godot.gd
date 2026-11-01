@@ -10,7 +10,13 @@ func fail(message):
     quit(1)
 
 func review():
+    var skin_review = "--skin" in OS.get_cmdline_user_args()
+    if skin_review and DisplayServer.get_name() == "headless":
+        fail("Skin review requires a rendering-enabled display; omit --headless")
+        return
     var report_path = "res://godot-skin-lod-report.json"
+    if skin_review:
+        report_path = "res://godot-skin-lod-surface-report.json"
     if FileAccess.file_exists(report_path):
         DirAccess.remove_absolute(report_path)
     var expected = JSON.parse_string(FileAccess.get_file_as_string("res://expected.json"))
@@ -43,6 +49,11 @@ func review():
         player.advance(0)
         var maximum = 0.0
         var maximum_axis = 0.0
+        var maximum_skin = 0.0
+        var bodies = asset.find_children("*", "MeshInstance3D", true, false)
+        if skin_review and bodies.size() != 1:
+            fail("Expected one skinned mesh")
+            return
         for sample in expected.samples:
             player.seek(sample.seconds, true)
             skeleton.force_update_all_bone_transforms()
@@ -54,13 +65,37 @@ func review():
                 var row = sample.axes[axis]
                 var reference_axis = Vector3(row[0], row[1], row[2])
                 maximum_axis = max(maximum_axis, pose.basis[axis].distance_to(reference_axis))
-        results.append({"file": level.file, "samples": expected.samples.size(), "maximum_head_error": maximum, "maximum_axis_error": maximum_axis})
+            if skin_review:
+                await process_frame
+                await RenderingServer.frame_post_draw
+                var body = bodies[0]
+                var baked = body.bake_mesh_from_current_skeleton_pose()
+                if baked == null:
+                    fail("Could not bake evaluated skin")
+                    return
+                var actual_points = []
+                for surface in range(baked.get_surface_count()):
+                    for vertex in baked.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]:
+                        actual_points.append(body.global_transform * vertex)
+                var reference_points = []
+                for row in sample.positions[str(int(level.index))]:
+                    reference_points.append(Vector3(row[0], row[1], row[2]))
+                if actual_points.is_empty() or reference_points.is_empty():
+                    fail("Missing skin points")
+                    return
+                for pair in [[actual_points, reference_points], [reference_points, actual_points]]:
+                    for point in pair[0]:
+                        var nearest = INF
+                        for other in pair[1]:
+                            nearest = min(nearest, point.distance_to(other))
+                        maximum_skin = max(maximum_skin, nearest)
+        results.append({"file": level.file, "samples": expected.samples.size(), "maximum_head_error": maximum, "maximum_axis_error": maximum_axis, "maximum_skin_error": maximum_skin if skin_review else null})
         asset.free()
-        if maximum > expected.tolerance or maximum_axis > expected.tolerance:
+        if maximum > expected.tolerance or maximum_axis > expected.tolerance or maximum_skin > expected.tolerance:
             fail("Bone playback mismatch: " + str(results))
             return
     var output = FileAccess.open(report_path, FileAccess.WRITE)
-    output.store_string(JSON.stringify({"levels": results, "scope": "Sampled bone heads and basis axes; not evaluated skin or visual acceptance"}, "  "))
+    output.store_string(JSON.stringify({"levels": results, "skin_review": skin_review, "scope": "Sampled heads/axes and optional baked vertex clouds; not visual acceptance"}, "  "))
     output.close()
     print("Skinned LOD Godot bone playback passed: ", results)
     quit(0)
