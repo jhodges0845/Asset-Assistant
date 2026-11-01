@@ -542,3 +542,121 @@ This closes the previously blocked small-fixture rendered-skin probe, not the
 broader release gate: additional providers/clips, fixed vertex correspondence,
 between-sample behavior, visual review, UI acceptance and LOD switching remain
 open. Vertex-cloud distance alone is not proof of topology or vertex identity.
+
+## Fixed skin correspondence (2026-11-01)
+
+The rendering-enabled probe establishes imported-to-source vertex correspondence
+at the initial sample and reuses it throughout playback. Initial matches must be
+within tolerance and cover every source vertex; changing vertex counts fails.
+GLB seam duplicates may map to the same source vertex. Ambiguous/coincident source
+vertices are conservatively rejected if full coverage cannot be established.
+
+All 114 LOD0 and 58 LOD1 source vertices are covered across 49 samples. Maximum
+fixed-correspondence errors remain 1.80494828e-6 / 1.69008342e-6 world units.
+Swapping two reference vertex identities at sample 20 preserves the point cloud
+but correctly reports a 1.41421-unit skin mismatch. Restoring the oracle passes.
+This strengthens the previous nearest-cloud check without changing the tolerance.
+The fixture still does not establish broad provider/clip or artistic acceptance.
+
+## Two-bone blended-weight diagnostic (2026-11-01)
+
+The fixture exporter accepts `--two-bones` after the output directory. It creates
+a connected child bone with independent quaternion motion and two normalized
+weights per vertex (root/child blend varying across the mesh). The existing
+single-bone fixture remains the default. The Godot probe logs imported weight-sum
+ranges and reports the file and measured initial correspondence failure.
+
+The two-bone fixture is NOT accepted at the unchanged 1e-5 tolerance: LOD0 initial
+correspondence error is 3.50925111e-5 world units. Godot mesh weight sums are
+0.9999847114..0.9999847412, whereas serialized GLB float weights sum to approximately
+1.0. This suggests destination weight quantization contributes to the error; it
+is a diagnostic finding, not a completed root-cause fix. Source weights and
+acceptance tolerances were not changed. Follow-up must establish destination
+weight precision/normalization behavior before broad skinned export acceptance.
+
+## Weight-sum isolation experiment (2026-11-01)
+
+The probe accepts `--skin --normalize-baked-diagnostic` solely to isolate the
+impact of imported weight sums. It divides each baked local vertex by its
+imported weight sum before comparison, leaving mesh resources, GLBs, source
+weights and the 1e-5 acceptance tolerance unchanged. Output is explicitly marked
+diagnostic and uses a separate report filename; it must not be cited as export
+acceptance or an import repair.
+
+The two-bone initial mismatch falls from 3.50925111e-5 to 1.537857679e-5 world
+units, still failing. Weight-sum deficit contributes but is not sufficient to
+explain or repair the discrepancy. Further work must separate per-influence
+quantization, bind transforms and the evaluated-mesh baking implementation.
+No destination normalization or production exporter change is enabled.
+
+## Corrected displacement-normalization diagnostic (2026-11-01)
+
+`--identity-parent` removes the fixture parent translation/rotation to isolate
+that contribution. The previous whole-position normalization still failed at
+1.525878906e-5 in this configuration; the parent transform was not the sole cause.
+
+Inspection of upstream Godot 4.5 mesh_instance_3d.cpp shows its bake algorithm
+accumulating weighted displacement from each original vertex (lines 733-754):
+https://github.com/godotengine/godot/blob/4.5/scene/3d/mesh_instance_3d.cpp#L733
+This historical source is explanatory, not proof of the installed 4.7.2 build.
+The diagnostic was corrected to use rest + (baked - rest) / weight_sum. The prior
+whole-position experiment must not be interpreted as a valid normalization fix.
+
+With corrected displacement normalization, the transformed-parent two-bone LOD0
+passes initial correspondence and evaluates all 49 samples, but maximum skin
+error is 1.841889571e-5, still above 1e-5. This narrows the remaining investigation
+to per-influence precision and baking behavior; it does not certify acceptance.
+No source weights, normal export behavior or tolerance were changed.
+
+## Destination packing isolated (2026-11-01)
+
+Run Godot headless against a generated bundle with the absolute script path to
+`scripts/review_lod_weight_packing.gd`. It compares GLTFDocument ImporterMesh
+weights with the resulting packed ArrayMesh and first requires identical vertex
+and bone-index ordering. No meshes, weights or tolerances are modified.
+
+Godot 4.7.2 two-bone results:
+
+| Level | Imported vertices (including seam splits) | Maximum weight change | Error versus floor(w*65535)/65535 |
+| --- | ---: | ---: | ---: |
+| LOD0 | 480 | 1.356005669e-5 | 2.924252e-8 |
+| LOD1 | 336 | 1.519918442e-5 | 2.964452e-8 |
+
+ImporterMesh weight sums differ from 1 by at most 2.980232e-8; ArrayMesh minimum
+sum is 0.9999847114. The single-bone control has zero weight change and unit sums.
+This directly locates the precision loss at destination mesh packing and matches
+16-bit downward quantization within float precision. It does not prove every
+remaining playback error has that cause or define a production workaround.
+The two-bone acceptance failure remains open at the unchanged 1e-5 tolerance.
+
+## Sum-preserving destination packing experiment (2026-11-01)
+
+`--skin --balanced-pack-diagnostic` constructs an in-memory ArrayMesh from the
+original ImporterMesh floats, distributing 65,535 integer weight units by largest
+remainder per vertex. It preserves the packed sum and uses a small interior-bin
+float offset to survive downward packing. Source GLBs and Blender weights are
+unchanged. This fixture-only replacement does not preserve the full production
+material/blendshape contract and is not an import feature or acceptance mode.
+It is mutually exclusive with normalized-bake diagnostics and writes a separate
+report if it passes.
+
+LOD0 packed sums improve to 0.9999999702..1.0, but maximum 49-sample fixed-vertex
+error remains 1.50501437e-5 versus the unchanged 1e-5 tolerance. A unit weight sum
+alone is therefore insufficient for this fixture. Per-influence rounding remains
+a constraint; a production solution needs an explicit destination error budget
+or a verified packing strategy. Two-bone acceptance remains open. Do not apply
+this diagnostic replacement to artist assets.
+
+## Complete per-level failure reports (2026-11-01)
+
+PR #327 passed all six checks and is merged. The probe now writes explicit overall
+and per-level pass flags, failure reasons and completed sample counts. Initial
+correspondence tolerance failures stop that level without treating an uncertain
+mapping as valid; remaining levels still run. Structural errors still abort.
+Both success and measured-failure reports are written, with exit status reflecting
+the overall result.
+
+The balanced-packing diagnostic evaluates all 49 samples for both levels and
+fails unchanged tolerance: LOD0 1.50501437e-5; LOD1 1.48916215e-5. Headless skeletal
+control passes both levels. These reports preserve the distinction between a
+completed diagnostic and accepted skin playback. No release gate was relaxed.
