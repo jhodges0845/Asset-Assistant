@@ -607,3 +607,24 @@ passes initial correspondence and evaluates all 49 samples, but maximum skin
 error is 1.841889571e-5, still above 1e-5. This narrows the remaining investigation
 to per-influence precision and baking behavior; it does not certify acceptance.
 No source weights, normal export behavior or tolerance were changed.
+
+## Destination packing isolated (2026-11-01)
+
+Run Godot headless against a generated bundle with the absolute script path to
+`scripts/review_lod_weight_packing.gd`. It compares GLTFDocument ImporterMesh
+weights with the resulting packed ArrayMesh and first requires identical vertex
+and bone-index ordering. No meshes, weights or tolerances are modified.
+
+Godot 4.7.2 two-bone results:
+
+| Level | Imported vertices (including seam splits) | Maximum weight change | Error versus floor(w*65535)/65535 |
+| --- | ---: | ---: | ---: |
+| LOD0 | 480 | 1.356005669e-5 | 2.924252e-8 |
+| LOD1 | 336 | 1.519918442e-5 | 2.964452e-8 |
+
+ImporterMesh weight sums differ from 1 by at most 2.980232e-8; ArrayMesh minimum
+sum is 0.9999847114. The single-bone control has zero weight change and unit sums.
+This directly locates the precision loss at destination mesh packing and matches
+16-bit downward quantization within float precision. It does not prove every
+remaining playback error has that cause or define a production workaround.
+The two-bone acceptance failure remains open at the unchanged 1e-5 tolerance.
