@@ -660,3 +660,23 @@ The balanced-packing diagnostic evaluates all 49 samples for both levels and
 fails unchanged tolerance: LOD0 1.50501437e-5; LOD1 1.48916215e-5. Headless skeletal
 control passes both levels. These reports preserve the distinction between a
 completed diagnostic and accepted skin playback. No release gate was relaxed.
+
+## Packing-only error bound (2026-11-01)
+
+The weight-packing probe now records the maximum per-vertex sum of absolute
+weight changes. For identical linear-blend transforms, the packing contribution
+is bounded by `sum(abs(delta_weight)) * D`, where D is the maximum magnitude of
+a bone-induced vertex displacement in the same coordinate space. This follows
+from the triangle inequality applied to weighted displacements. It excludes
+transform, interpolation and arithmetic errors and does not redefine acceptance.
+
+Both two-bone levels have maximum L1 weight change 1.528859138e-5. Thus a uniform
+D <= 0.654082495 world units would bound this contribution alone by 1e-5; no claim
+is made that the actual fixture satisfies that displacement condition. Larger D
+makes this conservative bound insufficient, not proof of failure. The single-bone
+control has zero coefficient and reports a null displacement limit rather than
+dividing by zero. Both fixtures ran successfully through the packing probe.
+
+Next validation should measure actual per-influence displacement/packing error
+alongside the Godot bake, separating it from residual transform or interpolation
+error. The production two-bone gate remains unresolved and unchanged.
