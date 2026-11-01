@@ -1,5 +1,7 @@
 # LOD workflow implementation
 
+> **Integration checkpoint (2026-11-01):** PR #328 is merged into `main`. Its diagnostic findings below are preserved as measurements, not production acceptance. The additional `codex/lod-weight-error-bounds` branch requires review before cleanup. Two-bone acceptance, broader provider/clip review, installed UI/undo and automatic engine LOD switching remain open.
+
 ## Static preview backend (2026-10-24)
 
 The first implementation slice is a backend, not a completed artist-facing LOD
