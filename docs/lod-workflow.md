@@ -680,3 +680,27 @@ dividing by zero. Both fixtures ran successfully through the packing probe.
 Next validation should measure actual per-influence displacement/packing error
 alongside the Godot bake, separating it from residual transform or interpolation
 error. The production two-bone gate remains unresolved and unchanged.
+
+## Motion-level packing isolation (2026-11-01)
+
+`scripts/review_lod_packing_motion.gd` is a rendering-enabled diagnostic against
+an exported fixture directory. At every sample it reads the actual rendering
+skeleton transforms and computes weighted displacements using both ImporterMesh
+float weights and packed ArrayMesh weights, without editing either. It compares
+the packed prediction with Godot's baked mesh and the float prediction with the
+Blender oracle using fixed initial vertex correspondence.
+
+Two-bone results across 49 samples:
+
+| Level | Packing-only difference | Triangle-inequality bound | Bake/model residual | Float-weight/Blender error |
+| --- | ---: | ---: | ---: | ---: |
+| LOD0 | 4.46832928e-5 | 4.567492699e-5 | 2.731428e-7 | 2.05095421e-6 |
+| LOD1 | 4.46832928e-5 | 4.567492699e-5 | 3.4240264e-7 | 1.93049141e-6 |
+
+This isolates destination weight packing as the dominant observed error for this
+fixture: the same transforms with original float weights are below 1e-5, while
+the packing difference exceeds it and remains inside the calculated bound.
+The single-bone control has zero packing difference. This is diagnostic evidence,
+not a new rendering/export implementation or a relaxed acceptance threshold.
+Production two-bone playback remains unaccepted; destination precision handling
+or an explicitly justified error policy is still required.
