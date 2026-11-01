@@ -573,3 +573,18 @@ correspondence error is 3.50925111e-5 world units. Godot mesh weight sums are
 is a diagnostic finding, not a completed root-cause fix. Source weights and
 acceptance tolerances were not changed. Follow-up must establish destination
 weight precision/normalization behavior before broad skinned export acceptance.
+
+## Weight-sum isolation experiment (2026-11-01)
+
+The probe accepts `--skin --normalize-baked-diagnostic` solely to isolate the
+impact of imported weight sums. It divides each baked local vertex by its
+imported weight sum before comparison, leaving mesh resources, GLBs, source
+weights and the 1e-5 acceptance tolerance unchanged. Output is explicitly marked
+diagnostic and uses a separate report filename; it must not be cited as export
+acceptance or an import repair.
+
+The two-bone initial mismatch falls from 3.50925111e-5 to 1.537857679e-5 world
+units, still failing. Weight-sum deficit contributes but is not sufficient to
+explain or repair the discrepancy. Further work must separate per-influence
+quantization, bind transforms and the evaluated-mesh baking implementation.
+No destination normalization or production exporter change is enabled.

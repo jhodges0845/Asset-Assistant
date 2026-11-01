@@ -10,13 +10,21 @@ func fail(message):
     quit(1)
 
 func review():
+    var normalize_diagnostic = "--normalize-baked-diagnostic" in OS.get_cmdline_user_args()
     var skin_review = "--skin" in OS.get_cmdline_user_args()
+    if normalize_diagnostic and not skin_review:
+        fail("Normalized-bake diagnostic requires --skin")
+        return
+    if normalize_diagnostic:
+        print("DIAGNOSTIC ONLY: normalized baked positions do not establish export acceptance")
     if skin_review and DisplayServer.get_name() == "headless":
         fail("Skin review requires a rendering-enabled display; omit --headless")
         return
     var report_path = "res://godot-skin-lod-report.json"
     if skin_review:
         report_path = "res://godot-skin-lod-surface-report.json"
+    if normalize_diagnostic:
+        report_path = "res://godot-skin-normalized-diagnostic.json"
     if FileAccess.file_exists(report_path):
         DirAccess.remove_absolute(report_path)
     var expected = JSON.parse_string(FileAccess.get_file_as_string("res://expected.json"))
@@ -50,6 +58,7 @@ func review():
         var maximum = 0.0
         var maximum_axis = 0.0
         var maximum_skin = 0.0
+        var weight_sums = []
         var correspondence = []
         var reference_count = 0
         var bodies = asset.find_children("*", "MeshInstance3D", true, false)
@@ -68,6 +77,7 @@ func review():
                     var total = 0.0
                     for slot in range(stride):
                         total += weights[vertex * stride + slot]
+                    weight_sums.append(total)
                     minimum_weight_sum = min(minimum_weight_sum, total)
                     maximum_weight_sum = max(maximum_weight_sum, total)
             print(level.file, " imported weight sums: ", minimum_weight_sum, " .. ", maximum_weight_sum)
@@ -91,9 +101,14 @@ func review():
                     fail("Could not bake evaluated skin")
                     return
                 var actual_points = []
+                var vertex_index = 0
                 for surface in range(baked.get_surface_count()):
                     for vertex in baked.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]:
+                        if normalize_diagnostic:
+                            # Diagnostic only: not an import fix or acceptance mode.
+                            vertex /= weight_sums[vertex_index]
                         actual_points.append(body.global_transform * vertex)
+                        vertex_index += 1
                 var reference_points = []
                 for row in sample.positions[str(int(level.index))]:
                     reference_points.append(Vector3(row[0], row[1], row[2]))
@@ -131,7 +146,7 @@ func review():
             fail("Bone playback mismatch: " + str(results))
             return
     var output = FileAccess.open(report_path, FileAccess.WRITE)
-    output.store_string(JSON.stringify({"levels": results, "skin_review": skin_review, "scope": "Sampled heads/axes and optional fixed-correspondence baked skin; not visual acceptance"}, "  "))
+    output.store_string(JSON.stringify({"levels": results, "skin_review": skin_review, "normalized_bake_diagnostic": normalize_diagnostic, "scope": "Sampled heads/axes and optional fixed-correspondence baked skin; not visual acceptance"}, "  "))
     output.close()
-    print("Skinned LOD Godot bone playback passed: ", results)
+    print("Normalized-bake diagnostic passed: " if normalize_diagnostic else "Skinned LOD Godot bone playback passed: ", results)
     quit(0)
