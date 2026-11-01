@@ -628,3 +628,21 @@ This directly locates the precision loss at destination mesh packing and matches
 16-bit downward quantization within float precision. It does not prove every
 remaining playback error has that cause or define a production workaround.
 The two-bone acceptance failure remains open at the unchanged 1e-5 tolerance.
+
+## Sum-preserving destination packing experiment (2026-11-01)
+
+`--skin --balanced-pack-diagnostic` constructs an in-memory ArrayMesh from the
+original ImporterMesh floats, distributing 65,535 integer weight units by largest
+remainder per vertex. It preserves the packed sum and uses a small interior-bin
+float offset to survive downward packing. Source GLBs and Blender weights are
+unchanged. This fixture-only replacement does not preserve the full production
+material/blendshape contract and is not an import feature or acceptance mode.
+It is mutually exclusive with normalized-bake diagnostics and writes a separate
+report if it passes.
+
+LOD0 packed sums improve to 0.9999999702..1.0, but maximum 49-sample fixed-vertex
+error remains 1.50501437e-5 versus the unchanged 1e-5 tolerance. A unit weight sum
+alone is therefore insufficient for this fixture. Per-influence rounding remains
+a constraint; a production solution needs an explicit destination error budget
+or a verified packing strategy. Two-bone acceptance remains open. Do not apply
+this diagnostic replacement to artist assets.

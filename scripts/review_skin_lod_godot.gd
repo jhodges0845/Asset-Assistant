@@ -10,8 +10,12 @@ func fail(message):
     quit(1)
 
 func review():
+    var packed_diagnostic = "--balanced-pack-diagnostic" in OS.get_cmdline_user_args()
     var normalize_diagnostic = "--normalize-baked-diagnostic" in OS.get_cmdline_user_args()
     var skin_review = "--skin" in OS.get_cmdline_user_args()
+    if packed_diagnostic and (not skin_review or normalize_diagnostic):
+        fail("Balanced packing requires --skin and excludes normalized-bake mode")
+        return
     if normalize_diagnostic and not skin_review:
         fail("Normalized-bake diagnostic requires --skin")
         return
@@ -25,6 +29,9 @@ func review():
         report_path = "res://godot-skin-lod-surface-report.json"
     if normalize_diagnostic:
         report_path = "res://godot-skin-normalized-diagnostic.json"
+    if packed_diagnostic:
+        report_path = "res://godot-balanced-pack-diagnostic.json"
+        print("DIAGNOSTIC ONLY: balanced destination packing; source GLBs remain unchanged")
     if FileAccess.file_exists(report_path):
         DirAccess.remove_absolute(report_path)
     var expected = JSON.parse_string(FileAccess.get_file_as_string("res://expected.json"))
@@ -66,6 +73,40 @@ func review():
         if skin_review and bodies.size() != 1:
             fail("Expected one skinned mesh")
             return
+        if packed_diagnostic:
+            var replacement = ArrayMesh.new()
+            var raw_mesh = state.get_meshes()[0].mesh
+            for surface in range(raw_mesh.get_surface_count()):
+                var arrays = raw_mesh.get_surface_arrays(surface)
+                var weights = arrays[Mesh.ARRAY_WEIGHTS].duplicate()
+                var vertices = arrays[Mesh.ARRAY_VERTEX].size()
+                var stride = weights.size() / vertices
+                for vertex in range(vertices):
+                    var total = 0.0
+                    for slot in range(stride):
+                        total += weights[vertex * stride + slot]
+                    if not is_finite(total) or total <= 0:
+                        fail("Invalid diagnostic weight sum")
+                        return
+                    var integers = []
+                    var remainders = []
+                    var allocated = 0
+                    for slot in range(stride):
+                        var scaled = weights[vertex * stride + slot] / total * 65535.0
+                        var quantized = int(floor(scaled))
+                        integers.append(quantized)
+                        remainders.append(scaled - quantized)
+                        allocated += quantized
+                    for unused in range(65535 - allocated):
+                        var winner = remainders.find(remainders.max())
+                        integers[winner] += 1
+                        remainders[winner] = -1.0
+                    for slot in range(stride):
+                        var q = integers[slot]
+                        weights[vertex * stride + slot] = min(1.0, (q + .125) / 65535.0) if q else 0.0
+                arrays[Mesh.ARRAY_WEIGHTS] = weights
+                replacement.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+            bodies[0].mesh = replacement
         if skin_review:
             var minimum_weight_sum = INF
             var maximum_weight_sum = -INF
@@ -149,7 +190,7 @@ func review():
             fail("Bone playback mismatch: " + str(results))
             return
     var output = FileAccess.open(report_path, FileAccess.WRITE)
-    output.store_string(JSON.stringify({"levels": results, "skin_review": skin_review, "normalized_bake_diagnostic": normalize_diagnostic, "scope": "Sampled heads/axes and optional fixed-correspondence baked skin; not visual acceptance"}, "  "))
+    output.store_string(JSON.stringify({"levels": results, "skin_review": skin_review, "normalized_bake_diagnostic": normalize_diagnostic, "balanced_pack_diagnostic": packed_diagnostic, "scope": "Sampled heads/axes and optional fixed-correspondence baked skin; not visual acceptance"}, "  "))
     output.close()
-    print("Normalized-bake diagnostic passed: " if normalize_diagnostic else "Skinned LOD Godot bone playback passed: ", results)
+    print("Skin diagnostic passed: " if normalize_diagnostic or packed_diagnostic else "Skinned LOD Godot bone playback passed: ", results)
     quit(0)
