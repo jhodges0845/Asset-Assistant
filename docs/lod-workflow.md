@@ -542,3 +542,18 @@ This closes the previously blocked small-fixture rendered-skin probe, not the
 broader release gate: additional providers/clips, fixed vertex correspondence,
 between-sample behavior, visual review, UI acceptance and LOD switching remain
 open. Vertex-cloud distance alone is not proof of topology or vertex identity.
+
+## Fixed skin correspondence (2026-11-01)
+
+The rendering-enabled probe establishes imported-to-source vertex correspondence
+at the initial sample and reuses it throughout playback. Initial matches must be
+within tolerance and cover every source vertex; changing vertex counts fails.
+GLB seam duplicates may map to the same source vertex. Ambiguous/coincident source
+vertices are conservatively rejected if full coverage cannot be established.
+
+All 114 LOD0 and 58 LOD1 source vertices are covered across 49 samples. Maximum
+fixed-correspondence errors remain 1.80494828e-6 / 1.69008342e-6 world units.
+Swapping two reference vertex identities at sample 20 preserves the point cloud
+but correctly reports a 1.41421-unit skin mismatch. Restoring the oracle passes.
+This strengthens the previous nearest-cloud check without changing the tolerance.
+The fixture still does not establish broad provider/clip or artistic acceptance.

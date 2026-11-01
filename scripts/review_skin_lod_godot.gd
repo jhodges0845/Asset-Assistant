@@ -50,6 +50,8 @@ func review():
         var maximum = 0.0
         var maximum_axis = 0.0
         var maximum_skin = 0.0
+        var correspondence = []
+        var reference_count = 0
         var bodies = asset.find_children("*", "MeshInstance3D", true, false)
         if skin_review and bodies.size() != 1:
             fail("Expected one skinned mesh")
@@ -83,19 +85,38 @@ func review():
                 if actual_points.is_empty() or reference_points.is_empty():
                     fail("Missing skin points")
                     return
-                for pair in [[actual_points, reference_points], [reference_points, actual_points]]:
-                    for point in pair[0]:
+                if correspondence.is_empty():
+                    reference_count = reference_points.size()
+                    var covered = {}
+                    for point in actual_points:
                         var nearest = INF
-                        for other in pair[1]:
-                            nearest = min(nearest, point.distance_to(other))
-                        maximum_skin = max(maximum_skin, nearest)
-        results.append({"file": level.file, "samples": expected.samples.size(), "maximum_head_error": maximum, "maximum_axis_error": maximum_axis, "maximum_skin_error": maximum_skin if skin_review else null})
+                        var match_index = -1
+                        for index in range(reference_points.size()):
+                            var distance = point.distance_to(reference_points[index])
+                            if distance < nearest:
+                                nearest = distance
+                                match_index = index
+                        if nearest > expected.tolerance:
+                            fail("Initial skin correspondence exceeds tolerance")
+                            return
+                        correspondence.append(match_index)
+                        covered[match_index] = true
+                    if covered.size() != reference_count:
+                        fail("Initial correspondence does not cover every source vertex")
+                        return
+                if actual_points.size() != correspondence.size() or reference_points.size() != reference_count:
+                    fail("Skin vertex counts changed during playback")
+                    return
+                for index in range(actual_points.size()):
+                    var distance = actual_points[index].distance_to(reference_points[correspondence[index]])
+                    maximum_skin = max(maximum_skin, distance)
+        results.append({"file": level.file, "samples": expected.samples.size(), "maximum_head_error": maximum, "maximum_axis_error": maximum_axis, "maximum_skin_error": maximum_skin if skin_review else null, "source_vertices_covered": reference_count if skin_review else null})
         asset.free()
         if maximum > expected.tolerance or maximum_axis > expected.tolerance or maximum_skin > expected.tolerance:
             fail("Bone playback mismatch: " + str(results))
             return
     var output = FileAccess.open(report_path, FileAccess.WRITE)
-    output.store_string(JSON.stringify({"levels": results, "skin_review": skin_review, "scope": "Sampled heads/axes and optional baked vertex clouds; not visual acceptance"}, "  "))
+    output.store_string(JSON.stringify({"levels": results, "skin_review": skin_review, "scope": "Sampled heads/axes and optional fixed-correspondence baked skin; not visual acceptance"}, "  "))
     output.close()
     print("Skinned LOD Godot bone playback passed: ", results)
     quit(0)
