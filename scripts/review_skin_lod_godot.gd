@@ -39,6 +39,7 @@ func review():
     if not expected is Dictionary or not manifest is Dictionary:
         fail("Missing fixture oracle or manifest")
         return
+    var passed = true
     var results = []
     for level in manifest.levels:
         var document = GLTFDocument.new()
@@ -62,6 +63,8 @@ func review():
             return
         player.play("ProbeMotion")
         player.advance(0)
+        var failure_reason = ""
+        var evaluated_samples = 0
         var maximum = 0.0
         var maximum_axis = 0.0
         var maximum_skin = 0.0
@@ -171,10 +174,13 @@ func review():
                                 nearest = distance
                                 match_index = index
                         if nearest > expected.tolerance:
-                            fail("Initial skin correspondence exceeds tolerance: " + level.file + " distance=" + str(nearest))
-                            return
+                            maximum_skin = nearest
+                            failure_reason = "Initial skin correspondence exceeds tolerance"
+                            break
                         correspondence.append(match_index)
                         covered[match_index] = true
+                    if not failure_reason.is_empty():
+                        break
                     if covered.size() != reference_count:
                         fail("Initial correspondence does not cover every source vertex")
                         return
@@ -184,13 +190,15 @@ func review():
                 for index in range(actual_points.size()):
                     var distance = actual_points[index].distance_to(reference_points[correspondence[index]])
                     maximum_skin = max(maximum_skin, distance)
-        results.append({"file": level.file, "samples": expected.samples.size(), "maximum_head_error": maximum, "maximum_axis_error": maximum_axis, "maximum_skin_error": maximum_skin if skin_review else null, "source_vertices_covered": reference_count if skin_review else null})
+            evaluated_samples += 1
+        var level_passed = failure_reason.is_empty() and maximum <= expected.tolerance and maximum_axis <= expected.tolerance and maximum_skin <= expected.tolerance
+        if not level_passed and failure_reason.is_empty():
+            failure_reason = "Playback error exceeds tolerance"
+        passed = passed and level_passed
+        results.append({"file": level.file, "passed": level_passed, "failure_reason": failure_reason, "evaluated_samples": evaluated_samples, "samples": expected.samples.size(), "maximum_head_error": maximum, "maximum_axis_error": maximum_axis, "maximum_skin_error": maximum_skin if skin_review else null, "source_vertices_covered": reference_count if skin_review else null})
         asset.free()
-        if maximum > expected.tolerance or maximum_axis > expected.tolerance or maximum_skin > expected.tolerance:
-            fail("Bone playback mismatch: " + str(results))
-            return
     var output = FileAccess.open(report_path, FileAccess.WRITE)
-    output.store_string(JSON.stringify({"levels": results, "skin_review": skin_review, "normalized_bake_diagnostic": normalize_diagnostic, "balanced_pack_diagnostic": packed_diagnostic, "scope": "Sampled heads/axes and optional fixed-correspondence baked skin; not visual acceptance"}, "  "))
+    output.store_string(JSON.stringify({"passed": passed, "levels": results, "skin_review": skin_review, "normalized_bake_diagnostic": normalize_diagnostic, "balanced_pack_diagnostic": packed_diagnostic, "scope": "Sampled heads/axes and optional fixed-correspondence baked skin; not visual acceptance"}, "  "))
     output.close()
-    print("Skin diagnostic passed: " if normalize_diagnostic or packed_diagnostic else "Skinned LOD Godot bone playback passed: ", results)
-    quit(0)
+    print("LOD playback result: ", "PASS" if passed else "FAIL", " ", results)
+    quit(0 if passed else 1)

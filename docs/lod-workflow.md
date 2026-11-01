@@ -646,3 +646,17 @@ alone is therefore insufficient for this fixture. Per-influence rounding remains
 a constraint; a production solution needs an explicit destination error budget
 or a verified packing strategy. Two-bone acceptance remains open. Do not apply
 this diagnostic replacement to artist assets.
+
+## Complete per-level failure reports (2026-11-01)
+
+PR #327 passed all six checks and is merged. The probe now writes explicit overall
+and per-level pass flags, failure reasons and completed sample counts. Initial
+correspondence tolerance failures stop that level without treating an uncertain
+mapping as valid; remaining levels still run. Structural errors still abort.
+Both success and measured-failure reports are written, with exit status reflecting
+the overall result.
+
+The balanced-packing diagnostic evaluates all 49 samples for both levels and
+fails unchanged tolerance: LOD0 1.50501437e-5; LOD1 1.48916215e-5. Headless skeletal
+control passes both levels. These reports preserve the distinction between a
+completed diagnostic and accepted skin playback. No release gate was relaxed.
