@@ -56,6 +56,21 @@ func review():
         if skin_review and bodies.size() != 1:
             fail("Expected one skinned mesh")
             return
+        if skin_review:
+            var minimum_weight_sum = INF
+            var maximum_weight_sum = -INF
+            for surface in range(bodies[0].mesh.get_surface_count()):
+                var arrays = bodies[0].mesh.surface_get_arrays(surface)
+                var weights = arrays[Mesh.ARRAY_WEIGHTS]
+                var vertex_count = arrays[Mesh.ARRAY_VERTEX].size()
+                var stride = weights.size() / vertex_count
+                for vertex in range(vertex_count):
+                    var total = 0.0
+                    for slot in range(stride):
+                        total += weights[vertex * stride + slot]
+                    minimum_weight_sum = min(minimum_weight_sum, total)
+                    maximum_weight_sum = max(maximum_weight_sum, total)
+            print(level.file, " imported weight sums: ", minimum_weight_sum, " .. ", maximum_weight_sum)
         for sample in expected.samples:
             player.seek(sample.seconds, true)
             skeleton.force_update_all_bone_transforms()
@@ -97,7 +112,7 @@ func review():
                                 nearest = distance
                                 match_index = index
                         if nearest > expected.tolerance:
-                            fail("Initial skin correspondence exceeds tolerance")
+                            fail("Initial skin correspondence exceeds tolerance: " + level.file + " distance=" + str(nearest))
                             return
                         correspondence.append(match_index)
                         covered[match_index] = true

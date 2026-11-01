@@ -557,3 +557,19 @@ Swapping two reference vertex identities at sample 20 preserves the point cloud
 but correctly reports a 1.41421-unit skin mismatch. Restoring the oracle passes.
 This strengthens the previous nearest-cloud check without changing the tolerance.
 The fixture still does not establish broad provider/clip or artistic acceptance.
+
+## Two-bone blended-weight diagnostic (2026-11-01)
+
+The fixture exporter accepts `--two-bones` after the output directory. It creates
+a connected child bone with independent quaternion motion and two normalized
+weights per vertex (root/child blend varying across the mesh). The existing
+single-bone fixture remains the default. The Godot probe logs imported weight-sum
+ranges and reports the file and measured initial correspondence failure.
+
+The two-bone fixture is NOT accepted at the unchanged 1e-5 tolerance: LOD0 initial
+correspondence error is 3.50925111e-5 world units. Godot mesh weight sums are
+0.9999847114..0.9999847412, whereas serialized GLB float weights sum to approximately
+1.0. This suggests destination weight quantization contributes to the error; it
+is a diagnostic finding, not a completed root-cause fix. Source weights and
+acceptance tolerances were not changed. Follow-up must establish destination
+weight precision/normalization behavior before broad skinned export acceptance.
