@@ -1,5 +1,7 @@
 # Production Readiness Checklist
 
+> **2026-11-01 reconciliation:** PR #328 merged diagnostic improvements for skinned LOD. Static bundle export and synthetic Godot skin probes are implemented; blended two-bone playback still exceeds the unchanged 1e-5 acceptance threshold. This checklist intentionally remains unchecked for installed-UI and artist acceptance. See [LOD workflow](lod-workflow.md) and [roadmap](roadmap.md). Open issues #208, #220, #225, #228, #231 and #236 require criterion-by-criterion review; an implemented foundation does not automatically satisfy an entire issue.
+
 Current evidence: [workflow and UI/UX audit](workflow-acceptance-audit.md). Earlier checkpoints below are historical or incomplete; unchecked items are not evidence of missing implementation, and passing tests are not live UI approval.
 
 This document is the current manual and product-readiness gate for Asset Assistant before a production/public-alpha decision. Passing automated CI is necessary but is not sufficient. The installed Blender UI and artist workflow must be exercised end to end.
