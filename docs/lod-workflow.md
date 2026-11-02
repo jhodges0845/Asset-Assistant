@@ -704,3 +704,24 @@ The single-bone control has zero packing difference. This is diagnostic evidence
 not a new rendering/export implementation or a relaxed acceptance threshold.
 Production two-bone playback remains unaccepted; destination precision handling
 or an explicitly justified error policy is still required.
+
+## Four-influence coverage (2026-11-02)
+
+The fixture exporter accepts `--four-bones` to build a connected four-bone chain,
+four normalized weights per vertex and independent quaternion rotations on the
+child joints. Existing one/two-bone options remain available. The interrupted
+run's completed results were inspected after resuming. PR #328 passed all six
+checks and is merged.
+
+Across 49 samples, LOD0/LOD1 packing-only differences are 1.2454130047e-4 /
+1.2462936866e-4 world units, within bounds of 1.3252036595e-4 / 1.3339605504e-4.
+Bake/model residuals remain below 4.92e-7; original-weight/Blender errors remain
+below 2.34e-6. ArrayMesh minimum weight sums are about 0.9999542, compared with
+ImporterMesh sum errors below 2.99e-8. These results extend the evidence that
+packing dominates this synthetic skin discrepancy; they do not accept the
+four-bone result at the unchanged 1e-5 production gate.
+
+Do not continue treating this as an unidentified Blender bind/animation defect.
+Remaining destination work is a documented precision policy or verified packing
+solution, followed by actual provider/clip and visual validation. No source
+weights or acceptance thresholds were modified by these probes.
