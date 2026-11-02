@@ -32,8 +32,8 @@ def stage_skin_lod_level(level, scene, *, generated_clips=False):
             child = parent
     for mesh in level.meshes:
         contract = inspect_skin_lod_source(mesh)
-        if generated_clips and any(len(row) > 4 for row in contract.weights):
-            raise ValueError('Skinned LOD export supports at most four influences per vertex; explicit weight reduction is required')
+        if generated_clips and any(len(row) > 8 for row in contract.weights):
+            raise ValueError('Skinned LOD export supports at most eight influences per vertex; explicit weight reduction is required')
         if contract.armature not in level.armatures:
             raise ValueError('Skin binding lies outside the export level')
     if generated_clips:
@@ -122,6 +122,13 @@ def export_skin_lod_level(level, context, filepath):
 
     Caller owns bundle staging/publication. No automatic LOD switching is implied.
     """
-    from .targets import get_adapter
+    from .targets import GodotAdapter
+
+    class SkinLODGodotAdapter(GodotAdapter):
+        def export_options(self, filepath):
+            options = super().export_options(filepath)
+            options['export_all_influences'] = True
+            return options
+
     with stage_skin_lod_level(level, context.scene, generated_clips=True) as root:
-        return get_adapter('GODOT', asset_use='ANIMATED').export(root, context, filepath)
+        return SkinLODGodotAdapter(asset_use='ANIMATED').export(root, context, filepath)
