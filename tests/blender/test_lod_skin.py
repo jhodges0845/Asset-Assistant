@@ -384,13 +384,25 @@ def test_skin_export_staging_rejects_external_dependencies(skinned):
     assert len(rig.pose.bones[0].constraints) == 1
 
 
-def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, tmp_path):
+@pytest.mark.parametrize("influences", (1, 8))
+def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, tmp_path, influences):
     import json
     import struct
     from blender_adapter.lod_export import plan_lod_export
     from blender_adapter.lod_skin_preview import preview_skin_lods
     from blender_adapter.lod_export import export_skin_lod_bundle
     source, rig = skinned
+    if influences > 1:
+        bpy.context.view_layer.objects.active = rig
+        bpy.ops.object.mode_set(mode='EDIT')
+        for index in range(influences - 1):
+            extra = rig.data.edit_bones.new('Influence%d' % index)
+            extra.head = (index + 1, 0, 0)
+            extra.tail = (index + 1, 0, 1)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        for joint in rig.data.bones:
+            group = source.vertex_groups.get(joint.name) or source.vertex_groups.new(name=joint.name)
+            group.add(list(range(len(source.data.vertices))), 1 / influences, 'REPLACE')
     source.data.materials.append(bpy.data.materials.new('LOD test material'))
     rig['asset_assistant_rig_id'] = 'lod-export-test'
     bone = rig.pose.bones[0]
@@ -423,6 +435,10 @@ def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, t
             length = struct.unpack_from('<I', raw, 12)[0]
             document = json.loads(raw[20:20+length])
             assert len(document['skins']) == 1
+            assert len(document['skins'][0]['joints']) == influences
+            if influences == 8:
+                assert all('JOINTS_1' in primitive['attributes'] and 'WEIGHTS_1' in primitive['attributes']
+                           for primitive in document['meshes'][0]['primitives'])
             assert len(document['meshes']) == 1
             assert {clip['name'] for clip in document['animations']} == {'TestMotion', 'SecondMotion'}
             triangles = sum(document['accessors'][primitive['indices']]['count'] // 3
@@ -595,18 +611,18 @@ def test_skin_export_rejects_silent_influence_truncation(skinned):
     source, rig = skinned
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.mode_set(mode='EDIT')
-    for index in range(4):
+    for index in range(8):
         bone = rig.data.edit_bones.new('Extra%d' % index)
         bone.head = (index + 1, 0, 0)
         bone.tail = (index + 1, 0, 1)
     bpy.ops.object.mode_set(mode='OBJECT')
     for bone in rig.data.bones:
         group = source.vertex_groups.get(bone.name) or source.vertex_groups.new(name=bone.name)
-        group.add(list(range(len(source.data.vertices))), .2, 'REPLACE')
+        group.add(list(range(len(source.data.vertices))), 1 / 9, 'REPLACE')
     before = inspect_skin_lod_source(source).weights
     objects = set(bpy.data.objects)
     level = LODExportLevel(0, (source,), (rig,), 0)
-    with pytest.raises(ValueError, match='four influences'):
+    with pytest.raises(ValueError, match='eight influences'):
         with stage_skin_lod_level(level, bpy.context.scene, generated_clips=True):
             pytest.fail('Exporter would truncate weights')
     assert inspect_skin_lod_source(source).weights == before

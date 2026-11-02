@@ -31,6 +31,7 @@ func _initialize():
         var source_sum_error = 0.0
         var truncation_error = 0.0
         var count = 0
+        var maximum_influences = 0
         for surface in range(source.get_surface_count()):
             var original = source.get_surface_arrays(surface)
             var imported = packed.surface_get_arrays(surface)
@@ -42,6 +43,11 @@ func _initialize():
             var converted = imported[Mesh.ARRAY_WEIGHTS]
             var vertices = original[Mesh.ARRAY_VERTEX].size()
             var stride = raw.size() / vertices
+            maximum_influences = max(maximum_influences, stride)
+            if raw.size() != converted.size():
+                push_error("Influence array size changed during packing")
+                quit(1)
+                return
             for vertex in range(vertices):
                 var l1_change = 0.0
                 var raw_sum = 0.0
@@ -58,7 +64,7 @@ func _initialize():
                 source_sum_error = max(source_sum_error, abs(raw_sum - 1.0))
                 minimum_sum = min(minimum_sum, converted_sum)
             count += vertices
-        results.append({"file": level.file, "vertices": count, "maximum_weight_change": largest,
+        results.append({"file": level.file, "vertices": count, "influence_slots": maximum_influences, "maximum_weight_change": largest,
             "maximum_l1_weight_change": maximum_l1_change,
             "maximum_displacement_for_1e_minus5_weight_error_bound": 1e-5 / maximum_l1_change if maximum_l1_change > 0 else null,
             "maximum_raw_sum_error": source_sum_error, "minimum_packed_sum": minimum_sum,

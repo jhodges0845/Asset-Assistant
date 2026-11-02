@@ -762,3 +762,20 @@ The earlier unguarded local Avian bundle is diagnostic only and must not be used
 as accepted playback evidence. The next provider gate is an explicit higher-
 influence destination policy or artist-reviewed weight reduction, followed by
 Flight playback. This is separate from packed-weight numerical precision.
+
+## Eight-influence preservation and Avian Flight (2026-11-02)
+
+The skinned LOD-specific Godot adapter now requests Blender's all-influences
+serialization and rejects more than eight positive weights before staging.
+General export defaults are unchanged. The standard validation/export path is
+reused; no silent truncation or source weight edits occur. Twenty-five focused
+Blender tests pass, covering eight serialized joints plus JOINTS_1/WEIGHTS_1,
+source preservation and rejection above eight influences.
+
+The generated default Avian Flight bundle exports successfully. Godot confirms
+four slots on LOD0 and eight slots on LOD1 with unchanged vertex/bone ordering
+and influence-array sizes. Both levels pass the unchanged strict 1e-5 criterion
+across 49 samples: observed errors 5.29300178e-6 / 5.39134317e-6; unexplained
+residuals 3.8857473e-7 / 2.76401488e-6. This resolves the default Avian truncation
+blocker and validates this clip/sample only. The synthetic multi-bone precision
+limits, broader provider/clip coverage and visual/UI acceptance remain open.
