@@ -42,7 +42,7 @@ jobs:
 
       - name: Install coverage tooling
         if: matrix.python-version == '3.12'
-        run: python -m pip install coverage
+        run: python -m pip install coverage==7.17.0
 
       - name: Run core tests
         if: matrix.python-version != '3.12'
@@ -50,8 +50,11 @@ jobs:
 
       - name: Run core tests with coverage
         if: matrix.python-version == '3.12'
+        env:
+          # Line coverage on Python 3.12 supports low-overhead sys.monitoring.
+          COVERAGE_CORE: sysmon
         run: |
-          python -m coverage run --source=object_core -m unittest discover -s tests/core -v
+          python -m coverage run --source=object_core -m unittest discover -s tests/core -v --durations 20
           python -m coverage report --show-missing --fail-under=90
 
   blender-tests:
