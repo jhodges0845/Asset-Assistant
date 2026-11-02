@@ -742,3 +742,21 @@ by 0.01 at sample 20 correctly makes its explanation fail; LOD1 stays explained.
 The command exit status represents explanation validity, explicitly NOT release
 acceptance. Reports retain the strict result so downstream review cannot treat
 an explained loss as an accepted export. Source weights and rendering stay intact.
+
+## Generated Avian fixture and influence preservation (2026-11-02)
+
+`scripts/export_avian_lod_review.py` builds the default generated Avian with its
+Flight action, a 50% LOD and per-level 49-sample skin oracle. The Godot probes
+now read the oracle clip name, retaining ProbeMotion as the synthetic fallback.
+
+The first real-provider export exposed Blender glTF warnings: vertices with more
+than four influences were silently reduced to the four largest and normalized.
+The internal skinned LOD export path now rejects positive influence counts above
+four before staging that level. No authored weights are altered. All 24 focused
+skinned tests pass, including unchanged weights/datablocks after rejection.
+Re-running the Avian fixture now fails explicitly and publishes no bundle.
+
+The earlier unguarded local Avian bundle is diagnostic only and must not be used
+as accepted playback evidence. The next provider gate is an explicit higher-
+influence destination policy or artist-reviewed weight reduction, followed by
+Flight playback. This is separate from packed-weight numerical precision.

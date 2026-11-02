@@ -33,7 +33,7 @@ func review():
         var player = asset.find_children("*", "AnimationPlayer", true, false)[0]
         var skeleton = asset.find_children("*", "Skeleton3D", true, false)[0]
         player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
-        player.play("ProbeMotion")
+        player.play(expected.get("clip", "ProbeMotion"))
         player.advance(0)
         var max_observed = 0.0
         var max_unexplained = 0.0
