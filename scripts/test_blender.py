@@ -18,6 +18,6 @@ os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] = '1'
 import pytest
 
 args = sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
-result = pytest.main(args or [str(root / 'tests/blender'), '-v'])
+result = pytest.main(args or [str(root / 'tests/blender'), '-v', '--durations=20'])
 if result != 0:
     raise RuntimeError('Blender test suite failed (pytest exit %s)' % result)
