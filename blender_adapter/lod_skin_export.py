@@ -31,7 +31,10 @@ def stage_skin_lod_level(level, scene, *, generated_clips=False):
                 raise ValueError('LOD export requires static empty object parents')
             child = parent
     for mesh in level.meshes:
-        if inspect_skin_lod_source(mesh).armature not in level.armatures:
+        contract = inspect_skin_lod_source(mesh)
+        if generated_clips and any(len(row) > 4 for row in contract.weights):
+            raise ValueError('Skinned LOD export supports at most four influences per vertex; explicit weight reduction is required')
+        if contract.armature not in level.armatures:
             raise ValueError('Skin binding lies outside the export level')
     if generated_clips:
         from types import SimpleNamespace

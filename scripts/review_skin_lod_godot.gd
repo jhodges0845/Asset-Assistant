@@ -58,10 +58,10 @@ func review():
         player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
         var skeleton = skeletons[0]
         var bone = skeleton.find_bone(expected.bone)
-        if bone < 0 or not player.has_animation("ProbeMotion"):
+        if bone < 0 or not player.has_animation(expected.get("clip", "ProbeMotion")):
             fail("Missing bone or clip")
             return
-        player.play("ProbeMotion")
+        player.play(expected.get("clip", "ProbeMotion"))
         player.advance(0)
         var failure_reason = ""
         var evaluated_samples = 0

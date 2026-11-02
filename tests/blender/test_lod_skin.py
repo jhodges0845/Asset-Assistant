@@ -587,3 +587,27 @@ def test_parented_skin_staging_preserves_animated_world_space(skinned, tmp_path)
         rig.animation_data_clear()
         bpy.data.actions.remove(action)
         scene.frame_set(frame, subframe=subframe)
+
+
+def test_skin_export_rejects_silent_influence_truncation(skinned):
+    from blender_adapter.lod_skin_export import stage_skin_lod_level
+    from blender_adapter.lod_export import LODExportLevel
+    source, rig = skinned
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    for index in range(4):
+        bone = rig.data.edit_bones.new('Extra%d' % index)
+        bone.head = (index + 1, 0, 0)
+        bone.tail = (index + 1, 0, 1)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    for bone in rig.data.bones:
+        group = source.vertex_groups.get(bone.name) or source.vertex_groups.new(name=bone.name)
+        group.add(list(range(len(source.data.vertices))), .2, 'REPLACE')
+    before = inspect_skin_lod_source(source).weights
+    objects = set(bpy.data.objects)
+    level = LODExportLevel(0, (source,), (rig,), 0)
+    with pytest.raises(ValueError, match='four influences'):
+        with stage_skin_lod_level(level, bpy.context.scene, generated_clips=True):
+            pytest.fail('Exporter would truncate weights')
+    assert inspect_skin_lod_source(source).weights == before
+    assert set(bpy.data.objects) == objects
