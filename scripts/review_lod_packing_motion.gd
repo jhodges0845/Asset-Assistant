@@ -18,6 +18,8 @@ func review():
         push_error("Missing fixture data")
         quit(1)
         return
+    var precision_explained = true
+    var strict_passed = true
     var results = []
     for level in manifest.levels:
         var document = GLTFDocument.new()
@@ -31,8 +33,10 @@ func review():
         var player = asset.find_children("*", "AnimationPlayer", true, false)[0]
         var skeleton = asset.find_children("*", "Skeleton3D", true, false)[0]
         player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
-        player.play("ProbeMotion")
+        player.play(expected.get("clip", "ProbeMotion"))
         player.advance(0)
+        var max_observed = 0.0
+        var max_unexplained = 0.0
         var max_packing = 0.0
         var max_bound = 0.0
         var max_bake_residual = 0.0
@@ -85,15 +89,33 @@ func review():
                             if distance < nearest:
                                 nearest = distance
                                 match_index = index
+                        if nearest > expected.tolerance:
+                            push_error("Initial original-weight correspondence exceeds tolerance")
+                            quit(1)
+                            return
                         mapping.append(match_index)
                     var row = reference[mapping[ordinal]]
-                    max_raw_reference = max(max_raw_reference, world.distance_to(Vector3(row[0], row[1], row[2])))
+                    var target = Vector3(row[0], row[1], row[2])
+                    var observed = body.global_transform * actual[vertex] - target
+                    var predicted = body.global_transform.basis * (quantized - full)
+                    if not observed.is_finite() or not predicted.is_finite():
+                        push_error("Nonfinite motion diagnostic")
+                        quit(1)
+                        return
+                    max_observed = max(max_observed, observed.length())
+                    max_unexplained = max(max_unexplained, (observed - predicted).length())
+                    max_raw_reference = max(max_raw_reference, world.distance_to(target))
                     ordinal += 1
-        results.append({"file": level.file, "packing_error": max_packing, "packing_bound": max_bound,
+        var strict_level = max_observed <= expected.tolerance
+        var explained_level = max_unexplained <= expected.tolerance and max_bake_residual <= expected.tolerance and max_packing <= max_bound + 1e-6
+        strict_passed = strict_passed and strict_level
+        precision_explained = precision_explained and explained_level
+        results.append({"file": level.file, "strict_passed": strict_level, "precision_explained": explained_level,
+            "observed_error": max_observed, "unexplained_error": max_unexplained, "packing_error": max_packing, "packing_bound": max_bound,
             "bake_model_residual": max_bake_residual, "raw_weight_reference_error": max_raw_reference})
         asset.free()
     var output = FileAccess.open("res://packing-motion-diagnostic.json", FileAccess.WRITE)
-    output.store_string(JSON.stringify({"diagnostic_only": true, "levels": results}, "  "))
+    output.store_string(JSON.stringify({"schema_version": 2, "diagnostic_only": true, "strict_passed": strict_passed, "precision_explained": precision_explained, "tolerance": expected.tolerance, "levels": results}, "  "))
     output.close()
     print(results)
-    quit(0)
+    quit(0 if precision_explained else 1)
