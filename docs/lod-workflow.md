@@ -662,3 +662,68 @@ The balanced-packing diagnostic evaluates all 49 samples for both levels and
 fails unchanged tolerance: LOD0 1.50501437e-5; LOD1 1.48916215e-5. Headless skeletal
 control passes both levels. These reports preserve the distinction between a
 completed diagnostic and accepted skin playback. No release gate was relaxed.
+
+## Packing-only error bound (2026-11-01)
+
+The weight-packing probe now records the maximum per-vertex sum of absolute
+weight changes. For identical linear-blend transforms, the packing contribution
+is bounded by `sum(abs(delta_weight)) * D`, where D is the maximum magnitude of
+a bone-induced vertex displacement in the same coordinate space. This follows
+from the triangle inequality applied to weighted displacements. It excludes
+transform, interpolation and arithmetic errors and does not redefine acceptance.
+
+Both two-bone levels have maximum L1 weight change 1.528859138e-5. Thus a uniform
+D <= 0.654082495 world units would bound this contribution alone by 1e-5; no claim
+is made that the actual fixture satisfies that displacement condition. Larger D
+makes this conservative bound insufficient, not proof of failure. The single-bone
+control has zero coefficient and reports a null displacement limit rather than
+dividing by zero. Both fixtures ran successfully through the packing probe.
+
+Next validation should measure actual per-influence displacement/packing error
+alongside the Godot bake, separating it from residual transform or interpolation
+error. The production two-bone gate remains unresolved and unchanged.
+
+## Motion-level packing isolation (2026-11-01)
+
+`scripts/review_lod_packing_motion.gd` is a rendering-enabled diagnostic against
+an exported fixture directory. At every sample it reads the actual rendering
+skeleton transforms and computes weighted displacements using both ImporterMesh
+float weights and packed ArrayMesh weights, without editing either. It compares
+the packed prediction with Godot's baked mesh and the float prediction with the
+Blender oracle using fixed initial vertex correspondence.
+
+Two-bone results across 49 samples:
+
+| Level | Packing-only difference | Triangle-inequality bound | Bake/model residual | Float-weight/Blender error |
+| --- | ---: | ---: | ---: | ---: |
+| LOD0 | 4.46832928e-5 | 4.567492699e-5 | 2.731428e-7 | 2.05095421e-6 |
+| LOD1 | 4.46832928e-5 | 4.567492699e-5 | 3.4240264e-7 | 1.93049141e-6 |
+
+This isolates destination weight packing as the dominant observed error for this
+fixture: the same transforms with original float weights are below 1e-5, while
+the packing difference exceeds it and remains inside the calculated bound.
+The single-bone control has zero packing difference. This is diagnostic evidence,
+not a new rendering/export implementation or a relaxed acceptance threshold.
+Production two-bone playback remains unaccepted; destination precision handling
+or an explicitly justified error policy is still required.
+
+## Four-influence coverage (2026-11-02)
+
+The fixture exporter accepts `--four-bones` to build a connected four-bone chain,
+four normalized weights per vertex and independent quaternion rotations on the
+child joints. Existing one/two-bone options remain available. The interrupted
+run's completed results were inspected after resuming. PR #328 passed all six
+checks and is merged.
+
+Across 49 samples, LOD0/LOD1 packing-only differences are 1.2454130047e-4 /
+1.2462936866e-4 world units, within bounds of 1.3252036595e-4 / 1.3339605504e-4.
+Bake/model residuals remain below 4.92e-7; original-weight/Blender errors remain
+below 2.34e-6. ArrayMesh minimum weight sums are about 0.9999542, compared with
+ImporterMesh sum errors below 2.99e-8. These results extend the evidence that
+packing dominates this synthetic skin discrepancy; they do not accept the
+four-bone result at the unchanged 1e-5 production gate.
+
+Do not continue treating this as an unidentified Blender bind/animation defect.
+Remaining destination work is a documented precision policy or verified packing
+solution, followed by actual provider/clip and visual validation. No source
+weights or acceptance thresholds were modified by these probes.

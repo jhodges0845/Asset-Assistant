@@ -13,7 +13,9 @@ from blender_adapter.lod_export import export_skin_lod_bundle
 
 def main():
     destination = Path(sys.argv[sys.argv.index('--') + 1]).resolve()
-    two_bones = '--two-bones' in sys.argv[sys.argv.index('--') + 2:]
+    options = sys.argv[sys.argv.index('--') + 2:]
+    four_bones = '--four-bones' in options
+    two_bones = '--two-bones' in options or four_bones
     bpy.ops.object.armature_add()
     rig = bpy.context.object
     if two_bones:
@@ -24,6 +26,14 @@ def main():
         child.tail = child.head + Vector((0, 0, 1))
         child.parent = root_bone
         child.use_connect = True
+        if four_bones:
+            for name in ('Middle', 'End'):
+                next_bone = rig.data.edit_bones.new(name)
+                next_bone.head = child.tail
+                next_bone.tail = next_bone.head + Vector((0, 0, 1))
+                next_bone.parent = child
+                next_bone.use_connect = True
+                child = next_bone
         bpy.ops.object.mode_set(mode='OBJECT')
     parent = bpy.data.objects.new('Fixture root', None)
     bpy.context.scene.collection.objects.link(parent)
@@ -45,6 +55,13 @@ def main():
             weight = .25 + .5 * (vertex.co.z + 1) / 2
             group.add([vertex.index], 1 - weight, 'REPLACE')
             tip_group.add([vertex.index], weight, 'REPLACE')
+    if four_bones:
+        groups = [group, tip_group] + [source.vertex_groups.new(name=name) for name in ('Middle', 'End')]
+        for vertex in source.data.vertices:
+            mix = (vertex.co.z + 1) / 2
+            weights = (.1 + .2 * mix, .3 - .1 * mix, .2 + .1 * mix, .4 - .2 * mix)
+            for target, weight in zip(groups, weights):
+                target.add([vertex.index], weight, 'REPLACE')
     source.modifiers.new('Skin', 'ARMATURE').object = rig
     bone = rig.pose.bones[0]
     bone.rotation_mode = 'QUATERNION'
@@ -58,6 +75,12 @@ def main():
             tip_bone.rotation_mode = 'QUATERNION'
             tip_bone.rotation_quaternion = Quaternion((1, 0, 0), -amount * 1.5)
             tip_bone.keyframe_insert('rotation_quaternion', frame=frame)
+        if four_bones:
+            for name, axis, factor in (('Middle', (0, 1, 0), .8), ('End', (1, 0, 0), -.6)):
+                joint = rig.pose.bones[name]
+                joint.rotation_mode = 'QUATERNION'
+                joint.rotation_quaternion = Quaternion(axis, amount * factor)
+                joint.keyframe_insert('rotation_quaternion', frame=frame)
     action = rig.animation_data.action
     action['asset_assistant_generated'] = True
     action['asset_assistant_rig_id'] = rig['asset_assistant_rig_id']
@@ -89,7 +112,7 @@ def main():
                         'tail': [tip.x, tip.z, -tip.y],
                         'axes': [list(basis.col[index]) for index in range(3)]})
     (destination / 'expected.json').write_text(json.dumps({
-        'bone': bone.name, 'bone_length': bone.length, 'fixture': 'two-bone-blend' if two_bones else 'one-bone',
+        'bone': bone.name, 'bone_length': bone.length, 'fixture': 'four-bone-blend' if four_bones else ('two-bone-blend' if two_bones else 'one-bone'),
         'samples': samples, 'tolerance': 1e-5}))
     (destination / 'project.godot').write_text('[application]\nconfig/name="Skinned LOD probe"\n')
 
