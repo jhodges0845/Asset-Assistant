@@ -725,3 +725,20 @@ Do not continue treating this as an unidentified Blender bind/animation defect.
 Remaining destination work is a documented precision policy or verified packing
 solution, followed by actual provider/clip and visual validation. No source
 weights or acceptance thresholds were modified by these probes.
+
+## Precision classification without acceptance relaxation (2026-11-02)
+
+Motion diagnostic schema 2 separates `strict_passed` from `precision_explained`.
+It measures the observed baked-minus-reference error vector and subtracts the
+predicted packed-minus-original-weight vector at each corresponding vertex.
+Unexplained residual, bake/model residual and the conservative packing bound
+must meet their checks for the explanation result. Initial original-weight
+correspondence must meet the existing tolerance; nonfinite vectors fail.
+
+The four-bone levels retain strict failure at 1.252051734e-4 / 1.257806580e-4,
+while unexplained residuals are 2.32395723e-6 / 2.38245866e-6. Both explanations
+pass without changing the strict 1e-5 gate. Moving all LOD0 reference vertices
+by 0.01 at sample 20 correctly makes its explanation fail; LOD1 stays explained.
+The command exit status represents explanation validity, explicitly NOT release
+acceptance. Reports retain the strict result so downstream review cannot treat
+an explained loss as an accepted export. Source weights and rendering stay intact.
