@@ -2,6 +2,17 @@
 
 This is the working source of truth for current development priorities. Before continuing development, verify live GitHub main, open PRs, and CI state rather than assuming the state recorded here is still current.
 
+## Repository and documentation reconciliation — 2026-11-01
+
+This checkpoint records the state after PR #328 merged; it does **not** constitute alpha approval or live CI/artist acceptance.
+
+- **LOD:** Static previews, groups and GLB bundles have implementation and Godot direct-import evidence. Skinned preview and generated-clip bundle export have implementation evidence; synthetic single-bone rendered-skin validation passes. The blended two-bone fixed-correspondence probe still fails the unchanged 1e-5 tolerance (balanced diagnostic: 1.50501437e-5 / 1.48916215e-5). Destination weight packing is implicated, but there is no accepted production workaround. See [LOD workflow](lod-workflow.md).
+- **Provider maturity:** The numbered checklist immediately below is a milestone history, not a complete current recipe inventory. The newer [alpha plan](shared-anatomy-alpha-plan.md), [cross-provider acceptance](cross-provider-acceptance.md) and [Avian review](avian-review.md) document later Canine/Avian recipe iterations and automated evidence. Do not interpret old recipe numbers or unchecked artistic acceptance as absence of implementation.
+- **Manual gates:** Full installed Blender UX, provider visual/motion acceptance, artist-edit continuity, import/export matrix, static Box-to-rock proof, STL/Cura and engine LOD switching remain subject to the [production readiness checklist](production-readiness-checklist.md). Automated tests do not close these gates.
+- **Issue reconciliation:** #208 (import normalization), #220 (production readiness), #225 (explicit glTF), #228 (standalone clip import), #231 (animation JSON), #236 (model JSON) remain open. Several overlap implemented foundations; review each acceptance criterion against code and manual evidence before closing. Do not infer closure from a roadmap checkbox.
+- **Branch housekeeping:** Retain `main`, `visual-testing` and any branch with unreviewed unique changes. Squash-merged branches can appear divergent in commit comparisons; verify patch equivalence and absence of unique work before deletion. In particular, inspect `codex/lod-weight-error-bounds` for its additional packing-motion diagnostic before retiring it.
+- **Release policy:** Finish scope, freeze candidate, conduct independent specialist reviews, resolve blockers, then obtain the owner's installed experience sign-off and explicit alpha authorization. No tag or release is approved here.
+
 ## Active pre-alpha milestone: shared anatomy and motion
 
 The next alpha requires a shared anatomy construction system with Human, Quadruped and Avian recipes, followed by a new cross-provider animation quality pass. The goal is visibly appealing models and motion through one coherent workflow. Packaging readiness alone no longer closes the alpha gate.
