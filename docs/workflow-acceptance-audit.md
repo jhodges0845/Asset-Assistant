@@ -1,5 +1,7 @@
 # Workflow and UI/UX acceptance audit
 
+> **2026-11-01 current-state note:** The original table and later dated entries are historical snapshots. Since then, static LOD Export workspace controls and GLB bundle export, experimental skinned preview/apply, internal generated-clip skinned bundle export, and Godot skeletal/rendered-skin diagnostics have been implemented. These are **not** full LOD acceptance: the two-bone packed-weight tolerance failure, live UI/undo, provider/clip visual review and engine LOD switching remain open. Refer to [LOD workflow](lod-workflow.md) and [roadmap](roadmap.md) for the latest state. Do not treat the older “not an artist-facing workflow” wording below as current.
+
 Started 2026-10-23 from main c911e37 after the Human rig/clip merge.
 This is the current acceptance ledger, not release approval. Older UI audits
 are historical: the current interface has Create, Animate, Components and Export.
