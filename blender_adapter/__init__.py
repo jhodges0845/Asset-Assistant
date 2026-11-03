@@ -67,3 +67,9 @@ def unregister():
     animation_adoption_ui.unregister(); animation_tuning_ui.unregister(); animation_json_ui.unregister(); animation_artist_ui.unregister()
     animation_names_ui.unregister(); imported_rig_access.unregister(); ui.unregister()
     presentation_registry.registry.clear()
+
+
+def glTF2ExportUserExtension():
+    """Lazy factory discovered by Blender glTF when this add-on is enabled."""
+    from .lod_weight_export import WeightExportExtension
+    return WeightExportExtension()
