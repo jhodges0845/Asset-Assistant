@@ -2,6 +2,10 @@
 
 This is the working source of truth for current development priorities. Before continuing development, verify live GitHub main, open PRs, and CI state rather than assuming the state recorded here is still current.
 
+## Repository housekeeping checkpoint — 2026-11-03
+
+The current `main` documentation supersedes earlier LOD diagnostic snapshots. Do not restore older LOD acceptance statements from superseded documentation PRs. Issues #208, #220, #225, #228, #231 and #236 remain open pending their individual code and manual acceptance criteria. Retain `main`, `visual-testing`, and branches with unreviewed unique changes; squash-merged branches require patch-equivalence review before deletion. Installed Blender UX, artist-owned edit continuity, static Box-to-rock, STL/Cura, provider visual quality, engine interchange and LOD switching remain subject to the production readiness checklist. No alpha release is authorized by this housekeeping checkpoint.
+
 ## Active pre-alpha milestone: shared anatomy and motion
 
 The next alpha requires a shared anatomy construction system with Human, Quadruped and Avian recipes, followed by a new cross-provider animation quality pass. The goal is visibly appealing models and motion through one coherent workflow. Packaging readiness alone no longer closes the alpha gate.
