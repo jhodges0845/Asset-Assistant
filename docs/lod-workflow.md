@@ -852,6 +852,9 @@ contrasting shapes, material/UV inspection, live UI/undo and visual acceptance.
 
 ## Small-weight export guard (2026-11-02)
 
+Historical guard baseline; the supported preservation path below supersedes
+unconditional rejection when the add-on extension is enabled.
+
 Blender 5.2.1's bundled glTF `PrimitiveCreator.__get_bone_data` hard-codes
 `min_influence = 0.0001` and skips weights at or below it. The all-influences
 option does not disable that cutoff. The preceding investigation in
@@ -884,3 +887,56 @@ Next work must establish a supported preservation route (or an explicit,
 reviewable weight-preparation workflow) and rerun the original provider/clip
 oracles. Do not patch the user's Blender installation, silently edit authored
 weights, or relax the 1e-5 playback threshold to bypass this limitation.
+
+
+## Supported small-weight preservation (2026-11-03)
+
+`blender_adapter/lod_weight_export.py` uses Blender's supported glTF
+`gather_mesh_hook`, discovered through the enabled add-on's lazy
+`glTF2ExportUserExtension` factory. It runs only inside skinned LOD exports that
+contain positive weights <= 0.0001. Ordinary exports retain their defaults.
+The existing source checks, generated-animation preparation, Godot adapter and
+transactional bundle publication still run.
+
+Temporary copied meshes receive a unique vertex-index attribute. The hook uses
+that index after material/normal/UV splitting to restore every validated
+influence through Blender's normal accessor writer, mapping names to exported
+skin joints. Weights are normalized for serialization without pruning or
+changing artist data. The marker is removed from the output; other custom
+attributes remain disabled by default. At most eight influences are supported.
+Invalid mapping, unsupported accessors, missing surface coverage, unrepresentable
+weights, a missing hook or a critical hook error rejects the bundle. With the
+add-on disabled, the original pre-staging small-weight guard remains active.
+No Blender installation code or user preferences are patched by production export.
+
+Regression coverage includes 1e-8/5e-5/1e-4 weights, eight distinct per-vertex
+influences across two materials, disabled/missing/failing hooks, damaged
+provenance, no partial publication and unchanged source data. The isolated
+release ZIP test enables `humanoid_blender` and checks actual GLB tiny weights;
+the provider review script enables the source add-on in its factory runtime.
+
+Fresh Blender 5.2.1 bundles pass rendering-enabled Godot 4.7.2 review against
+original, unmodified Blender oracles. Each row covers all 49 samples at each
+level, fixed correspondence and every source vertex. The tolerance stays 1e-5.
+
+| Default fixture | LOD0 maximum skin error | LOD1 maximum skin error |
+| --- | ---: | ---: |
+| Human Idle | 2.13571911e-6 | 2.14286774e-6 |
+| Human Walk | 7.76472007e-6 | 7.65825462e-6 |
+| Human Run | 9.73212354e-6 | 9.58019518e-6 |
+| Canine Idle | 8.1742752e-7 | 8.1742752e-7 |
+| Canine Walk | 3.80570077e-6 | 4.05355559e-6 |
+| Canine Run | 4.43025829e-6 | 4.74942817e-6 |
+| Avian Idle | 6.96463121e-6 | 7.00741248e-6 |
+| Avian Walk | 6.95263316e-6 | 6.98780241e-6 |
+| Avian Flight | 5.29300178e-6 | 5.39134317e-6 |
+
+All nine default provider/clip pairs pass. Local evidence is under
+`artifacts/lod-<provider>-<clip>-hook` (Canine uses `quadruped`).
+Validation also passed 81 focused Blender LOD/target tests, seven core/architecture
+tests and the isolated release ZIP weight-export check.
+These results resolve the cutoff-related default-clip failures above. They do
+not establish broad shape coverage or reduced-mesh visual fidelity. Synthetic
+multi-bone Godot weight-packing failures remain a separate precision-policy gate.
+Next: contrasting shapes and material/UV review; live UI/undo and actual engine
+LOD switching remain required release gates.

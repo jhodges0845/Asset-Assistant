@@ -384,8 +384,23 @@ def test_skin_export_staging_rejects_external_dependencies(skinned):
     assert len(rig.pose.bones[0].constraints) == 1
 
 
-@pytest.mark.parametrize("influences, small_weight", ((1, None), (8, None), (2, 1.000001e-4)))
-def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, tmp_path, influences, small_weight):
+@pytest.fixture
+def enabled_weight_extension():
+    import addon_utils
+    addon_utils.enable('blender_adapter', default_set=True, persistent=False)
+    try:
+        from blender_adapter.lod_weight_export import extension_available
+        assert extension_available()
+        yield
+    finally:
+        addon_utils.disable('blender_adapter', default_set=True)
+
+
+@pytest.mark.parametrize("influences, small_weight", ((1, None), (8, None), (2, 1.000001e-4),
+                                                     (2, 1e-8), (2, .00005), (2, .0001)))
+def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, tmp_path, influences, small_weight, request):
+    if small_weight is not None and small_weight <= .0001:
+        request.getfixturevalue("enabled_weight_extension")
     import json
     import struct
     from blender_adapter.lod_export import plan_lod_export
@@ -683,3 +698,132 @@ def test_skin_export_blocks_small_weight_loss_without_mutation(skinned, small_we
     assert set(bpy.data.objects) == objects
     assert set(bpy.context.selected_objects) == selected
     assert bpy.context.view_layer.objects.active == active
+
+
+@pytest.mark.parametrize('failure', ('missing', 'critical', 'provenance'))
+def test_weight_hook_failure_cleans_bundle(skinned, enabled_weight_extension, monkeypatch, tmp_path, failure):
+    from blender_adapter.lod_weight_export import WeightExportExtension, _scope
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter.lod_export import export_skin_lod_bundle
+    source, rig = skinned
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    bone = rig.data.edit_bones.new('Tiny')
+    bone.head, bone.tail = (1, 0, 0), (1, 0, 1)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    source.vertex_groups.new(name='Tiny').add([0], .00001, 'REPLACE')
+    source.vertex_groups[0].add([0], .99999, 'REPLACE')
+    source.data.materials.append(bpy.data.materials.new('Hook failure material'))
+    rig['asset_assistant_rig_id'] = 'hook-failure'
+    rig.pose.bones[0].keyframe_insert('rotation_euler', frame=1)
+    rig.pose.bones[0].rotation_euler.x = .5
+    rig.pose.bones[0].keyframe_insert('rotation_euler', frame=12)
+    action = rig.animation_data.action
+    action['asset_assistant_generated'] = True
+    action['asset_assistant_clip'] = 'HookTest'
+    action['asset_assistant_rig_id'] = rig['asset_assistant_rig_id']
+    from blender_adapter.animation import action_curves
+    for curve in action_curves(action, rig.animation_data.action_slot):
+        for key in curve.keyframe_points:
+            key.interpolation = 'LINEAR'
+    preview = preview_skin_lods(source, bpy.context.scene, ratios=(.5,), max_distance=.3)
+    preview.apply()
+    before = inspect_skin_lod_source(source).weights
+    objects = set(bpy.data.objects)
+    attrs = tuple(source.data.attributes.keys())
+    original = WeightExportExtension.gather_mesh_hook
+    calls = []
+    def broken(self, mesh, data, obj, groups, modifiers, materials, settings):
+        calls.append(obj)
+        if failure == 'missing':
+            return
+        if failure == 'critical':
+            raise RuntimeError('Injected critical hook failure')
+        mesh.primitives[0].attributes.pop(_scope.get()['marker'].upper())
+        return original(self, mesh, data, obj, groups, modifiers, materials, settings)
+    monkeypatch.setattr(WeightExportExtension, 'gather_mesh_hook', broken)
+    try:
+        with pytest.raises(ValueError, match='LOD export failed') as error:
+            export_skin_lod_bundle(preview.collection, bpy.context, tmp_path / 'rejected')
+        assert calls, str(error.value)
+        assert not list(tmp_path.iterdir())
+        assert _scope.get() is None
+        assert set(bpy.data.objects) == objects
+        assert tuple(source.data.attributes.keys()) == attrs
+        assert inspect_skin_lod_source(source).weights == before
+    finally:
+        rig.animation_data_clear()
+        bpy.data.actions.remove(action)
+
+
+def test_weight_hook_maps_eight_distinct_influences_across_materials(skinned, enabled_weight_extension, tmp_path):
+    import json
+    import struct
+    from blender_adapter.lod_export import LODExportLevel
+    from blender_adapter.lod_skin_export import stage_skin_lod_level
+    from blender_adapter.lod_weight_export import preserve_weights
+    source, rig = skinned
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    for i in range(7):
+        bone = rig.data.edit_bones.new('Tiny' + str(i))
+        bone.head, bone.tail = (i + 1, 0, 0), (i + 1, 0, 1)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    for bone in list(rig.data.bones)[1:]:
+        source.vertex_groups.new(name=bone.name)
+    for vertex in source.data.vertices:
+        tiny = [(vertex.index + 1) * (i + 1) * 1e-8 for i in range(7)]
+        for group, weight in zip(source.vertex_groups, [1 - sum(tiny)] + tiny):
+            group.add([vertex.index], weight, 'REPLACE')
+    materials = [bpy.data.materials.new(name) for name in ('HookFirst', 'HookSecond')]
+    for material in materials:
+        source.data.materials.append(material)
+    for polygon in source.data.polygons:
+        polygon.material_index = polygon.index % 2
+    source.data.attributes.new('_artist_private', 'FLOAT', 'POINT')
+    expected = inspect_skin_lod_source(source).weights
+    attributes = tuple(source.data.attributes.keys())
+    path = tmp_path / 'eight.glb'
+    try:
+        with stage_skin_lod_level(LODExportLevel(0, (source,), (rig,), 0), bpy.context.scene) as root:
+            for obj in bpy.context.selected_objects:
+                obj.select_set(False)
+            for obj in root.children:
+                obj.select_set(True)
+            with preserve_weights(root, dict(filepath=str(path), use_selection=True,
+                                            export_all_influences=True)) as options:
+                assert bpy.ops.export_scene.gltf(**options) == {'FINISHED'}
+        raw = path.read_bytes()
+        length = struct.unpack_from('<I', raw, 12)[0]
+        doc = json.loads(raw[20:20 + length])
+        def accessor(index, fmt):
+            acc = doc['accessors'][index]
+            view = doc['bufferViews'][acc['bufferView']]
+            offset = 28 + length + view.get('byteOffset', 0) + acc.get('byteOffset', 0)
+            stride = view.get('byteStride', struct.calcsize(fmt))
+            return [struct.unpack_from(fmt, raw, offset + i * stride) for i in range(acc['count'])]
+        names = [doc['nodes'][index]['name'] for index in doc['skins'][0]['joints']]
+        covered = set()
+        primitives = doc['meshes'][0]['primitives']
+        assert len(primitives) == 2
+        for primitive in primitives:
+            attrs = primitive['attributes']
+            assert not any(key.startswith('_AA_LOD_') for key in attrs)
+            assert '_ARTIST_PRIVATE' not in attrs
+            joints = [a + b for a, b in zip(accessor(attrs['JOINTS_0'], '<4H'), accessor(attrs['JOINTS_1'], '<4H'))]
+            weights = [a + b for a, b in zip(accessor(attrs['WEIGHTS_0'], '<4f'), accessor(attrs['WEIGHTS_1'], '<4f'))]
+            for js, ws in zip(joints, weights):
+                actual = dict(zip((names[j] for j in js), ws))
+                index = round(actual['Tiny0'] / 1e-8) - 1
+                assert 0 <= index < len(expected)
+                total = sum(weight for _, weight in expected[index])
+                for name, weight in expected[index]:
+                    assert actual[name] == pytest.approx(weight / total, rel=1e-6, abs=1e-12)
+                covered.add(index)
+        assert covered == set(range(len(expected)))
+        assert inspect_skin_lod_source(source).weights == expected
+        assert tuple(source.data.attributes.keys()) == attributes
+    finally:
+        source.data.materials.clear()
+        for material in materials:
+            bpy.data.materials.remove(material)

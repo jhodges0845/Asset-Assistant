@@ -28,6 +28,8 @@ def main():
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
     if (args.clip == 'Flight' and args.provider != 'avian') or (args.clip == 'Run' and args.provider == 'avian'):
         parser.error('Selected provider does not support this clip')
+    import addon_utils
+    addon_utils.enable('blender_adapter', default_set=True, persistent=False)
     destination = args.destination.resolve()
     provider = get_provider(args.provider)
     add_clip, duration = {'Idle': (add_idle, 4.0), 'Walk': (add_locomotion, 1.2),
