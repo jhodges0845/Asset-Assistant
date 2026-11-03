@@ -40,7 +40,8 @@ def stage_skin_lod_level(level, scene, *, generated_clips=False):
             discarded = next(((index, name, weight)
                               for index, row in enumerate(contract.weights)
                               for name, weight in row if 0 < weight <= 0.0001), None)
-            if discarded is not None:
+            from .lod_weight_export import extension_available
+            if discarded is not None and not extension_available():
                 index, name, weight = discarded
                 raise ValueError(
                     f'LOD{level.index} mesh {mesh.name}, vertex {index}: Blender glTF export '
@@ -141,6 +142,11 @@ def export_skin_lod_level(level, context, filepath):
             options = super().export_options(filepath)
             options['export_all_influences'] = True
             return options
+
+        def write(self, options, root, context):
+            from .lod_weight_export import preserve_weights
+            with preserve_weights(root, options) as scoped_options:
+                return super().write(scoped_options, root, context)
 
     with stage_skin_lod_level(level, context.scene, generated_clips=True) as root:
         return SkinLODGodotAdapter(asset_use='ANIMATED').export(root, context, filepath)
