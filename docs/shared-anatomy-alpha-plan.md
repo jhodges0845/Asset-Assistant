@@ -130,6 +130,7 @@ A gate stays open until the candidate commit and results are recorded.
   triangle budgets, silhouette, UV/material/weight preservation, animated playback
   and engine level selection. A static preview backend now exists; see [LOD workflow](lod-workflow.md).
   Saved-preview recovery, Export controls, skinned preview/apply and generated-clip GLB bundles are implemented. All nine default provider/clip pairs pass original-oracle Godot playback with small-weight preservation. Broader shapes, silhouette/material/UV quality, precision policy, live UI/undo and engine LOD switching remain open. Artist source geometry must remain preserved.
+  Contrasting Human Run LOD1 has visible thigh/knee shading artifacts and checker-pattern changes; resolve the [paired visual review findings](lod-workflow.md#paired-imported-lod-visual-review-2026-11-03) before LOD quality acceptance.
 - [ ] **Live UI/UX:** exercise installed Create/Animate/Components/Export at 280,
   360 and 480 pixel sidebar widths, including no-asset, imported/generated,
   manually edited, blocked and successful states. Check keyboard navigation,

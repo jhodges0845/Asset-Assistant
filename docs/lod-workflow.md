@@ -1022,3 +1022,15 @@ geometry, UV coordinates, input-file hash preservation, imported-object cleanup,
 and missing-clip rejection. They and the five structural surface-inventory
 checks pass (seven tests). No production mesh, rig, export behavior, or quality
 tolerance changed.
+
+
+Contrasting Human Run at phase 0.25 (84,368 to 42,184 triangles) is **not visually
+accepted**. The paired clay sheet exposes pronounced jagged shading around the
+LOD1 thighs/knees; the checker sheet shows substantial pattern changes over the
+torso and limbs. The LOD0 checker already has strongly uneven cell aspect ratios,
+so both source UV quality and reduction/export fidelity need separate review.
+Evidence: `artifacts/lod-visual-human-run/{clay,checker}.png`. Passing per-level
+skin-oracle checks does not establish visual equivalence to LOD0. Next diagnosis:
+compare rest/posed surface normals and UV corners before/after reduction and
+GLB round-trip; isolate shading from geometry with the silhouette sheet before
+changing rig/weight behavior. Keep Human LOD artistic acceptance blocked.
