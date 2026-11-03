@@ -940,3 +940,42 @@ not establish broad shape coverage or reduced-mesh visual fidelity. Synthetic
 multi-bone Godot weight-packing failures remain a separate precision-policy gate.
 Next: contrasting shapes and material/UV review; live UI/undo and actual engine
 LOD switching remain required release gates.
+
+
+## Contrasting-shape playback and surface inventory (2026-11-03)
+
+`export_avian_lod_review.py --sample contrasting` now reuses the established
+`SAMPLES` in `scripts/anatomy_baseline.py`; `--sample default` retains the prior
+behavior. `expected.json` records the selected sample and all resolved provider
+parameters, making each oracle reproducible without inferring shape from a name.
+
+Fresh Blender 5.2.1 / rendering-enabled Godot 4.7.2 probes pass both LOD levels,
+all 49 samples, fixed correspondence and full source-vertex coverage at 1e-5:
+
+| Contrasting fixture | Review parameters | LOD0 maximum skin error | LOD1 maximum skin error |
+| --- | --- | ---: | ---: |
+| Human Run | height 155 cm, weight 65 kg, average body | 8.38695814e-6 | 8.45033810e-6 |
+| Canine Run | body length 95 cm, shoulder height 40 cm, width 28 cm, head 30 cm, tail 50 cm | 3.23242739e-6 | 3.37832694e-6 |
+| Avian Flight | body length 55 cm, width 22 cm, height 28 cm, wingspan 140 cm, tail 35 cm | 7.98457859e-6 | 7.73053762e-6 |
+
+Evidence: `artifacts/lod-{human-contrasting-run,quadruped-contrasting-run,avian-contrasting-flight}`.
+This is three contrasting provider/clip cases, not a complete contrasting clip
+matrix or parameter-range certification. No production mesh, rig, clip,
+export behavior or acceptance tolerance changed in this review step.
+
+The script also writes `surface-inventory.json` with source/LOD vertex and
+triangle counts, UV-layer names, material slots and per-material triangle
+counts. It reads each generated GLB and requires matching per-material triangle
+counts, triangle primitives, material references and finite, nonempty FLOAT
+VEC2 UV accessors matching the position count and staying inside their buffer
+views. It records exported UV bounds. All six contrasting surfaces pass these
+structural checks; all retain one UVMap and their generated base material.
+
+Five focused Blender diagnostic tests pass, including rejection of missing UVs,
+non-finite UVs, mismatched counts and truncated UV buffer views. A fresh final
+Avian CLI export and the three actual fixture bundles pass the inventory check.
+The checks detect missing/malformed export data; they do **not** compare UV
+corner correspondence, texture appearance, seam distortion, or source-to-LOD
+silhouette quality. Those visual/fidelity gates remain open, alongside the
+remaining contrasting clips, synthetic packed-weight policy, live UI/undo and
+engine LOD switching.

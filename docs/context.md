@@ -12,6 +12,8 @@ Static LOD budgets and a separate-copy preview/apply/cancel backend are implemen
 
 Enabled-addon small-weight preservation resolves the default playback failures; all nine provider/clip pairs pass. Remaining shape coverage and visual/engine gates are tracked in [lod-workflow.md](lod-workflow.md#supported-small-weight-preservation-2026-11-03).
 
+Contrasting Human Run, Canine Run and Avian Flight also pass both levels; structural GLB UV/material checks pass, while visual/corner fidelity remains open. See [contrasting review](lod-workflow.md#contrasting-shape-playback-and-surface-inventory-2026-11-03).
+
 ## Test runtime
 
 See [test-performance.md](test-performance.md) for CI timing evidence, coverage instrumentation and slow-test reporting.
