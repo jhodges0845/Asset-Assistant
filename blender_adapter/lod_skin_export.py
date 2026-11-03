@@ -34,6 +34,18 @@ def stage_skin_lod_level(level, scene, *, generated_clips=False):
         contract = inspect_skin_lod_source(mesh)
         if generated_clips and any(len(row) > 8 for row in contract.weights):
             raise ValueError('Skinned LOD export supports at most eight influences per vertex; explicit weight reduction is required')
+        if generated_clips:
+            # Blender 5.2.1's glTF primitive extraction discards these even
+            # with export_all_influences=True. Never silently change the skin.
+            discarded = next(((index, name, weight)
+                              for index, row in enumerate(contract.weights)
+                              for name, weight in row if 0 < weight <= 0.0001), None)
+            if discarded is not None:
+                index, name, weight = discarded
+                raise ValueError(
+                    f'LOD{level.index} mesh {mesh.name}, vertex {index}: Blender glTF export '
+                    f'would discard {name} weight {weight:.8g} (<= 0.0001). '
+                    'Source weights are preserved; a weight-preserving export path is required')
         if contract.armature not in level.armatures:
             raise ValueError('Skin binding lies outside the export level')
     if generated_clips:
