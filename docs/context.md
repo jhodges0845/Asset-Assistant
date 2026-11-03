@@ -14,6 +14,8 @@ Enabled-addon small-weight preservation resolves the default playback failures; 
 
 Contrasting Human Run, Canine Run and Avian Flight also pass both levels; structural GLB UV/material checks pass, while visual/corner fidelity remains open. See [contrasting review](lod-workflow.md#contrasting-shape-playback-and-surface-inventory-2026-11-03).
 
+Paired imported LOD clay/checker/silhouette review tooling and sampled findings: [visual review](lod-workflow.md#paired-imported-lod-visual-review-2026-11-03). Artistic fidelity acceptance remains open.
+
 ## Test runtime
 
 See [test-performance.md](test-performance.md) for CI timing evidence, coverage instrumentation and slow-test reporting.
