@@ -41,3 +41,44 @@ setup cost, and should follow measured per-test timings.
 No test cases, Python compatibility jobs, visual review, package checks or
 fresh-process persistence checks are removed by this change. This pass changes
 only test instrumentation and reporting, not production generation behavior.
+
+
+## Playback measurement optimization (2026-11-03)
+
+A local cProfile run of the default Human GLB playback test passed and recorded
+about 210 million calls. Large costs included the per-vertex pose-error,
+movement and ground-height loops, plus weighted-contact clip generation.
+Instrumented runtime is not a normal timing benchmark.
+
+The shared Human/Canine playback tests now use Blender's bulk vertex reader
+and NumPy arrays for world coordinates, distance maxima and ground height.
+NumPy is supplied by the Blender runtime; this adds no production dependency.
+The helpers live under `tests/blender/playback_metrics.py`. They retain float32
+coordinates/displacements and use double accumulation for distance magnitudes.
+Invalid/non-finite comparisons fail explicitly.
+
+All 34 samples for each of Walk, Idle, Run and repeated Idle remain. Every
+imported vertex is compared, the initial KDTree correspondence stays fixed
+throughout motion, and all original error/contact/closure thresholds remain.
+Real generation, semantic edits, export, import and action switching still run.
+The weighted-contact solver and other production code are unchanged.
+
+Metric regressions compare the bulk calculations with Blender mathutils under
+translation, rotation and nonuniform/negative scale, detect a single displaced
+vertex around the existing thresholds, reject wrong correspondence and invalid
+data, and compare three-axis distance magnitudes with the scalar reference.
+
+
+Sequential, fresh-process measurements of the default Human owned-clip playback
+case on this Windows host were **125.09 seconds before** and **64.12 seconds
+after**, about 49% less time. The baseline replays the original method from
+`fb8b11a` with the same Human provider and .72-second Run; the optimized run
+selects only `test_owned_clip_library` so the other Human test cannot warm its
+geometry cache. These are local per-test results, not a promised CI reduction.
+Earlier overlapping runs and cProfile timings are excluded from this comparison.
+Evidence: `artifacts/playback-bulk-sequential-{before,after}.log`.
+
+All 18 focused checks pass: default and edited Human/Canine actual GLB playback,
+Human Idle reset, and 13 metric regressions. No test, frame, vertex, assertion,
+CI job or required validation step is removed. Weighted-contact generation is
+still a measured cost and remains a separate future optimization candidate.
