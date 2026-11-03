@@ -10,6 +10,8 @@ Read `human-workflow.md` for the user workflow and code ownership map.
 
 Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export and a Godot direct-import probe implemented. Live UI/undo, skinned quality/export acceptance and engine LOD switching remain open. See [lod-workflow.md](lod-workflow.md).
 
+Current default skinned clip matrix and unresolved Human Run / Canine LOD1 playback failures are recorded in [lod-workflow.md](lod-workflow.md#default-provider-clip-matrix-2026-11-02).
+
 ## Test runtime
 
 See [test-performance.md](test-performance.md) for CI timing evidence, coverage instrumentation and slow-test reporting.

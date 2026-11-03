@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Rendering-enabled diagnostic; does not replace acceptance checks.
 extends SceneTree
+const Correspondence = preload("review_skin_lod_godot.gd")
 
 func _initialize():
     call_deferred("review")
@@ -16,6 +17,11 @@ func review():
     var manifest = JSON.parse_string(FileAccess.get_file_as_string("res://lod-manifest.json"))
     if not expected is Dictionary or not manifest is Dictionary or manifest.get("levels", []).is_empty():
         push_error("Missing fixture data")
+        quit(1)
+        return
+    var tolerance = float(expected.get("tolerance", 0))
+    if not is_finite(tolerance) or tolerance <= 0:
+        push_error("Motion correspondence requires a finite positive tolerance")
         quit(1)
         return
     var precision_explained = true
@@ -42,6 +48,7 @@ func review():
         var max_bake_residual = 0.0
         var max_raw_reference = 0.0
         var mapping = []
+        var cells = {}
         for sample in expected.samples:
             player.seek(sample.seconds, true)
             skeleton.force_update_all_bone_transforms()
@@ -50,6 +57,11 @@ func review():
             var rid = body.get_skin_reference().get_skeleton()
             var baked = body.bake_mesh_from_current_skeleton_pose()
             var ordinal = 0
+            var reference_points = []
+            for row in sample.positions[str(int(level.index))]:
+                reference_points.append(Vector3(row[0], row[1], row[2]))
+            if mapping.is_empty():
+                cells = Correspondence.correspondence_grid(reference_points, expected.tolerance)
             for surface in range(body.mesh.get_surface_count()):
                 var raw = state.get_meshes()[0].mesh.get_surface_arrays(surface)
                 var packed = body.mesh.surface_get_arrays(surface)
@@ -79,23 +91,16 @@ func review():
                     max_packing = max(max_packing, (body.global_transform.basis * (full - quantized)).length())
                     max_bake_residual = max(max_bake_residual, (body.global_transform.basis * (actual[vertex] - quantized)).length())
                     var world = body.global_transform * full
-                    var reference = sample.positions[str(int(level.index))]
                     if ordinal >= mapping.size():
-                        var nearest = INF
-                        var match_index = -1
-                        for index in range(reference.size()):
-                            var row = reference[index]
-                            var distance = world.distance_to(Vector3(row[0], row[1], row[2]))
-                            if distance < nearest:
-                                nearest = distance
-                                match_index = index
+                        var match = Correspondence.nearest_correspondence(world, reference_points, cells, expected.tolerance)
+                        var nearest = match.distance
+                        var match_index = match.index
                         if nearest > expected.tolerance:
-                            push_error("Initial original-weight correspondence exceeds tolerance")
+                            push_error("Initial original-weight correspondence exceeds tolerance (%s vertex %d: %.12g)" % [level.file, ordinal, nearest])
                             quit(1)
                             return
                         mapping.append(match_index)
-                    var row = reference[mapping[ordinal]]
-                    var target = Vector3(row[0], row[1], row[2])
+                    var target = reference_points[mapping[ordinal]]
                     var observed = body.global_transform * actual[vertex] - target
                     var predicted = body.global_transform.basis * (quantized - full)
                     if not observed.is_finite() or not predicted.is_finite():
