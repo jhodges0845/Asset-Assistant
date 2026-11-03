@@ -17,6 +17,8 @@ from blender_adapter.animation import (add_idle, add_locomotion, add_run,
 from blender_adapter.materials import prepare_materials
 from blender_adapter.targets import get_adapter
 from object_core.objects import get_provider
+if bpy is not None:
+    from tests.blender.playback_metrics import world_points, maximum_distance
 
 
 @unittest.skipIf(bpy is None, 'requires Blender')
@@ -121,12 +123,12 @@ class CanineGLBPlaybackTests(unittest.TestCase):
                     self.scene.frame_set(math.floor(frame), subframe=frame % 1)
                     bpy.context.view_layer.update()
                     body = bodies[0].evaluated_get(bpy.context.evaluated_depsgraph_get())
-                    points = [body.matrix_world @ v.co for v in body.data.vertices]
+                    points = world_points(body)
                     source_frame = source_action.frame_range[0] + duration * 24 * step / 33
                     self.scene.frame_set(math.floor(source_frame), subframe=source_frame % 1)
                     bpy.context.view_layer.update()
                     source = source_body.evaluated_get(bpy.context.evaluated_depsgraph_get())
-                    source_points = [source.matrix_world @ v.co for v in source.data.vertices]
+                    source_points = world_points(source)
                     if correspondence is None:
                         # GLB splits/reorders vertices at UV and normal seams.
                         # Establish identity once, then retain it through motion;
@@ -134,19 +136,18 @@ class CanineGLBPlaybackTests(unittest.TestCase):
                         from mathutils.kdtree import KDTree
                         tree = KDTree(len(source_points))
                         for index, point in enumerate(source_points):
-                            tree.insert(point, index)
+                            tree.insert(tuple(point), index)
                         tree.balance()
-                        correspondence = [tree.find(point)[1] for point in points]
+                        correspondence = [tree.find(tuple(point))[1] for point in points]
                     maximum_pose_error_cm = max(maximum_pose_error_cm,
-                        max((point-source_points[index]).length * 100
-                            for point, index in zip(points, correspondence)))
-                    minimum = min(minimum, min(p.z * 100 for p in points))
+                        maximum_distance(points, source_points[correspondence]) * 100)
+                    minimum = min(minimum, float(points[:, 2].min()) * 100)
                     if first is None:
                         first = points
-                    movement = max(movement, max((a-b).length for a,b in zip(first, points)))
+                    movement = max(movement, maximum_distance(first, points))
                 self.assertGreater(movement, .001)
                 self.assertLess(maximum_pose_error_cm, .002,
                                 'Exported surface differs from the source clip')
                 if source_label != 'Idle':
                     self.assertGreater(minimum, 0)
-                self.assertLess(max((a-b).length for a,b in zip(first, points)) * 100, .001)
+                self.assertLess(maximum_distance(first, points) * 100, .001)
