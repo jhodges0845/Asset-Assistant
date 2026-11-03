@@ -777,3 +777,68 @@ across 49 samples: observed errors 5.29300178e-6 / 5.39134317e-6; unexplained
 residuals 3.8857473e-7 / 2.76401488e-6. This resolves the default Avian truncation
 blocker and validates this clip/sample only. The synthetic multi-bone precision
 limits, broader provider/clip coverage and visual/UI acceptance remain open.
+
+
+## Default provider clip matrix (2026-11-02)
+
+The fixture exporter now accepts `--provider avian|human|quadruped` and
+`--clip Idle|Walk|Run|Flight`, keeping Avian Flight as its existing default.
+Unsupported combinations fail before creating a bundle. Each fresh fixture uses
+24 fps, the generated clip's explicit duration (Idle 4s, Walk/Flight 1.2s, Run
+0.72s), strength 1, a 50% LOD and 49 evenly spaced evaluated samples. The rest
+transfer bound remains 2% of the source bounding-box diagonal. Example:
+
+```text
+blender --background --factory-startup --python-exit-code 1 --python scripts/export_avian_lod_review.py -- artifacts/lod-human-walk --provider human --clip Walk
+godot --path artifacts/lod-human-walk --rendering-method gl_compatibility --script /absolute/path/scripts/review_skin_lod_godot.gd -- --skin
+```
+
+Blender 5.2.1 / rendering-enabled Godot 4.7.2 (ANGLE) results, with the unchanged
+1e-5 world-unit gate:
+
+| Default fixture | LOD0 skin error | LOD1 skin error | Result |
+| --- | ---: | ---: | --- |
+| Avian Idle | 6.96463121e-6 | 7.00741248e-6 | Both pass all 49 samples |
+| Avian Walk | 6.95263316e-6 | 6.98780241e-6 | Both pass all 49 samples |
+| Human Idle | 2.80626136e-6 | 3.48528738e-6 | Both pass all 49 samples |
+| Human Walk | 7.76472007e-6 | 7.65825462e-6 | Both pass all 49 samples |
+| Human Run | 1.114901625e-5 | 1.067110406e-5 | Both fail initial correspondence |
+| Canine Idle | 8.1742752e-7 | 8.1742752e-7 | Both pass all 49 samples |
+| Canine Walk | 6.73262502e-6 | 1.261931448e-5 | LOD0 passes; LOD1 fails initial correspondence |
+| Canine Run | 7.84810345e-6 | 1.202715703e-5 | LOD0 passes; LOD1 fails initial correspondence |
+
+Pass rows report maximum sampled error. Initial-failure values are the first
+rejected correspondence distance, not a maximum over the clip; those levels
+have zero completed samples and must not be treated as playback acceptance.
+The earlier default Avian Flight result remains documented above. Successful
+correspondence covers every source vertex (Avian 312/157, Human 42186/21094,
+Canine 17218/8610 for LOD0/LOD1). Each level is compared with its own Blender
+oracle; this does not measure reduced-mesh visual fidelity against LOD0.
+
+The original-float-weight motion diagnostic also rejects initial correspondence
+for Human Run and Canine Walk/Run. These failures cannot be classified solely as
+Godot packed-weight loss. Investigate source-to-export/import pose precision
+and LOD skin transfer before choosing any precision policy; the strict gate is
+unchanged and these clips remain unaccepted.
+
+### Correspondence review performance and safeguards
+
+The strict review now indexes reference points in tolerance-sized spatial cells
+and searches all 27 neighboring cells. It retains nearest-distance selection,
+lowest-index ties, fixed correspondence throughout playback, full source-vertex
+coverage and the original tolerance. Scalar double-precision cell division
+avoids premature Vector3 rounding. On rejection only, an exhaustive fallback
+retains the exact distance diagnostic. The motion packing diagnostic reuses
+the same lookup. This removes the quadratic successful initial search that
+required roughly 1.8 billion comparisons for the default Human LOD0.
+
+`scripts/test_lod_correspondence.gd` compares the lookup with exhaustive search
+on 916 deterministic queries, including ties, duplicate points, negative cell
+boundaries and rejected points. Run with Godot `--headless --script` and the
+absolute script path. It passes; repeated Avian results are numerically identical.
+The synthetic four-bone motion diagnostic also reproduces its prior numerical
+results and strict-fail/precision-explained classification exactly.
+A copied Avian Idle oracle shifted by 0.01 on LOD0 correctly fails initial
+correspondence while untouched LOD1 passes. Production meshes, weights and
+export tolerances are unchanged. Remaining gates include these failed clips,
+contrasting shapes, material/UV inspection, live UI/undo and visual acceptance.

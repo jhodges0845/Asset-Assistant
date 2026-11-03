@@ -9,6 +9,43 @@ func fail(message):
     push_error(message)
     quit(1)
 
+# Search all neighboring tolerance cells: every point within tolerance is included.
+# Preserve nearest-distance selection and the original lowest-index tie break.
+static func correspondence_cell(point, tolerance):
+    # Divide scalar components in double precision before converting to cells.
+    return Vector3i(floori(point.x / tolerance), floori(point.y / tolerance), floori(point.z / tolerance))
+
+static func correspondence_grid(points, tolerance):
+    var cells = {}
+    for index in range(points.size()):
+        var cell = correspondence_cell(points[index], tolerance)
+        if not cells.has(cell):
+            cells[cell] = []
+        cells[cell].append(index)
+    return cells
+
+static func nearest_correspondence(point, points, cells, tolerance):
+    var cell = correspondence_cell(point, tolerance)
+    var nearest = INF
+    var match_index = -1
+    for x in range(-1, 2):
+        for y in range(-1, 2):
+            for z in range(-1, 2):
+                for index in cells.get(cell + Vector3i(x, y, z), []):
+                    var distance = point.distance_to(points[index])
+                    if distance < nearest or (distance == nearest and index < match_index):
+                        nearest = distance
+                        match_index = index
+    # A rejected initial match stops the probe. Preserve its exact distance
+    # diagnostic with one exhaustive scan instead of writing infinity to JSON.
+    if nearest > tolerance:
+        for index in range(points.size()):
+            var distance = point.distance_to(points[index])
+            if distance < nearest or (distance == nearest and index < match_index):
+                nearest = distance
+                match_index = index
+    return {"distance": nearest, "index": match_index}
+
 func review():
     var packed_diagnostic = "--balanced-pack-diagnostic" in OS.get_cmdline_user_args()
     var normalize_diagnostic = "--normalize-baked-diagnostic" in OS.get_cmdline_user_args()
@@ -38,6 +75,10 @@ func review():
     var manifest = JSON.parse_string(FileAccess.get_file_as_string("res://lod-manifest.json"))
     if not expected is Dictionary or not manifest is Dictionary:
         fail("Missing fixture oracle or manifest")
+        return
+    var tolerance = float(expected.get("tolerance", 0))
+    if not is_finite(tolerance) or tolerance <= 0:
+        fail("Skin correspondence requires a finite positive tolerance")
         return
     var passed = true
     var results = []
@@ -165,14 +206,11 @@ func review():
                 if correspondence.is_empty():
                     reference_count = reference_points.size()
                     var covered = {}
+                    var cells = correspondence_grid(reference_points, expected.tolerance)
                     for point in actual_points:
-                        var nearest = INF
-                        var match_index = -1
-                        for index in range(reference_points.size()):
-                            var distance = point.distance_to(reference_points[index])
-                            if distance < nearest:
-                                nearest = distance
-                                match_index = index
+                        var match = nearest_correspondence(point, reference_points, cells, expected.tolerance)
+                        var nearest = match.distance
+                        var match_index = match.index
                         if nearest > expected.tolerance:
                             maximum_skin = nearest
                             failure_reason = "Initial skin correspondence exceeds tolerance"
