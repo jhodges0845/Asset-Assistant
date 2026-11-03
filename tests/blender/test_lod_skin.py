@@ -384,8 +384,8 @@ def test_skin_export_staging_rejects_external_dependencies(skinned):
     assert len(rig.pose.bones[0].constraints) == 1
 
 
-@pytest.mark.parametrize("influences", (1, 8))
-def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, tmp_path, influences):
+@pytest.mark.parametrize("influences, small_weight", ((1, None), (8, None), (2, 1.000001e-4)))
+def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, tmp_path, influences, small_weight):
     import json
     import struct
     from blender_adapter.lod_export import plan_lod_export
@@ -403,6 +403,10 @@ def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, t
         for joint in rig.data.bones:
             group = source.vertex_groups.get(joint.name) or source.vertex_groups.new(name=joint.name)
             group.add(list(range(len(source.data.vertices))), 1 / influences, 'REPLACE')
+    if small_weight is not None:
+        indices = list(range(len(source.data.vertices)))
+        source.vertex_groups[0].add(indices, 1 - small_weight, 'REPLACE')
+        source.vertex_groups[1].add(indices, small_weight, 'REPLACE')
     source.data.materials.append(bpy.data.materials.new('LOD test material'))
     rig['asset_assistant_rig_id'] = 'lod-export-test'
     bone = rig.pose.bones[0]
@@ -439,6 +443,15 @@ def test_skin_level_serializes_generated_clip_without_artist_mutation(skinned, t
             if influences == 8:
                 assert all('JOINTS_1' in primitive['attributes'] and 'WEIGHTS_1' in primitive['attributes']
                            for primitive in document['meshes'][0]['primitives'])
+            if small_weight is not None:
+                for primitive in document['meshes'][0]['primitives']:
+                    accessor = document['accessors'][primitive['attributes']['WEIGHTS_0']]
+                    assert accessor['componentType'] == 5126
+                    view = document['bufferViews'][accessor['bufferView']]
+                    offset = 20 + length + 8 + view.get('byteOffset', 0) + accessor.get('byteOffset', 0)
+                    weights = struct.unpack_from('<4f', raw, offset)
+                    assert sorted(w for w in weights if w > 0) == pytest.approx(
+                        struct.unpack('<2f', struct.pack('<2f', small_weight, 1 - small_weight)), abs=1e-10)
             assert len(document['meshes']) == 1
             assert {clip['name'] for clip in document['animations']} == {'TestMotion', 'SecondMotion'}
             triangles = sum(document['accessors'][primitive['indices']]['count'] // 3
@@ -627,3 +640,46 @@ def test_skin_export_rejects_silent_influence_truncation(skinned):
             pytest.fail('Exporter would truncate weights')
     assert inspect_skin_lod_source(source).weights == before
     assert set(bpy.data.objects) == objects
+
+
+@pytest.mark.parametrize('small_weight', (1e-8, 0.00005, 0.0001))
+def test_skin_export_blocks_small_weight_loss_without_mutation(skinned, small_weight, tmp_path):
+    from blender_adapter.lod_skin_export import stage_skin_lod_level
+    from blender_adapter.lod_export import LODExportLevel
+    source, rig = skinned
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    extra = rig.data.edit_bones.new('SmallInfluence')
+    extra.head, extra.tail = (1, 0, 0), (1, 0, 1)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    group = source.vertex_groups.new(name='SmallInfluence')
+    group.add([0], small_weight, 'REPLACE')
+    source.vertex_groups[0].add([0], 1 - small_weight, 'REPLACE')
+    before = inspect_skin_lod_source(source).weights
+    datablocks = {key: set(getattr(bpy.data, key)) for key in ('objects', 'meshes', 'armatures', 'actions')}
+    level = LODExportLevel(0, (source,), (rig,), 0)
+    with pytest.raises(ValueError, match='would discard SmallInfluence weight'):
+        with stage_skin_lod_level(level, bpy.context.scene, generated_clips=True):
+            pytest.fail('Small skin weight would be silently discarded')
+    assert inspect_skin_lod_source(source).weights == before
+    for key, values in datablocks.items():
+        assert set(getattr(bpy.data, key)) == values
+    # Preview/pose staging does not serialize and must retain small weights.
+    with stage_skin_lod_level(level, bpy.context.scene) as root:
+        mesh = next(obj for obj in root.children if obj.type == 'MESH')
+        assert inspect_skin_lod_source(mesh).weights == before
+
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    from blender_adapter.lod_export import export_skin_lod_bundle
+    preview = preview_skin_lods(source, bpy.context.scene, ratios=(.5,), max_distance=.3)
+    preview.apply()
+    objects = set(bpy.data.objects)
+    selected = set(bpy.context.selected_objects)
+    active = bpy.context.view_layer.objects.active
+    with pytest.raises(ValueError, match='would discard'):
+        export_skin_lod_bundle(preview.collection, bpy.context, tmp_path / 'rejected')
+    assert not list(tmp_path.iterdir())
+    assert inspect_skin_lod_source(source).weights == before
+    assert set(bpy.data.objects) == objects
+    assert set(bpy.context.selected_objects) == selected
+    assert bpy.context.view_layer.objects.active == active

@@ -8,6 +8,8 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export implemented. Internal skinned staging/clip serialization is in lod_skin_export.py and bundle publication in lod_export.py. Single rigs under static Empty parents are supported; animated parent dependencies, playback acceptance, live UI/undo and engine LOD switching remain open. See [../docs/lod-workflow.md](../docs/lod-workflow.md).
 
+Generated-clip skinned LOD exports reject positive weights <= 0.0001 to prevent Blender 5.2.1 glTF cutoff loss. Preview/pose staging preserves these weights; lossless export remains open. See lod_skin_export.py and tests/blender/test_lod_skin.py (root-relative).
+
 ## Current workflow and UI audit (2026-10-23)
 
 See [../docs/workflow-acceptance-audit.md](../docs/workflow-acceptance-audit.md) for model/animation Modify, LOD, import/export and UI acceptance evidence. Human rig/clip work is merged; workflow and UX validation are active. LOD support and live UI review remain open. Blender tests use pytest so function-based UI tests run alongside unittest classes.

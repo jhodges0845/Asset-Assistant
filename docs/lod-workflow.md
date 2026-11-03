@@ -1,5 +1,11 @@
 # LOD workflow implementation
 
+Current skinned-export limitation: positive weights at or below 0.0001 are
+blocked before serialization because Blender 5.2.1 silently drops them. Earlier
+provider playback results below are historical evidence, not permission to
+export affected assets with the current preservation guard. See the final
+small-weight section for status and next work.
+
 ## Static preview backend (2026-10-24)
 
 The first implementation slice is a backend, not a completed artist-facing LOD
@@ -842,3 +848,39 @@ A copied Avian Idle oracle shifted by 0.01 on LOD0 correctly fails initial
 correspondence while untouched LOD1 passes. Production meshes, weights and
 export tolerances are unchanged. Remaining gates include these failed clips,
 contrasting shapes, material/UV inspection, live UI/undo and visual acceptance.
+
+
+## Small-weight export guard (2026-11-02)
+
+Blender 5.2.1's bundled glTF `PrimitiveCreator.__get_bone_data` hard-codes
+`min_influence = 0.0001` and skips weights at or below it. The all-influences
+option does not disable that cutoff. The preceding investigation in
+[PR #335](https://github.com/jhodges0845/Asset-Assistant/pull/335) reproduced the
+initial-pose failures through Blender reimport and isolated the cutoff using
+unchanged GLBs with separately regenerated, cutoff-adjusted references.
+Original-float-weight residuals across 49 samples fell below 2.20e-6 for Human
+Run and 4.34e-7 for Canine Walk/Run. Those altered references were diagnostics,
+not acceptance of the original assets.
+
+The generated-clip LOD staging path now rejects any positive source/LOD weight
+at or below 0.0001 before allocating that level's temporary hierarchy. The error
+identifies the LOD, mesh, vertex, bone and weight. The existing bundle transaction
+discards earlier staged levels and publishes no bundle. Neither weights nor
+artist data are normalized, clamped or pruned by this guard. Non-serialized
+preview/pose staging continues to retain small weights.
+
+Twenty-nine focused Blender tests and seven core/architecture tests pass.
+Regressions cover weights 1e-8, 5e-5 and 1e-4, unchanged data/selection after
+rejection, no published files, and real GLB preservation just above the cutoff
+(1.000001e-4), alongside existing one/eight-influence serialization checks.
+Fresh default Avian Flight and Human Run fixtures fail explicitly and leave no
+bundle: Avian first reports a LOD1 spine weight about 8.24e-7; Human first reports
+a LOD0 upper-leg weight about 1.10e-5. Fresh Canine Walk and Run likewise
+fail at LOD0 on a hind-lower-leg weight about 8.88e-6, without publishing.
+
+This is prevention of silent loss, not a weight-preserving serializer. Even
+previously passing sampled clips may be blocked if they contain such weights.
+Next work must establish a supported preservation route (or an explicit,
+reviewable weight-preparation workflow) and rerun the original provider/clip
+oracles. Do not patch the user's Blender installation, silently edit authored
+weights, or relax the 1e-5 playback threshold to bypass this limitation.
