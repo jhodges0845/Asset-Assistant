@@ -921,15 +921,22 @@ level, fixed correspondence and every source vertex. The tolerance stays 1e-5.
 
 | Default fixture | LOD0 maximum skin error | LOD1 maximum skin error |
 | --- | ---: | ---: |
+| Human Idle | 2.13571911e-6 | 2.14286774e-6 |
+| Human Walk | 7.76472007e-6 | 7.65825462e-6 |
 | Human Run | 9.73212354e-6 | 9.58019518e-6 |
+| Canine Idle | 8.1742752e-7 | 8.1742752e-7 |
 | Canine Walk | 3.80570077e-6 | 4.05355559e-6 |
 | Canine Run | 4.43025829e-6 | 4.74942817e-6 |
+| Avian Idle | 6.96463121e-6 | 7.00741248e-6 |
+| Avian Walk | 6.95263316e-6 | 6.98780241e-6 |
 | Avian Flight | 5.29300178e-6 | 5.39134317e-6 |
 
-Local evidence is under `artifacts/lod-{human-run,quadruped-walk,quadruped-run,avian-flight}-hook`.
+All nine default provider/clip pairs pass. Local evidence is under
+`artifacts/lod-<provider>-<clip>-hook` (Canine uses `quadruped`).
+Validation also passed 81 focused Blender LOD/target tests, seven core/architecture
+tests and the isolated release ZIP weight-export check.
 These results resolve the cutoff-related default-clip failures above. They do
 not establish broad shape coverage or reduced-mesh visual fidelity. Synthetic
 multi-bone Godot weight-packing failures remain a separate precision-policy gate.
-Next: rerun the remaining default Idle/Walk clips through this enabled path,
-then contrasting shapes and material/UV review; live UI/undo and actual engine
+Next: contrasting shapes and material/UV review; live UI/undo and actual engine
 LOD switching remain required release gates.

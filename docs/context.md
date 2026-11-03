@@ -10,7 +10,7 @@ Read `human-workflow.md` for the user workflow and code ownership map.
 
 Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export and a Godot direct-import probe implemented. Live UI/undo, skinned quality/export acceptance and engine LOD switching remain open. See [lod-workflow.md](lod-workflow.md).
 
-Enabled-addon small-weight preservation resolves default Human Run and Canine Walk/Run playback failures; Avian Flight also passes. Remaining default clips, shape coverage and visual/engine gates are tracked in [lod-workflow.md](lod-workflow.md#supported-small-weight-preservation-2026-11-03).
+Enabled-addon small-weight preservation resolves the default playback failures; all nine provider/clip pairs pass. Remaining shape coverage and visual/engine gates are tracked in [lod-workflow.md](lod-workflow.md#supported-small-weight-preservation-2026-11-03).
 
 ## Test runtime
 
