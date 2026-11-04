@@ -79,9 +79,10 @@ def main():
     parser.add_argument('--clip', choices=('Idle', 'Walk', 'Run', 'Flight'))
     parser.add_argument('--phase', type=float, default=.25)
     parser.add_argument('--samples', type=int, default=16)
+    parser.add_argument('--width', type=int, default=1800)
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
-    if not isfinite(args.phase) or not 0 <= args.phase <= 1 or args.samples < 1:
-        parser.error('Phase must be finite in [0,1] and samples positive')
+    if not isfinite(args.phase) or not 0 <= args.phase <= 1 or args.samples < 1 or args.width < 512:
+        parser.error('Phase must be finite in [0,1], samples positive, and width at least 512')
     if args.output.exists():
         parser.error('Choose a new output directory')
     manifest = json.loads((args.bundle / 'lod-manifest.json').read_text())
@@ -142,8 +143,8 @@ def main():
     scene.cycles.device = 'CPU'
     scene.cycles.samples = args.samples
     scene.cycles.use_denoising = True
-    scene.render.resolution_x = 1800
-    scene.render.resolution_y = max(700, round(1800 * total_height / total_width))
+    scene.render.resolution_x = args.width
+    scene.render.resolution_y = max(round(args.width * 700 / 1800), round(args.width * total_height / total_width))
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = 'PNG'
     scene.render.film_transparent = False
@@ -165,9 +166,11 @@ def main():
     sheets._look_at(camera, (0, 0, center_z))
     scene.camera = camera
     sheets._add_lighting(center_z, total_width, height * 2, min(low.y for low, high in bounds))
-    # The wide paired layout otherwise overpowers the small Avian body.
-    for light in (obj for obj in scene.objects if obj.type == 'LIGHT'):
-        light.data.energy *= .25
+    # Uniform directions and irradiance for each pair, independent of row position.
+    for index, light in enumerate(obj for obj in scene.objects if obj.type == 'LIGHT'):
+        light.data.type = 'SUN'
+        light.data.energy = 1.5 if index == 0 else .75
+        light.data.use_shadow = False
     label_material = bpy.data.materials.new('Review labels')
     label_material.use_nodes = True
     sheets._configure_silhouette_material(label_material)
@@ -185,6 +188,7 @@ def main():
         bpy.ops.render.render(write_still=True)
     (args.output / 'review.json').write_text(json.dumps({
         'bundle': str(args.bundle.resolve()), 'clip': args.clip or 'rest', 'phase': args.phase,
+        'width': args.width, 'samples': args.samples, 'lighting': 'uniform directional, no cast shadows',
         'levels': [metadata for mesh, metadata in levels], 'views_degrees': angles,
         'scope': 'Imported GLB LOD0 versus LOD1, diagnostic material overrides; sampled visual review only.'}, indent=2))
 
