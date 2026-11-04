@@ -1055,3 +1055,24 @@ are the next investigation before changing skin behavior. Canine and Avian
 retain their broad outlines with local contour/checker differences; this is
 not close-up seam approval, continuous-playback acceptance or original-material
 validation. All existing release gates remain in force.
+
+
+A fresh contrasting Human reconstruction localizes this sample further. At rest,
+all 84,368 LOD0 and 42,184 LOD1 triangles matched their imported GLB triangles by
+centroid and vertex positions (no unmatched triangles). Maximum matched position
+error was 4.09e-7 m and UV-coordinate error 2.99e-8 at both levels. Maximum corner
+normal-vector differences were 0.00197 (LOD0) and 0.000540 (LOD1). Evidence:
+`artifacts/diagnose_human_lod_stages.py`, `artifacts/lod-human-stage-diagnosis.json`.
+This is a diagnostic for these exact fixtures, not a new acceptance tolerance.
+
+Both fresh source levels have zero smooth polygons and no custom normals.
+HumanProvider deliberately calls `_generate_face_atlas_uvs` in
+`object_core/geometry/deformable.py`: each polygon has its own padded island,
+intended as a portable foundation rather than continuous production UVs. LOD
+collapse therefore operates on an already discontinuous atlas and flat-shaded
+surface. The observed checker changes must not be labeled GLB UV corruption;
+these rest-pose checks preserve the source/LOD corners through export/import.
+Next work is a Human-specific UV continuity and shading policy, plus reduction
+fidelity checks against that policy. Preserve existing artist UVs and explicit
+preview/apply behavior; do not silently enable smoothing or re-unwrap saved
+assets. Rigs/skin tolerances do not need speculative changes for this finding.
