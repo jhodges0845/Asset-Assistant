@@ -979,3 +979,58 @@ corner correspondence, texture appearance, seam distortion, or source-to-LOD
 silhouette quality. Those visual/fidelity gates remain open, alongside the
 remaining contrasting clips, synthetic packed-weight policy, live UI/undo and
 engine LOD switching.
+
+
+## Paired imported-LOD visual review (2026-11-03)
+
+`scripts/render_lod_review.py` imports each level of an existing two-level
+skinned GLB bundle into a disposable Blender scene. It freezes both at the
+same normalized clip phase (or rest pose when `--clip` is omitted), preserving
+imported UV layers, and renders front, side and three-quarter views. Each
+LOD0/LOD1 pair shares its scale and positional offsets so the sheet does not
+normalize away silhouette differences. Clay, UV-checker and silhouette sheets
+use diagnostic material overrides; they do not validate original material or
+texture appearance. `review.json` records file hashes, sampled frames, imported
+triangle counts, UV layers and original material names.
+
+Example (run in a separate factory-startup process; the script clears its scene):
+
+```powershell
+blender --background --factory-startup --python-exit-code 1 `
+  --python scripts/render_lod_review.py -- `
+  artifacts/lod-avian-contrasting-flight `
+  --output artifacts/lod-visual-avian-flight-review --clip Flight --phase .25 --samples 8
+```
+
+The output directory must be new. The script rejects missing/ambiguous clips,
+missing UVs, imported triangle counts differing from the manifest, unexpected
+level layouts, and off-camera geometry. This is a sampled diagnostic, not an
+automatic artistic quality score or proof of UV corner correspondence.
+
+
+The contrasting Avian Flight sample at phase 0.25 (620 to 310 triangles) retains
+its broad wing/body/tail outline. Paired clay and silhouette sheets show visible
+changes around wing roots and body contours; the checker sheet shows uneven
+cell scale and local changes around those transitions. These observations do
+not establish whether a difference originated in decimation or source UVs;
+corner-level comparisons and closer seam review remain required. Evidence:
+`artifacts/lod-visual-avian-flight-v2/{clay,checker,silhouette}.png` and
+`review.json` (Blender 5.2.1, Cycles CPU, eight samples).
+
+Two focused real-GLB regression checks verify rest-pose snapshot world-space
+geometry, UV coordinates, input-file hash preservation, imported-object cleanup,
+and missing-clip rejection. They and the five structural surface-inventory
+checks pass (seven tests). No production mesh, rig, export behavior, or quality
+tolerance changed.
+
+
+Contrasting Human Run at phase 0.25 (84,368 to 42,184 triangles) is **not visually
+accepted**. The paired clay sheet exposes pronounced jagged shading around the
+LOD1 thighs/knees; the checker sheet shows substantial pattern changes over the
+torso and limbs. The LOD0 checker already has strongly uneven cell aspect ratios,
+so both source UV quality and reduction/export fidelity need separate review.
+Evidence: `artifacts/lod-visual-human-run/{clay,checker}.png`. Passing per-level
+skin-oracle checks does not establish visual equivalence to LOD0. Next diagnosis:
+compare rest/posed surface normals and UV corners before/after reduction and
+GLB round-trip; isolate shading from geometry with the silhouette sheet before
+changing rig/weight behavior. Keep Human LOD artistic acceptance blocked.
