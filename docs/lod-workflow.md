@@ -1034,3 +1034,24 @@ skin-oracle checks does not establish visual equivalence to LOD0. Next diagnosis
 compare rest/posed surface normals and UV corners before/after reduction and
 GLB round-trip; isolate shading from geometry with the silhouette sheet before
 changing rig/weight behavior. Keep Human LOD artistic acceptance blocked.
+
+
+### Uniform-lighting follow-up (2026-11-04)
+
+The review renderer now uses directional lights with cast shadows disabled so
+LOD0 and LOD1 receive the same illumination regardless of their row position.
+This removes the earlier area-light distance/direction bias. `--width` controls
+output resolution (default 1800, minimum 512); width, samples and lighting are
+recorded in `review.json`. Use `--width 1000 --samples 8` for a faster overview,
+then larger sheets for close inspection. This changes diagnostic rendering only.
+
+Completed clay, checker and silhouette sheets for contrasting Human Run, Canine
+Run and Avian Flight at phase 0.25, using Blender 5.2.1 and width 1000. Evidence:
+`artifacts/lod-visual-{human-run,quadruped-run,avian-flight}-uniform/`.
+Human thigh/knee shading artifacts and substantial checker-pattern changes
+persist with uniform lighting; Human visual acceptance remains blocked. Its
+broad silhouettes remain close at this sampled pose, so normals and UV handling
+are the next investigation before changing skin behavior. Canine and Avian
+retain their broad outlines with local contour/checker differences; this is
+not close-up seam approval, continuous-playback acceptance or original-material
+validation. All existing release gates remain in force.
