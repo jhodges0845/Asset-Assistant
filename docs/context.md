@@ -16,6 +16,8 @@ Contrasting Human Run, Canine Run and Avian Flight also pass both levels; struct
 
 Paired imported LOD clay/checker/silhouette review tooling and sampled findings: [visual review](lod-workflow.md#paired-imported-lod-visual-review-2026-11-03). Artistic fidelity acceptance remains open.
 
+Human per-face atlas reduction measurements and reproducible diagnostic: [atlas review](lod-workflow.md#human-atlas-reduction-measurements-2026-11-05). Source UV degeneracy and reduction cell mixing remain open.
+
 ## Test runtime
 
 See [test-performance.md](test-performance.md) for CI timing evidence, coverage instrumentation and slow-test reporting.
