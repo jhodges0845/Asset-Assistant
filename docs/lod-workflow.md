@@ -1076,3 +1076,42 @@ Next work is a Human-specific UV continuity and shading policy, plus reduction
 fidelity checks against that policy. Preserve existing artist UVs and explicit
 preview/apply behavior; do not silently enable smoothing or re-unwrap saved
 assets. Rigs/skin tolerances do not need speculative changes for this finding.
+
+
+### Human atlas reduction measurements (2026-11-05)
+
+`scripts/review_human_lod_atlas.py` now reproduces the atlas diagnosis on fresh
+Human geometry through the same static reduction path used by skinned rest
+proxies. It verifies the source polygon-index atlas layout before interpreting
+cells, then reports triangles whose corners occupy different original cells,
+triangles outside the padded atlas's [0,1) domain, exactly zero UV-area triangles,
+and smooth-polygon counts. It never changes source UVs or smoothing.
+
+```powershell
+blender --background --factory-startup --python-exit-code 1 `
+  --python scripts/review_human_lod_atlas.py -- `
+  --output artifacts/human-lod-atlas-review.json --sample contrasting
+```
+
+Fresh Blender 5.2.1 results (each cell lists default / contrasting counts):
+
+| Budget | Triangles | Cross-cell triangles | Outside-atlas triangles | Zero UV-area triangles |
+| --- | ---: | ---: | ---: | ---: |
+| Source | 84,368 | 0 / 0 | 0 / 0 | 2 / 2 |
+| 50% | 42,184 | 701 / 700 | 0 / 0 | 2 / 2 |
+| 25% | 21,092 | 1,021 / 1,020 | 2 / 2 | 2 / 2 |
+
+All levels remain flat-shaded. Evidence:
+`artifacts/human-lod-atlas-{default,contrasting}-final.json`.
+Nine focused diagnostic regressions and seven related visual/inventory checks
+pass. Tests cover input preservation, crossed cells, out-of-domain coordinates,
+collapsed UVs, invalid grids, missing/nonfinite UVs and a repacked source atlas
+that must not be interpreted using the generated face-index layout.
+
+These are measurements, not new quality tolerances. A triangle staying within
+one cell can still be distorted, moved to the wrong cell, or overlap another UV
+triangle; this metric cannot certify UV fidelity. The two zero-area source UV
+triangles predate reduction. The next repair must address source atlas quality
+and reduction fidelity separately, preserving artist-authored UVs and explicit
+preview/apply ownership. Human LOD visual acceptance remains blocked; no rig,
+weight, production geometry or export change is included in this diagnostic.
