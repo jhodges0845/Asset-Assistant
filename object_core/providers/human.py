@@ -121,7 +121,7 @@ def _neutral_surface_anatomy_data():
                     "human",
                     part.vertices,
                     part.faces,
-                    _generate_face_atlas_uvs(part.vertices, part.faces),
+                    _generate_face_atlas_uvs(part.vertices, part.faces, avoid_collapsed_triangles=True),
                 ),
             )
         ),
