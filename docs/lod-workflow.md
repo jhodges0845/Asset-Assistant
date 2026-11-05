@@ -1115,3 +1115,29 @@ triangles predate reduction. The next repair must address source atlas quality
 and reduction fidelity separately, preserving artist-authored UVs and explicit
 preview/apply ownership. Human LOD visual acceptance remains blocked; no rig,
 weight, production geometry or export change is included in this diagnostic.
+
+
+### Human source projection repair (2026-11-05)
+
+Fresh current-Human generation now opts into a projection fallback when a
+face's two widest axes collapse a possible triangle. It tests normalized areas
+for all corner triplets (covering either quad diagonal), and uses an alternate
+axis pair only when that pair is nondegenerate. Unaffected projections retain
+bit-identical UVs; unrepairable geometry retains its existing mapping rather
+than being silently reshaped. Legacy Human generators retain the old default.
+This is not a general-purpose unwrap or smoothing change.
+
+Only atlas polygons 35564 and 42481 change in the neutral Human surface. All
+vertices, faces and other UV islands remain identical. Both reference shapes
+now have zero exactly collapsed UV triangles in Blender float32 storage, at
+source, 50% and 25% budgets. Cell-crossing counts remain 701/700 at 50% and
+1,021/1,020 at 25%; the two outside-atlas triangles at 25% remain. Evidence:
+`artifacts/human-lod-atlas-{default,contrasting}-fixed.json`.
+
+Six core UV tests and 15 focused Blender UV/atlas/parameter-regeneration tests
+pass. Regressions cover scale independence, valid/unrepairable projections,
+legacy behavior, exactly two changed islands and actual Blender triangulation.
+Existing saved meshes are not migrated or rewritten on load; the corrected UVs
+are produced by fresh generation or explicit geometry regeneration. Rig, skin,
+shading and export behavior are unchanged. Human LOD artistic acceptance stays
+open pending cell-mixing, out-of-atlas and shading repairs.

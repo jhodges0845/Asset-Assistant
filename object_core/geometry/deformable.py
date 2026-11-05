@@ -2,6 +2,7 @@
 """Human deformation-oriented geometry foundation."""
 
 from math import ceil, cos, sqrt, pi, sin
+from itertools import combinations
 
 from ..models import HumanoidProportions
 from ..models.mesh import MeshPart, ObjectMesh
@@ -211,12 +212,27 @@ def _shape_head_surface(vertices, proportions, chin_z, crown_z):
     return result
 
 
-def _generate_face_atlas_uvs(vertices, faces, padding=0.08):
+def _atlas_projection_score(points, axes):
+    """Smallest normalized triangle area, covering either quad diagonal."""
+    x, y = axes
+    width = max(p[x] for p in points) - min(p[x] for p in points)
+    height = max(p[y] for p in points) - min(p[y] for p in points)
+    if not width or not height:
+        return 0.0
+    return min((abs((b[x] - a[x]) * (c[y] - a[y]) -
+                    (b[y] - a[y]) * (c[x] - a[x])) / (width * height)
+                for a, b, c in combinations(points, 3)), default=0.0)
+
+
+def _generate_face_atlas_uvs(vertices, faces, padding=0.08, *, avoid_collapsed_triangles=False):
     """Pack deterministic per-face UV islands into the 0-1 square.
 
     This first Human UV layout favors a portable, non-overlapping foundation
     over artist-optimized island continuity. Each polygon is projected on its
     two widest local axes and packed into its own padded atlas cell.
+    The current Human surface opts into an alternate projection only when that
+    choice collapses a possible triangle. Legacy callers retain their exact UVs.
+    This does not guarantee a valid unwrap for arbitrary nonplanar polygons.
     """
     if not faces:
         return ()
@@ -231,6 +247,13 @@ def _generate_face_atlas_uvs(vertices, faces, padding=0.08):
             values = [point[axis] for point in points]
             spans.append((max(values) - min(values), axis))
         axes = [axis for _span, axis in sorted(spans, reverse=True)[:2]]
+        if avoid_collapsed_triangles and _atlas_projection_score(points, axes) < 1e-10:
+            # Relative area avoids a size-dependent rule. Require a usable
+            # alternative; truly degenerate faces retain the existing mapping.
+            score, candidate = max((_atlas_projection_score(points, pair), pair)
+                                   for pair in ((0, 1), (0, 2), (1, 2)))
+            if score > 1e-10:
+                axes = candidate
         first_values = [point[axes[0]] for point in points]
         second_values = [point[axes[1]] for point in points]
         first_min, first_max = min(first_values), max(first_values)

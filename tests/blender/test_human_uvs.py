@@ -31,5 +31,22 @@ class BlenderHumanUVTests(unittest.TestCase):
                             for item in layer.data))
 
 
+    def test_current_human_has_no_collapsed_uv_triangles_after_float32_storage(self):
+        from object_core.objects import get_provider
+        from scripts.anatomy_baseline import SAMPLES
+        from scripts.review_human_lod_atlas import atlas_report, source_atlas_columns
+        provider = get_provider('human')
+        for sample in ({}, SAMPLES['human']):
+            with self.subTest(sample=sample):
+                values = {p.key: p.default for p in provider.parameters}
+                values.update(sample)
+                root = create_asset(provider.mesh(values), name='CurrentHumanUV')
+                body = next(obj for obj in root.children if obj.type == 'MESH')
+                result = atlas_report(body.data, source_atlas_columns(body.data))
+                self.assertEqual(result['zero_uv_area_triangles'], 0)
+                self.assertEqual(result['cross_cell_triangles'], 0)
+                self.assertEqual(result['outside_atlas_triangles'], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
