@@ -586,3 +586,46 @@ def test_bundle_export_rejects_unapplied_scale(source, tmp_path):
         export_static_lod_bundle(preview.collection, bpy.context, tmp_path / 'scaled')
     assert not list(tmp_path.iterdir())
     assert tuple(source.scale) == pytest.approx((1.2, .8, 1.1))
+
+
+@pytest.mark.parametrize('target', ('source', 'preview'))
+@pytest.mark.parametrize('edit', ('custom_normals', 'sharp_edge'))
+def test_shading_edits_block_apply_without_mutating_artist_data(source, target, edit):
+    preview = preview_static_lods(source, bpy.context.scene, ratios=(.5,))
+    obj = source if target == 'source' else preview.objects[0]
+    before = _signature(obj)
+    if edit == 'custom_normals':
+        obj.data.normals_split_custom_set([(.2,.3,.9)] * len(obj.data.loops))
+    else:
+        obj.data.edges[0].use_edge_sharp = not obj.data.edges[0].use_edge_sharp
+    after = _signature(obj)
+    assert after != before
+    with pytest.raises(ValueError, match='Source changed' if target == 'source' else 'Preview changed'):
+        preview.apply()
+    assert _signature(obj) == after
+    assert preview.state == 'PREVIEW'
+    preview.cancel()
+
+
+def test_existing_custom_normal_edit_changes_fingerprint_without_smooth_flag_edit(source):
+    source.data.normals_split_custom_set([(.2,.3,.9)] * len(source.data.loops))
+    before = _signature(source)
+    smooth = tuple(p.use_smooth for p in source.data.polygons)
+    preview = preview_static_lods(source, bpy.context.scene, ratios=(.5,))
+    source.data.normals_split_custom_set([(.6,.3,.7)] * len(source.data.loops))
+    assert source.data.has_custom_normals
+    assert tuple(p.use_smooth for p in source.data.polygons) == smooth
+    assert _signature(source) != before
+    with pytest.raises(ValueError, match='Source changed'):
+        preview.apply()
+    preview.cancel()
+
+
+def test_unchanged_custom_normals_allow_recovered_preview_apply(source):
+    from blender_adapter.lod import recover_static_lod_preview
+    source.data.normals_split_custom_set([(.2,.3,.9)] * len(source.data.loops))
+    before = _signature(source)
+    preview = preview_static_lods(source, bpy.context.scene, ratios=(.5,))
+    recovered = recover_static_lod_preview(preview.collection)
+    recovered.apply()
+    assert _signature(source) == before

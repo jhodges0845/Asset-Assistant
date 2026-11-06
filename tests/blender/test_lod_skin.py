@@ -827,3 +827,19 @@ def test_weight_hook_maps_eight_distinct_influences_across_materials(skinned, en
         source.data.materials.clear()
         for material in materials:
             bpy.data.materials.remove(material)
+
+
+@pytest.mark.parametrize('target', ('source', 'preview'))
+def test_skin_preview_detects_custom_normal_edits(skinned, target):
+    from blender_adapter.lod import _signature
+    from blender_adapter.lod_skin_preview import preview_skin_lods
+    source, _ = skinned
+    preview = preview_skin_lods(source, bpy.context.scene, ratios=(.5,), max_distance=.3)
+    obj = source if target == 'source' else preview.objects[0]
+    obj.data.normals_split_custom_set([(.2,.3,.9)] * len(obj.data.loops))
+    edited = _signature(obj)
+    with pytest.raises(ValueError, match='changed'):
+        preview.apply()
+    assert _signature(obj) == edited
+    assert preview.state == 'PREVIEW'
+    preview.cancel()
