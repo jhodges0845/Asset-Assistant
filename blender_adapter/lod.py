@@ -17,6 +17,13 @@ def _signature(obj):
         tuple((layer.name, tuple(tuple(item.uv) for item in layer.data)) for layer in mesh.uv_layers),
         tuple((material.name_full, material.library.filepath if material.library else None) if material else None for material in (slot.material for slot in obj.material_slots)),
     )
+    # Keep historical fingerprints for meshes without authored shading data.
+    # Older shaded previews cannot certify these edits and must be rebuilt.
+    sharp_edges = tuple(edge.use_edge_sharp for edge in mesh.edges)
+    if mesh.has_custom_normals or any(sharp_edges):
+        payload += (('shading-v1', sharp_edges, mesh.has_custom_normals,
+                     tuple(tuple(normal.vector) for normal in mesh.corner_normals)
+                     if mesh.has_custom_normals else ()),)
     return sha256(repr(payload).encode()).hexdigest()
 
 

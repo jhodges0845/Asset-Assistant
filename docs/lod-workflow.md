@@ -1141,3 +1141,27 @@ Existing saved meshes are not migrated or rewritten on load; the corrected UVs
 are produced by fresh generation or explicit geometry regeneration. Rig, skin,
 shading and export behavior are unchanged. Human LOD artistic acceptance stays
 open pending cell-mixing, out-of-atlas and shading repairs.
+
+### LOD shading ownership (2026-11-06)
+
+Static and skinned LOD fingerprints now include sharp-edge flags and custom
+corner normals. Editing either the source or a preview after preview creation
+blocks Apply without changing the edited data. Unchanged custom normals survive
+save/reopen and recovered-preview application. Meshes without authored shading
+retain their historical fingerprints; older previews with sharp edges or custom
+normals must be explicitly rebuilt because their old fingerprints cannot certify
+that shading remained unchanged.
+
+Validation: 83 focused static/skinned LOD tests pass in Blender 5.2.1. A real
+save/reopen probe also verifies fingerprint stability, rejection of an old shaded
+preview fingerprint, and source preservation. Local evidence:
+`artifacts/lod-shading-ownership-tests.log` and
+`artifacts/lod-shading-persistence.log`.
+
+A separate reduction experiment toggled collapse triangulation and the UV
+delimiter at 50% and 25% budgets. Neither changed the measured atlas damage:
+701/1,021 crossed-cell triangles and 0/2 outside-atlas triangles for default
+Human. Evidence: `artifacts/lod-uv-settings-probe.json`. These settings do not
+resolve the current UV defect. Source-to-LOD normal transfer remains an
+experiment to evaluate visually; this ownership change does not introduce
+smoothing or establish Human LOD artistic acceptance.
