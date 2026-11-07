@@ -1203,3 +1203,38 @@ Local reproduction/evidence:
 
 These ignored local artifacts are investigation evidence, not portable CI
 fixtures or an artistic acceptance claim.
+
+### Evaluated LOD normal review (2026-11-07)
+
+`scripts/review_lod_normals.py` compares imported evaluated corner normals with
+geometric triangle normals. It reports angular median/p95, opposing corners,
+degenerate triangles and the 20 largest triangle discrepancies. It reads bundle
+GLBs without rewriting them and records their hashes. This is a diagnostic,
+not a shading-quality threshold; smooth normals need not match face normals.
+
+Run in a disposable Blender process:
+```
+blender --background --factory-startup --python scripts/review_lod_normals.py -- BUNDLE --clip Run --phase .25 --output NEW.json
+```
+Omit `--clip` for neutral geometry. Existing output files are rejected.
+
+On the contrasting Human baseline, LOD1 corner normals closely follow triangle
+faces in both neutral and Run phase .25 (p95 about .026 degrees; no opposing
+corners). The temporary nearest-surface transfer instead introduces 354 opposing
+corners in neutral and 356 during Run. It must not be adopted as a production
+repair. Local measurements: `artifacts/lod-corner-face-normal-review.json`;
+the new CLI was also exercised against the actual transferred Human GLBs.
+
+A separate diagnostic averaged area-weighted normals at coincident evaluated
+positions (rounded to six decimal places), leaving positions and UVs unchanged.
+The resulting Run clay view reduces fine thigh streaking but retains broader
+thigh grooves. This is sampled visual evidence, not a general smoothing policy:
+coordinate grouping can cross authored hard boundaries. The next repair still
+needs to address reduced-surface deformation and preserve source shading intent.
+Evidence: `artifacts/probe_lod_posed_normals.py`,
+`artifacts/lod-visual-posed-normal-average/clay.png`.
+
+Six focused normal/snapshot tests pass in Blender 5.2.1, including aligned,
+opposing and tilted authored normals, unchanged input mesh data, and degenerate
+triangles reported separately from measured agreement. No production geometry,
+weights, UVs, normals or acceptance tolerances change in this diagnostic addition.
