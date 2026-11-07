@@ -1165,3 +1165,41 @@ Human. Evidence: `artifacts/lod-uv-settings-probe.json`. These settings do not
 resolve the current UV defect. Source-to-LOD normal transfer remains an
 experiment to evaluate visually; this ownership change does not introduce
 smoothing or establish Human LOD artistic acceptance.
+
+### Human LOD normal-transfer experiment (2026-11-07)
+
+PR #345 merged with all six checks passing. A subsequent disposable experiment
+transferred nearest-rest-surface corner normals onto a fresh contrasting Human
+50% candidate before preview fingerprints were captured. The existing candidate
+builder, preview/apply validation and GLB exporter remained in use. Assertions
+verified unchanged source fingerprint and unchanged candidate positions,
+topology, UVs and skin weights. This experiment is not production behavior.
+
+The imported GLB confirms that normal changes survived export: all 42,184
+triangles matched the earlier LOD geometry; 94,265 of 126,552 corner normals
+changed by more than one degree (median 4.47 degrees, p95 12.33 degrees).
+Nevertheless, the paired Run render at phase 0.25 still shows pronounced thigh
+streaks. The neutral clay render does not show the same pronounced streaking.
+Normal transfer alone therefore does not resolve this sampled motion defect.
+
+A nearest-rest-surface displacement interpolation diagnostic found only three
+triangles with normal-direction differences above 30 degrees, all above 90
+degrees and extremely thin in rest geometry. This correspondence is not ground
+truth and does not explain the broad visible defect by itself. Next investigate
+how reduced triangles span the deforming thigh/knee surface, including evaluated
+normals, rather than accepting a rest-only normal-transfer correction. UV cell
+mixing remains independently unresolved; no quality thresholds were relaxed.
+
+Local reproduction/evidence:
+- `artifacts/probe_lod_normal_transfer.py` creates the experimental bundle using
+  the current provider/export helper sequence and a temporary candidate wrapper.
+- `artifacts/lod-normal-transfer-export.log` records preservation assertions.
+- `artifacts/compare_lod_normal_transfer.py` and
+  `artifacts/lod-normal-transfer-comparison.json` compare imported rest normals.
+- `artifacts/lod-visual-human-normal-transfer/` contains Run review sheets;
+  `artifacts/lod-visual-human-normal-transfer-rest/clay.png` is the neutral review.
+- `artifacts/probe_lod_triangle_deformation.py` and
+  `artifacts/lod-triangle-deformation.json` record the interpolation diagnostic.
+
+These ignored local artifacts are investigation evidence, not portable CI
+fixtures or an artistic acceptance claim.
