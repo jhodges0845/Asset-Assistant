@@ -1238,3 +1238,35 @@ Six focused normal/snapshot tests pass in Blender 5.2.1, including aligned,
 opposing and tilted authored normals, unchanged input mesh data, and degenerate
 triangles reported separately from measured agreement. No production geometry,
 weights, UVs, normals or acceptance tolerances change in this diagnostic addition.
+
+### Weight-gradient reduction experiment (2026-11-07)
+
+A disposable contrasting-Human Run experiment assigned Decimate importance from
+adjacent source skin-weight differences: each vertex used its largest incident
+edge L1 weight difference, multiplied by five and clamped to one, with modifier
+vertex-group factor 100. Temporary groups were removed from the evaluated copy
+before existing static/candidate validation. Source fingerprints and skin
+weights were asserted unchanged; preview/apply and export validation remained
+active. Both baseline and candidate contain exactly 42,184 triangles.
+
+The phase-.25 clay comparison reduces some thigh streaking but introduces more
+visible neck/elbow artifacts. Imported UV measurements also regress: crossed
+atlas-cell triangles increase from 700 to 918, and outside-atlas triangles from
+zero to two; neither candidate has exactly collapsed UV triangles. The baseline
+UV comparison uses the earlier normal-transfer bundle, whose UVs and geometry
+were independently verified unchanged. Imported polygon smoothing flags are not
+source shading-policy measurements.
+
+Do not adopt this weighting scheme or relax quality checks. Skin-weight change
+alone is insufficient to allocate the reduction budget across the whole body.
+Further work needs to assess posed surface error alongside UV preservation;
+protecting one region must not simply move visible damage elsewhere. Human LOD
+visual acceptance remains open.
+
+Local evidence: `artifacts/probe_lod_weighted_reduction.py`,
+`artifacts/lod-weighted-reduction.log`,
+`artifacts/lod-weighted-uv-comparison.json`, and
+`artifacts/lod-visual-human-weighted-reduction/clay.png`. This experiment changes
+only disposable process-local reduction settings and generated artifact copies;
+production reduction remains unchanged. PR #347's normal diagnostic is merged
+with all six CI checks passing.
