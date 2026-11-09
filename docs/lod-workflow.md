@@ -1364,3 +1364,25 @@ configuration. Different levels are sampled at the same normalized phase; this
 does not certify their clip durations or skin parity. Existing playback parity
 probes remain required. Exact-boundary tie behavior is not asserted. PR #349
 passed all six CI checks and was merged before this extension.
+
+### Saved Godot selection scene (2026-11-09)
+
+The selection probe now saves `lod-selection-review.tscn`, reloads it with the
+PackedScene cache bypassed, discards the original instantiated nodes, and performs
+all rendered selection checks on the restored nodes. Recursive scene ownership
+retains imported descendants; stored node paths recover meshes, skeletons and
+players. Missing nodes/clips and changed visibility begin/end values fail before
+render review. Existing scene or report files block the run rather than being
+overwritten. The GLBs and exchange manifest remain unchanged.
+
+Human Run, Canine Run and Avian Flight each pass 28 rendered checks after reload;
+rest mode passes seven. A negative control that changes LOD1's saved begin range
+fails with `Saved LOD visibility ranges changed`. Evidence:
+`artifacts/lod-persisted-selection-{human,canine,avian,rest}/` and the corresponding
+logs; `artifacts/lod-persisted-selection-negative-stderr.log` records rejection.
+
+This is same-process disk reload evidence, not a fresh-process or packaged runtime
+proof. The saved scene deliberately contains red/green diagnostic material
+substitutions and is not an artist-facing production export. Persistent production
+setup, continuous transition quality and release visual gates remain open.
+PR #350 passed all six required checks and was merged before this extension.
