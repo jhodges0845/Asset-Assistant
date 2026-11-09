@@ -18,7 +18,6 @@ func review():
     var clip = arguments[0] if arguments.size() == 1 else ""
     var players = []
     var skeletons = []
-    var pose_signatures = [[], []]
     var output_path = "res://godot-lod-selection.json"
     var scene_path = "res://lod-selection-review.tscn"
     if FileAccess.file_exists(output_path) or FileAccess.file_exists(scene_path):
@@ -141,22 +140,62 @@ func review():
         var node = pending_ownership.pop_back()
         node.owner = setup
         pending_ownership.append_array(node.get_children())
+    setup.set_meta("lod_selection_review", {
+        "version": 1, "clip": clip, "center": center, "scale": scale,
+        "boundary": boundary, "group_paths": group_paths,
+        "player_paths": player_paths, "skeleton_paths": skeleton_paths})
     var packed = PackedScene.new()
     if packed.pack(setup) != OK or ResourceSaver.save(packed, scene_path) != OK:
         fail("Cannot save configured LOD review scene")
+        return
+    setup.free()
+    await verify_saved_scene(scene_path, output_path, viewport, camera)
+
+func verify_saved_scene(scene_path, output_path, viewport, camera):
+    if FileAccess.file_exists(output_path):
+        fail("Choose a new report path")
         return
     var restored_resource = ResourceLoader.load(scene_path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE)
     if not restored_resource is PackedScene:
         fail("Cannot reload configured LOD review scene")
         return
-    setup.free()
-    setup = restored_resource.instantiate()
+    var setup = restored_resource.instantiate()
     viewport.add_child(setup)
-    groups.clear()
-    players.clear()
-    skeletons.clear()
+    var metadata = setup.get_meta("lod_selection_review", {})
+    if not metadata is Dictionary or metadata.get("version") != 1:
+        fail("Saved scene lacks supported LOD review metadata")
+        return
+    for key in ["clip", "center", "scale", "boundary", "group_paths", "player_paths", "skeleton_paths"]:
+        if not metadata.has(key):
+            fail("Incomplete saved LOD review metadata")
+            return
+    var clip = metadata.clip
+    var center = metadata.center
+    var scale = metadata.scale
+    var boundary = metadata.boundary
+    var group_paths = metadata.group_paths
+    var player_paths = metadata.player_paths
+    var skeleton_paths = metadata.skeleton_paths
+    if not center is Vector3 or not center.is_finite() or not is_finite(scale) or scale <= 0 or not is_finite(boundary) or boundary <= 0:
+        fail("Invalid saved camera bounds")
+        return
+    if not group_paths is Array or group_paths.size() != 2 or not player_paths is Array or not skeleton_paths is Array or player_paths.size() != skeleton_paths.size():
+        fail("Invalid saved level paths")
+        return
+    if (clip != "" and player_paths.size() != 2) or (clip == "" and not player_paths.is_empty()):
+        fail("Saved clip and player paths disagree")
+        return
+    camera.size = scale * 1.2
+    camera.far = scale * 20.0
+    var groups = []
+    var players = []
+    var skeletons = []
+    var pose_signatures = [[], []]
     for index in range(group_paths.size()):
         var group = []
+        if not group_paths[index] is Array or group_paths[index].is_empty():
+            fail("Empty saved mesh group")
+            return
         for path in group_paths[index]:
             var mesh = setup.get_node_or_null(path)
             if not mesh is MeshInstance3D or mesh.mesh == null:

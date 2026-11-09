@@ -1386,3 +1386,27 @@ proof. The saved scene deliberately contains red/green diagnostic material
 substitutions and is not an artist-facing production export. Persistent production
 setup, continuous transition quality and release visual gates remain open.
 PR #350 passed all six required checks and was merged before this extension.
+
+### Fresh-process Godot selection (2026-11-09)
+
+Saved review scenes now include versioned metadata for the clip, camera bounds
+and level/rig/player paths. `scripts/reopen_lod_selection_godot.gd` loads that
+scene in a new rendering-enabled Godot process and calls the same verification
+routine as scene creation. It requires only `project.godot` and
+`lod-selection-review.tscn`; it does not read the source GLBs or bundle manifest.
+Run it with the same rendering options as the selection probe, without clip
+arguments. Success writes a new `godot-lod-selection-reopened.json`.
+
+Fresh-process Human Run, Canine Run and Avian Flight each pass 28 samples. Their
+per-sample pixel counts exactly match the scene-creation run. The isolated test
+directories contain no GLBs. A legacy scene without review metadata fails clearly
+rather than guessing clip or level identities. Evidence:
+`artifacts/lod-selection-stage-{human,canine,avian}/`,
+`artifacts/lod-selection-fresh-{human,canine,avian}/` and
+`artifacts/lod-selection-legacy-stderr.log`.
+
+This establishes fresh-process persistence of the configured diagnostic setup,
+not a packaged game or artist-facing engine exporter. Diagnostic color overrides
+remain intentional; production material preservation, continuous transitions,
+UV/deformation acceptance and live UI remain open. PR #351 passed all six checks
+and was merged before this extension.
