@@ -1340,3 +1340,27 @@ A persistent artist-facing engine setup, animated level transitions, boundary
 behavior and visual transition acceptance remain open. Production geometry,
 materials and skinning are unchanged. Visibility-range semantics follow the
 [Godot documentation](https://docs.godotengine.org/en/stable/tutorials/3d/visibility_ranges.html).
+
+### Animated phase and boundary selection (2026-11-09)
+
+The Godot selection probe accepts an optional exact clip name after `--`, e.g.
+`-- Run` or `-- Flight`. Each imported level must have one skeleton and one
+AnimationPlayer containing that clip. Players use manual evaluation at normalized
+phases 0, .25, .5 and .75, and sampled bone poses must change on both levels.
+At every phase, the camera approaches and retreats through distance multipliers
+.8, .99, 1.01, 1.2, 1.01, .99 and .8 relative to the shared selection boundary.
+The existing rendered-color check requires exactly the expected level.
+
+Contrasting Human Run, Canine Run and Avian Flight each pass all 28 rendered
+samples on Godot 4.7.2/ANGLE. Rest mode still passes seven distance samples.
+A missing clip fails admission; a diagnostic frozen-seek control fails because
+bone poses do not change. Reports and logs are under
+`artifacts/lod-animated-selection-{human,canine,avian,rest,frozen,missing}`.
+The frozen/missing controls intentionally produce no success report.
+
+This is synchronized sampled-phase selection, not continuous playback,
+frame-perfect visual continuity, hysteresis/fade acceptance or persistent engine
+configuration. Different levels are sampled at the same normalized phase; this
+does not certify their clip durations or skin parity. Existing playback parity
+probes remain required. Exact-boundary tie behavior is not asserted. PR #349
+passed all six CI checks and was merged before this extension.
