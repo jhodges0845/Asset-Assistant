@@ -1309,3 +1309,34 @@ Local evidence: `artifacts/probe_lod_weighted_reduction.py`,
 only disposable process-local reduction settings and generated artifact copies;
 production reduction remains unchanged. PR #347's normal diagnostic is merged
 with all six CI checks passing.
+
+### Rendered Godot level selection (2026-11-09)
+
+`scripts/review_lod_selection_godot.gd` imports a two-level bundle into a
+rendering-enabled diagnostic viewport and configures Godot visibility ranges.
+It gives each level a distinct unshaded color, moves an orthographic camera
+near/far/near/far, and counts rendered pixels to require the expected level and
+exclude the other. A common world-space AABB keeps selection distances consistent
+across meshes. Imported mesh/triangle counts must match the manifest; GLBs and
+the exchange manifest are never rewritten. Existing reports are rejected.
+
+Run against a disposable bundle copy containing a Godot project:
+```
+Godot --path BUNDLE_COPY --script /absolute/review_lod_selection_godot.gd --rendering-method gl_compatibility --resolution 128x128 --quit-after 600
+```
+Use a real rendering driver, not the headless dummy renderer. Success produces
+`godot-lod-selection.json`; a process exit alone is not proof of success.
+The report records the Godot version and pixel counts for each camera position.
+
+Contrasting Human, Canine and Avian bundles pass on Godot 4.7.2 using ANGLE.
+A negative control hiding LOD1 fails at the far sample with no colored pixels,
+confirming that the probe detects a missing level. Local evidence is under
+`artifacts/lod-selection-{human,canine,avian}/` and the corresponding logs;
+`artifacts/lod-selection-negative-stderr.log` records the expected failure.
+
+This closes only the sampled rest-pose selection proof. The probe configures a
+temporary scene; exported bundles still advertise `engine_lod_configured: false`.
+A persistent artist-facing engine setup, animated level transitions, boundary
+behavior and visual transition acceptance remain open. Production geometry,
+materials and skinning are unchanged. Visibility-range semantics follow the
+[Godot documentation](https://docs.godotengine.org/en/stable/tutorials/3d/visibility_ranges.html).
