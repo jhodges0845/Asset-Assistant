@@ -1,10 +1,49 @@
 # LOD workflow implementation
 
-Current skinned-export limitation: positive weights at or below 0.0001 are
-blocked before serialization because Blender 5.2.1 silently drops them. Earlier
-provider playback results below are historical evidence, not permission to
-export affected assets with the current preservation guard. See the final
-small-weight section for status and next work.
+## Current completion checkpoint (2026-11-09)
+
+Target: complete the LOD release gates by November 30, 2026. This is a target,
+not an acceptance claim. Earlier dated sections below are historical evidence;
+use this checkpoint and source/tests to choose the next work.
+
+Implemented: separate-copy static and skinned preview/apply, saved recovery,
+multi-mesh static boundaries, GLB bundles, small-weight preservation through the
+enabled add-on export hook, and default/contrasting Godot playback probes.
+The old blanket small-weight export limitation is superseded by the supported
+hook; disabled add-ons still fail closed for affected weights.
+
+Remaining completion gates:
+- [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
+  verify silhouette, UV/material and deformation quality on representative
+  Human, Canine, Avian and imported assets. Normal transfer and global
+  weight-gradient protection experiments were rejected; do not repeat them
+  without a new hypothesis and a bounded comparison.
+- [ ] Validate actual engine LOD selection, including level transitions and
+  animated playback. Exchange bundles alone do not configure engine switching.
+- [ ] Complete live Export workspace layout, preview/apply/discard and keyboard
+  undo/redo acceptance. Background undo snapshots are supporting evidence only.
+- [ ] Recheck saved/reopened and edited assets, import/export ownership and
+  isolated packaged workflows for the final implementation.
+- [ ] Record the precision policy and final evidence against the release roadmap;
+  do not close artistic/manual gates based solely on CI.
+
+Working schedule (adjust based on evidence; report slippage):
+- November 9-15: resolve or isolate the UV/deformation blockers with bounded
+  experiments, and implement/test engine selection independently where possible.
+- November 16-22: integrate fixes, verify provider/import coverage and perform
+  live UI/undo acceptance.
+- November 23-30: regression, persistence, package and final acceptance review.
+
+Hourly continuation checks account usage before substantive work, discovers the
+current branch/PR rather than using a fixed historical branch, and advances the
+next uncompleted gate. Batch findings with substantive changes instead of opening
+one documentation-only PR per experiment. Required checks must pass before merge;
+no release/tag publication is authorized by this milestone plan.
+
+GitHub issue review: open issues #208, #220, #225, #228, #231 and #236 cover
+import normalization, production readiness, glTF and model/animation workflows.
+Their requirements inform integration testing, but are not evidence that an LOD
+gate is complete. In particular #220 requires manual Blender evidence.
 
 ## Static preview backend (2026-10-24)
 
@@ -1270,3 +1309,34 @@ Local evidence: `artifacts/probe_lod_weighted_reduction.py`,
 only disposable process-local reduction settings and generated artifact copies;
 production reduction remains unchanged. PR #347's normal diagnostic is merged
 with all six CI checks passing.
+
+### Rendered Godot level selection (2026-11-09)
+
+`scripts/review_lod_selection_godot.gd` imports a two-level bundle into a
+rendering-enabled diagnostic viewport and configures Godot visibility ranges.
+It gives each level a distinct unshaded color, moves an orthographic camera
+near/far/near/far, and counts rendered pixels to require the expected level and
+exclude the other. A common world-space AABB keeps selection distances consistent
+across meshes. Imported mesh/triangle counts must match the manifest; GLBs and
+the exchange manifest are never rewritten. Existing reports are rejected.
+
+Run against a disposable bundle copy containing a Godot project:
+```
+Godot --path BUNDLE_COPY --script /absolute/review_lod_selection_godot.gd --rendering-method gl_compatibility --resolution 128x128 --quit-after 600
+```
+Use a real rendering driver, not the headless dummy renderer. Success produces
+`godot-lod-selection.json`; a process exit alone is not proof of success.
+The report records the Godot version and pixel counts for each camera position.
+
+Contrasting Human, Canine and Avian bundles pass on Godot 4.7.2 using ANGLE.
+A negative control hiding LOD1 fails at the far sample with no colored pixels,
+confirming that the probe detects a missing level. Local evidence is under
+`artifacts/lod-selection-{human,canine,avian}/` and the corresponding logs;
+`artifacts/lod-selection-negative-stderr.log` records the expected failure.
+
+This closes only the sampled rest-pose selection proof. The probe configures a
+temporary scene; exported bundles still advertise `engine_lod_configured: false`.
+A persistent artist-facing engine setup, animated level transitions, boundary
+behavior and visual transition acceptance remain open. Production geometry,
+materials and skinning are unchanged. Visibility-range semantics follow the
+[Godot documentation](https://docs.godotengine.org/en/stable/tutorials/3d/visibility_ranges.html).
