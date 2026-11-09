@@ -20,8 +20,9 @@ func review():
     var skeletons = []
     var pose_signatures = [[], []]
     var output_path = "res://godot-lod-selection.json"
-    if FileAccess.file_exists(output_path):
-        fail("Choose a bundle copy without an existing selection report")
+    var scene_path = "res://lod-selection-review.tscn"
+    if FileAccess.file_exists(output_path) or FileAccess.file_exists(scene_path):
+        fail("Choose a bundle copy without an existing selection report or review scene")
         return
     var manifest = JSON.parse_string(FileAccess.get_file_as_string("res://lod-manifest.json"))
     if not manifest is Dictionary or not manifest.get("levels") is Array or manifest.levels.size() != 2:
@@ -38,6 +39,9 @@ func review():
     camera.far = 1000.0
     viewport.add_child(camera)
     camera.current = true
+    var setup = Node3D.new()
+    setup.name = "LODSelectionReview"
+    viewport.add_child(setup)
     var groups = []
     var bounds = AABB()
     var have_bounds = false
@@ -55,7 +59,7 @@ func review():
         if scene == null:
             fail("Cannot instantiate GLB")
             return
-        viewport.add_child(scene)
+        setup.add_child(scene)
         var pending = [scene]
         var meshes = []
         var level_players = []
@@ -119,6 +123,63 @@ func review():
             mesh.visibility_range_end = boundary if index == 0 else 0.0
             mesh.visibility_range_begin_margin = 0.0
             mesh.visibility_range_end_margin = 0.0
+    # Persist and reload the configured diagnostic scene before measuring it.
+    # Color overrides are deliberately diagnostic, not production materials.
+    var group_paths = []
+    for group in groups:
+        var paths = []
+        for mesh in group:
+            paths.append(setup.get_path_to(mesh))
+        group_paths.append(paths)
+    var player_paths = []
+    var skeleton_paths = []
+    for index in range(players.size()):
+        player_paths.append(setup.get_path_to(players[index]))
+        skeleton_paths.append(setup.get_path_to(skeletons[index]))
+    var pending_ownership = setup.get_children()
+    while not pending_ownership.is_empty():
+        var node = pending_ownership.pop_back()
+        node.owner = setup
+        pending_ownership.append_array(node.get_children())
+    var packed = PackedScene.new()
+    if packed.pack(setup) != OK or ResourceSaver.save(packed, scene_path) != OK:
+        fail("Cannot save configured LOD review scene")
+        return
+    var restored_resource = ResourceLoader.load(scene_path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE)
+    if not restored_resource is PackedScene:
+        fail("Cannot reload configured LOD review scene")
+        return
+    setup.free()
+    setup = restored_resource.instantiate()
+    viewport.add_child(setup)
+    groups.clear()
+    players.clear()
+    skeletons.clear()
+    for index in range(group_paths.size()):
+        var group = []
+        for path in group_paths[index]:
+            var mesh = setup.get_node_or_null(path)
+            if not mesh is MeshInstance3D or mesh.mesh == null:
+                fail("Saved LOD mesh was not restored")
+                return
+            var begin = boundary if index == 1 else 0.0
+            var end = boundary if index == 0 else 0.0
+            if not is_equal_approx(mesh.visibility_range_begin, begin) or not is_equal_approx(mesh.visibility_range_end, end):
+                fail("Saved LOD visibility ranges changed")
+                return
+            group.append(mesh)
+        groups.append(group)
+    for index in range(player_paths.size()):
+        var player = setup.get_node_or_null(player_paths[index])
+        var skeleton = setup.get_node_or_null(skeleton_paths[index])
+        if not player is AnimationPlayer or not skeleton is Skeleton3D or not player.has_animation(clip):
+            fail("Saved LOD rig or clip was not restored")
+            return
+        player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+        player.play(clip)
+        player.advance(0)
+        players.append(player)
+        skeletons.append(skeleton)
     var results = []
     var phases = [0.0] if clip == "" else [0.0, 0.25, 0.5, 0.75]
     for phase in phases:
@@ -158,7 +219,7 @@ func review():
                 fail("Requested clip did not change sampled bone poses")
                 return
     var output = FileAccess.open(output_path, FileAccess.WRITE)
-    output.store_string(JSON.stringify({"scope": "Sampled phase-synchronized distance selection; not continuous transition or visual-quality acceptance", "clip": clip if clip != "" else "rest", "godot_version": Engine.get_version_info().string, "samples": results}, "  "))
+    output.store_string(JSON.stringify({"scope": "Sampled phase-synchronized distance selection; not continuous transition or visual-quality acceptance", "clip": clip if clip != "" else "rest", "scene_reloaded": true, "scene_file": scene_path, "godot_version": Engine.get_version_info().string, "samples": results}, "  "))
     output.close()
-    print("PASS: rendered LOD selection across phases and boundary approach/retreat")
+    print("PASS: reloaded scene rendered LOD selection across phases and boundary approach/retreat")
     quit(0)
