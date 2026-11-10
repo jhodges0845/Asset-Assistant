@@ -12,6 +12,14 @@ enabled add-on export hook, and default/contrasting Godot playback probes.
 The old blanket small-weight export limitation is superseded by the supported
 hook; disabled add-ons still fail closed for affected weights.
 
+Package checkpoint (November 9): the isolated ZIP check now exercises registered
+static Preview/Apply/Export operators and reimports LOD0/1/2 independently. It
+checks manifest/import triangle agreement, decreasing counts, UV-layer and
+material presence, source signature preservation, and export selection/staging
+cleanup. The existing packaged skinned cancellation and tiny-weight hook checks
+also pass on Blender 5.2.1. This small sphere fixture does not establish visual
+UV/material fidelity, live keyboard undo or the full provider/import matrix.
+
 Remaining completion gates:
 - [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
   verify silhouette, UV/material and deformation quality on representative
