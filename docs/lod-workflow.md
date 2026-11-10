@@ -43,6 +43,16 @@ the fix; all 91 static/skinned LOD tests pass after it. Older painted previews
 require rebuilding; unpainted fingerprints remain compatible. Color fidelity
 through reduction/export still requires separate visual and round-trip evidence.
 
+Color import checkpoint: enabled Asset Assistant GLB/glTF imports now use a
+scoped public import extension to retain decoded color values in FLOAT_COLOR
+layers through Blender's native vertex mapping. Missing primitive colors remain
+white; temporary aliases are removed; collisions and critical hook failures abort
+through existing import rollback. Native imports outside the scope and disabled
+add-on use retain Blender defaults. Colored Draco inputs require decompression
+first. Five precision/scope/collision/rollback tests and the four existing animated
+exchange tests pass in Blender 5.2.1. Vertex-color material export validation,
+full visual fidelity and Human reduction quality remain separate open work.
+
 Remaining completion gates:
 - [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
   verify silhouette, UV/material and deformation quality on representative

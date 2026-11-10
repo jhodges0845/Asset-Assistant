@@ -227,7 +227,12 @@ def _import_external(filepath, extension, context):
     active = view_layer.objects.active
     try:
         if extension in {".glb", ".gltf"}:
-            result = bpy.ops.import_scene.gltf(filepath=filepath)
+            from .gltf_color_import import extension_available, preserve_import_colors
+            if extension_available():
+                with preserve_import_colors():
+                    result = bpy.ops.import_scene.gltf(filepath=filepath)
+            else:
+                result = bpy.ops.import_scene.gltf(filepath=filepath)
         elif extension == ".fbx":
             if hasattr(bpy.ops.wm, "fbx_import"):
                 result = bpy.ops.wm.fbx_import(filepath=filepath)
