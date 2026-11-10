@@ -27,6 +27,14 @@ reject Apply without changing saved signatures. Discard remains available and
 preserves the edited source/rig. Blender 5.2.1 passes all five cases. This is
 backend persistence evidence, not live UI or arbitrary imported-rig acceptance.
 
+UV ownership checkpoint (November 10): multi-map fingerprints now include the
+render UV selection. Changing that selection on a source or preview blocks stale
+Apply; changing it after Apply blocks export. Artist UV selections are preserved.
+Old multi-map previews require explicit rebuilding because their fingerprints did
+not record this choice; single-map fingerprints remain compatible. Three new
+regressions fail before the fix, and all 86 static/skinned LOD tests pass after it.
+This closes a stale-data guard gap, not the Human atlas-mixing quality blocker.
+
 Remaining completion gates:
 - [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
   verify silhouette, UV/material and deformation quality on representative
