@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Rendering-enabled Godot: --path BUNDLE --script /absolute/this_script.gd
-# Two-level diagnostic only. Never rewrites GLBs or their exchange manifest.
+# Shared two-level scene builder and diagnostic verifier. Never rewrites GLBs.
 extends SceneTree
 
 func _initialize():
@@ -16,11 +16,13 @@ func review():
         fail("Supply at most one clip name after --")
         return
     var clip = arguments[0] if arguments.size() == 1 else ""
+    await build_scene(clip)
+
+func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_distance = 0.0, diagnostic = true):
     var players = []
     var skeletons = []
     var output_path = "res://godot-lod-selection.json"
-    var scene_path = "res://lod-selection-review.tscn"
-    if FileAccess.file_exists(output_path) or FileAccess.file_exists(scene_path):
+    if (diagnostic and FileAccess.file_exists(output_path)) or FileAccess.file_exists(scene_path):
         fail("Choose a bundle copy without an existing selection report or review scene")
         return
     var manifest = JSON.parse_string(FileAccess.get_file_as_string("res://lod-manifest.json"))
@@ -85,11 +87,12 @@ func review():
                     var arrays = node.mesh.surface_get_arrays(surface)
                     var count = arrays[Mesh.ARRAY_INDEX].size()
                     triangles += (count if count else arrays[Mesh.ARRAY_VERTEX].size()) / 3
-                var material = StandardMaterial3D.new()
-                material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-                material.albedo_color = Color.RED if index == 0 else Color.GREEN
-                material.cull_mode = BaseMaterial3D.CULL_DISABLED
-                node.material_override = material
+                if diagnostic:
+                    var material = StandardMaterial3D.new()
+                    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+                    material.albedo_color = Color.RED if index == 0 else Color.GREEN
+                    material.cull_mode = BaseMaterial3D.CULL_DISABLED
+                    node.material_override = material
         if meshes.size() != int(level.mesh_count) or triangles != int(level.triangles):
             fail("Imported counts differ from manifest")
             return
@@ -111,7 +114,10 @@ func review():
         return
     var center = bounds.get_center()
     var scale = maxf(bounds.size.length(), 1.0)
-    var boundary = scale * 4.0
+    var boundary = scale * 4.0 if diagnostic else switch_distance
+    if not is_finite(boundary) or boundary <= 0:
+        fail("Switch distance must be finite and positive")
+        return
     camera.size = scale * 1.2
     camera.far = scale * 20.0
     # Shared world-space bounds avoid per-mesh centers changing switch distances.
@@ -140,8 +146,17 @@ func review():
         var node = pending_ownership.pop_back()
         node.owner = setup
         pending_ownership.append_array(node.get_children())
+    if not diagnostic and not players.is_empty():
+        if not is_equal_approx(players[0].get_animation(clip).length, players[1].get_animation(clip).length):
+            fail("Engine scene requires matching clip durations across levels")
+            return
+        viewport.remove_child(setup)
+        for player in players:
+            player.stop()
+            player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
+            player.autoplay = clip
     setup.set_meta("lod_selection_review", {
-        "version": 1, "clip": clip, "center": center, "scale": scale,
+        "version": 1, "diagnostic_materials": diagnostic, "clip": clip, "center": center, "scale": scale,
         "boundary": boundary, "group_paths": group_paths,
         "player_paths": player_paths, "skeleton_paths": skeleton_paths})
     var packed = PackedScene.new()
@@ -149,6 +164,10 @@ func review():
         fail("Cannot save configured LOD review scene")
         return
     setup.free()
+    if not diagnostic:
+        print("PASS: saved material-preserving engine scene: ", scene_path)
+        quit(0)
+        return
     await verify_saved_scene(scene_path, output_path, viewport, camera)
 
 func verify_saved_scene(scene_path, output_path, viewport, camera):
@@ -206,6 +225,16 @@ func verify_saved_scene(scene_path, output_path, viewport, camera):
             if not is_equal_approx(mesh.visibility_range_begin, begin) or not is_equal_approx(mesh.visibility_range_end, end):
                 fail("Saved LOD visibility ranges changed")
                 return
+            if not metadata.get("diagnostic_materials", true):
+                if mesh.material_override != null:
+                    fail("Engine scene unexpectedly contains a material override")
+                    return
+                # Diagnostic colors affect only this loaded verification instance.
+                var material = StandardMaterial3D.new()
+                material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+                material.albedo_color = Color.RED if index == 0 else Color.GREEN
+                material.cull_mode = BaseMaterial3D.CULL_DISABLED
+                mesh.material_override = material
             group.append(mesh)
         groups.append(group)
     for index in range(player_paths.size()):
@@ -213,6 +242,9 @@ func verify_saved_scene(scene_path, output_path, viewport, camera):
         var skeleton = setup.get_node_or_null(skeleton_paths[index])
         if not player is AnimationPlayer or not skeleton is Skeleton3D or not player.has_animation(clip):
             fail("Saved LOD rig or clip was not restored")
+            return
+        if not metadata.get("diagnostic_materials", true) and (player.autoplay != clip or not player.is_playing()):
+            fail("Engine scene did not start its configured clip")
             return
         player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
         player.play(clip)

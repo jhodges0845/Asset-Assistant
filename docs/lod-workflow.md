@@ -1410,3 +1410,41 @@ not a packaged game or artist-facing engine exporter. Diagnostic color overrides
 remain intentional; production material preservation, continuous transitions,
 UV/deformation acceptance and live UI remain open. PR #351 passed all six checks
 and was merged before this extension.
+
+### Material-preserving Godot scene export (2026-11-09)
+
+`scripts/prepare_lod_engine_scene.gd` writes a new `lod-engine.tscn` from an
+existing two-level bundle using the same validated scene builder as the selection
+probe. The caller supplies a finite positive switching distance in Godot units
+and may supply an exact clip name:
+```
+Godot --headless --path BUNDLE --script /absolute/prepare_lod_engine_scene.gd -- 8 Run
+```
+The scene retains imported surface materials without diagnostic overrides,
+configures both levels' visibility ranges around shared bounds, and stores the
+rigs/clips. With a clip, both levels require matching durations and configure
+idle-process autoplay on load. Without a clip, the setup remains at rest. Existing
+scene files are rejected. Original GLBs and their exchange manifest are unchanged;
+the latter still describes the exchange bundle, not the separately created scene.
+Instance `lod-engine.tscn` into a Godot world containing the artist's camera and
+lighting. This developer CLI is not yet a Blender Export workspace integration.
+
+Verify in a fresh rendering-enabled process with the existing reopen script and
+`-- --engine`. The verifier checks autoplay has started before switching to manual
+sampled evaluation. Diagnostic colors are applied only to the loaded verification
+instance, never saved to the engine scene. Success writes
+`godot-lod-engine-verified.json`.
+
+Human Run, Canine Run and Avian Flight each pass 28 rendered checks at an explicit
+8-unit boundary. Saved scenes contain no material overrides; original GLBs and
+manifests compare byte-for-byte unchanged. Overwrite and zero-distance attempts
+exit with failure, preserving the existing scene hash. The original diagnostic
+Human Run path still passes. Evidence is in
+`artifacts/lod-engine-final-{human,canine,avian}/` and the corresponding prepare,
+verify and negative-control logs.
+
+This provides a persistent engine scene with original materials and configured
+selection. Continuous animation synchronization, transition visual quality,
+animated culling bounds, more than two levels and artist-facing integration remain
+unverified/unsupported as applicable. UV/deformation and live UI gates remain open.
+PR #352 is merged with all six checks passing.
