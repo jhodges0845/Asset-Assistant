@@ -1448,3 +1448,31 @@ selection. Continuous animation synchronization, transition visual quality,
 animated culling bounds, more than two levels and artist-facing integration remain
 unverified/unsupported as applicable. UV/deformation and live UI gates remain open.
 PR #352 is merged with all six checks passing.
+
+### Explicit loop export and continuous playback (2026-11-09)
+
+The engine-scene CLI accepts `-- DISTANCE CLIP --loop` to opt into linear looping
+on the copied Godot animations. Without `--loop`, imported loop semantics remain
+unchanged. Looping without a named clip is rejected. Source GLBs are never changed.
+The earlier imported fixtures play once by default; autoplay alone does not imply
+looping, and artists must explicitly choose repetition for the engine scene.
+
+`scripts/review_lod_continuous_godot.gd` observes actual idle-process autoplay in a
+fresh rendering-enabled process, without seeking or manually advancing clocks.
+Run with `--fixed-fps 60`. It switches camera distance every 12 frames, checks the
+rendered level every frame, requires both clocks to stay within one microsecond,
+and requires at least two loop wraps and both levels to be rendered. Diagnostic
+colors are applied only to the loaded scene instance. The one-microsecond check
+compares clocks within the same engine process; it is not a skin-error tolerance.
+
+Explicitly looping Human Run and Canine Run each pass 152 frames; Avian Flight
+passes 252. Each records three wraps and zero maximum clock difference. A control
+slowing LOD1 to half speed fails with `LOD animation clocks diverged`; nonlooping
+fixtures fail the continuous-loop test when playback stops. Looping without a
+clip fails admission. Evidence: `artifacts/lod-continuous-loop-{human,canine,avian}/`,
+`artifacts/lod-clock-negative-stderr.log`, and `artifacts/lod-loop-no-clip.log`.
+
+This verifies continuous clock synchronization and rendered selection for these
+fixtures. It does not certify perceptual popping, skin equality between levels,
+animated culling bounds or Blender UI acceptance. PR #353 passed all six checks
+and was merged before this change.

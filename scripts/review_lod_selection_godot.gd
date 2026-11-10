@@ -18,7 +18,7 @@ func review():
     var clip = arguments[0] if arguments.size() == 1 else ""
     await build_scene(clip)
 
-func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_distance = 0.0, diagnostic = true):
+func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_distance = 0.0, diagnostic = true, loop_clip = false):
     var players = []
     var skeletons = []
     var output_path = "res://godot-lod-selection.json"
@@ -154,6 +154,8 @@ func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_di
         for player in players:
             player.stop()
             player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
+            if loop_clip:
+                player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
             player.autoplay = clip
     setup.set_meta("lod_selection_review", {
         "version": 1, "diagnostic_materials": diagnostic, "clip": clip, "center": center, "scale": scale,
