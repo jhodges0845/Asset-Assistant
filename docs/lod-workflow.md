@@ -1517,3 +1517,29 @@ selection checks. Evidence: `artifacts/lod-culling-{human,avian,canine}/`,
 logs. Source geometry, clips and materials are unchanged. Between-sample extrema,
 other clips and other assets still need validation; no general culling acceptance
 is claimed. PR #354 passed all six checks and was merged before this change.
+
+### Packed engine playback (2026-11-10)
+
+Human Run, Canine Run and Avian Flight padded/looping engine scenes were each
+loaded through `--main-pack` in fresh rendering-enabled Godot 4.7.2 processes.
+Each PCK contained only `project.godot`, the self-contained `lod-engine.tscn`,
+`review_lod_continuous_godot.gd` and its shared base script. No GLBs or manifest
+were included. Runs used an independent working directory, Compatibility/ANGLE
+and `--fixed-fps 60`.
+
+All 556 frames passed rendered near/far selection (152 Human, 152 Canine,
+252 Avian); each fixture wrapped three times with zero measured inter-level
+clock difference. Evidence and the local pack-building helper are in
+`artifacts/lod-packed-runtime/` and `artifacts/pack_lod_review.gd`.
+The probe accepts `-- --output=WRITABLE_PATH` so report output can live outside
+read-only resource packs; omitted output retains the project-local default.
+Existing reports and empty output arguments reject with exit 1; the existing
+report hash was unchanged. Failed file creation now reports an error and exits
+instead of calling a method on a null file handle.
+
+This establishes resource-pack loading and sampled rendered switching for these
+fixtures, not an exported standalone game, visual transition quality or final
+engine acceptance. The separate temporary UV-seam splitting experiment was
+rejected: it removed atlas crossings but produced 21,584 disconnected face
+components at half budget and 10,790 at quarter budget. Do not promote that
+experiment to the reducer; results remain in `artifacts/lod-uv-split-experiment.json`.
