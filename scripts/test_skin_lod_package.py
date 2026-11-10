@@ -66,7 +66,15 @@ with TemporaryDirectory() as directory:
     bpy.ops.object.select_all(action='DESELECT')
     bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=8)
     static_source = bpy.context.object
+    paint = static_source.data.color_attributes.new(name='Paint', type='FLOAT_COLOR', domain='CORNER')
+    for item in paint.data:
+        item.color = (.2, .4, .6, 1)
     material = bpy.data.materials.new('Packaged LOD material')
+    material.use_nodes = True
+    color = material.node_tree.nodes.new('ShaderNodeVertexColor')
+    color.layer_name = 'Paint'
+    material.node_tree.links.new(color.outputs['Color'],
+                                material.node_tree.nodes.get('Principled BSDF').inputs['Base Color'])
     static_source.data.materials.append(material)
     source_signature = _signature(static_source)
     assert bpy.ops.asset_assistant.lod_preview(level_count=2) == {'FINISHED'}
@@ -90,7 +98,8 @@ with TemporaryDirectory() as directory:
     counts = []
     for level in manifest['levels']:
         before = set(bpy.data.objects)
-        assert bpy.ops.import_scene.gltf(filepath=str(bundle / level['file'])) == {'FINISHED'}
+        from humanoid_blender.asset_file_import_ui import _import_external
+        _import_external(str(bundle / level['file']), '.glb', bpy.context)
         imported = set(bpy.data.objects) - before
         meshes = [obj for obj in imported if obj.type == 'MESH']
         assert len(meshes) == level['mesh_count'] == 1
@@ -99,6 +108,11 @@ with TemporaryDirectory() as directory:
         counts.append(count)
         for obj in meshes:
             assert obj.data.uv_layers.active is not None
+            colors = obj.data.color_attributes['Color']
+            assert colors.data_type == 'FLOAT_COLOR'
+            assert all(abs(value - expected) < 1e-7 for item in colors.data
+                       for value, expected in zip(item.color, (.2, .4, .6, 1)))
+            assert not any(attr.name.startswith('_AA_COLOR_') for attr in obj.data.attributes)
             assert len(obj.data.materials) == 1 and obj.data.materials[0] is not None
         for obj in imported:
             bpy.data.objects.remove(obj, do_unlink=True)
@@ -106,6 +120,9 @@ with TemporaryDirectory() as directory:
     assert counts[0] > counts[1] > counts[2] > 0
     assert set(bpy.data.objects) == original_objects
     print('PACKAGED_STATIC_LOD_ROUNDTRIP_OK: applied levels, UV/material presence, triangle counts and source preservation')
+    from humanoid_blender import gltf_color_import
+    Path(gltf_color_import.__file__).resolve().relative_to(Path(directory).resolve())
+    assert gltf_color_import._scope.get() is None
     assert 'object_core' not in sys.modules
     addon_utils.disable('humanoid_blender', default_set=True)
 print('PACKAGED_SKIN_LOD_OK')

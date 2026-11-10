@@ -17,7 +17,10 @@ static Preview/Apply/Export operators and reimports LOD0/1/2 independently. It
 checks manifest/import triangle agreement, decreasing counts, UV-layer and
 material presence, source signature preservation, and export selection/staging
 cleanup. The existing packaged skinned cancellation and tiny-weight hook checks
-also pass on Blender 5.2.1. This small sphere fixture does not establish visual
+also pass on Blender 5.2.1. The installed-package check also verifies painted LOD0/1/2 through the normal
+asset importer, float color precision, scoped hook cleanup and loading from the
+isolated ZIP namespace (Blender 5.2.1).
+This small sphere fixture does not establish visual
 UV/material fidelity, live keyboard undo or the full provider/import matrix.
 
 Persistence checkpoint (November 9): `scripts/test_skin_lod_reopen.py` now
