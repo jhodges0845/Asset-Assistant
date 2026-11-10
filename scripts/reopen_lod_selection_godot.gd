@@ -3,8 +3,10 @@
 extends "review_lod_selection_godot.gd"
 
 func review():
-    if not OS.get_cmdline_user_args().is_empty():
-        fail("Reopen uses the clip stored in the review scene; no arguments expected")
+    var arguments = OS.get_cmdline_user_args()
+    var engine_scene = arguments == PackedStringArray(["--engine"])
+    if not arguments.is_empty() and not engine_scene:
+        fail("Reopen uses the clip stored in the review scene; only --engine is optional")
         return
     var viewport = SubViewport.new()
     viewport.size = Vector2i(128, 128)
@@ -16,5 +18,6 @@ func review():
     camera.near = 0.01
     viewport.add_child(camera)
     camera.current = true
-    await verify_saved_scene("res://lod-selection-review.tscn",
-        "res://godot-lod-selection-reopened.json", viewport, camera)
+    var scene = "res://lod-engine.tscn" if engine_scene else "res://lod-selection-review.tscn"
+    var report = "res://godot-lod-engine-verified.json" if engine_scene else "res://godot-lod-selection-reopened.json"
+    await verify_saved_scene(scene, report, viewport, camera)
