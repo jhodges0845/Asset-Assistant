@@ -116,7 +116,7 @@ def prepare_materials(root):
     return default
 
 
-def material_issues(objects):
+def material_issues(objects, *, allow_vertex_colors=False):
     """Reject shader graphs that these file exporters cannot reliably translate."""
     from .core import ValidationIssue
 
@@ -125,7 +125,7 @@ def material_issues(objects):
     for obj in objects:
         for slot in obj.material_slots:
             material = slot.material
-            if material is None or material.as_pointer() in seen or not material.use_nodes:
+            if material is None or (material.as_pointer() in seen and not allow_vertex_colors) or not material.use_nodes:
                 continue
             seen.add(material.as_pointer())
             outputs = [node for node in material.node_tree.nodes
@@ -137,6 +137,12 @@ def material_issues(objects):
                 for socket in shader.inputs:
                     for link in socket.links:
                         source = link.from_node
+                        if (allow_vertex_colors and source.type == 'VERTEX_COLOR'
+                                and socket.name == 'Base Color' and link.from_socket.name == 'Color'
+                                and ((source.layer_name and source.layer_name in obj.data.color_attributes)
+                                     or (not source.layer_name and
+                                         0 <= obj.data.color_attributes.render_color_index < len(obj.data.color_attributes)))):
+                            continue
                         if source.type == 'NORMAL_MAP':
                             source = source.inputs['Color'].links[0].from_node if source.inputs['Color'].is_linked else None
                         if source is None or source.type != 'TEX_IMAGE':
