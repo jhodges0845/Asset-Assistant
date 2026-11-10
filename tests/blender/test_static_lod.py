@@ -629,3 +629,30 @@ def test_unchanged_custom_normals_allow_recovered_preview_apply(source):
     recovered = recover_static_lod_preview(preview.collection)
     recovered.apply()
     assert _signature(source) == before
+
+
+@pytest.mark.parametrize('target', ('source', 'preview'))
+def test_render_uv_switch_blocks_apply_and_preserves_edit(source, target):
+    source.data.uv_layers.new(name='Alternate')
+    source.data.uv_layers[0].active_render = True
+    preview = preview_static_lods(source, bpy.context.scene, ratios=(.5,))
+    obj = source if target == 'source' else preview.objects[0]
+    before = _signature(obj)
+    obj.data.uv_layers[1].active_render = True
+    assert _signature(obj) != before
+    with pytest.raises(ValueError, match='changed'):
+        preview.apply()
+    assert obj.data.uv_layers[1].active_render
+    preview.cancel()
+
+
+def test_render_uv_switch_blocks_applied_export(source):
+    from blender_adapter.lod_export import plan_lod_export
+    source.data.uv_layers.new(name='Alternate')
+    source.data.uv_layers[0].active_render = True
+    preview = preview_static_lods(source, bpy.context.scene, ratios=(.5,))
+    preview.apply()
+    source.data.uv_layers[1].active_render = True
+    with pytest.raises(ValueError, match='changed'):
+        plan_lod_export(preview.collection, bpy.context.scene)
+    assert source.data.uv_layers[1].active_render

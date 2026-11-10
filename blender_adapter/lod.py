@@ -17,6 +17,11 @@ def _signature(obj):
         tuple((layer.name, tuple(tuple(item.uv) for item in layer.data)) for layer in mesh.uv_layers),
         tuple((material.name_full, material.library.filepath if material.library else None) if material else None for material in (slot.material for slot in obj.material_slots)),
     )
+    # UV coordinates alone do not identify the map used for rendering/export.
+    # Preserve single-map historical signatures; old multi-map previews need
+    # rebuilding because they did not certify the render-map selection.
+    if len(mesh.uv_layers) > 1:
+        payload += (('render-uv-v1', tuple(layer.active_render for layer in mesh.uv_layers)),)
     # Keep historical fingerprints for meshes without authored shading data.
     # Older shaded previews cannot certify these edits and must be rebuilt.
     sharp_edges = tuple(edge.use_edge_sharp for edge in mesh.edges)
