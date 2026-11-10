@@ -35,6 +35,14 @@ not record this choice; single-map fingerprints remain compatible. Three new
 regressions fail before the fix, and all 86 static/skinned LOD tests pass after it.
 This closes a stale-data guard gap, not the Human atlas-mixing quality blocker.
 
+Color ownership checkpoint (November 10): fingerprints now include authored
+color-layer values, names, domains, storage types and render-layer selection.
+Paint edits on sources/reduced copies and changed render-color selection block
+stale Apply/export without rewriting artist paint. Five regressions fail before
+the fix; all 91 static/skinned LOD tests pass after it. Older painted previews
+require rebuilding; unpainted fingerprints remain compatible. Color fidelity
+through reduction/export still requires separate visual and round-trip evidence.
+
 Remaining completion gates:
 - [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
   verify silhouette, UV/material and deformation quality on representative
