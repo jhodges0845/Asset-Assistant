@@ -73,3 +73,9 @@ def glTF2ExportUserExtension():
     """Lazy factory discovered by Blender glTF when this add-on is enabled."""
     from .lod_weight_export import WeightExportExtension
     return WeightExportExtension()
+
+
+def glTF2ImportUserExtension():
+    """Scoped color precision hook for explicit Asset Assistant imports."""
+    from .gltf_color_import import ColorImportExtension
+    return ColorImportExtension()

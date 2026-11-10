@@ -21,6 +21,8 @@ composes the mathematical surface builder, rig and shared body-control mapping.
 The former static study option and experimental provider identity are removed.
 See `docs/human-workflow.md` for the workflow and code ownership map.
 
+GLB/glTF import color precision: `gltf_color_import.py` supplies the scoped public hook used by `asset_file_import_ui.py` when enabled. Native imports retain defaults; colored Draco input is rejected. Regressions: `tests/blender/test_gltf_color_import.py`.
+
 ## Main seams
 
 - `core_gateway.py` — Blender-facing facade into portable core behavior.
