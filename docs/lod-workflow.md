@@ -20,6 +20,13 @@ cleanup. The existing packaged skinned cancellation and tiny-weight hook checks
 also pass on Blender 5.2.1. This small sphere fixture does not establish visual
 UV/material fidelity, live keyboard undo or the full provider/import matrix.
 
+Persistence checkpoint (November 9): `scripts/test_skin_lod_reopen.py` now
+saves and reopens five skinned cases in a fresh Blender process. Unchanged
+Apply/Discard pass; edits to source geometry, reduced geometry or rest bones
+reject Apply without changing saved signatures. Discard remains available and
+preserves the edited source/rig. Blender 5.2.1 passes all five cases. This is
+backend persistence evidence, not live UI or arbitrary imported-rig acceptance.
+
 Remaining completion gates:
 - [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
   verify silhouette, UV/material and deformation quality on representative
