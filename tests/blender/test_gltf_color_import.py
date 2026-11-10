@@ -124,3 +124,51 @@ def test_asset_import_uses_precision_scope(painted_file):
     assert meshes
     assert all(mesh.color_attributes['Color'].data_type == 'FLOAT_COLOR' for mesh in meshes)
     assert colors._scope.get() is None
+
+def test_painted_lod_bundle_roundtrip(painted_file, tmp_path):
+    from blender_adapter.lod import preview_static_lods, _signature
+    from blender_adapter.lod_export import export_static_lod_bundle
+    from blender_adapter.materials import material_issues
+    source, _ = painted_file
+    assert material_issues((source,))  # Other file exporters remain conservative.
+    assert not material_issues((source,), allow_vertex_colors=True)
+    original = _signature(source)
+    preview = preview_static_lods(source, bpy.context.scene, ratios=(.5,))
+    preview.apply()
+    destination = tmp_path / 'painted-bundle'
+    manifest = export_static_lod_bundle(preview.collection, bpy.context, destination)
+    for level in manifest['levels']:
+        before = set(bpy.data.objects)
+        _import_external(str(destination / level['file']), '.glb', bpy.context)
+        mesh, = [o.data for o in set(bpy.data.objects) - before if o.type == 'MESH']
+        assert mesh.color_attributes['Color'].data_type == 'FLOAT_COLOR'
+        material = mesh.materials[0]
+        shader = next(n for n in material.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+        pending = [link.from_node for link in shader.inputs['Base Color'].links]
+        reached = set()
+        while pending:
+            node = pending.pop()
+            if node in reached:
+                continue
+            reached.add(node)
+            pending.extend(link.from_node for socket in node.inputs for link in socket.links)
+        assert any(n.type == 'VERTEX_COLOR' and
+                   (n.layer_name == 'Color' or (not n.layer_name and mesh.color_attributes.render_color_index == 0))
+                   for n in reached)
+        for item in mesh.color_attributes['Color'].data:
+            assert tuple(item.color)[:3] == pytest.approx((.2, .4, .6), abs=1e-7)
+    assert _signature(source) == original
+
+
+def test_color_material_validation_checks_each_mesh(painted_file):
+    from blender_adapter.materials import material_issues
+    source, _ = painted_file
+    other = source.copy(); other.data = source.data.copy()
+    bpy.context.scene.collection.objects.link(other)
+    other.data.color_attributes.remove(other.data.color_attributes['Paint'])
+    assert material_issues((source, other), allow_vertex_colors=True)
+    node = next(n for n in source.data.materials[0].node_tree.nodes if n.type == 'VERTEX_COLOR')
+    node.layer_name = ''
+    assert not material_issues((source,), allow_vertex_colors=True)
+    source.data.color_attributes.remove(source.data.color_attributes['Paint'])
+    assert material_issues((source,), allow_vertex_colors=True)

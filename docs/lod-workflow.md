@@ -53,6 +53,14 @@ first. Five precision/scope/collision/rollback tests and the four existing anima
 exchange tests pass in Blender 5.2.1. Vertex-color material export validation,
 full visual fidelity and Human reduction quality remain separate open work.
 
+Painted glTF checkpoint: Godot/GLB material validation supports Vertex Color
+Color outputs wired directly to Principled Base Color, resolving either a named
+layer or the current render layer on each mesh. Missing layers, unsupported shader
+connections and other file-target policies remain rejected. A painted source and
+reduced LOD now pass normal bundle export and scoped import with float RGB values
+and the material's color connection preserved. This is bounded round-trip evidence,
+not proof of spatial paint fidelity or artistic acceptance after reduction.
+
 Remaining completion gates:
 - [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
   verify silhouette, UV/material and deformation quality on representative

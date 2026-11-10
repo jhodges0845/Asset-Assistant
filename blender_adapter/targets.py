@@ -222,7 +222,7 @@ class BlenderOutputAdapter:
             add("export_inspection", "ERROR", "Could not inspect this Blender asset: " + str(exc))
         if self.target_key != 'CURA':
             from .materials import material_issues
-            issues.extend(material_issues(objects))
+            issues.extend(material_issues(objects, allow_vertex_colors=self.target_key == 'GODOT'))
         if self.operator_name:
             import bpy
             try:
