@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Exercise skinned preview operators from an isolated release ZIP."""
+"""Exercise LOD lifecycles and export from an isolated release ZIP."""
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -58,6 +58,54 @@ with TemporaryDirectory() as directory:
         offset = 28 + length + view.get('byteOffset', 0) + accessor.get('byteOffset', 0)
         weights = struct.unpack_from('<4f', raw, offset)
         assert abs(sorted(w for w in weights if w > 0)[0] - .00001) < 1e-10
+    # Exercise the complete static path through registered packaged operators.
+    # Import each exported level independently; do not infer round-trip success
+    # from a nonempty file or from the manifest alone.
+    from humanoid_blender.lod import _signature, _triangles
+    from humanoid_blender.lod_ui import _previews
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=8)
+    static_source = bpy.context.object
+    material = bpy.data.materials.new('Packaged LOD material')
+    static_source.data.materials.append(material)
+    source_signature = _signature(static_source)
+    assert bpy.ops.asset_assistant.lod_preview(level_count=2) == {'FINISHED'}
+    static_preview, = _previews(bpy.context.scene)
+    assert bpy.ops.asset_assistant.lod_finish(
+        collection_name=static_preview.name, action='APPLY') == {'FINISHED'}
+    assert not _previews(bpy.context.scene)
+    original_objects = set(bpy.data.objects)
+    selected = set(bpy.context.selected_objects)
+    active = bpy.context.view_layer.objects.active
+    assert bpy.ops.asset_assistant.lod_export_bundle(
+        collection_name=static_preview.name, directory=directory,
+        bundle_name='static-roundtrip') == {'FINISHED'}
+    assert set(bpy.data.objects) == original_objects
+    assert set(bpy.context.selected_objects) == selected
+    assert bpy.context.view_layer.objects.active == active
+    bundle = Path(directory) / 'static-roundtrip'
+    manifest = json.loads((bundle / 'lod-manifest.json').read_text())
+    assert manifest['engine_lod_configured'] is False
+    assert [level['index'] for level in manifest['levels']] == [0, 1, 2]
+    counts = []
+    for level in manifest['levels']:
+        before = set(bpy.data.objects)
+        assert bpy.ops.import_scene.gltf(filepath=str(bundle / level['file'])) == {'FINISHED'}
+        imported = set(bpy.data.objects) - before
+        meshes = [obj for obj in imported if obj.type == 'MESH']
+        assert len(meshes) == level['mesh_count'] == 1
+        count = sum(_triangles(obj.data) for obj in meshes)
+        assert count == level['triangles']
+        counts.append(count)
+        for obj in meshes:
+            assert obj.data.uv_layers.active is not None
+            assert len(obj.data.materials) == 1 and obj.data.materials[0] is not None
+        for obj in imported:
+            bpy.data.objects.remove(obj, do_unlink=True)
+        assert _signature(static_source) == source_signature
+    assert counts[0] > counts[1] > counts[2] > 0
+    assert set(bpy.data.objects) == original_objects
+    print('PACKAGED_STATIC_LOD_ROUNDTRIP_OK: applied levels, UV/material presence, triangle counts and source preservation')
     assert 'object_core' not in sys.modules
     addon_utils.disable('humanoid_blender', default_set=True)
 print('PACKAGED_SKIN_LOD_OK')

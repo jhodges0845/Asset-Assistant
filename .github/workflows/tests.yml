@@ -166,7 +166,7 @@ jobs:
       - name: Build Asset Assistant release ZIP
         run: python -m scripts.build_blender_addon
 
-      - name: Test packaged skinned LOD controls
+      - name: Test packaged LOD controls and round-trip
         run: |
           "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
             --background --factory-startup --python-exit-code 1 \
