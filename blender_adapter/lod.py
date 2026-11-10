@@ -17,6 +17,13 @@ def _signature(obj):
         tuple((layer.name, tuple(tuple(item.uv) for item in layer.data)) for layer in mesh.uv_layers),
         tuple((material.name_full, material.library.filepath if material.library else None) if material else None for material in (slot.material for slot in obj.material_slots)),
     )
+    # Authored color layers affect appearance even when geometry is unchanged.
+    # Older painted previews lacked this evidence and require rebuilding.
+    if mesh.color_attributes:
+        payload += (('color-v1', mesh.color_attributes.render_color_index,
+                     tuple((layer.name, layer.domain, layer.data_type,
+                            tuple(tuple(item.color) for item in layer.data))
+                           for layer in mesh.color_attributes)),)
     # UV coordinates alone do not identify the map used for rendering/export.
     # Preserve single-map historical signatures; old multi-map previews need
     # rebuilding because they did not certify the render-map selection.

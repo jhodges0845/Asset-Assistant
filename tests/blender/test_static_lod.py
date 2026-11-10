@@ -656,3 +656,32 @@ def test_render_uv_switch_blocks_applied_export(source):
     with pytest.raises(ValueError, match='changed'):
         plan_lod_export(preview.collection, bpy.context.scene)
     assert source.data.uv_layers[1].active_render
+
+
+@pytest.mark.parametrize('target', ('source', 'preview'))
+@pytest.mark.parametrize('storage', ('FLOAT_COLOR', 'BYTE_COLOR'))
+def test_color_edits_block_apply_without_losing_paint(source, target, storage):
+    source.data.color_attributes.new(name='Artist paint', type=storage, domain='CORNER')
+    preview = preview_static_lods(source, bpy.context.scene, ratios=(.5,))
+    obj = source if target == 'source' else preview.objects[0]
+    before = _signature(obj)
+    obj.data.color_attributes['Artist paint'].data[0].color = (.1, .2, .3, 1)
+    edited = tuple(obj.data.color_attributes['Artist paint'].data[0].color)
+    assert _signature(obj) != before
+    with pytest.raises(ValueError, match='changed'):
+        preview.apply()
+    assert tuple(obj.data.color_attributes['Artist paint'].data[0].color) == edited
+    preview.cancel()
+
+
+def test_color_layer_switch_blocks_applied_export(source):
+    from blender_adapter.lod_export import plan_lod_export
+    for name in ('Paint', 'Alternate'):
+        source.data.color_attributes.new(name=name, type='FLOAT_COLOR', domain='POINT')
+    source.data.color_attributes.render_color_index = 0
+    preview = preview_static_lods(source, bpy.context.scene, ratios=(.5,))
+    preview.apply()
+    source.data.color_attributes.render_color_index = 1
+    with pytest.raises(ValueError, match='changed'):
+        plan_lod_export(preview.collection, bpy.context.scene)
+    assert source.data.color_attributes.render_color_index == 1
