@@ -18,7 +18,7 @@ func review():
     var clip = arguments[0] if arguments.size() == 1 else ""
     await build_scene(clip)
 
-func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_distance = 0.0, diagnostic = true, loop_clip = false):
+func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_distance = 0.0, diagnostic = true, loop_clip = false, bounds_margin = 0.0):
     var players = []
     var skeletons = []
     var output_path = "res://godot-lod-selection.json"
@@ -123,7 +123,7 @@ func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_di
     # Shared world-space bounds avoid per-mesh centers changing switch distances.
     for index in range(2):
         for mesh in groups[index]:
-            mesh.custom_aabb = mesh.global_transform.affine_inverse() * bounds
+            mesh.custom_aabb = mesh.global_transform.affine_inverse() * bounds.grow(bounds_margin)
             mesh.visibility_range_begin = boundary if index == 1 else 0.0
             mesh.visibility_range_end = boundary if index == 0 else 0.0
             mesh.visibility_range_begin_margin = 0.0
@@ -158,7 +158,7 @@ func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_di
                 player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
             player.autoplay = clip
     setup.set_meta("lod_selection_review", {
-        "version": 1, "diagnostic_materials": diagnostic, "clip": clip, "center": center, "scale": scale,
+        "version": 1, "bounds_margin": bounds_margin, "diagnostic_materials": diagnostic, "clip": clip, "center": center, "scale": scale,
         "boundary": boundary, "group_paths": group_paths,
         "player_paths": player_paths, "skeleton_paths": skeleton_paths})
     var packed = PackedScene.new()

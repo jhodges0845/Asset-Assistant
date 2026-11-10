@@ -1418,7 +1418,7 @@ existing two-level bundle using the same validated scene builder as the selectio
 probe. The caller supplies a finite positive switching distance in Godot units
 and may supply an exact clip name:
 ```
-Godot --headless --path BUNDLE --script /absolute/prepare_lod_engine_scene.gd -- 8 Run
+Godot --headless --path BUNDLE --script /absolute/prepare_lod_engine_scene.gd -- 8 Run --bounds-margin=0.5
 ```
 The scene retains imported surface materials without diagnostic overrides,
 configures both levels' visibility ranges around shared bounds, and stores the
@@ -1476,3 +1476,29 @@ This verifies continuous clock synchronization and rendered selection for these
 fixtures. It does not certify perceptual popping, skin equality between levels,
 animated culling bounds or Blender UI acceptance. PR #353 passed all six checks
 and was merged before this change.
+
+### Animated culling bounds (2026-11-09)
+
+The evaluated-skin review found rest bounds insufficient for the tested clips:
+maximum local-axis overflow was 0.340732 for Human Run, 0.341475 for Avian Flight
+and 0.001490 for Canine Run. The new `review_lod_culling_godot.gd` samples 49 phases
+per level, bakes evaluated skin with the rendering server, and reports vertex
+containment against the saved custom AABB. It records measurements rather than
+claiming a continuous conservative bound or changing the scene.
+
+Animated engine export now requires explicit `--bounds-margin=VALUE`, finite and
+nonnegative. The builder symmetrically grows the shared world bounds before
+converting to each mesh's local AABB, retaining the original selection center.
+Zero is accepted only as an explicit caller choice; it is not safe for the tested
+clips. Static export continues to default to zero. Duplicate, negative and missing
+animated margins are rejected. Larger bounds reduce culling efficiency, so choose
+and verify the margin for the actual clips instead of treating an example as a
+universal default.
+
+With an explicitly selected 0.5-unit margin, all three fixtures have zero sampled
+overflow across both levels. Padded Avian still passes 28 phase/distance rendered
+selection checks. Evidence: `artifacts/lod-culling-{human,avian,canine}/`,
+`artifacts/lod-culling-padded-{human,avian,canine}/`, and margin negative-control
+logs. Source geometry, clips and materials are unchanged. Between-sample extrema,
+other clips and other assets still need validation; no general culling acceptance
+is claimed. PR #354 passed all six checks and was merged before this change.
