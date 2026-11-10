@@ -1,10 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Rendering-enabled Godot --fixed-fps 60 --path ENGINE_COPY --script /absolute/this_script.gd
+# Optional -- --output=WRITABLE_PATH for read-only resource packs.
 # Observe autoplay without seeking or advancing either player's clock manually.
 extends "review_lod_selection_godot.gd"
 
 func review():
     var output_path = "res://godot-lod-continuous.json"
+    var arguments = OS.get_cmdline_user_args()
+    if not arguments.is_empty():
+        if arguments.size() != 1 or not arguments[0].begins_with("--output=") or arguments[0].trim_prefix("--output=") == "":
+            fail("Expected optional --output=WRITABLE_PATH")
+            return
+        output_path = arguments[0].trim_prefix("--output=")
     if FileAccess.file_exists(output_path):
         fail("Choose a copy without an existing continuous-playback report")
         return
@@ -100,6 +107,9 @@ func review():
         fail("Insufficient continuous loop/selection coverage; run with --fixed-fps 60")
         return
     var output = FileAccess.open(output_path, FileAccess.WRITE)
+    if output == null:
+        fail("Cannot write continuous-playback report: " + output_path)
+        return
     output.store_string(JSON.stringify({"frames": frames, "loop_wraps": wraps,
         "selected_frames": selected, "maximum_clock_error_seconds": maximum_clock_error,
         "clip": metadata.clip, "scope": "Continuous autoplay clocks and rendered level selection; not visual transition quality"}, "  "))
