@@ -74,6 +74,14 @@ All 100 static/skinned/color tests pass. The painted imported fixture also passe
 preview, fresh-process reopen, Apply, bundle reexport and reimport. This does not
 resolve Human UV mixing or certify arbitrary imported-asset quality.
 
+External paint regression checkpoint (November 10): four independent glTF
+fixtures now cover normalized unsigned 8/16-bit RGB/RGBA, padded vertex strides,
+two nonuniform color sets, per-vertex mapping and alpha. Normal asset imports
+preserve decoded values within 1e-7, RGB alpha defaults to one, input files remain
+unchanged and temporary hook state is cleared. All 12 color integration tests
+pass in Blender 5.2.1. These are import precision checks, not reduction or visual
+paint-quality acceptance.
+
 Remaining completion gates:
 - [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
   verify silhouette, UV/material and deformation quality on representative

@@ -6,11 +6,22 @@ from blender_adapter.asset_file_import_ui import _IMPORT_DATA_KINDS, _import_ext
 
 
 @pytest.fixture
-def painted_file(tmp_path):
+def import_session():
     before = {k: set(getattr(bpy.data, k)) for k in _IMPORT_DATA_KINDS}
     enabled = 'blender_adapter' in bpy.context.preferences.addons
     if not enabled:
         bpy.context.preferences.addons.new().module = 'blender_adapter'
+    try:
+        yield
+    finally:
+        created = [x for k in _IMPORT_DATA_KINDS for x in getattr(bpy.data, k) if x not in before[k]]
+        bpy.data.batch_remove(ids=created)
+        if not enabled:
+            bpy.context.preferences.addons.remove(bpy.context.preferences.addons['blender_adapter'])
+
+
+@pytest.fixture
+def painted_file(tmp_path, import_session):
     bpy.ops.object.select_all(action='DESELECT')
     bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8)
     source = bpy.context.object
@@ -23,13 +34,7 @@ def painted_file(tmp_path):
     source.data.materials.append(material)
     path = tmp_path / 'paint.glb'
     assert bpy.ops.export_scene.gltf(filepath=str(path), use_selection=True) == {'FINISHED'}
-    try:
-        yield source, path
-    finally:
-        created = [x for k in _IMPORT_DATA_KINDS for x in getattr(bpy.data, k) if x not in before[k]]
-        bpy.data.batch_remove(ids=created)
-        if not enabled:
-            bpy.context.preferences.addons.remove(bpy.context.preferences.addons['blender_adapter'])
+    return source, path
 
 
 def test_scoped_import_preserves_float_color(painted_file):
@@ -185,3 +190,58 @@ def test_imported_painted_mesh_can_build_lods(painted_file):
     assert not inspect_objects(preview.objects, require_manifold_geometry=False).invalid_meshes
     assert _signature(imported) == original
     preview.apply()
+
+
+@pytest.mark.parametrize('component,code,maximum', [(5121, 'B', 255), (5123, 'H', 65535)])
+@pytest.mark.parametrize('width', [3, 4])
+def test_normalized_external_paint_vertex_mapping(tmp_path, import_session, component, code, maximum, width):
+    """Independent external fixture: nonuniform, interleaved, two color sets."""
+    import base64
+    import json
+    import struct
+    positions = struct.pack('<9f', 0, 0, 0, 1, 0, 0, 2, 1, 0)
+    rows = [(0, maximum // 2, maximum, maximum // 3),
+            (maximum, 0, maximum // 3, maximum),
+            (maximum // 4, maximum, 0, 0)]
+    # glTF vertex attributes are four-byte aligned, including RGB uint8/uint16.
+    stride = (struct.calcsize(code) * width + 3) // 4 * 4
+    def encode(values):
+        return b''.join(struct.pack('<' + code * width, *row[:width]).ljust(stride, b'\0')
+                        for row in values)
+    first, second = encode(rows), encode(list(reversed(rows)))
+    binary = positions + first + second
+    document = {
+        'asset': {'version': '2.0'},
+        'buffers': [{'byteLength': len(binary), 'uri': 'data:application/octet-stream;base64,' +
+                     base64.b64encode(binary).decode()}],
+        'bufferViews': [
+            {'buffer': 0, 'byteOffset': 0, 'byteLength': len(positions)},
+            {'buffer': 0, 'byteOffset': len(positions), 'byteLength': len(first), 'byteStride': stride},
+            {'buffer': 0, 'byteOffset': len(positions) + len(first), 'byteLength': len(second), 'byteStride': stride}],
+        'accessors': [{'bufferView': 0, 'componentType': 5126, 'count': 3, 'type': 'VEC3',
+                       'min': [0, 0, 0], 'max': [2, 1, 0]}] + [
+            {'bufferView': i, 'componentType': component, 'normalized': True,
+             'count': 3, 'type': 'VEC' + str(width)} for i in (1, 2)],
+        'meshes': [{'primitives': [{'attributes': {'POSITION': 0, 'COLOR_0': 1, 'COLOR_1': 2}}]}],
+        'nodes': [{'mesh': 0}], 'scenes': [{'nodes': [0]}], 'scene': 0,
+    }
+    path = tmp_path / 'normalized.gltf'
+    path.write_text(json.dumps(document))
+    original = path.read_bytes()
+    before = set(bpy.data.objects)
+    _import_external(str(path), '.gltf', bpy.context)
+    mesh, = [o.data for o in set(bpy.data.objects) - before if o.type == 'MESH']
+    assert len(mesh.polygons) == 1
+    assert len(mesh.color_attributes) == 2
+    for name, expected_rows in [('Color', rows), ('Color.001', list(reversed(rows)))]:
+        layer = mesh.color_attributes[name]
+        assert layer.data_type == 'FLOAT_COLOR'
+        for i, item in enumerate(layer.data):
+            vertex = mesh.loops[i].vertex_index if layer.domain == 'CORNER' else i
+            row = expected_rows[round(mesh.vertices[vertex].co.x)]
+            expected = tuple(v / maximum for v in row[:width]) + ((1,) if width == 3 else ())
+            assert tuple(item.color) == pytest.approx(expected, abs=1e-7)
+    assert not any(a.name.startswith('_AA_COLOR_') for a in mesh.attributes)
+    assert mesh.color_attributes.render_color_index == 0
+    assert colors._scope.get() is None
+    assert path.read_bytes() == original
