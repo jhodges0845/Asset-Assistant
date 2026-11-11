@@ -172,3 +172,16 @@ def test_color_material_validation_checks_each_mesh(painted_file):
     assert not material_issues((source,), allow_vertex_colors=True)
     source.data.color_attributes.remove(source.data.color_attributes['Paint'])
     assert material_issues((source,), allow_vertex_colors=True)
+
+def test_imported_painted_mesh_can_build_lods(painted_file):
+    from blender_adapter.lod import preview_static_lods, _signature
+    from blender_adapter.validation import inspect_objects
+    source, path = painted_file
+    before = set(bpy.data.objects)
+    _import_external(str(path), '.glb', bpy.context)
+    imported, = [o for o in set(bpy.data.objects) - before if o.type == 'MESH']
+    original = _signature(imported)
+    preview = preview_static_lods(imported, bpy.context.scene, ratios=(.5,))
+    assert not inspect_objects(preview.objects, require_manifold_geometry=False).invalid_meshes
+    assert _signature(imported) == original
+    preview.apply()

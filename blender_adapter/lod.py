@@ -117,6 +117,24 @@ class StaticLODPreview:
         return self.objects
 
 
+def _remove_reduction_wires(mesh):
+    """Remove only face-less remnants on a newly reduced mesh, retaining shading."""
+    used = {tuple(sorted(edge)) for face in mesh.polygons for edge in face.edge_keys}
+    if all(tuple(sorted(edge.vertices)) in used for edge in mesh.edges):
+        return
+    import bmesh
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(mesh)
+        # Keep BMesh's native custom-data layers, including encoded normals.
+        # Reassigning decoded normals would introduce another quantization step.
+        bmesh.ops.delete(bm, geom=[edge for edge in bm.edges if not edge.link_faces], context='EDGES')
+        bm.to_mesh(mesh)
+        mesh.update()
+    finally:
+        bm.free()
+
+
 def preview_static_lods(source, scene, ratios=(.5, .25)):
     if scene != bpy.context.scene:
         raise ValueError("LOD preview requires the active scene")
@@ -147,6 +165,7 @@ def preview_static_lods(source, scene, ratios=(.5, .25)):
             obj.modifiers.clear()
             obj.data = reduced
             bpy.data.meshes.remove(mesh)
+            _remove_reduction_wires(reduced)
             from .validation import inspect_objects
             if inspect_objects([obj], require_manifold_geometry=False).invalid_meshes:
                 raise ValueError("LOD reduction produced invalid geometry")
