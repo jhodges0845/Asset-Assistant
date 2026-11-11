@@ -685,3 +685,33 @@ def test_color_layer_switch_blocks_applied_export(source):
     with pytest.raises(ValueError, match='changed'):
         plan_lod_export(preview.collection, bpy.context.scene)
     assert source.data.color_attributes.render_color_index == 1
+
+
+def test_reduction_wire_cleanup_preserves_face_attributes(source):
+    import bmesh
+    from blender_adapter.lod import _remove_reduction_wires
+    mesh = source.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    a = bm.verts.new((3, 0, 0)); b = bm.verts.new((4, 0, 0))
+    bm.edges.new((a, b))
+    bm.to_mesh(mesh); bm.free()
+    paint = mesh.color_attributes.new(name='Paint', type='FLOAT_COLOR', domain='CORNER')
+    for i, item in enumerate(paint.data):
+        item.color = ((i % 7) / 7, .3, .6, 1)
+    mesh.normals_split_custom_set([(.2, .3, .9)] * len(mesh.loops))
+    normals = [tuple(n.vector) for n in mesh.corner_normals]
+    uv = [tuple(item.uv) for item in mesh.uv_layers.active.data]
+    colors = [tuple(item.color) for item in paint.data]
+    positions = [tuple(mesh.vertices[loop.vertex_index].co) for loop in mesh.loops]
+    triangles = _triangles(mesh)
+    edges = len(mesh.edges)
+    _remove_reduction_wires(mesh)
+    assert len(mesh.edges) == edges - 1
+    assert _triangles(mesh) == triangles
+    assert [tuple(mesh.vertices[loop.vertex_index].co) for loop in mesh.loops] == positions
+    assert [tuple(item.uv) for item in mesh.uv_layers.active.data] == uv
+    assert [tuple(item.color) for item in mesh.color_attributes['Paint'].data] == colors
+    for normal, expected in zip(mesh.corner_normals, normals):
+        assert tuple(normal.vector) == pytest.approx(expected, abs=1e-6)
+    assert not any(attr.name.startswith('aa_lod_normal_') for attr in mesh.attributes)

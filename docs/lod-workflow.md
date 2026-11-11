@@ -64,6 +64,16 @@ reduced LOD now pass normal bundle export and scoped import with float RGB value
 and the material's color connection preserved. This is bounded round-trip evidence,
 not proof of spatial paint fidelity or artistic acceptance after reduction.
 
+Imported reduction checkpoint: a valid painted GLB sphere produced 64 loose
+edges under half-budget Decimate and previously failed preview validation. The
+reducer now removes face-less wire remnants on new reduced copies before the
+unchanged validation checks. Artist sources are not cleaned or modified. Native
+BMesh custom data preserves face geometry, UVs, paint and encoded custom normals;
+re-encoding decoded normals was rejected because it added quantization error.
+All 100 static/skinned/color tests pass. The painted imported fixture also passes
+preview, fresh-process reopen, Apply, bundle reexport and reimport. This does not
+resolve Human UV mixing or certify arbitrary imported-asset quality.
+
 Remaining completion gates:
 - [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
   verify silhouette, UV/material and deformation quality on representative
