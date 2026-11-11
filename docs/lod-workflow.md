@@ -20,6 +20,10 @@ cleanup. The existing packaged skinned cancellation and tiny-weight hook checks
 also pass on Blender 5.2.1. The installed-package check also verifies painted LOD0/1/2 through the normal
 asset importer, float color precision, scoped hook cleanup and loading from the
 isolated ZIP namespace (Blender 5.2.1).
+The packaged round-trip also builds a new LOD preview from imported painted LOD0,
+validates its geometry, then discards it through registered operators. Source
+fingerprints and object/mesh/collection sets remain unchanged after discard
+(Blender 5.2.1, November 11).
 This small sphere fixture does not establish visual
 UV/material fidelity, live keyboard undo or the full provider/import matrix.
 

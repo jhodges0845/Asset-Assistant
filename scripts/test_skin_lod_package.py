@@ -114,6 +114,28 @@ with TemporaryDirectory() as directory:
                        for value, expected in zip(item.color, (.2, .4, .6, 1)))
             assert not any(attr.name.startswith('_AA_COLOR_') for attr in obj.data.attributes)
             assert len(obj.data.materials) == 1 and obj.data.materials[0] is not None
+        if level['index'] == 0:
+            # Imported glTF seam vertices can leave wires during reduction.
+            # Exercise the packaged cleanup through the artist-facing operators.
+            imported_source, = meshes
+            imported_signature = _signature(imported_source)
+            bpy.ops.object.select_all(action='DESELECT')
+            imported_source.select_set(True)
+            bpy.context.view_layer.objects.active = imported_source
+            before_preview = {kind: set(getattr(bpy.data, kind))
+                              for kind in ('objects', 'meshes', 'collections')}
+            assert bpy.ops.asset_assistant.lod_preview(level_count=1) == {'FINISHED'}
+            recovered, = _previews(bpy.context.scene)
+            from humanoid_blender.validation import inspect_objects
+            assert not inspect_objects(tuple(recovered.objects), require_manifold_geometry=False).invalid_meshes
+            assert _signature(imported_source) == imported_signature
+            assert bpy.ops.asset_assistant.lod_finish(
+                collection_name=recovered.name, action='CANCEL') == {'FINISHED'}
+            assert not _previews(bpy.context.scene)
+            assert _signature(imported_source) == imported_signature
+            assert all(set(getattr(bpy.data, kind)) == previous
+                       for kind, previous in before_preview.items())
+            print('PACKAGED_IMPORTED_LOD_PREVIEW_OK: reduction, discard and source preservation')
         for obj in imported:
             bpy.data.objects.remove(obj, do_unlink=True)
         assert _signature(static_source) == source_signature
