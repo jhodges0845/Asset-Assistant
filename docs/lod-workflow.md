@@ -1,8 +1,20 @@
 # LOD workflow implementation
 
+## Scope decision (2026-11-12)
+
+Skinned LOD completion and acceptance move to the alpha phase by user decision.
+They are no longer pre-alpha blockers or part of the November 30 static-LOD
+completion target. Existing skinned paths remain experimental and unaccepted;
+this is a scope change, not a quality sign-off. Preserve their regression coverage.
+Full-detail character generation, rigs, clips and export remain in pre-alpha.
+Static LOD quality, ownership, persistence/export/import, engine selection and
+live UI/undo acceptance remain required. Do not silently alter artist UVs or bake
+textures. Resume skinned UV/deformation/baking investigations during alpha.
+
+
 ## Current completion checkpoint (2026-11-09)
 
-Target: complete the LOD release gates by November 30, 2026. This is a target,
+Target: complete the static LOD pre-alpha gates by November 30, 2026. This is a target,
 not an acceptance claim. Earlier dated sections below are historical evidence;
 use this checkpoint and source/tests to choose the next work.
 
@@ -86,14 +98,14 @@ unchanged and temporary hook state is cleared. All 12 color integration tests
 pass in Blender 5.2.1. These are import precision checks, not reduction or visual
 paint-quality acceptance.
 
-Remaining completion gates:
-- [ ] Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
+Remaining gates (skinned-specific items below are alpha follow-up):
+- [ ] **Alpha:** Resolve Human LOD UV cell mixing and animated thigh/knee surface artifacts;
   verify silhouette, UV/material and deformation quality on representative
   Human, Canine, Avian and imported assets. Normal transfer and global
   weight-gradient protection experiments were rejected; do not repeat them
   without a new hypothesis and a bounded comparison.
 - [ ] Validate actual engine LOD selection, including level transitions and
-  animated playback. Exchange bundles alone do not configure engine switching.
+  animated playback (animated/skinned coverage is alpha). Exchange bundles alone do not configure engine switching.
 - [ ] Complete live Export workspace layout, preview/apply/discard and keyboard
   undo/redo acceptance. Background undo snapshots are supporting evidence only.
 - [ ] Recheck saved/reopened and edited assets, import/export ownership and
@@ -101,7 +113,7 @@ Remaining completion gates:
 - [ ] Record the precision policy and final evidence against the release roadmap;
   do not close artistic/manual gates based solely on CI.
 
-Working schedule (adjust based on evidence; report slippage):
+Historical schedule before November 12 scope change (superseded for skinned work):
 - November 9-15: resolve or isolate the UV/deformation blockers with bounded
   experiments, and implement/test engine selection independently where possible.
 - November 16-22: integrate fixes, verify provider/import coverage and perform

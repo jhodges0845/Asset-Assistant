@@ -8,6 +8,8 @@ Read `docs/human-workflow.md` for the user workflow and code ownership map.
 
 ## LOD implementation (2026-10-24)
 
+November 12 scope: static LOD acceptance remains pre-alpha; skinned LOD quality and acceptance move to alpha. Existing skinned features remain experimental. Full-detail rigs/clips/export stay in pre-alpha.
+
 Static LOD budgets and a separate-copy preview/apply/cancel backend are implemented. Saved-preview recovery, explicit multi-mesh groups and Export workspace controls are implemented; experimental skinned preview/apply is implemented, with static GLB bundle export and a Godot direct-import probe implemented. Live UI/undo, skinned quality/export acceptance and engine LOD switching remain open. See [docs/lod-workflow.md](docs/lod-workflow.md).
 
 ## Current workflow and UI audit (2026-10-23)
