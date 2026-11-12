@@ -1,5 +1,17 @@
 # Shared anatomy and animation: alpha plan
 
+## Scope decision (2026-11-12)
+
+Skinned LOD completion and acceptance move to the alpha phase by user decision.
+They are no longer pre-alpha blockers or part of the November 30 static-LOD
+completion target. Existing skinned paths remain experimental and unaccepted;
+this is a scope change, not a quality sign-off. Preserve their regression coverage.
+Full-detail character generation, rigs, clips and export remain in pre-alpha.
+Static LOD quality, ownership, persistence/export/import, engine selection and
+live UI/undo acceptance remain required. Do not silently alter artist UVs or bake
+textures. Resume skinned UV/deformation/baking investigations during alpha.
+
+
 Status: in progress, October 19, 2026. Human and Quadruped use shared anatomy
 contracts. Canine recipe 16 retains the stylized anatomy finishing pass:
 connected facial relief, matching toe/pad/claw forms, fuller hind paws and limb
@@ -125,12 +137,15 @@ A gate stays open until the candidate commit and results are recorded.
   re-export. Verify scale, orientation, materials, rig/skin, clip names/timing and
   failure cleanup. Record actual engine playback and Cura slicing for advertised
   destinations; importer success alone does not close this gate.
-- [ ] **LOD implementation:** define static/skinned level generation and explicit
-  preview/apply ownership, implement reduction and export grouping, then verify
-  triangle budgets, silhouette, UV/material/weight preservation, animated playback
-  and engine level selection. A static preview backend now exists; see [LOD workflow](lod-workflow.md).
-  Saved-preview recovery, Export controls, skinned preview/apply and generated-clip GLB bundles are implemented. All nine default provider/clip pairs pass original-oracle Godot playback with small-weight preservation. Broader shapes, silhouette/material/UV quality, precision policy, live UI/undo and engine LOD switching remain open. Artist source geometry must remain preserved.
-  Contrasting Human Run LOD1 has visible thigh/knee shading artifacts and checker-pattern changes; resolve the [paired visual review findings](lod-workflow.md#paired-imported-lod-visual-review-2026-11-03) before LOD quality acceptance.
+- [ ] **Static LOD pre-alpha acceptance:** verify triangle budgets, silhouette,
+  UV/material fidelity, explicit preview/apply/discard, source ownership,
+  persistence, export/import, engine level selection and live undo on supported
+  generated and imported rigid assets. See [LOD workflow](lod-workflow.md).
+- [ ] **Alpha follow-up: skinned LODs (not a pre-alpha blocker):** resolve Human
+  atlas mixing and thigh/knee deformation; validate representative Human, Canine,
+  Avian and imported rigs, animated switching, precision policy and final package
+  behavior. Existing implementation and passing playback probes are experimental
+  evidence, not visual acceptance. Optional baking remains research, not shipped.
 - [ ] **Live UI/UX:** exercise installed Create/Animate/Components/Export at 280,
   360 and 480 pixel sidebar widths, including no-asset, imported/generated,
   manually edited, blocked and successful states. Check keyboard navigation,
@@ -141,7 +156,7 @@ A gate stays open until the candidate commit and results are recorded.
   uninstall and documented limitations. Release/tag approval remains separate.
 
 Execution order: integrate validated fixes; finish modified/animated exchange
-matrices; deliver LODs; complete live UI and final candidate/destination review.
+matrices; accept static LODs; complete live UI and final candidate/destination review.
 
 ## Delivery discipline
 

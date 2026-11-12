@@ -4,6 +4,10 @@ Started 2026-10-23 from main c911e37 after the Human rig/clip merge.
 This is the current acceptance ledger, not release approval. Older UI audits
 are historical: the current interface has Create, Animate, Components and Export.
 
+## November 12 scope update
+
+Skinned LOD quality/acceptance is alpha work, not a pre-alpha blocker. Static LODs, full-detail character workflows, live UI/undo and candidate acceptance remain pre-alpha requirements. Existing skinned functionality remains experimental.
+
 ## Evidence and remaining gates
 
 | Workflow | Existing or new automated evidence | Remaining acceptance work |
