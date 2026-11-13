@@ -162,6 +162,38 @@ class BlenderAnimationLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "another Blender object"):
             register_animation_action(root, artist, fps=24.0)
 
+    def test_imported_shared_action_adopts_but_cannot_remove_or_replace(self):
+        root, rig = self._rigged_human()
+        action = self._artist_action(root, "Shared import")
+        rig.animation_data_create().action = action
+        root.animation_data_create().action = action
+        record = register_animation_action(root, action, source=AnimationSource.IMPORTED)
+        replacement = action.copy()
+        for key in tuple(replacement.keys()):
+            if str(key).startswith("asset_assistant_"):
+                del replacement[key]
+        rig.animation_data.action = action
+        with self.assertRaisesRegex(ValueError, "shared with another object"):
+            remove_animation(root, record.animation_id)
+        with self.assertRaisesRegex(ValueError, "shared with another object"):
+            replace_animation_action(root, record.animation_id, replacement)
+        self.assertIs(root.animation_data.action, action)
+        self.assertIs(rig.animation_data.action, action)
+        self.assertTrue(has_animation_record(action))
+        self.assertFalse(has_animation_record(replacement))
+
+    def test_imported_action_rejects_unrelated_nla_user(self):
+        root, rig = self._rigged_human()
+        action = self._artist_action(root, "Foreign NLA")
+        other = bpy.data.objects.new("Other", None)
+        bpy.context.scene.collection.objects.link(other)
+        track = other.animation_data_create().nla_tracks.new()
+        strip = track.strips.new("Foreign", 1, action)
+        with self.assertRaisesRegex(ValueError, "another Blender object"):
+            register_animation_action(root, action, source=AnimationSource.IMPORTED)
+        self.assertFalse(has_animation_record(action))
+        self.assertIs(strip.action, action)
+
 
 if __name__ == "__main__":
     unittest.main()

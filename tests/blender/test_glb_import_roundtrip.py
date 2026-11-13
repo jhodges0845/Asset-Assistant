@@ -15,7 +15,8 @@ from blender_adapter.animation import add_idle, add_locomotion
 from blender_adapter.asset_file_import_ui import _import_external
 from blender_adapter.asset_inspection_ui import inspect_selected_asset
 from blender_adapter.materials import prepare_materials
-from blender_adapter.targets import get_adapter
+from blender_adapter.targets import get_adapter, asset_objects, base_asset_rig
+from blender_adapter.import_normalization import enroll_imported_working_asset
 from blender_adapter.workflow import add_basic_rig
 from object_core.objects import get_provider
 
@@ -93,6 +94,31 @@ class GLBImportRoundTripTests(unittest.TestCase):
                 clip_report = inspect_selected_asset(clip_root)
                 self.assertEqual(1, clip_report["metrics"]["armatures"])
                 self.assertEqual(1, clip_report["metrics"]["animations"])
+
+        for candidate, _clip in imported_clips:
+            objects = set(asset_objects(candidate))
+            rig = base_asset_rig(candidate)
+            self.assertIsNotNone(rig)
+            transforms = {obj: obj.matrix_world.copy() for obj in objects}
+            animation = rig.animation_data
+            active = animation.action if animation else None
+            strips = tuple((track, strip, strip.action, strip.frame_start,
+                            strip.frame_end, strip.repeat, strip.influence)
+                           for track in animation.nla_tracks for strip in track.strips) if animation else ()
+            actions = set(bpy.data.actions)
+            inspection = inspect_selected_asset(candidate)
+            self.assertIs(enroll_imported_working_asset(bpy.context, inspection), candidate)
+            self.assertEqual(actions, set(bpy.data.actions))
+            self.assertEqual(active, rig.animation_data.action if rig.animation_data else None)
+            after_strips = tuple((track, strip, strip.action, strip.frame_start,
+                                  strip.frame_end, strip.repeat, strip.influence)
+                                 for track in rig.animation_data.nla_tracks for strip in track.strips) if rig.animation_data else ()
+            self.assertEqual(strips, after_strips)
+            for obj in objects:
+                self.assertEqual(transforms[obj], obj.matrix_world)
+                self.assertEqual(objects, set(asset_objects(obj)))
+                self.assertIs(base_asset_rig(obj), rig)
+            self.assertEqual(inspection["metrics"], inspect_selected_asset(candidate)["metrics"])
 
         return imported_clips
 

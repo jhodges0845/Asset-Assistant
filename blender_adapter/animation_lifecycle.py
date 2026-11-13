@@ -3,7 +3,7 @@
 
 from uuid import uuid4
 
-from .asset_structure import asset_rigs
+from .asset_structure import asset_rigs, base_asset_members
 from .core import AnimationRecord, AnimationSource, RootMotionIntent
 from .animation_records import (
     animation_record,
@@ -45,10 +45,13 @@ def _root_motion(value):
 def _assigned_objects(action):
     import bpy
     return tuple(obj for obj in bpy.data.objects
-                 if obj.animation_data is not None and obj.animation_data.action == action)
+                 if obj.animation_data is not None and (
+                     obj.animation_data.action == action or any(
+                         strip.action == action for track in obj.animation_data.nla_tracks
+                         for strip in track.strips)))
 
 
-def _validate_candidate(root, action):
+def _validate_candidate(root, action, *, imported=False):
     if action is None:
         raise ValueError("choose a Blender Action first")
     if has_animation_record(action):
@@ -57,7 +60,8 @@ def _validate_candidate(root, action):
         raise ValueError("generated Actions already use the generated animation lifecycle")
     rig = _rig(root)
     assigned = _assigned_objects(action)
-    if any(obj != rig for obj in assigned):
+    allowed = set(base_asset_members(root)) if imported else {rig}
+    if any(obj not in allowed for obj in assigned):
         raise ValueError("Action is assigned to another Blender object and will not be adopted")
     return rig
 
@@ -117,7 +121,7 @@ def register_animation_action(root, action, *, source=AnimationSource.ARTIST, di
                               export_name=None, fps=24.0, looping=False,
                               root_motion=RootMotionIntent.NONE, source_reference=None):
     """Register an existing Action while preserving ownership of its curves."""
-    _validate_candidate(root, action)
+    _validate_candidate(root, action, imported=_source(source) == AnimationSource.IMPORTED)
     display_name = str(display_name or action.name).strip()
     export_name = str(export_name or display_name).strip()
     record = _record_for_action(
@@ -174,12 +178,19 @@ def action_for_animation_id(root, animation_id):
                  if animation_record(action).animation_id == animation_id), None)
 
 
+def _require_exclusive_rig_use(root, action):
+    rig = _rig(root)
+    if any(obj != rig for obj in _assigned_objects(action)):
+        raise ValueError("Action is shared with another object; detach its other uses before removing or replacing it")
+
+
 def remove_animation(root, animation_id):
     """Delete one managed animation Action from the current Blender working file."""
     import bpy
     action = action_for_animation_id(root, animation_id)
     if action is None:
         raise ValueError("managed animation was not found")
+    _require_exclusive_rig_use(root, action)
     record = inspect_animation_record(root, action)
     rig = _rig(root)
     if rig.animation_data is not None and rig.animation_data.action == action:
@@ -196,6 +207,7 @@ def replace_animation_action(root, animation_id, replacement, *, source=Animatio
     current = action_for_animation_id(root, animation_id)
     if current is None:
         raise ValueError("managed animation was not found")
+    _require_exclusive_rig_use(root, current)
     if replacement == current:
         raise ValueError("replacement Action must be different from the current Action")
     _validate_candidate(root, replacement)
