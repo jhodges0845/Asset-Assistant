@@ -8,6 +8,19 @@ are historical: the current interface has Create, Animate, Components and Export
 
 Skinned LOD quality/acceptance is alpha work, not a pre-alpha blocker. Static LODs, full-detail character workflows, live UI/undo and candidate acceptance remain pre-alpha requirements. Existing skinned functionality remains experimental.
 
+## Imported shared Actions (2026-11-13)
+
+The real-file adoption matrix exposed Unity FBX Actions assigned to both the
+imported root and rig. Imported Action registration now permits metadata-only
+adoption when every active/NLA object user is inside the same base asset boundary.
+Artist registration still requires exclusive rig use; unrelated users remain
+rejected. Remove/Replace reject Actions used by another object before changing
+references or metadata. No curves are copied, retimed or rebaked by adoption.
+
+GLB, GLTF, Unity FBX and Unreal model/per-clip imports pass adoption checks for
+Action/NLA references, transforms and consistent child-to-asset/rig resolution.
+This does not establish shared-slot replacement support or destination playback.
+
 ## Evidence and remaining gates
 
 | Workflow | Existing or new automated evidence | Remaining acceptance work |
