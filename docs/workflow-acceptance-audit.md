@@ -27,6 +27,13 @@ that root, rig and both Actions retain their original properties and references.
 Existing coordinate scale and unrelated artist properties are preserved. This
 covers metadata enrollment failure, not arbitrary UI or file-import transactions.
 
+Native `.blend` coverage now writes and appends an animated collection with two
+slotted Actions (one active, one arranged in NLA). Adoption preserves key values,
+strip timing/repeat/influence and child-to-asset/rig resolution, registers only
+the appended Actions and leaves the source Actions unclaimed. Five normalization
+tests pass in Blender 5.2.1. This is a small synthetic collection, not full-detail
+character deformation, save/reopen or destination acceptance.
+
 ## Evidence and remaining gates
 
 | Workflow | Existing or new automated evidence | Remaining acceptance work |
