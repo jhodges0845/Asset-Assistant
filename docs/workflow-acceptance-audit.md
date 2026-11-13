@@ -353,3 +353,13 @@ visual acceptance remain open; the 800 fps skin Run case is retained as a failur
 LOD implementation has begun with the [static preview backend](lod-workflow.md).
 Eleven Blender and seven core/architecture checks pass, plus fresh-process apply/cancel; this does not close the
 LOD release gate or expose an artist-facing workflow yet.
+
+### glTF strip timing/blending guard (2026-11-13)
+
+The glTF exporter uses Action mode for existing NLA, which does not preserve
+strip scale, repeat, reverse, influence, animated time/influence or additive
+blending. These arrangements now fail preflight with manual export-copy guidance,
+before file creation. A regression reproduced the missing guard and checks all
+seven properties with strip timing and Action references unchanged; all ten
+target tests pass in Blender 5.2.1. This is rejection/preservation coverage,
+not NLA baking or importer-stash export support.
