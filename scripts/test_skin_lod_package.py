@@ -79,6 +79,30 @@ with TemporaryDirectory() as directory:
     source_signature = _signature(static_source)
     assert bpy.ops.asset_assistant.lod_preview(level_count=2) == {'FINISHED'}
     static_preview, = _previews(bpy.context.scene)
+    # Disabling the package must preserve pending artist decisions and data.
+    # Repeat the cycle to catch stale registration state on the second enable.
+    from humanoid_blender import lod_ui
+    pending_name = static_preview.name
+    pending_signatures = {obj.name: _signature(obj) for obj in static_preview.objects}
+    pending_data = {kind: set(getattr(bpy.data, kind))
+                    for kind in ('objects', 'meshes', 'collections')}
+    for _ in range(2):
+        addon_utils.disable('humanoid_blender', default_set=True)
+        assert not addon_utils.check('humanoid_blender')[1]
+        assert all(not cls.is_registered for cls in lod_ui._CLASSES)
+        assert _signature(static_source) == source_signature
+        assert all(set(getattr(bpy.data, kind)) == previous
+                   for kind, previous in pending_data.items())
+        addon_utils.enable('humanoid_blender', default_set=True, persistent=False)
+        assert addon_utils.check('humanoid_blender')[1]
+        assert all(cls.is_registered for cls in lod_ui._CLASSES)
+        static_preview, = _previews(bpy.context.scene)
+        assert static_preview.name == pending_name
+        assert {obj.name: _signature(obj) for obj in static_preview.objects} == pending_signatures
+        assert _signature(static_source) == source_signature
+        assert all(set(getattr(bpy.data, kind)) == previous
+                   for kind, previous in pending_data.items())
+    print('PACKAGED_STATIC_LOD_REENABLE_OK: pending preview and source preserved across two cycles')
     assert bpy.ops.asset_assistant.lod_finish(
         collection_name=static_preview.name, action='APPLY') == {'FINISHED'}
     assert not _previews(bpy.context.scene)
