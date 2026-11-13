@@ -12,6 +12,14 @@ live UI/undo acceptance remain required. Do not silently alter artist UVs or bak
 textures. Resume skinned UV/deformation/baking investigations during alpha.
 
 
+## Static persistence checkpoint (2026-11-12)
+
+The fresh-process static preview check now covers unchanged Apply/Discard plus
+saved source and reduced-preview geometry edits. Both edited cases reject Apply,
+retain the saved signatures and remain discardable. All four cases pass in
+Blender 5.2.1. This verifies backend recovery, not live keyboard undo or final
+static visual acceptance.
+
 ## Current completion checkpoint (2026-11-09)
 
 Target: complete the static LOD pre-alpha gates by November 30, 2026. This is a target,
