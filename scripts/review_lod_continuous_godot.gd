@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Rendering-enabled Godot --fixed-fps 60 --path ENGINE_COPY --script /absolute/this_script.gd
 # Optional -- --output=WRITABLE_PATH for read-only resource packs.
-# Observe autoplay without seeking or advancing either player's clock manually.
+# Animated scenes observe autoplay without seeking either player.
+# Static scenes sweep the camera continuously through the configured boundary.
 extends "review_lod_selection_godot.gd"
 
 func review():
@@ -27,9 +28,10 @@ func review():
     var setup = resource.instantiate()
     viewport.add_child(setup)
     var metadata = setup.get_meta("lod_selection_review", {})
-    if metadata.get("version") != 1 or metadata.get("diagnostic_materials", true) or metadata.get("clip", "") == "":
-        fail("Expected an animated material-preserving engine scene")
+    if metadata.get("version") != 1 or metadata.get("diagnostic_materials", true):
+        fail("Expected a material-preserving engine scene")
         return
+    var animated = metadata.get("clip", "") != ""
     var players = []
     for path in metadata.player_paths:
         var player = setup.get_node_or_null(path)
@@ -37,13 +39,15 @@ func review():
             fail("Configured clip is not playing")
             return
         players.append(player)
-    if players.size() != 2:
-        fail("Expected two autoplay players")
+    if players.size() != (2 if animated else 0):
+        fail("Expected two autoplay players for animation or none for a static scene")
         return
-    var duration = players[0].get_animation(metadata.clip).length
-    if duration <= 0 or not is_equal_approx(duration, players[1].get_animation(metadata.clip).length):
-        fail("Clip durations differ")
-        return
+    var duration = 1.0
+    if animated:
+        duration = players[0].get_animation(metadata.clip).length
+        if duration <= 0 or not is_equal_approx(duration, players[1].get_animation(metadata.clip).length):
+            fail("Clip durations differ")
+            return
     for index in range(2):
         for path in metadata.group_paths[index]:
             var mesh = setup.get_node_or_null(path)
@@ -67,27 +71,36 @@ func review():
     var selected = [0, 0]
     var maximum_clock_error = 0.0
     var frames = ceili(duration * 60.0 * 3.5)
+    var crossings = 0
+    var previous_level = -1
     for frame in range(frames):
         # Cross repeatedly, avoiding the exact boundary tie and its pixel ambiguity.
         var multiplier = 0.8 if (frame / 12) % 2 == 0 else 1.2
+        if not animated:
+            # Smooth retreat/approach in 30-frame legs. Midpoint samples avoid
+            # the exact boundary tie while checking both sides every leg.
+            var step = frame % 60
+            var phase = (float(step) + 0.5) / 30.0 if step < 30 else (59.5 - float(step)) / 30.0
+            multiplier = lerpf(0.8, 1.2, phase)
         camera.position = metadata.center + Vector3(0, 0, metadata.boundary * multiplier)
         camera.look_at(metadata.center)
         await process_frame
         await RenderingServer.frame_post_draw
-        if not players[0].is_playing() or not players[1].is_playing():
-            fail("Autoplay stopped during selection")
-            return
-        var time0 = players[0].current_animation_position
-        var time1 = players[1].current_animation_position
-        var error = absf(time0 - time1)
-        maximum_clock_error = maxf(maximum_clock_error, error)
-        if error > 0.000001:
-            fail("LOD animation clocks diverged")
-            return
-        if previous >= 0:
-            changed += int(not is_equal_approx(time0, previous))
-            wraps += int(time0 < previous)
-        previous = time0
+        if animated:
+            if not players[0].is_playing() or not players[1].is_playing():
+                fail("Autoplay stopped during selection")
+                return
+            var time0 = players[0].current_animation_position
+            var time1 = players[1].current_animation_position
+            var error = absf(time0 - time1)
+            maximum_clock_error = maxf(maximum_clock_error, error)
+            if error > 0.000001:
+                fail("LOD animation clocks diverged")
+                return
+            if previous >= 0:
+                changed += int(not is_equal_approx(time0, previous))
+                wraps += int(time0 < previous)
+            previous = time0
         var image = viewport.get_texture().get_image()
         if image == null or image.is_empty():
             fail("Rendering unavailable")
@@ -102,8 +115,11 @@ func review():
         if counts[expected] < 20 or counts[1 - expected] != 0:
             fail("Wrong rendered level during continuous playback")
             return
+        if previous_level >= 0 and previous_level != expected:
+            crossings += 1
+        previous_level = expected
         selected[expected] += 1
-    if wraps < 2 or changed < frames / 2 or selected.min() == 0:
+    if (animated and (wraps < 2 or changed < frames / 2)) or selected.min() == 0 or (not animated and crossings < 4):
         fail("Insufficient continuous loop/selection coverage; run with --fixed-fps 60")
         return
     var output = FileAccess.open(output_path, FileAccess.WRITE)
@@ -111,8 +127,8 @@ func review():
         fail("Cannot write continuous-playback report: " + output_path)
         return
     output.store_string(JSON.stringify({"frames": frames, "loop_wraps": wraps,
-        "selected_frames": selected, "maximum_clock_error_seconds": maximum_clock_error,
-        "clip": metadata.clip, "scope": "Continuous autoplay clocks and rendered level selection; not visual transition quality"}, "  "))
+        "selected_frames": selected, "boundary_crossings": crossings, "maximum_clock_error_seconds": maximum_clock_error,
+        "clip": metadata.clip, "scope": "Continuous autoplay clocks and rendered level selection; not visual transition quality" if animated else "Static continuous camera approach/retreat and rendered selection; diagnostic colors, not visual quality"}, "  "))
     output.close()
-    print("PASS: continuous autoplay and rendered selection: ", frames, " frames")
+    print("PASS: continuous rendered selection: ", frames, " frames")
     quit(0)
