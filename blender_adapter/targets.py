@@ -444,8 +444,10 @@ class UnrealAdapter(FBXAdapter):
             context.view_layer.objects.active = rig
             options = dict(options)
             options['object_types'] = {'MESH', 'ARMATURE'}
-            options['path_mode'] = 'AUTO'
-            options['embed_textures'] = False
+            # Clip files include meshes/materials, so their staged textures
+            # must survive temporary staging cleanup just like the model FBX.
+            options['path_mode'] = 'COPY'
+            options['embed_textures'] = True
             return bpy.ops.export_scene.fbx(**options)
         return super().write(options, root, context)
 

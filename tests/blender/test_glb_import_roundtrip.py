@@ -119,7 +119,7 @@ class GLBImportRoundTripTests(unittest.TestCase):
                 self.assertEqual(objects, set(asset_objects(obj)))
                 self.assertIs(base_asset_rig(obj), rig)
             self.assertEqual(inspection["metrics"], inspect_selected_asset(candidate)["metrics"])
-            if target == "UNITY" and inspection["metrics"]["animations"]:
+            if target in {"UNITY", "UNREAL"} and inspection["metrics"]["animations"]:
                 reexport = Path(self.temp.name) / ("adopted-" + (_clip or "all") + ".glb")
                 exported = get_adapter("GODOT", asset_use="ANIMATED").export(candidate, bpy.context, reexport)
                 self.assertTrue(exported.success, exported.issues)
