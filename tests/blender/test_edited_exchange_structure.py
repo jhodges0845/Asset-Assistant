@@ -25,7 +25,9 @@ class EditedHumanExchangeTests(exchange.GLBImportRoundTripTests):
         from blender_adapter.targets import base_asset_rig
         labels = {base_asset_rig(root): label for root, label in imported_clips}
         imported_actions = set(bpy.data.actions) - before_actions
-        imported_rigs = [obj for obj in set(bpy.data.objects) - before if obj.type == "ARMATURE"]
+        # The base harness also imports a GLB re-export as a separate check.
+        # FBX pose parity must target only the original exchange assets.
+        imported_rigs = list(labels)
         source_rig = next(obj for obj in self.root.children if obj.type == "ARMATURE")
         source_mode = source_rig.data.pose_position
         try:
