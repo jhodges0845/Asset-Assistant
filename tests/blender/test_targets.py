@@ -175,3 +175,26 @@ class GodotExportTests(unittest.TestCase):
             result = self.adapter.export(self.root, bpy.context, self.path)
         self.assertFalse(result.success)
         self.assertTrue(any(issue.code == 'export_failed' for issue in result.issues))
+
+    def test_gltf_rejects_strip_edits_that_action_export_would_ignore(self):
+        action = bpy.data.actions.new('Artist arranged clip')
+        track = self.root.animation_data_create().nla_tracks.new()
+        edits = {'scale': 2.0, 'repeat': 2.0, 'influence': 0.5,
+                 'use_reverse': True, 'use_animated_time': True,
+                 'use_animated_influence': True, 'blend_type': 'ADD'}
+        for property_name, value in edits.items():
+            with self.subTest(property=property_name):
+                strip = track.strips.new('Arranged clip', 1, action)
+                setattr(strip, property_name, value)
+                before = (strip.frame_start, strip.frame_end, strip.action,
+                          getattr(strip, property_name))
+                try:
+                    result = self.adapter.export(self.root, bpy.context, self.path)
+                    self.assertFalse(result.success)
+                    self.assertTrue(any(issue.code == 'export_nla' and issue.status == 'ERROR'
+                                        for issue in result.issues))
+                    self.assertFalse(self.path.exists())
+                    self.assertEqual(before, (strip.frame_start, strip.frame_end, strip.action,
+                                              getattr(strip, property_name)))
+                finally:
+                    track.strips.remove(strip)
