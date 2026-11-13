@@ -25,6 +25,15 @@ Both reject Apply before any member changes state; saved signatures remain
 unchanged and whole-group Discard succeeds. Four group cases pass in Blender
 5.2.1, including unchanged Apply/Discard.
 
+## Package lifecycle checkpoint (2026-11-13)
+
+The isolated release ZIP smoke test now disables and re-enables the add-on twice
+with a pending static preview. Both cycles remove and restore LOD operator
+registration, preserve source/preview signatures and scene datablocks, and recover
+the pending preview. Apply and the existing three-level GLB export/import checks
+then pass in Blender 5.2.1. This is automated package lifecycle evidence; manual
+installation/upgrade/uninstall and live UI/undo acceptance remain open.
+
 ## Current completion checkpoint (2026-11-09)
 
 Target: complete the static LOD pre-alpha gates by November 30, 2026. This is a target,
