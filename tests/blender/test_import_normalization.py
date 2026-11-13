@@ -158,6 +158,61 @@ class ImportedWorkingAssetNormalizationTests(unittest.TestCase):
         self.assertIs(rig.animation_data.action, first)
         self.assertIs(strip.action, second)
 
+    def test_native_animated_collection_preserves_clips_through_adoption(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from blender_adapter.animation import action_curves
+        from blender_adapter.asset_file_import_ui import _import_blend_collection
+        from blender_adapter.asset_structure import asset_members, asset_rigs
+        collection, rig, mesh = self._importer_shape()
+        from bpy_extras.anim_utils import action_ensure_channelbag_for_slot
+        def make_clip(name, end, value):
+            action = bpy.data.actions.new(name)
+            slot = action.slots.new('OBJECT', rig.name)
+            curve = action_ensure_channelbag_for_slot(action, slot).fcurves.new('location', index=0)
+            curve.keyframe_points.insert(1, 0.0)
+            curve.keyframe_points.insert(end, value)
+            return action, slot
+        first, first_slot = make_clip("Native first", 12, 0.5)
+        second, second_slot = make_clip("Native second", 18, -0.25)
+        bpy.context.view_layer.update()
+        rig.animation_data_create().action = second
+        rig.animation_data.action_slot = second_slot
+        track = rig.animation_data.nla_tracks.new()
+        strip = track.strips.new("Artist arrangement", 30, first)
+        strip.action_slot = first_slot
+        strip.repeat = 2
+        strip.influence = 0.65
+        def keys(action):
+            return tuple((curve.data_path, curve.array_index,
+                          tuple(tuple(key.co) for key in curve.keyframe_points))
+                         for slot in action.slots for curve in action_curves(action, slot))
+        expected = (keys(second), keys(first))
+        arrangement = (strip.frame_start, strip.frame_end, strip.repeat, strip.influence)
+        with TemporaryDirectory() as directory:
+            path = str(Path(directory) / "animated.blend")
+            bpy.data.libraries.write(path, {collection})
+            root = _import_blend_collection(path, collection.name, bpy.context)
+        imported_rig, = asset_rigs(root)
+        imported_active = imported_rig.animation_data.action
+        imported_strip = imported_rig.animation_data.nla_tracks[0].strips[0]
+        self.assertIsNot(imported_active, second)
+        self.assertIsNot(imported_strip.action, first)
+        report = inspect_selected_asset(root)
+        self.assertEqual(2, report["metrics"]["animations"])
+        self.assertIs(enroll_imported_working_asset(bpy.context, report), root)
+        self.assertEqual(expected, (keys(imported_active), keys(imported_strip.action)))
+        self.assertEqual(arrangement, (imported_strip.frame_start, imported_strip.frame_end,
+                                       imported_strip.repeat, imported_strip.influence))
+        self.assertTrue(has_animation_record(imported_active))
+        self.assertTrue(has_animation_record(imported_strip.action))
+        self.assertFalse(has_animation_record(first))
+        self.assertFalse(has_animation_record(second))
+        members = set(asset_members(root))
+        for obj in members:
+            self.assertEqual(members, set(asset_members(obj)))
+            self.assertEqual((imported_rig,), asset_rigs(obj))
+
 
 if __name__ == "__main__":
     unittest.main()
