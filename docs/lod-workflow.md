@@ -20,6 +20,11 @@ retain the saved signatures and remain discardable. All four cases pass in
 Blender 5.2.1. This verifies backend recovery, not live keyboard undo or final
 static visual acceptance.
 
+Grouped recovery now also covers edits to the last source or reduced member.
+Both reject Apply before any member changes state; saved signatures remain
+unchanged and whole-group Discard succeeds. Four group cases pass in Blender
+5.2.1, including unchanged Apply/Discard.
+
 ## Current completion checkpoint (2026-11-09)
 
 Target: complete the static LOD pre-alpha gates by November 30, 2026. This is a target,
