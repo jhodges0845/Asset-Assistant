@@ -58,6 +58,12 @@ staging cleanup (two focused Blender 5.2.1 cases). Clip counts, source Action/NL
 references and edited skin/pose checks remain enforced. This repairs the recorded
 missing-texture re-export failure; Unreal runtime visual acceptance remains open.
 
+Individually muted Action strips now block export as well as muted tracks.
+Previously the guard filtered muted strips out before checking the arrangement,
+allowing export to proceed. A regression reproduced that gap and now verifies
+rejection before file creation with mute flags and Action references unchanged;
+all nine target integration tests pass. Importer-stash export support remains open.
+
 ## Evidence and remaining gates
 
 | Workflow | Existing or new automated evidence | Remaining acceptance work |
