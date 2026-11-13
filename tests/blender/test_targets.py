@@ -152,6 +152,24 @@ class GodotExportTests(unittest.TestCase):
         self.root.animation_data_create().nla_tracks.new().mute = True
         self.assertTrue(any(issue.code == 'export_nla' for issue in self.adapter.prepare(self.root, bpy.context)))
 
+    def test_muted_strip_blocks_export_without_changing_artist_state(self):
+        action = bpy.data.actions.new('Artist muted clip')
+        track = self.root.animation_data_create().nla_tracks.new()
+        strip = track.strips.new('Muted clip', 1, action)
+        strip.mute = True
+        try:
+            result = self.adapter.export(self.root, bpy.context, self.path)
+            self.assertFalse(result.success)
+            self.assertTrue(any(issue.code == 'export_nla' and issue.status == 'ERROR'
+                                for issue in result.issues))
+            self.assertFalse(self.path.exists())
+            self.assertTrue(strip.mute)
+            self.assertFalse(track.mute)
+            self.assertIs(strip.action, action)
+        finally:
+            self.root.animation_data.nla_tracks.remove(track)
+            bpy.data.actions.remove(action)
+
     def test_cancelled_operator_is_not_success(self):
         with patch('humanoid_blender.targets._export_gltf', return_value={'CANCELLED'}):
             result = self.adapter.export(self.root, bpy.context, self.path)

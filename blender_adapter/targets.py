@@ -210,9 +210,9 @@ class BlenderOutputAdapter:
             animation = obj.animation_data
             if animation:
                 for track in animation.nla_tracks:
-                    strips = [strip for strip in track.strips if strip.action and not strip.mute]
-                    if track.mute or track.is_solo or len(strips) > 1:
-                        add("export_nla", "ERROR", obj.name + ": muted, solo, or multi-strip NLA tracks require manual preparation for export.")
+                    strips = [strip for strip in track.strips if strip.action]
+                    if track.mute or track.is_solo or len(strips) > 1 or any(strip.mute for strip in strips):
+                        add("export_nla", "ERROR", obj.name + ": muted tracks/strips, solo tracks, or multi-strip NLA tracks require manual preparation for export.")
             if obj.constraints:
                 add("export_constraints", "WARN", obj.name + ": constraints need exported playback review.")
         if self.target_key == "GODOT" and context.scene.unit_settings.scale_length != 1.0:
