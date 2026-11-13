@@ -127,12 +127,13 @@ def _export_gltf(options, root):
         if 'export_animation_mode' in properties:
             authored = staged and can_author
             options['export_animation_mode'] = 'ACTIONS' if authored or not staged else 'NLA_TRACKS'
+            # Restrict both generated and imported exports to Actions actually
+            # associated with the selected rig, even in a one-armature scene.
+            if 'export_anim_single_armature' in properties:
+                options['export_anim_single_armature'] = False
             if authored:
                 options['export_force_sampling'] = False
                 options['export_merge_animation'] = 'NLA_TRACK'
-                # Only actions associated with this asset may enter its file.
-                if 'export_anim_single_armature' in properties:
-                    options['export_anim_single_armature'] = False
         return bpy.ops.export_scene.gltf(**options)
 
 

@@ -119,6 +119,21 @@ class GLBImportRoundTripTests(unittest.TestCase):
                 self.assertEqual(objects, set(asset_objects(obj)))
                 self.assertIs(base_asset_rig(obj), rig)
             self.assertEqual(inspection["metrics"], inspect_selected_asset(candidate)["metrics"])
+            if target == "UNITY" and inspection["metrics"]["animations"]:
+                reexport = Path(self.temp.name) / ("adopted-" + (_clip or "all") + ".glb")
+                exported = get_adapter("GODOT", asset_use="ANIMATED").export(candidate, bpy.context, reexport)
+                self.assertTrue(exported.success, exported.issues)
+                self.assertEqual(actions, set(bpy.data.actions))
+                self.assertIs(rig.animation_data.action, active)
+                self.assertEqual(strips, tuple(
+                    (track, strip, strip.action, strip.frame_start, strip.frame_end,
+                     strip.repeat, strip.influence)
+                    for track in rig.animation_data.nla_tracks for strip in track.strips))
+                roundtrip = _import_external(str(reexport), ".glb", bpy.context)
+                metrics = inspect_selected_asset(roundtrip)["metrics"]
+                self.assertEqual(1, metrics["armatures"])
+                self.assertEqual(inspection["metrics"]["animations"], metrics["animations"])
+                self.assertEqual(inspection["metrics"]["meshes"], metrics["meshes"])
 
         return imported_clips
 
