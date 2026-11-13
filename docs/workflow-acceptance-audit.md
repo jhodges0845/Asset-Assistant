@@ -48,6 +48,16 @@ re-export still needs resolution of importer-muted NLA handling, and Unreal
 per-clip re-export has a missing-texture validation failure. Those cases remain
 open; no NLA or texture guard has been weakened.
 
+## Unreal clip texture repair (2026-11-13)
+
+Per-clip Unreal FBXs include meshes and materials but previously disabled texture
+embedding, leaving references to temporary generated PNGs after staging cleanup.
+Clip files now use COPY with embedded textures, like the model file. Original
+and edited Human Idle/Walk packages pass import/adopt/GLB re-export checks after
+staging cleanup (two focused Blender 5.2.1 cases). Clip counts, source Action/NLA
+references and edited skin/pose checks remain enforced. This repairs the recorded
+missing-texture re-export failure; Unreal runtime visual acceptance remains open.
+
 ## Evidence and remaining gates
 
 | Workflow | Existing or new automated evidence | Remaining acceptance work |
