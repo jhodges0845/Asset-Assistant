@@ -230,9 +230,9 @@ def _import_external(filepath, extension, context):
             from .gltf_color_import import extension_available, preserve_import_colors
             if extension_available():
                 with preserve_import_colors():
-                    result = bpy.ops.import_scene.gltf(filepath=filepath)
+                    result = bpy.ops.import_scene.gltf(filepath=filepath, disable_bone_shape=True)
             else:
-                result = bpy.ops.import_scene.gltf(filepath=filepath)
+                result = bpy.ops.import_scene.gltf(filepath=filepath, disable_bone_shape=True)
         elif extension == ".fbx":
             if hasattr(bpy.ops.wm, "fbx_import"):
                 result = bpy.ops.wm.fbx_import(filepath=filepath)

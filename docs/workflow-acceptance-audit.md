@@ -34,6 +34,20 @@ the appended Actions and leaves the source Actions unclaimed. Five normalization
 tests pass in Blender 5.2.1. This is a small synthetic collection, not full-detail
 character deformation, save/reopen or destination acceptance.
 
+## Adopted animation re-export (2026-11-13)
+
+Unity FBX adoption followed by GLB export exposed unrelated Actions entering the
+file (five clips instead of two). The glTF Action-association restriction now
+applies to imported as well as generated exports. The regression checks two clips,
+one mesh/rig and preservation of source Action/NLA references across export.
+
+The same round-trip exposed an extra Icosphere created by Blender's optional glTF
+bone-display helper. Asset import now disables that helper; ordinary bone display
+remains available and authored file geometry is unchanged. Broader GLB/GLTF
+re-export still needs resolution of importer-muted NLA handling, and Unreal
+per-clip re-export has a missing-texture validation failure. Those cases remain
+open; no NLA or texture guard has been weakened.
+
 ## Evidence and remaining gates
 
 | Workflow | Existing or new automated evidence | Remaining acceptance work |
