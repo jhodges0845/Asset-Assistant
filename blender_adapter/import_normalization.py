@@ -137,45 +137,66 @@ def enroll_imported_working_asset(context, inspection):
     if int(metrics.get("armatures", 0)) > 1:
         raise ValueError("Imported working assets currently support at most one base armature.")
 
-    root[_EXTERNAL_ASSET_KEY] = True
-    root["asset_assistant_source"] = "IMPORTED"
-    if not root.get(_ASSET_ID_KEY):
-        root[_ASSET_ID_KEY] = uuid4().hex
-
-    unit_settings = getattr(context.scene, "unit_settings", None)
-    meters_per_unit = float(getattr(unit_settings, "scale_length", 1.0) or 1.0)
-    if meters_per_unit <= 0:
-        meters_per_unit = 1.0
-    if not isinstance(root.get("coordinate_scale"), (int, float)) or root.get("coordinate_scale") <= 0:
-        root["coordinate_scale"] = 0.01 / meters_per_unit
-
     rigs = asset_rigs(root)
-    registered = 0
-    if len(rigs) == 1:
-        rig = rigs[0]
-        if not str(rig.get(_RIG_ID_KEY) or "").strip():
-            rig[_RIG_ID_KEY] = uuid4().hex
-        fps = float(context.scene.render.fps) / max(float(context.scene.render.fps_base), 1e-9)
-        source_reference = str(root.get("asset_assistant_import_source") or "import")
-        for action in _rig_actions(rig):
-            if has_animation_record(action) or action.get("asset_assistant_generated"):
-                continue
-            register_animation_action(
-                root,
-                action,
-                source=AnimationSource.IMPORTED,
-                display_name=action.name,
-                export_name=action.name,
-                fps=fps,
-                looping=False,
-                root_motion=RootMotionIntent.NONE,
-                source_reference=source_reference,
-            )
-            registered += 1
+    # Only enrollment-owned scalar metadata is transactional. Artist curves,
+    # transforms, references and unrelated custom properties are never rewritten.
+    keys = (_EXTERNAL_ASSET_KEY, _ASSET_ID_KEY, _EXTERNAL_CAPABILITY_KEY,
+            _RIG_ID_KEY, "asset_assistant_source", "coordinate_scale",
+            "asset_assistant_animation_record", "asset_assistant_animation_id",
+            "asset_assistant_export_name")
+    touched = [root, *rigs]
+    for rig in rigs:
+        touched.extend(_rig_actions(rig))
+    snapshots = {item: {key: item[key] for key in keys if key in item}
+                 for item in touched}
+    try:
+        root[_EXTERNAL_ASSET_KEY] = True
+        root["asset_assistant_source"] = "IMPORTED"
+        if not root.get(_ASSET_ID_KEY):
+            root[_ASSET_ID_KEY] = uuid4().hex
 
-    animation_count = max(int(metrics.get("animations", 0)), registered)
-    capability = "ANIMATED" if animation_count else ("RIGGED" if rigs else "STATIC")
-    root[_EXTERNAL_CAPABILITY_KEY] = capability
+        unit_settings = getattr(context.scene, "unit_settings", None)
+        meters_per_unit = float(getattr(unit_settings, "scale_length", 1.0) or 1.0)
+        if meters_per_unit <= 0:
+            meters_per_unit = 1.0
+        if not isinstance(root.get("coordinate_scale"), (int, float)) or root.get("coordinate_scale") <= 0:
+            root["coordinate_scale"] = 0.01 / meters_per_unit
+
+        registered = 0
+        if len(rigs) == 1:
+            rig = rigs[0]
+            if not str(rig.get(_RIG_ID_KEY) or "").strip():
+                rig[_RIG_ID_KEY] = uuid4().hex
+            fps = float(context.scene.render.fps) / max(float(context.scene.render.fps_base), 1e-9)
+            source_reference = str(root.get("asset_assistant_import_source") or "import")
+            for action in _rig_actions(rig):
+                if has_animation_record(action) or action.get("asset_assistant_generated"):
+                    continue
+                register_animation_action(
+                    root,
+                    action,
+                    source=AnimationSource.IMPORTED,
+                    display_name=action.name,
+                    export_name=action.name,
+                    fps=fps,
+                    looping=False,
+                    root_motion=RootMotionIntent.NONE,
+                    source_reference=source_reference,
+                )
+                registered += 1
+
+        animation_count = max(int(metrics.get("animations", 0)), registered)
+        capability = "ANIMATED" if animation_count else ("RIGGED" if rigs else "STATIC")
+        root[_EXTERNAL_CAPABILITY_KEY] = capability
+
+    except Exception:
+        for item, previous in snapshots.items():
+            for key in keys:
+                if key in previous:
+                    item[key] = previous[key]
+                elif key in item:
+                    del item[key]
+        raise
 
     settings = getattr(context.scene, "humanoid_settings", None)
     if settings is not None:

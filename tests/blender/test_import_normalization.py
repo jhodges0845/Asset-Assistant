@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import unittest
+from unittest.mock import patch
 
 try:
     import bpy
@@ -127,6 +128,35 @@ class ImportedWorkingAssetNormalizationTests(unittest.TestCase):
         if settings is not None:
             self.assertIs(settings.target, root)
             self.assertEqual("ANIMATED", settings.asset_use)
+
+    def test_late_registration_failure_restores_all_adoption_metadata(self):
+        from blender_adapter import import_normalization as module
+        _collection, rig, mesh = self._importer_shape()
+        class ImportUi:
+            _IMPORT_GROUP_KEY = _IMPORT_GROUP_KEY
+            _IMPORT_ROOT_KEY = _IMPORT_ROOT_KEY
+            _IMPORT_SOURCE_KEY = _IMPORT_SOURCE_KEY
+        root = normalized_import_root((rig, mesh), "FBX", ImportUi)
+        first = bpy.data.actions.new("First")
+        second = bpy.data.actions.new("Second")
+        rig.animation_data_create().action = first
+        track = rig.animation_data.nla_tracks.new()
+        strip = track.strips.new("Second", 1, second)
+        root["coordinate_scale"] = 0.25
+        first["artist_note"] = "Keep me"
+        before = {item: dict(item.items()) for item in (root, rig, first, second)}
+        register = module.register_animation_action
+        def fail_second(*args, **kwargs):
+            if args[1] == second:
+                raise ValueError("injected second clip failure")
+            return register(*args, **kwargs)
+        with patch.object(module, "register_animation_action", side_effect=fail_second):
+            with self.assertRaisesRegex(ValueError, "second clip failure"):
+                enroll_imported_working_asset(bpy.context, inspect_selected_asset(root))
+        for item, properties in before.items():
+            self.assertEqual(properties, dict(item.items()))
+        self.assertIs(rig.animation_data.action, first)
+        self.assertIs(strip.action, second)
 
 
 if __name__ == "__main__":

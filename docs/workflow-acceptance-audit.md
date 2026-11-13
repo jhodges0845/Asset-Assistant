@@ -21,6 +21,12 @@ GLB, GLTF, Unity FBX and Unreal model/per-clip imports pass adoption checks for
 Action/NLA references, transforms and consistent child-to-asset/rig resolution.
 This does not establish shared-slot replacement support or destination playback.
 
+Adoption metadata now rolls back if any clip registration fails. A regression
+injects failure on the second clip after the first was registered, and verifies
+that root, rig and both Actions retain their original properties and references.
+Existing coordinate scale and unrelated artist properties are preserved. This
+covers metadata enrollment failure, not arbitrary UI or file-import transactions.
+
 ## Evidence and remaining gates
 
 | Workflow | Existing or new automated evidence | Remaining acceptance work |
