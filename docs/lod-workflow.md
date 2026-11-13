@@ -34,6 +34,20 @@ the pending preview. Apply and the existing three-level GLB export/import checks
 then pass in Blender 5.2.1. This is automated package lifecycle evidence; manual
 installation/upgrade/uninstall and live UI/undo acceptance remain open.
 
+## Static continuous engine selection (2026-11-13)
+
+`review_lod_continuous_godot.gd` now accepts static material-preserving engine
+scenes and sweeps the camera through the configured boundary in both directions.
+Sphere, multipart, imported-GLB and beveled fixtures each pass 210 rendered frames
+and seven boundary crossings in Godot 4.7.2 with ANGLE. A deliberately missing
+far level fails the pixel check; existing Canine autoplay regression still passes.
+Diagnostic red/green overrides prove selection, not transition popping or original
+material quality. Final visual and live UI acceptance remain open.
+
+Run on a scene built by `prepare_lod_engine_scene.gd`, with no existing report:
+`Godot --path BUNDLE --script /absolute/scripts/review_lod_continuous_godot.gd --fixed-fps 60 --rendering-method gl_compatibility`
+The report is `godot-lod-continuous.json`; `-- --output=PATH` selects a fresh report.
+
 ## Current completion checkpoint (2026-11-09)
 
 Target: complete the static LOD pre-alpha gates by November 30, 2026. This is a target,
