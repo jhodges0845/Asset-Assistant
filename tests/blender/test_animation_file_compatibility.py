@@ -160,3 +160,86 @@ def test_transfer_rejects_external_glb_animation_buffers(tmp_path):
     path.write_bytes(payload)
     with pytest.raises(ValueError, match='External animation buffers'):
         transfer_animation_file(path, None, bpy.context, expected_sha256=sha256(payload).hexdigest(), clips={0: 'Clip'})
+
+
+def test_multiclip_glb_import_selects_only_requested_motion(clip_pair, tmp_path):
+    from hashlib import sha256
+    from blender_adapter.animation import action_curves
+    from blender_adapter.animation_file_compatibility import inspect_animation_file, transfer_animation_file
+    from blender_adapter.asset_file_import_ui import _import_external
+    from blender_adapter.animation_lifecycle import managed_actions
+    source, _, first, slot = clip_pair
+    first.name = 'Small motion'
+    second = first.copy()
+    second.name = 'Large motion'
+    for curve in action_curves(second, second.slots[0]):
+        for key in curve.keyframe_points:
+            key.co.y *= 2
+            key.handle_left.y *= 2
+            key.handle_right.y *= 2
+    source.animation_data.action = None
+    for action in (first, second):
+        track = source.animation_data.nla_tracks.new()
+        track.name = action.name
+        strip = track.strips.new(action.name, 1, action)
+        strip.action_slot = action.slots[0]
+    bpy.ops.object.select_all(action='DESELECT')
+    source.select_set(True)
+    bpy.context.view_layer.objects.active = source
+    path = tmp_path / 'two_clips.glb'
+    bpy.ops.export_scene.gltf(filepath=str(path), export_format='GLB', use_selection=True,
+                              export_animations=True, export_animation_mode='NLA_TRACKS')
+    original = set(bpy.data.objects)
+    _import_external(str(path), '.glb', bpy.context)
+    target = next(obj for obj in set(bpy.data.objects) - original if obj.type == 'ARMATURE')
+    root = bpy.data.objects.new('Multiclip target', None)
+    bpy.context.collection.objects.link(root)
+    target.parent = root
+    target['asset_assistant_rig_id'] = 'multiclip-test-rig'
+    reports = inspect_animation_file(path, target, bpy.context)
+    assert len(reports) == 2
+    index = next(i for i, report in enumerate(reports) if 'Large motion' in report['name'])
+    original_action = target.animation_data.action
+    original_tracks = tuple((track.name, tuple(strip.action for strip in track.strips))
+                            for track in target.animation_data.nla_tracks)
+    before = set(bpy.data.actions)
+    copied = transfer_animation_file(path, root, bpy.context,
+                                    expected_sha256=sha256(path.read_bytes()).hexdigest(),
+                                    clips={index: 'Selected large motion'})
+    assert set(bpy.data.actions) - before == set(copied)
+    assert tuple(managed_actions(root)) == copied
+    assert target.animation_data.action == original_action
+    assert tuple((track.name, tuple(strip.action for strip in track.strips))
+                 for track in target.animation_data.nla_tracks) == original_tracks
+    # Evaluate the transferred clip in isolation, against the authored rotation.
+    target.animation_data.action = copied[0]
+    target.animation_data.action_slot = copied[0].slots[0]
+    for track in target.animation_data.nla_tracks:
+        track.mute = True
+    bpy.context.scene.frame_set(round(copied[0].frame_range[1]))
+    bpy.context.view_layer.update()
+    assert target.pose.bones[0].matrix_basis.to_quaternion().angle == pytest.approx(1.0, abs=1e-4)
+    # A separate Blender process verifies persistence without in-memory state.
+    import subprocess
+    from pathlib import Path
+    saved = tmp_path / 'transferred.blend'
+    bpy.ops.wm.save_as_mainfile(filepath=str(saved))
+    check = tmp_path / 'check_transfer.py'
+    check.write_text(
+        'import bpy, sys\n'
+        + 'sys.path.insert(0, ' + repr(str(Path(__file__).resolve().parents[2])) + ')\n'
+        + 'from blender_adapter.animation_lifecycle import managed_actions\n'
+        + "root = bpy.data.objects['Multiclip target']\n"
+        + 'clips = tuple(managed_actions(root))\n'
+        + "assert len(clips) == 1 and clips[0].name == 'Selected large motion'\n"
+        + "rig = next(obj for obj in root.children if obj.type == 'ARMATURE')\n"
+        + 'assert rig.animation_data.action == clips[0]\n'
+        + 'bpy.context.scene.frame_set(round(clips[0].frame_range[1]))\n'
+        + 'bpy.context.view_layer.update()\n'
+        + 'assert abs(rig.pose.bones[0].matrix_basis.to_quaternion().angle - 1.0) < 1e-4\n'
+        + "print('TRANSFER_REOPEN_OK')\n", encoding='utf-8')
+    result = subprocess.run([bpy.app.binary_path, '-b', '--factory-startup', str(saved),
+                             '--python-exit-code', '1', '--python', str(check)],
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'TRANSFER_REOPEN_OK' in result.stdout

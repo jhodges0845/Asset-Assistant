@@ -439,3 +439,11 @@ Pending state binds the inspected root/rig; switching targets rejects Apply.
 20 combined operator/presentation cases pass; the final 10-case focused run also
 checks target switching through actual operators. Live screenshot/layout/undo,
 multi-clip fixtures and fresh-process transferred playback remain unverified.
+
+Standalone clip acceptance checkpoint: a two-clip GLB fixture now proves that
+selecting the larger motion retains only that managed Action, preserves the
+existing target Action/NLA bindings during transfer, and evaluates to the authored
+one-radian endpoint. Saving and reopening in a separate Blender process preserves
+the managed clip and evaluated endpoint. All 11 focused compatibility tests pass.
+This is a synthetic GLB proof; multi-clip FBX, artist-supplied fixtures, live UI/undo
+and broader playback acceptance remain open. Issue #228 is not closed.
