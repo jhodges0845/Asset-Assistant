@@ -6,7 +6,8 @@ from blender_adapter.animation_file_compatibility import validate_clip_compatibi
 
 @pytest.fixture
 def clip_pair():
-    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'armatures', 'actions')}
+    from blender_adapter.asset_file_import_ui import _IMPORT_DATA_KINDS
+    before = {kind: set(getattr(bpy.data, kind)) for kind in _IMPORT_DATA_KINDS}
     bpy.ops.object.armature_add()
     source = bpy.context.object
     bone = source.pose.bones[0]
@@ -21,9 +22,10 @@ def clip_pair():
     target.animation_data_clear()
     bpy.context.collection.objects.link(target)
     yield source, target, action, slot
-    for kind, original in before.items():
-        for item in set(getattr(bpy.data, kind)) - original:
-            getattr(bpy.data, kind).remove(item, do_unlink=True)
+    created = [item for kind, original in before.items()
+               for item in set(getattr(bpy.data, kind)) - original]
+    if created:
+        bpy.data.batch_remove(ids=created)
 
 
 def test_matching_clip_is_read_only(clip_pair):
