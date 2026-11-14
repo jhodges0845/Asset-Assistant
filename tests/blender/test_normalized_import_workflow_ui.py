@@ -87,7 +87,7 @@ def test_imported_animate_bypasses_generated_provider_stage(monkeypatch):
 
     layout = _Node()
     panel = SimpleNamespace(layout=layout)
-    context = SimpleNamespace(scene=SimpleNamespace(humanoid_settings=SimpleNamespace(target=target)))
+    context = SimpleNamespace(scene=SimpleNamespace(humanoid_settings=SimpleNamespace(target=target), get=lambda key, default=None: default))
 
     class _ClipPanel:
         @staticmethod
@@ -98,5 +98,6 @@ def test_imported_animate_bypasses_generated_provider_stage(monkeypatch):
     registry.resolve("workspace.animate", workflow_ui._draw_animate)(panel, context, ui, animation_names, object())
 
     assert original_calls == []
+    assert any(op[0] == "asset_assistant.inspect_clip_file" for child in layout.children for op in child.operators)
     flattened_operators = [op for child in layout.children for op in child.operators]
     assert any(op[0] == "asset_assistant.adopt_animation_action" for child in layout.children for row in child.children for op in row.operators)

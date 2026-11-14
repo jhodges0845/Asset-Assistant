@@ -103,11 +103,15 @@ _CLASSES = (ASSET_ASSISTANT_OT_adopt_animation_action,)
 
 
 def register():
+    from . import animation_file_ui
+    animation_file_ui.register()
     for cls in _CLASSES:
         bpy.utils.register_class(cls)
 
 
 def unregister():
+    from . import animation_file_ui
+    animation_file_ui.unregister()
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)
 
