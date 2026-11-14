@@ -209,11 +209,15 @@ class BlenderOutputAdapter:
                     add("export_scope", "ERROR", obj.name + ": armature is outside the asset hierarchy.")
             animation = obj.animation_data
             if animation:
+                from .gltf_import_stash import has_import_stash_record, has_unchanged_import_stash
+                imported_stash = self.target_key == 'GODOT' and has_unchanged_import_stash(obj)
+                if self.target_key == 'GODOT' and has_import_stash_record(obj) and not imported_stash:
+                    add('export_nla', 'ERROR', obj.name + ': imported NLA arrangement changed; prepare an export copy before export.')
                 for track in animation.nla_tracks:
                     strips = [strip for strip in track.strips if strip.action]
-                    if track.mute or track.is_solo or len(strips) > 1 or any(strip.mute for strip in strips):
+                    if (track.mute and not imported_stash) or track.is_solo or len(strips) > 1 or any(strip.mute for strip in strips):
                         add("export_nla", "ERROR", obj.name + ": muted tracks/strips, solo tracks, or multi-strip NLA tracks require manual preparation for export.")
-                    if self.target_key == 'GODOT' and any(
+                    if self.target_key == 'GODOT' and not imported_stash and any(
                         strip.scale != 1.0 or strip.repeat != 1.0 or strip.influence != 1.0
                         or strip.use_reverse or strip.use_animated_time
                         or strip.use_animated_influence or strip.blend_type != 'REPLACE'

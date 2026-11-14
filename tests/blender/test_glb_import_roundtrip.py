@@ -119,7 +119,26 @@ class GLBImportRoundTripTests(unittest.TestCase):
                 self.assertEqual(objects, set(asset_objects(obj)))
                 self.assertIs(base_asset_rig(obj), rig)
             self.assertEqual(inspection["metrics"], inspect_selected_asset(candidate)["metrics"])
-            if target in {"UNITY", "UNREAL"} and inspection["metrics"]["animations"]:
+            if target == "GODOT":
+                from blender_adapter.gltf_import_stash import has_unchanged_import_stash
+                self.assertTrue(has_unchanged_import_stash(rig))
+                track = animation.nla_tracks[0]
+                strip = track.strips[0]
+                for owner, key, value in ((track, 'mute', False), (track, 'lock', False),
+                                          (track, 'is_solo', True), (strip, 'mute', True),
+                                          (strip, 'repeat', 2.0), (strip, 'influence', 0.5)):
+                    old = getattr(owner, key)
+                    old_end = strip.frame_end
+                    setattr(owner, key, value)
+                    try:
+                        self.assertFalse(has_unchanged_import_stash(rig), key)
+                        issues = get_adapter('GODOT').prepare(candidate, bpy.context)
+                        self.assertTrue(any(i.code == 'export_nla' and i.status == 'ERROR' for i in issues), key)
+                    finally:
+                        setattr(owner, key, old)
+                        strip.frame_end = old_end
+                self.assertTrue(has_unchanged_import_stash(rig))
+            if inspection["metrics"]["animations"]:
                 reexport = Path(self.temp.name) / ("adopted-" + (_clip or "all") + ".glb")
                 exported = get_adapter("GODOT", asset_use="ANIMATED").export(candidate, bpy.context, reexport)
                 self.assertTrue(exported.success, exported.issues)
@@ -129,6 +148,8 @@ class GLBImportRoundTripTests(unittest.TestCase):
                     (track, strip, strip.action, strip.frame_start, strip.frame_end,
                      strip.repeat, strip.influence)
                     for track in rig.animation_data.nla_tracks for strip in track.strips))
+                if target == "GODOT":
+                    self.assertTrue(has_unchanged_import_stash(rig))
                 roundtrip = _import_external(str(reexport), ".glb", bpy.context)
                 metrics = inspect_selected_asset(roundtrip)["metrics"]
                 self.assertEqual(1, metrics["armatures"])

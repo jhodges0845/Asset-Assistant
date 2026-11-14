@@ -363,3 +363,22 @@ before file creation. A regression reproduced the missing guard and checks all
 seven properties with strip timing and Action references unchanged; all ten
 target tests pass in Blender 5.2.1. This is rejection/preservation coverage,
 not NLA baking or importer-stash export support.
+
+## Imported glTF stash re-export (2026-11-13)
+
+Asset Assistant records the NLA arrangement immediately after a successful glTF
+import, on newly imported objects and Actions. Godot/glTF Action export may read
+those locked, muted single-clip tracks only while their stored state still
+matches. Export never unmutes or rewrites them. Changed strip settings, track
+structure, Action/slot identity, clip range or animation evaluation settings
+invalidate the exception. Ordinary artist NLA and imports without this record
+retain the existing guards; older imports need reimport or manual preparation.
+
+The record is an ownership/preservation check, not a security credential or a
+claim that arbitrary NLA can be baked. Skinned LOD acceptance remains alpha work.
+
+Validation: 20 combined Blender 5.2.1 exchange/export/provenance cases pass,
+including original and edited Human GLB/GLTF re-export. Three focused provenance
+cases pass, including a separate-process `.blend` reopen and subsequent edit
+rejection. Tests preserve source Action/NLA references and verify reimported
+mesh/rig/clip counts. Engine playback and visual acceptance remain open.

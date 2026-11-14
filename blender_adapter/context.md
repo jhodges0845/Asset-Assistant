@@ -25,6 +25,8 @@ See `docs/human-workflow.md` for the workflow and code ownership map.
 
 GLB/glTF import color precision: `gltf_color_import.py` supplies the scoped public hook used by `asset_file_import_ui.py` when enabled. Native imports retain defaults; colored Draco input is rejected. Regressions: `tests/blender/test_gltf_color_import.py`.
 
+Imported glTF NLA stashes: `gltf_import_stash.py` records import-time track/strip and Action identity for unchanged Action-mode re-export. Changed arrangements fail closed; artist NLA is never unmuted. Regressions: `test_gltf_import_stash.py` and `test_glb_import_roundtrip.py` under `tests/blender/`.
+
 ## Main seams
 
 - `core_gateway.py` — Blender-facing facade into portable core behavior.
