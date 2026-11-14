@@ -73,3 +73,8 @@ Use focused tests under `tests/blender/` first. Full CI also includes Blender 5.
 `object_core/geometry/surface_human_builder.py` builds and audits geometry for
 `HumanProvider`. Standalone study scripts are development tools, not a second
 plugin workflow. See `docs/human-workflow.md` for the current code map.
+
+Standalone clip inspection: `animation_file_compatibility.py` performs strict,
+read-only rest-rig/channel admission and temporary FBX/glTF import cleanup.
+`tests/blender/test_animation_file_compatibility.py` covers it. This backend is
+not yet an artist-facing file importer; transfer/Preview/Apply remain pending.
