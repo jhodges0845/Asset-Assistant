@@ -402,3 +402,19 @@ Reproduce using a fresh output directory:
 
 Omit `--edit-amount` for the unmodified case. The saved `source.glb` and unchanged
 original-source oracle make the additional import/adopt/re-export step explicit.
+
+## Standalone animation-file inspection (2026-11-14)
+
+`animation_file_compatibility.py` provides temporary FBX/GLB/glTF clip inspection
+for the standalone import workflow (#228). It compares bone names, hierarchy,
+rest matrices/lengths and transform inheritance, then checks keyed bone channels
+and rotation modes. Object/root-motion channels, constraints, drivers, procedural
+curves and multi-slot Actions are rejected pending explicit support. The existing
+metadata rig signature remains unchanged; it is not sufficient for retarget-free
+file transfer by itself.
+
+Nine Blender 5.2.1 cases pass, including real FBX/GLB inspection, success/failure
+datablock cleanup, selection preservation and incompatible-rest/channel rejection.
+This is a backend preview: it does not transfer/register clips or expose a file
+import button yet. Explicit Preview/Apply UI, transactional transfer and broader
+external skeleton coverage remain required before closing #228.
