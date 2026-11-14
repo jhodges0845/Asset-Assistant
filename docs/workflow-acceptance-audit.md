@@ -431,3 +431,11 @@ set has 10 passing cases including external-buffer rejection. Real FBX/GLB cases
 verify retained copies, stale-hash rejection and rollback after injected metadata
 registration failure. Preview/Apply UI, multi-clip external fixtures and saved-file
 playback of transferred clips remain open; #228 is not complete.
+
+
+Animation-file UI checkpoint: Animate now exposes explicit inspection, per-clip
+Import with name/FPS confirmation, and Discard for generated/imported assets.
+Pending state binds the inspected root/rig; switching targets rejects Apply.
+20 combined operator/presentation cases pass; the final 10-case focused run also
+checks target switching through actual operators. Live screenshot/layout/undo,
+multi-clip fixtures and fresh-process transferred playback remain unverified.

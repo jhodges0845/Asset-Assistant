@@ -77,5 +77,6 @@ plugin workflow. See `docs/human-workflow.md` for the current code map.
 Standalone clip inspection: `animation_file_compatibility.py` performs strict,
 read-only rest-rig/channel admission and temporary FBX/glTF import cleanup.
 `tests/blender/test_animation_file_compatibility.py` covers it. This backend is
-not yet an artist-facing file importer. Atomic selected FBX/GLB transfer is
-implemented with file-hash revalidation; Preview/Apply UI remains pending.
+paired with `animation_file_ui.py`: explicit inspect, per-clip Import and Discard
+in Animate. Atomic FBX/GLB transfer revalidates file hashes and target identity.
+Live UI/undo, multi-clip fixtures and fresh-process playback remain pending.

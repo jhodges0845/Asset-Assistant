@@ -180,6 +180,8 @@ def _draw_animate(panel, context, ui, animation_names_ui, animation_adoption_ui)
         clip_box = panel.layout.box(); clip_box.label(text="CLIP LIBRARY", icon="ACTION")
         animation_names_ui.ASSET_ASSISTANT_PT_animation_names.draw(type("ClipLibraryProxy", (), {"layout": clip_box})(), context)
     if animation_adoption_ui is not None:
+        from .animation_file_ui import draw_file_import
+        draw_file_import(panel.layout, context)
         panel.layout.separator(); _draw_animation_adoption(panel.layout.box(), target)
 
 

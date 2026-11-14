@@ -94,6 +94,8 @@ def _decorate_animate(next_renderer, panel, context, ui_module, animation_names_
             type("ClipLibraryProxy", (), {"layout": clip_box})(), context
         )
     if animation_adoption_ui is not None:
+        from .animation_file_ui import draw_file_import
+        draw_file_import(panel.layout, context)
         panel.layout.separator()
         _draw_animation_adoption(panel.layout.box(), root)
 

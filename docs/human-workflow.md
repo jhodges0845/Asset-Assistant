@@ -79,3 +79,21 @@ editable library. Check saved playback in a fresh process with
 `blender --background artifacts/human-library.blend --python
 scripts/verify_human_clip_library.py`; this does not save changes to the file.
 See `human-review-notes.md` for numerical and visual limits.
+
+
+## Import a separate animation file
+
+With one compatible rig selected, open Animate > Animation File and choose
+**Inspect Animation File** (FBX or GLB). Inspection lists clips without adding
+Actions to the library. Choose **Import** beside a clip, review its name and
+source FPS, then confirm. Existing playback and NLA stay unchanged; play the
+new clip from the Clip Library. **Discard File Preview** clears the inspection.
+Inspect again to import another clip. Changing the target or file requires a new
+inspection. Duplicate export names are rejected rather than replaced.
+
+This transfers matching skeletons; it does not retarget. Differing rest poses,
+constraints, root/object-motion channels and procedural animation are rejected.
+Separate animation FBX files are useful when character geometry and clips are
+exported independently; embedded GLB clips use the same inspection flow. Existing
+Blender Action adoption remains a separate local workflow. Live UI/undo and
+broader external-file acceptance are still pending.

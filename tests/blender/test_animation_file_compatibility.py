@@ -94,6 +94,27 @@ def test_real_file_inspection_preserves_scene_and_cleans_failure(clip_pair, tmp_
     bpy.context.collection.objects.link(root)
     target.parent = root
     target['asset_assistant_rig_id'] = 'transfer-test-rig'
+    from blender_adapter import animation_file_ui
+    with monkeypatch.context() as patch:
+        patch.setattr(animation_file_ui, '_root', lambda context: root)
+        animation_file_ui.register()
+        try:
+            original_actions = set(bpy.data.actions)
+            assert bpy.ops.asset_assistant.inspect_clip_file(filepath=str(path)) == {'FINISHED'}
+            assert set(bpy.data.actions) == original_actions
+            assert bpy.ops.asset_assistant.discard_clip_file() == {'FINISHED'}
+            assert animation_file_ui._PENDING not in bpy.context.scene
+            assert bpy.ops.asset_assistant.inspect_clip_file(filepath=str(path)) == {'FINISHED'}
+            with monkeypatch.context() as changed_target:
+                changed_target.setattr(animation_file_ui, '_root', lambda context: None)
+                with pytest.raises(RuntimeError, match='Target changed'):
+                    bpy.ops.asset_assistant.apply_clip_file(clip_index=0, export_name='UI imported clip', fps=24)
+            assert set(bpy.data.actions) == original_actions
+            assert bpy.ops.asset_assistant.apply_clip_file(clip_index=0, export_name='UI imported clip', fps=24) == {'FINISHED'}
+            assert animation_file_ui._PENDING not in bpy.context.scene
+        finally:
+            animation_file_ui.clear_preview(bpy.context.scene)
+            animation_file_ui.unregister()
     original_action = target.animation_data.action
     original_tracks = tuple((track, tuple(strip.action for strip in track.strips))
                             for track in target.animation_data.nla_tracks)
