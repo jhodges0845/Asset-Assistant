@@ -66,7 +66,7 @@ def validate_clip_compatibility(source, target, action, slot=None):
     return tuple(curves)
 
 
-def inspect_animation_file(filepath, target, context):
+def _inspect_animation_file(filepath, target, context, consume=None):
     """Inspect compatible clips, removing all temporary imported data on exit.
 
     This is a preview only: no Action is transferred, assigned or registered.
@@ -85,6 +85,7 @@ def inspect_animation_file(filepath, target, context):
     scene = context.scene
     timing = (scene.frame_start, scene.frame_end, scene.frame_current, scene.frame_subframe,
               scene.render.fps, scene.render.fps_base)
+    retained = set()
     try:
         _import_external(str(path), path.suffix.lower(), context)
         rigs = [obj for obj in set(bpy.data.objects) - before['objects'] if obj.type == 'ARMATURE']
@@ -109,10 +110,14 @@ def inspect_animation_file(filepath, target, context):
             curves = validate_clip_compatibility(source, target, action, slot)
             reports.append({'name': action.name, 'frames': tuple(action.frame_range),
                             'channels': len(curves)})
+        if consume is not None:
+            result, keep = consume(pairs, tuple(reports))
+            retained.update(keep)
+            return result
         return tuple(reports)
     finally:
         created = [item for kind, original in before.items()
-                   for item in set(getattr(bpy.data, kind)) - original]
+                   for item in set(getattr(bpy.data, kind)) - original if item not in retained]
         if created:
             bpy.data.batch_remove(ids=created)
         scene.frame_start, scene.frame_end = timing[:2]
@@ -123,3 +128,66 @@ def inspect_animation_file(filepath, target, context):
         for obj in selected:
             obj.select_set(True)
         context.view_layer.objects.active = active
+
+
+def inspect_animation_file(filepath, target, context):
+    """Preview compatible file clips without retaining imported data."""
+    return _inspect_animation_file(filepath, target, context)
+
+
+def transfer_animation_file(filepath, root, context, *, expected_sha256, clips, fps=24.0):
+    """Explicitly copy selected FBX/GLB clips into a rig's managed library.
+
+    clips maps inspected zero-based clip indexes to user-approved export names.
+    No target Action/NLA is assigned. Every copied Action rolls back on failure.
+    """
+    from hashlib import sha256
+    from pathlib import Path
+    from .asset_structure import asset_rigs
+    from .animation_lifecycle import register_animation_action
+    from .core import AnimationSource
+    path = Path(filepath).resolve()
+    if path.suffix.lower() not in ('.fbx', '.glb'):
+        raise ValueError('Clip transfer currently supports self-contained FBX and GLB files')
+    payload = path.read_bytes()
+    if path.suffix.lower() == '.glb':
+        import json
+        import struct
+        if len(payload) < 20 or payload[:4] != b'glTF' or payload[16:20] != b'JSON':
+            raise ValueError('Invalid GLB header')
+        size = struct.unpack_from('<I', payload, 12)[0]
+        document = json.loads(payload[20:20 + size])
+        if any(buffer.get('uri') for buffer in document.get('buffers', ())):
+            raise ValueError('External animation buffers require a self-contained GLB export')
+    if not expected_sha256 or sha256(payload).hexdigest() != expected_sha256:
+        raise ValueError('Animation file changed; inspect it again before applying')
+    rigs = asset_rigs(root)
+    if len(rigs) != 1:
+        raise ValueError('Choose an asset with exactly one target rig')
+    if not clips or any(type(index) is not int or index < 0 for index in clips):
+        raise ValueError('Select inspected clip indexes and export names')
+    names = [str(name).strip() for name in clips.values()]
+    if any(not name for name in names) or len(set(names)) != len(names):
+        raise ValueError('Selected clips need distinct nonempty export names')
+
+    def consume(pairs, reports):
+        if sha256(path.read_bytes()).hexdigest() != expected_sha256:
+            raise ValueError('Animation file changed during import; inspect it again')
+        if any(index >= len(pairs) for index in clips):
+            raise ValueError('Selected clip is no longer available; inspect again')
+        copies = []
+        for index, name in clips.items():
+            action = pairs[index][0].copy()
+            # Imported custom properties must not claim generated/managed identity.
+            for key in tuple(action.keys()):
+                if key.startswith('asset_assistant_'):
+                    del action[key]
+            action.name = str(name).strip()
+            register_animation_action(root, action, source=AnimationSource.IMPORTED,
+                                      display_name=action.name, export_name=str(name).strip(),
+                                      fps=fps, source_reference=str(path))
+            action.use_fake_user = True
+            copies.append(action)
+        return tuple(copies), copies
+
+    return _inspect_animation_file(path, rigs[0], context, consume=consume)

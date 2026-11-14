@@ -418,3 +418,16 @@ datablock cleanup, selection preservation and incompatible-rest/channel rejectio
 This is a backend preview: it does not transfer/register clips or expose a file
 import button yet. Explicit Preview/Apply UI, transactional transfer and broader
 external skeleton coverage remain required before closing #228.
+
+
+Standalone clip transfer checkpoint: `transfer_animation_file` copies explicitly
+selected FBX/GLB clip indexes into the managed library with user-supplied export
+names. It reimports/revalidates the rig and checks the inspected file hash before
+and after import. External GLB animation buffers are rejected. Target Action/NLA
+bindings stay unchanged; copies use fake users for persistence and retain artist
+curve ownership. Any registration failure removes all new imported/copied data.
+22 combined compatibility/lifecycle/normalization tests passed; the final focused
+set has 10 passing cases including external-buffer rejection. Real FBX/GLB cases
+verify retained copies, stale-hash rejection and rollback after injected metadata
+registration failure. Preview/Apply UI, multi-clip external fixtures and saved-file
+playback of transferred clips remain open; #228 is not complete.
