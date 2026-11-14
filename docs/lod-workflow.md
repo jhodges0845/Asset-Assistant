@@ -48,6 +48,21 @@ Run on a scene built by `prepare_lod_engine_scene.gd`, with no existing report:
 `Godot --path BUNDLE --script /absolute/scripts/review_lod_continuous_godot.gd --fixed-fps 60 --rendering-method gl_compatibility`
 The report is `godot-lod-continuous.json`; `-- --output=PATH` selects a fresh report.
 
+## Static paired visual review (2026-11-14)
+
+`scripts/render_lod_review.py BUNDLE --static --output NEW_DIRECTORY` imports
+LOD0/LOD1 rigid meshes, including multipart levels, into common world-space
+framing. It writes original-material, clay, UV-checker and silhouette sheets
+with three views per level, plus input GLB hashes and triangle/material metadata.
+Run through Blender background mode with the script arguments after `--`.
+Static mode rejects rigs/animation and requires UVs on every part. It does not
+rewrite bundle files, reduce geometry or adjust artist normals. Animated review
+retains its existing separate path; skinned quality work remains deferred.
+
+The focused snapshot tests cover multipart transforms, distinct material slots,
+UV presence, unchanged input hashes and cleanup after rejecting a rig. Paired
+images are review evidence, not automatic silhouette or transition acceptance.
+
 ## Current completion checkpoint (2026-11-09)
 
 Target: complete the static LOD pre-alpha gates by November 30, 2026. This is a target,

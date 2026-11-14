@@ -54,3 +54,38 @@ def test_snapshot_preserves_uv_world_space_and_input(skinned_glb):
 def test_snapshot_rejects_missing_clip(skinned_glb):
     with pytest.raises(ValueError, match='exactly one imported clip'):
         import_snapshot(skinned_glb, 'Run', .25)
+
+
+def test_static_snapshot_preserves_multipart_materials_and_transforms(tmp_path):
+    from scripts.render_lod_review import import_static_snapshot
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.delete(use_global=False)
+    for index in range(2):
+        bpy.ops.mesh.primitive_cube_add(location=(index * 4, 0, 0))
+        obj = bpy.context.object
+        obj.data.materials.append(bpy.data.materials.new('Part material %d' % index))
+    bpy.ops.object.select_all(action='SELECT')
+    path = tmp_path / 'static.glb'
+    bpy.ops.export_scene.gltf(filepath=str(path), export_format='GLB', use_selection=True,
+                              export_animations=False)
+    digest = sha256(path.read_bytes()).hexdigest()
+    before = set(bpy.data.objects)
+    mesh, metadata = import_static_snapshot(path)
+    assert set(bpy.data.objects) == before
+    assert metadata['parts'] == 2
+    assert metadata['triangles'] == 24
+    assert len(mesh.materials) == 2
+    assert len(set(poly.material_index for poly in mesh.polygons)) == 2
+    assert min(v.co.x for v in mesh.vertices) == pytest.approx(-1)
+    assert max(v.co.x for v in mesh.vertices) == pytest.approx(5)
+    assert len(mesh.uv_layers.active.data) == len(mesh.loops)
+    assert sha256(path.read_bytes()).hexdigest() == digest
+    bpy.data.meshes.remove(mesh)
+
+
+def test_static_snapshot_rejects_rig_and_cleans_import(skinned_glb):
+    from scripts.render_lod_review import import_static_snapshot
+    before = set(bpy.data.objects)
+    with pytest.raises(ValueError, match='rigid, unanimated'):
+        import_static_snapshot(skinned_glb)
+    assert set(bpy.data.objects) == before
