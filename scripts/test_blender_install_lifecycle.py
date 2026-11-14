@@ -40,6 +40,20 @@ def worker(archive, isolated):
     geometry = {obj: tuple(tuple(v.co) for v in obj.data.vertices) for obj in meshes}
     metadata = dict(asset.items())
 
+    def restart(expected):
+        assert bpy.ops.wm.save_userpref() == {'FINISHED'}
+        result = subprocess.run([
+            bpy.app.binary_path, '--background', '--python-exit-code', '1',
+            '--python', str(Path(__file__).resolve()), '--', '--startup-probe',
+            str(isolated), expected,
+        ], capture_output=True, text=True, timeout=90)
+        print(result.stdout)
+        print(result.stderr)
+        assert result.returncode == 0, 'Fresh Blender startup failed'
+        assert 'PACKAGED_STARTUP_OK' in result.stdout
+
+    restart('enabled')
+
     def preserved():
         assert bpy.data.objects.get(asset.name) == asset
         assert dict(asset.items()) == metadata
@@ -52,6 +66,8 @@ def worker(archive, isolated):
         assert addon_utils.check('humanoid_blender') == (False, False)
         assert not hasattr(bpy.types.Scene, 'humanoid_settings')
         preserved()
+        if _ == 0:
+            restart('disabled')
         assert bpy.ops.preferences.addon_enable(module='humanoid_blender') == {'FINISHED'}
         assert addon_utils.check('humanoid_blender') == (True, True)
         preserved()
@@ -61,6 +77,7 @@ def worker(archive, isolated):
     assert bpy.ops.preferences.addon_enable(module='humanoid_blender') == {'FINISHED'}
     assert addon_utils.check('humanoid_blender') == (True, True)
     preserved()
+    restart('enabled')
     assert hasattr(bpy.types.Scene, 'humanoid_settings')
     installed.resolve().relative_to(isolated)
     # Blender's remove operator redraws its area, even when run headlessly.
@@ -71,11 +88,28 @@ def worker(archive, isolated):
     assert 'humanoid_blender' not in bpy.context.preferences.addons
     assert not hasattr(bpy.types.Scene, 'humanoid_settings')
     preserved()
+    restart('removed')
     print('PACKAGED_INSTALL_LIFECYCLE_OK: install, replacement, disable/re-enable, uninstall and scene preservation')
 
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-if args and args[0] == '--worker':
+if args and args[0] == '--startup-probe':
+    import addon_utils
+    isolated = Path(args[1]).resolve()
+    expected = args[2]
+    installed = Path(bpy.utils.user_resource('SCRIPTS')).resolve() / 'addons' / 'humanoid_blender'
+    installed.relative_to(isolated)
+    Path(bpy.utils.user_resource('CONFIG')).resolve().relative_to(isolated)
+    enabled = expected == 'enabled'
+    assert ('humanoid_blender' in bpy.context.preferences.addons) == enabled
+    assert addon_utils.check('humanoid_blender') == (enabled, enabled)
+    assert hasattr(bpy.types.Scene, 'humanoid_settings') == enabled
+    assert installed.exists() == (expected != 'removed')
+    if enabled:
+        Path(sys.modules['humanoid_blender'].__file__).resolve().relative_to(installed)
+        assert bpy.ops.humanoid.generate_blockout() == {'FINISHED'}
+    print('PACKAGED_STARTUP_OK:', expected)
+elif args and args[0] == '--worker':
     worker(args[1], args[2])
 else:
     with tempfile.TemporaryDirectory(prefix='asset-assistant-install-') as directory:
@@ -91,7 +125,7 @@ else:
         result = subprocess.run([bpy.app.binary_path, '--background', '--factory-startup',
                                  '--python-exit-code', '1', '--python', str(Path(__file__).resolve()),
                                  '--', '--worker', str(ROOT / 'dist' / 'asset_assistant.zip'), str(sandbox)],
-                                env=env, capture_output=True, text=True, timeout=180)
+                                env=env, capture_output=True, text=True, timeout=540)
         print(result.stdout)
         print(result.stderr)
         if result.returncode != 0:

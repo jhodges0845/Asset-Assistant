@@ -20,6 +20,10 @@ scripts/config/data/extensions directories. It verifies clean ZIP installation,
 two disable/re-enable cycles, same-build overwrite/replacement and uninstall,
 while preserving generated Human geometry, parenting and root metadata. Installed
 module paths must resolve inside that temporary environment before removal.
+Fresh Blender processes also verify saved enable/disable preferences, automatic
+registration and generation after installation/replacement, and absence after
+uninstall. These probes share only the disposable user directories; they do not
+use factory startup, which would bypass the saved preferences being tested.
 The test passes in Blender 5.2.1 and is part of the integration CI job.
 
 This extends direct ZIP extraction/registration coverage. It is headless operator
