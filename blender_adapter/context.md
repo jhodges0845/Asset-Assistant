@@ -79,4 +79,4 @@ read-only rest-rig/channel admission and temporary FBX/glTF import cleanup.
 `tests/blender/test_animation_file_compatibility.py` covers it. This backend is
 paired with `animation_file_ui.py`: explicit inspect, per-clip Import and Discard
 in Animate. Atomic FBX/GLB transfer revalidates file hashes and target identity.
-Live UI/undo, multi-clip fixtures and fresh-process playback remain pending.
+A two-clip GLB fixture proves selected motion and fresh-process saved playback. Live UI/undo, multi-clip FBX and artist-supplied fixture acceptance remain pending.
