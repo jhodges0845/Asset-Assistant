@@ -162,7 +162,8 @@ def test_transfer_rejects_external_glb_animation_buffers(tmp_path):
         transfer_animation_file(path, None, bpy.context, expected_sha256=sha256(payload).hexdigest(), clips={0: 'Clip'})
 
 
-def test_multiclip_glb_import_selects_only_requested_motion(clip_pair, tmp_path):
+@pytest.mark.parametrize('extension', ['.glb', '.fbx'])
+def test_multiclip_file_selection_and_unsupported_fbx_rejection(clip_pair, tmp_path, extension):
     from hashlib import sha256
     from blender_adapter.animation import action_curves
     from blender_adapter.animation_file_compatibility import inspect_animation_file, transfer_animation_file
@@ -186,16 +187,32 @@ def test_multiclip_glb_import_selects_only_requested_motion(clip_pair, tmp_path)
     bpy.ops.object.select_all(action='DESELECT')
     source.select_set(True)
     bpy.context.view_layer.objects.active = source
-    path = tmp_path / 'two_clips.glb'
-    bpy.ops.export_scene.gltf(filepath=str(path), export_format='GLB', use_selection=True,
-                              export_animations=True, export_animation_mode='NLA_TRACKS')
+    path = tmp_path / ('two_clips' + extension)
+    if extension == '.glb':
+        bpy.ops.export_scene.gltf(filepath=str(path), export_format='GLB', use_selection=True,
+                                  export_animations=True, export_animation_mode='NLA_TRACKS')
+    else:
+        bpy.ops.export_scene.fbx(filepath=str(path), use_selection=True, add_leaf_bones=False,
+                                 bake_anim=True, bake_anim_use_all_actions=False,
+                                 bake_anim_use_nla_strips=True)
     original = set(bpy.data.objects)
-    _import_external(str(path), '.glb', bpy.context)
+    _import_external(str(path), extension, bpy.context)
     target = next(obj for obj in set(bpy.data.objects) - original if obj.type == 'ARMATURE')
     root = bpy.data.objects.new('Multiclip target', None)
     bpy.context.collection.objects.link(root)
     target.parent = root
     target['asset_assistant_rig_id'] = 'multiclip-test-rig'
+    if extension == '.fbx':
+        # NLA FBX export bakes object transforms as well as bone channels.
+        # Unsupported object channels must fail without retaining imported data.
+        from blender_adapter.asset_file_import_ui import _IMPORT_DATA_KINDS
+        before = {kind: set(getattr(bpy.data, kind)) for kind in _IMPORT_DATA_KINDS}
+        original_action = target.animation_data.action
+        with pytest.raises(ValueError, match='Only supported bone transform channels'):
+            inspect_animation_file(path, target, bpy.context)
+        assert all(set(getattr(bpy.data, kind)) == ids for kind, ids in before.items())
+        assert target.animation_data.action == original_action
+        return
     reports = inspect_animation_file(path, target, bpy.context)
     assert len(reports) == 2
     index = next(i for i, report in enumerate(reports) if 'Large motion' in report['name'])
