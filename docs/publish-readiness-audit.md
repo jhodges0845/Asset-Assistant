@@ -12,6 +12,20 @@ Reconciled against repository source on 2026-10-19. Status: **pre-alpha quality 
 - `.github/workflows/release.yml` already builds the ZIP twice, compares bytes, writes a checksum and uploads artifacts. A `v*` tag checks the Python version and publishes a GitHub release. The workflow currently does not explicitly set prerelease status or run the full test suite itself.
 - GPL-3.0-or-later licensing, NOTICE and install/build documentation exist.
 
+## Automated installer checkpoint (2026-11-14)
+
+`scripts/test_blender_install_lifecycle.py` runs Blender's actual add-on install,
+enable, disable and remove operators in a separate process with disposable user
+scripts/config/data/extensions directories. It verifies clean ZIP installation,
+two disable/re-enable cycles, same-build overwrite/replacement and uninstall,
+while preserving generated Human geometry, parenting and root metadata. Installed
+module paths must resolve inside that temporary environment before removal.
+The test passes in Blender 5.2.1 and is part of the integration CI job.
+
+This extends direct ZIP extraction/registration coverage. It is headless operator
+proof, not live Preferences UI acceptance or migration from an older version.
+Manual candidate lifecycle review remains open.
+
 ## Remaining quality and candidate gates
 
 1. Complete the outstanding artistic reviews in the shared anatomy plan. Automated Avian motion, destination skin and saved-scene proofs are documented in [cross-provider acceptance](cross-provider-acceptance.md); they do not replace continuous visual approval. Human feedback repairs and actual-action motion diagnosis are active in [Human review notes](human-review-notes.md); Human motion and final canine visual acceptance remain open.

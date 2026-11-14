@@ -178,6 +178,12 @@ jobs:
             --background --factory-startup --python-exit-code 1 \
             --python scripts/test_blender_package.py
 
+      - name: Test isolated package installer lifecycle
+        run: |
+          "$HOME/.cache/asset-assistant/blender/${{ matrix.directory }}/blender" \
+            --background --factory-startup --python-exit-code 1 \
+            --python scripts/test_blender_install_lifecycle.py
+
   visual-review:
     name: Human visual review (${{ matrix.version }})
     runs-on: ubuntu-22.04
