@@ -29,6 +29,7 @@ def main(provider_key='quadruped'):
     parser.add_argument('--chest-amount',type=float,help='Avian powerful-chest edit before export')
     parser.add_argument('--edit-amount', type=float, help='Human broad-shoulder or Canine broad-chest edit')
     parser.add_argument('--posed-surface',action='store_true',help='Sample full evaluated surfaces for Godot')
+    parser.add_argument('--adopt-reexport', action='store_true', help='Import/adopt/re-export the GLB; compare against the original source oracle')
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
     if args.chest_amount is not None and (provider_key != 'avian' or not math.isfinite(args.chest_amount) or not 0 < args.chest_amount <= 1.5):
         parser.error('--chest-amount requires Avian and a finite amount in (0, 1.5]')
@@ -100,6 +101,24 @@ def main(provider_key='quadruped'):
     result = get_adapter('GODOT', asset_use='ANIMATED').export(root, bpy.context, args.output / 'canine.glb')
     if not result.success:
         raise RuntimeError(result.issues)
+    if args.adopt_reexport:
+        from blender_adapter.asset_file_import_ui import _import_external
+        from blender_adapter.asset_inspection_ui import inspect_selected_asset
+        from blender_adapter.import_normalization import enroll_imported_working_asset
+        from blender_adapter.targets import base_asset_rig
+        from blender_adapter.gltf_import_stash import has_unchanged_import_stash
+        source = args.output / 'source.glb'
+        (args.output / 'canine.glb').rename(source)
+        imported = _import_external(str(source), '.glb', bpy.context)
+        enroll_imported_working_asset(bpy.context, inspect_selected_asset(imported))
+        imported_rig = base_asset_rig(imported)
+        if not has_unchanged_import_stash(imported_rig):
+            raise RuntimeError('Imported fixture lost its stash provenance')
+        result = get_adapter('GODOT', asset_use='ANIMATED').export(imported, bpy.context, args.output / 'canine.glb')
+        if not result.success:
+            raise RuntimeError(result.issues)
+        if not has_unchanged_import_stash(imported_rig):
+            raise RuntimeError('Re-export changed the imported NLA arrangement')
     rig = next(o for o in root.children if o.type == 'ARMATURE')
     clips = {}
     for name, duration in (('Walk', 1.2), ('Idle', 4.), ('Flight',1.2) if provider_key == 'avian' else ('Run', run_duration)):
@@ -135,7 +154,7 @@ def main(provider_key='quadruped'):
         clips[name] = dict(duration=duration, import_bake_fps=None if provider_key == 'human' else intervals / duration, samples=samples)
     report = dict(schema_version=1, provider=provider_key, sample=args.sample, parameters=values,
                   playback_sequence=['Walk','Idle','Flight' if provider_key=='avian' else 'Run','Idle'],
-                  blender_version=bpy.app.version_string,
+                  blender_version=bpy.app.version_string, adopted_reexport=args.adopt_reexport,
                   commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   tolerance_cm=.002, clips=clips,semantic_operations=semantic_operations)
     if neutral_positions is not None:

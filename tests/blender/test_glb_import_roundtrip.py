@@ -155,6 +155,16 @@ class GLBImportRoundTripTests(unittest.TestCase):
                 self.assertEqual(1, metrics["armatures"])
                 self.assertEqual(inspection["metrics"]["animations"], metrics["animations"])
                 self.assertEqual(inspection["metrics"]["meshes"], metrics["meshes"])
+                if target == "GODOT":
+                    expected_durations = {track.name: float(track.strips[0].action.frame_range[1] -
+                                                          track.strips[0].action.frame_range[0])
+                                          for track in rig.animation_data.nla_tracks}
+                    actual_durations = {track.name: float(track.strips[0].action.frame_range[1] -
+                                                        track.strips[0].action.frame_range[0])
+                                        for track in base_asset_rig(roundtrip).animation_data.nla_tracks}
+                    self.assertEqual(set(expected_durations), set(actual_durations))
+                    for name, duration in expected_durations.items():
+                        self.assertAlmostEqual(duration, actual_durations[name], places=4)
 
         return imported_clips
 

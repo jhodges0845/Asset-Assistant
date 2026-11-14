@@ -123,6 +123,13 @@ def _export_gltf(options, root):
         obj.constraints or (obj.animation_data and obj.animation_data.drivers)
         or (obj.type == 'ARMATURE' and any(b.constraints for b in obj.pose.bones))
         for obj in asset_objects(root))
+    from .gltf_import_stash import has_unchanged_import_stash
+    animated = [obj for obj in asset_objects(root) if obj.animation_data and
+                (obj.animation_data.action or obj.animation_data.nla_tracks)]
+    # Integer-frame baking truncates fractional imported clip endpoints.
+    # Keep keys only for verified importer stashes without constraints/drivers.
+    imported_keys = can_author and bool(animated) and all(
+        has_unchanged_import_stash(obj) for obj in animated)
     with _stage_generated_animation_tracks(root, zero_start=can_author) as staged:
         if 'export_animation_mode' in properties:
             authored = staged and can_author
@@ -131,7 +138,7 @@ def _export_gltf(options, root):
             # associated with the selected rig, even in a one-armature scene.
             if 'export_anim_single_armature' in properties:
                 options['export_anim_single_armature'] = False
-            if authored:
+            if authored or imported_keys:
                 options['export_force_sampling'] = False
                 options['export_merge_animation'] = 'NLA_TRACK'
         return bpy.ops.export_scene.gltf(**options)

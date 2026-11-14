@@ -382,3 +382,23 @@ including original and edited Human GLB/GLTF re-export. Three focused provenance
 cases pass, including a separate-process `.blend` reopen and subsequent edit
 rejection. Tests preserve source Action/NLA references and verify reimported
 mesh/rig/clip counts. Engine playback and visual acceptance remain open.
+
+Destination validation exposed a second issue: default integer-frame sampling
+shortened imported Walk from 1.2 s to 1.166667 s. Verified, unconstrained imported
+stashes now retain their keys instead of being resampled. The exchange regression
+checks clip names and fractional durations after reimport. Original and
+broad-shoulder Human fixtures pass Godot 4.7.2 Walk/Idle/Run/Idle playback against
+the original Blender oracle, with 34 phases over three cycles and maximum sampled
+bone-head error below 0.00135 cm (existing tolerance 0.002 cm). Edited neutral
+geometry also passes. These are headless diagnostic imports at 800 fps with
+constant tracks retained, not a shipping import preset or rendered-skin approval.
+
+Reproduce using a fresh output directory:
+
+```powershell
+& <blender.exe> --background --factory-startup --python-exit-code 1 --python scripts/export_human_godot_review.py -- --adopt-reexport --edit-amount 0.6 --output <fixture>
+& <godot_console.exe> --headless --path <fixture> --script review.gd
+```
+
+Omit `--edit-amount` for the unmodified case. The saved `source.glb` and unchanged
+original-source oracle make the additional import/adopt/re-export step explicit.
