@@ -447,3 +447,11 @@ one-radian endpoint. Saving and reopening in a separate Blender process preserve
 the managed clip and evaluated endpoint. All 11 focused compatibility tests pass.
 This is a synthetic GLB proof; multi-clip FBX, artist-supplied fixtures, live UI/undo
 and broader playback acceptance remain open. Issue #228 is not closed.
+
+Multi-clip FBX boundary: Blender NLA-strip FBX export includes object transform
+channels, which strict clip compatibility rejects. A real two-clip FBX regression
+now verifies rejection removes all temporary datablocks and preserves the target
+Action. All 12 focused tests pass, including GLB selection/reopen playback.
+This does not establish multi-clip FBX acceptance; supporting those files requires
+an explicit object-transform compatibility policy rather than silently dropping
+channels. Artist fixtures and live UI/undo remain open.
