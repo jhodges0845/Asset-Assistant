@@ -77,4 +77,5 @@ plugin workflow. See `docs/human-workflow.md` for the current code map.
 Standalone clip inspection: `animation_file_compatibility.py` performs strict,
 read-only rest-rig/channel admission and temporary FBX/glTF import cleanup.
 `tests/blender/test_animation_file_compatibility.py` covers it. This backend is
-not yet an artist-facing file importer; transfer/Preview/Apply remain pending.
+not yet an artist-facing file importer. Atomic selected FBX/GLB transfer is
+implemented with file-hash revalidation; Preview/Apply UI remains pending.

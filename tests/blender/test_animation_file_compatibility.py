@@ -60,7 +60,7 @@ def test_incompatible_clip_rejected(clip_pair, change):
 
 
 @pytest.mark.parametrize('extension', ['.glb', '.fbx'])
-def test_real_file_inspection_preserves_scene_and_cleans_failure(clip_pair, tmp_path, extension):
+def test_real_file_inspection_preserves_scene_and_cleans_failure(clip_pair, tmp_path, extension, monkeypatch):
     from blender_adapter.asset_file_import_ui import _import_external, _IMPORT_DATA_KINDS
     from blender_adapter.animation_file_compatibility import inspect_animation_file
     source, _, _, _ = clip_pair
@@ -86,7 +86,56 @@ def test_real_file_inspection_preserves_scene_and_cleans_failure(clip_pair, tmp_
     assert all(set(getattr(bpy.data, kind)) == ids for kind, ids in before.items())
     assert bpy.context.view_layer.objects.active == active
     assert set(bpy.context.selected_objects) == selection
+    from hashlib import sha256
+    from blender_adapter.animation_file_compatibility import transfer_animation_file
+    from blender_adapter.animation_lifecycle import managed_actions
+    from blender_adapter import animation_lifecycle
+    root = bpy.data.objects.new('Transfer target', None)
+    bpy.context.collection.objects.link(root)
+    target.parent = root
+    target['asset_assistant_rig_id'] = 'transfer-test-rig'
+    original_action = target.animation_data.action
+    original_tracks = tuple((track, tuple(strip.action for strip in track.strips))
+                            for track in target.animation_data.nla_tracks)
+    digest = sha256(path.read_bytes()).hexdigest()
+    baseline = {kind: set(getattr(bpy.data, kind)) for kind in _IMPORT_DATA_KINDS}
+    copied = transfer_animation_file(path, root, bpy.context, expected_sha256=digest,
+                                     clips={0: 'Approved clip'})
+    assert len(copied) == 1 and copied[0] in managed_actions(root)
+    assert copied[0].use_fake_user
+    assert target.animation_data.action == original_action
+    assert tuple((track, tuple(strip.action for strip in track.strips))
+                 for track in target.animation_data.nla_tracks) == original_tracks
+    assert all(set(getattr(bpy.data, kind)) == ids for kind, ids in baseline.items() if kind != 'actions')
+    assert set(bpy.data.actions) - baseline['actions'] == set(copied)
+    baseline = {kind: set(getattr(bpy.data, kind)) for kind in _IMPORT_DATA_KINDS}
+    with pytest.raises(ValueError, match='changed'):
+        transfer_animation_file(path, root, bpy.context, expected_sha256='stale', clips={0: 'Other'})
+    register = animation_lifecycle.register_animation_action
+    def fail_after_registration(*args, **kwargs):
+        register(*args, **kwargs)
+        raise RuntimeError('Injected registration failure')
+    with monkeypatch.context() as patch:
+        patch.setattr(animation_lifecycle, 'register_animation_action', fail_after_registration)
+        with pytest.raises(RuntimeError, match='Injected'):
+            transfer_animation_file(path, root, bpy.context, expected_sha256=digest, clips={0: 'Other'})
+    assert all(set(getattr(bpy.data, kind)) == ids for kind, ids in baseline.items())
+    before = baseline
     target.data.bones[0].name = 'Incompatible'
     with pytest.raises(ValueError, match='retargeting'):
         inspect_animation_file(path, target, bpy.context)
     assert all(set(getattr(bpy.data, kind)) == ids for kind, ids in before.items())
+
+
+def test_transfer_rejects_external_glb_animation_buffers(tmp_path):
+    import json
+    import struct
+    from hashlib import sha256
+    from blender_adapter.animation_file_compatibility import transfer_animation_file
+    document = json.dumps({'buffers': [{'uri': 'external.bin', 'byteLength': 12}]}).encode()
+    document += b' ' * (-len(document) % 4)
+    payload = struct.pack('<4sIII4s', b'glTF', 2, 20 + len(document), len(document), b'JSON') + document
+    path = tmp_path / 'external.glb'
+    path.write_bytes(payload)
+    with pytest.raises(ValueError, match='External animation buffers'):
+        transfer_animation_file(path, None, bpy.context, expected_sha256=sha256(payload).hexdigest(), clips={0: 'Clip'})
