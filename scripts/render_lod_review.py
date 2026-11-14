@@ -60,6 +60,41 @@ def import_snapshot(path, clip, phase):
     return mesh, metadata
 
 
+def import_static_snapshot(path):
+    """Join imported rigid parts in world space without touching existing objects."""
+    before = set(bpy.data.objects)
+    try:
+        bpy.ops.import_scene.gltf(filepath=str(path))
+        imported = set(bpy.data.objects) - before
+        if any(obj.type == 'ARMATURE' or obj.animation_data for obj in imported):
+            raise ValueError('Static review requires rigid, unanimated objects')
+        parts = sorted((obj for obj in imported if obj.type == 'MESH'), key=lambda obj: obj.name)
+        if not parts:
+            raise ValueError('Static review requires mesh geometry')
+        if any(not obj.data.uv_layers.active for obj in parts):
+            raise ValueError('Every static part needs a UV layer for checker review')
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in parts:
+            world = obj.matrix_world.copy()
+            obj.parent = None
+            obj.matrix_world = world
+            obj.select_set(True)
+        bpy.context.view_layer.objects.active = parts[0]
+        part_count = len(parts)
+        if part_count > 1:
+            bpy.ops.object.join()
+        body = bpy.context.object
+        mesh = body.data.copy()
+        mesh.transform(body.matrix_world)
+        mesh.calc_loop_triangles()
+        return mesh, {'vertices': len(mesh.vertices), 'triangles': len(mesh.loop_triangles),
+                      'parts': part_count, 'uv_layers': [layer.name for layer in mesh.uv_layers],
+                      'materials': [mat.name if mat else None for mat in mesh.materials]}
+    finally:
+        for obj in set(bpy.data.objects) - before:
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+
 def checker_material(material):
     sheets._configure_clay_material(material)
     nodes, links = material.node_tree.nodes, material.node_tree.links
@@ -76,6 +111,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('bundle', type=Path)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--static', action='store_true', help='Review unanimated rigid meshes, including multipart levels')
     parser.add_argument('--clip', choices=('Idle', 'Walk', 'Run', 'Flight'))
     parser.add_argument('--phase', type=float, default=.25)
     parser.add_argument('--samples', type=int, default=16)
@@ -83,6 +119,8 @@ def main():
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
     if not isfinite(args.phase) or not 0 <= args.phase <= 1 or args.samples < 1 or args.width < 512:
         parser.error('Phase must be finite in [0,1], samples positive, and width at least 512')
+    if args.static and args.clip:
+        parser.error('Static review cannot select an animation clip')
     if args.output.exists():
         parser.error('Choose a new output directory')
     manifest = json.loads((args.bundle / 'lod-manifest.json').read_text())
@@ -97,7 +135,8 @@ def main():
         path = (args.bundle / level['file']).resolve()
         if path.parent != args.bundle.resolve():
             raise ValueError('LOD file must belong to the bundle directory')
-        mesh, metadata = import_snapshot(path, args.clip, args.phase)
+        mesh, metadata = (import_static_snapshot(path) if args.static else
+                          import_snapshot(path, args.clip, args.phase))
         if metadata['triangles'] != level['triangles']:
             raise ValueError('Imported triangle count differs from bundle manifest')
         metadata.update(file=path.name, sha256=sha256(path.read_bytes()).hexdigest())
@@ -106,10 +145,6 @@ def main():
     objects = []
     angles = (180, 90, 135)
     for row, (mesh, metadata) in enumerate(levels):
-        mesh.materials.clear()
-        mesh.materials.append(material)
-        for polygon in mesh.polygons:
-            polygon.material_index = 0
         for column, angle in enumerate(angles):
             obj = bpy.data.objects.new(f'LOD{row} view {column}', mesh)
             scene.collection.objects.link(obj)
@@ -179,18 +214,25 @@ def main():
     bpy.context.view_layer.update()
     sheets._validate_camera_frame(camera, objects + labels, scene)
     args.output.mkdir(parents=True)
-    for mode in ('clay', 'checker', 'silhouette'):
+    modes = ('original', 'clay', 'checker', 'silhouette') if args.static else ('clay', 'checker', 'silhouette')
+    for mode in modes:
+        if mode != 'original':
+            for mesh, metadata in levels:
+                mesh.materials.clear()
+                mesh.materials.append(material)
+                for polygon in mesh.polygons:
+                    polygon.material_index = 0
         if mode == 'checker':
             checker_material(material)
-        else:
+        elif mode != 'original':
             sheets._configure_material(material, mode)
         scene.render.filepath = str((args.output / (mode + '.png')).resolve())
         bpy.ops.render.render(write_still=True)
     (args.output / 'review.json').write_text(json.dumps({
-        'bundle': str(args.bundle.resolve()), 'clip': args.clip or 'rest', 'phase': args.phase,
+        'static': args.static, 'bundle': str(args.bundle.resolve()), 'clip': args.clip or 'rest', 'phase': args.phase,
         'width': args.width, 'samples': args.samples, 'lighting': 'uniform directional, no cast shadows',
         'levels': [metadata for mesh, metadata in levels], 'views_degrees': angles,
-        'scope': 'Imported GLB LOD0 versus LOD1, diagnostic material overrides; sampled visual review only.'}, indent=2))
+        'scope': 'Imported GLB LOD0 versus LOD1; original materials in static mode plus diagnostic overrides; sampled visual review only.'}, indent=2))
 
 
 if __name__ == '__main__':
