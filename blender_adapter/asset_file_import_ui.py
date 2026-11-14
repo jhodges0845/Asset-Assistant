@@ -253,6 +253,9 @@ def _import_external(filepath, extension, context):
                 "Export one scene as a separate asset and import it again. "
                 "The attempted import has been removed."
             )
+        if extension in {".glb", ".gltf"}:
+            from .gltf_import_stash import record_import_stashes
+            record_import_stashes(imported, set(bpy.data.actions) - before["actions"])
         return _activate_imported_object(context, imported, source=extension[1:].upper())
     except Exception:
         context.window.scene = scene
