@@ -462,3 +462,11 @@ and all temporary import data. Existing library membership and Action/NLA bindin
 remain unchanged; the retained clip still passes fresh-process playback. All 12
 focused tests pass. This validates transaction rollback, not FBX compatibility or
 live UI acceptance.
+
+Saved clip-preview recovery: malformed JSON or an invalid saved preview schema
+now shows a recoverable message and Discard instead of raising during panel draw.
+Apply rejects invalid metadata. Drawing does not mutate saved state; Discard
+removes preview metadata without altering Actions. Eight malformed-state cases
+plus existing file/presentation coverage pass (23 tests). Live UI acceptance is
+still separate. Candidate 77374d5 previously passed artifact-only gated CI and
+local exact-ZIP package/install lifecycle checks; see artifacts/candidate-77374d5.

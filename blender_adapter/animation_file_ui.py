@@ -19,6 +19,24 @@ def clear_preview(scene):
         scene.pop(key, None)
 
 
+def _pending(scene):
+    """Treat saved preview metadata as untrusted, recoverable UI state."""
+    try:
+        value = json.loads(scene.get(_PENDING, '{}'))
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(value, dict):
+        return None
+    if not all(isinstance(value.get(key), str) and value[key] for key in ('path', 'sha256')):
+        return None
+    clips = value.get('clips')
+    if not isinstance(clips, list) or not clips:
+        return None
+    if any(not isinstance(clip, dict) or not isinstance(clip.get('name'), str)
+           or not clip['name'].strip() for clip in clips):
+        return None
+    return value
+
 def _root(context):
     from .animation_adoption_ui import _character
     return _character(context)
@@ -77,8 +95,8 @@ class ASSET_ASSISTANT_OT_apply_clip_file(bpy.types.Operator):
             root = _root(context)
             if root is None or root != scene.get(_ROOT) or asset_rigs(root) != (scene.get(_RIG),):
                 raise ValueError('Target changed; inspect the animation file again')
-            pending = json.loads(scene.get(_PENDING, '{}'))
-            if not 0 <= self.clip_index < len(pending.get('clips', ())):
+            pending = _pending(scene)
+            if pending is None or not 0 <= self.clip_index < len(pending['clips']):
                 raise ValueError('Inspect and select a clip first')
             transfer_animation_file(pending['path'], root, context,
                                     expected_sha256=pending['sha256'],
@@ -103,10 +121,10 @@ def draw_file_import(layout, context):
     box = layout.box()
     box.label(text='ANIMATION FILE', icon='IMPORT')
     box.operator('asset_assistant.inspect_clip_file')
-    try:
-        pending = json.loads(context.scene.get(_PENDING, '{}'))
-    except (ValueError, TypeError):
-        pending = {}
+    pending = _pending(context.scene)
+    if pending is None and context.scene.get(_PENDING) is not None:
+        box.label(text='Preview unavailable. Inspect the file again.', icon='ERROR')
+        box.operator('asset_assistant.discard_clip_file')
     if pending:
         box.label(text=Path(pending['path']).name)
         for index, clip in enumerate(pending['clips']):
