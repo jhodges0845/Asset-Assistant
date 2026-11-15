@@ -273,3 +273,39 @@ def test_multiclip_file_selection_and_unsupported_fbx_rejection(clip_pair, tmp_p
                             capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'TRANSFER_REOPEN_OK' in result.stdout
+
+@pytest.mark.parametrize('payload', ['{', 'null', '[]', '42', '{}',
+    '{"path":4,"sha256":"x","clips":[]}',
+    '{"path":"clip.glb","sha256":"x","clips":[null]}',
+    '{"path":"clip.glb","sha256":"x","clips":[{"name":""}]}'])
+def test_invalid_saved_clip_preview_remains_discardable(payload):
+    from types import SimpleNamespace
+    from blender_adapter import animation_file_ui as ui
+    operators, labels = [], []
+    class Layout:
+        def box(self):
+            return self
+        def label(self, **kwargs):
+            labels.append(kwargs['text'])
+        def operator(self, name, **kwargs):
+            operators.append(name)
+            return SimpleNamespace()
+    scene = bpy.context.scene
+    original = scene.get(ui._PENDING)
+    before = set(bpy.data.actions)
+    ui.register()
+    try:
+        scene[ui._PENDING] = payload
+        ui.draw_file_import(Layout(), bpy.context)
+        assert 'asset_assistant.apply_clip_file' not in operators
+        assert 'asset_assistant.discard_clip_file' in operators
+        assert any('Preview unavailable' in label for label in labels)
+        assert scene[ui._PENDING] == payload  # drawing never mutates saved data
+        assert bpy.ops.asset_assistant.discard_clip_file() == {'FINISHED'}
+        assert ui._PENDING not in scene
+        assert set(bpy.data.actions) == before
+    finally:
+        ui.clear_preview(scene)
+        if original is not None:
+            scene[ui._PENDING] = original
+        ui.unregister()
