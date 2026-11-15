@@ -228,6 +228,19 @@ def test_multiclip_file_selection_and_unsupported_fbx_rejection(clip_pair, tmp_p
     assert target.animation_data.action == original_action
     assert tuple((track.name, tuple(strip.action for strip in track.strips))
                  for track in target.animation_data.nla_tracks) == original_tracks
+    # A late name collision must roll back the already-registered first copy.
+    from blender_adapter.asset_file_import_ui import _IMPORT_DATA_KINDS
+    baseline = {kind: set(getattr(bpy.data, kind)) for kind in _IMPORT_DATA_KINDS}
+    other_index = 1 - index
+    with pytest.raises(ValueError, match='unique'):
+        transfer_animation_file(path, root, bpy.context,
+                                expected_sha256=sha256(path.read_bytes()).hexdigest(),
+                                clips={other_index: 'Must roll back', index: 'Selected large motion'})
+    assert all(set(getattr(bpy.data, kind)) == ids for kind, ids in baseline.items())
+    assert tuple(managed_actions(root)) == copied
+    assert target.animation_data.action == original_action
+    assert tuple((track.name, tuple(strip.action for strip in track.strips))
+                 for track in target.animation_data.nla_tracks) == original_tracks
     # Evaluate the transferred clip in isolation, against the authored rotation.
     target.animation_data.action = copied[0]
     target.animation_data.action_slot = copied[0].slots[0]
