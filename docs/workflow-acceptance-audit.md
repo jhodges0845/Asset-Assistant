@@ -455,3 +455,10 @@ Action. All 12 focused tests pass, including GLB selection/reopen playback.
 This does not establish multi-clip FBX acceptance; supporting those files requires
 an explicit object-transform compatibility policy rather than silently dropping
 channels. Artist fixtures and live UI/undo remain open.
+
+Batch-transfer ownership checkpoint: a two-clip selection whose second export
+name collides with an existing managed clip rolls back the first registered copy
+and all temporary import data. Existing library membership and Action/NLA bindings
+remain unchanged; the retained clip still passes fresh-process playback. All 12
+focused tests pass. This validates transaction rollback, not FBX compatibility or
+live UI acceptance.
