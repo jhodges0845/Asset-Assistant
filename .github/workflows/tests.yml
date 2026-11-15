@@ -18,7 +18,8 @@ concurrency:
 jobs:
   core-tests:
     name: Core tests (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    # Python 3.9 binaries are unavailable on Ubuntu 26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
