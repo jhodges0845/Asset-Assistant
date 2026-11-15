@@ -124,8 +124,10 @@ def main():
     if args.output.exists():
         parser.error('Choose a new output directory')
     manifest = json.loads((args.bundle / 'lod-manifest.json').read_text())
-    if [level['index'] for level in manifest['levels']] != [0, 1]:
-        parser.error('Review requires LOD0 and LOD1')
+    indices = [level['index'] for level in manifest['levels']]
+    if indices != [0, 1] and not (args.static and indices == [0, 1, 2]):
+        parser.error('Review requires LOD0/LOD1, or LOD0/LOD1/LOD2 in static mode')
+    row_count = len(indices)
     sheets._clear_scene()
     scene = bpy.context.scene
     scene.render.fps = 24
@@ -151,10 +153,10 @@ def main():
             obj.rotation_euler.z = radians(angle)
             objects.append(obj)
     bpy.context.view_layer.update()
-    # A common box and common offsets for both levels avoid normalizing away changes.
+    # A common box and common offsets for all levels avoid normalizing away changes.
     bounds = []
     for column in range(3):
-        points = [obj.matrix_world @ Vector(corner) for obj in (objects[column], objects[column + 3])
+        points = [obj.matrix_world @ Vector(corner) for obj in objects[column::3]
                   for corner in obj.bound_box]
         low = Vector(tuple(min(point[axis] for point in points) for axis in range(3)))
         high = Vector(tuple(max(point[axis] for point in points) for axis in range(3)))
@@ -163,14 +165,14 @@ def main():
     gap = height * .25
     widths = [high.x - low.x for low, high in bounds]
     total_width = sum(widths) + gap * 4
-    total_height = height * 2 + gap * 3
+    total_height = height * row_count + gap * (row_count + 1)
     cursor = -total_width / 2 + gap
     labels = []
     for column, (low, high) in enumerate(bounds):
         x = cursor + widths[column] / 2
-        for row in range(2):
+        for row in range(row_count):
             obj = objects[row * 3 + column]
-            obj.location = (x - (low.x + high.x) / 2, 0, (1 - row) * (height + gap) - low.z)
+            obj.location = (x - (low.x + high.x) / 2, 0, (row_count - 1 - row) * (height + gap) - low.z)
             text = f"LOD{row} / {levels[row][1]['triangles']} tris / {('front', 'side', 'three-quarter')[column]}"
             labels.append(sheets._add_label(text, (x, low.y - gap, obj.location.z + low.z - gap * .35), total_width * .012))
         cursor += widths[column] + gap
@@ -196,11 +198,11 @@ def main():
     camera_data.clip_end = 1000
     camera = bpy.data.objects.new('LOD Review Camera', camera_data)
     scene.collection.objects.link(camera)
-    center_z = (height * 2 + gap) / 2 - gap * .2
+    center_z = (height * row_count + gap * (row_count - 1)) / 2 - gap * .2
     camera.location = (0, -max(10, total_width * 3), center_z)
     sheets._look_at(camera, (0, 0, center_z))
     scene.camera = camera
-    sheets._add_lighting(center_z, total_width, height * 2, min(low.y for low, high in bounds))
+    sheets._add_lighting(center_z, total_width, height * row_count, min(low.y for low, high in bounds))
     # Uniform directions and irradiance for each pair, independent of row position.
     for index, light in enumerate(obj for obj in scene.objects if obj.type == 'LIGHT'):
         light.data.type = 'SUN'
@@ -232,7 +234,7 @@ def main():
         'static': args.static, 'bundle': str(args.bundle.resolve()), 'clip': args.clip or 'rest', 'phase': args.phase,
         'width': args.width, 'samples': args.samples, 'lighting': 'uniform directional, no cast shadows',
         'levels': [metadata for mesh, metadata in levels], 'views_degrees': angles,
-        'scope': 'Imported GLB LOD0 versus LOD1; original materials in static mode plus diagnostic overrides; sampled visual review only.'}, indent=2))
+        'scope': 'Imported GLB levels in shared framing; original materials in static mode plus diagnostic overrides; sampled visual review only.'}, indent=2))
 
 
 if __name__ == '__main__':

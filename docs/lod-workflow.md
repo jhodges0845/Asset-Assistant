@@ -1681,3 +1681,10 @@ The existing two-level static fixture also passes 210 frames. Original GLBs and
 surface materials are preserved; overrides exist only in the review process.
 This closes the three-level selection harness gap, not transition visual quality,
 artist-fixture acceptance or live Blender UI/undo.
+
+Three-level static visual review now accepts an ordered LOD0/LOD1/LOD2 bundle.
+All rows share the union of per-view bounds, scale, lighting and camera framing;
+labels and canvas height include the far level. Animated review remains paired.
+Four focused snapshot tests pass. The multipart static fixture renders at 900px
+with all three rows visible; its clay sheet shows increasing faceting at LOD1/2.
+This is fixture/layout evidence, not general visual acceptance or artist approval.
