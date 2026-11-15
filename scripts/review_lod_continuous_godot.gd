@@ -32,6 +32,10 @@ func review():
         fail("Expected a material-preserving engine scene")
         return
     var animated = metadata.get("clip", "") != ""
+    var level_count = metadata.group_paths.size()
+    if level_count < 2 or level_count > 3 or (animated and level_count != 2):
+        fail("Expected two or three static levels, or two animated levels")
+        return
     var players = []
     for path in metadata.player_paths:
         var player = setup.get_node_or_null(path)
@@ -48,7 +52,7 @@ func review():
         if duration <= 0 or not is_equal_approx(duration, players[1].get_animation(metadata.clip).length):
             fail("Clip durations differ")
             return
-    for index in range(2):
+    for index in range(level_count):
         for path in metadata.group_paths[index]:
             var mesh = setup.get_node_or_null(path)
             if not mesh is MeshInstance3D or mesh.material_override != null:
@@ -56,7 +60,7 @@ func review():
                 return
             var material = StandardMaterial3D.new()
             material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-            material.albedo_color = Color.RED if index == 0 else Color.GREEN
+            material.albedo_color = [Color.RED, Color.GREEN, Color.BLUE][index]
             material.cull_mode = BaseMaterial3D.CULL_DISABLED
             mesh.material_override = material
     var camera = Camera3D.new()
@@ -68,7 +72,7 @@ func review():
     var previous = -1.0
     var wraps = 0
     var changed = 0
-    var selected = [0, 0]
+    var selected = [0, 0, 0] if level_count == 3 else [0, 0]
     var maximum_clock_error = 0.0
     var frames = ceili(duration * 60.0 * 3.5)
     var crossings = 0
@@ -81,7 +85,7 @@ func review():
             # the exact boundary tie while checking both sides every leg.
             var step = frame % 60
             var phase = (float(step) + 0.5) / 30.0 if step < 30 else (59.5 - float(step)) / 30.0
-            multiplier = lerpf(0.8, 1.2, phase)
+            multiplier = lerpf(0.8, float(level_count) - 0.8, phase)
         camera.position = metadata.center + Vector3(0, 0, metadata.boundary * multiplier)
         camera.look_at(metadata.center)
         await process_frame
@@ -105,14 +109,16 @@ func review():
         if image == null or image.is_empty():
             fail("Rendering unavailable")
             return
-        var counts = [0, 0]
+        var counts = [0, 0, 0] if level_count == 3 else [0, 0]
         for y in range(image.get_height()):
             for x in range(image.get_width()):
                 var color = image.get_pixel(x, y)
                 counts[0] += int(color.r > 0.5 and color.g < 0.2 and color.b < 0.2)
                 counts[1] += int(color.g > 0.5 and color.r < 0.2 and color.b < 0.2)
-        var expected = 0 if multiplier < 1 else 1
-        if counts[expected] < 20 or counts[1 - expected] != 0:
+                if level_count == 3:
+                    counts[2] += int(color.b > 0.5 and color.r < 0.2 and color.g < 0.2)
+        var expected = mini(int(floor(multiplier)), level_count - 1)
+        if counts[expected] < 20 or counts.reduce(func(total, count): return total + count, 0) != counts[expected]:
             fail("Wrong rendered level during continuous playback")
             return
         if previous_level >= 0 and previous_level != expected:

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Godot --headless --path BUNDLE --script /absolute/this_script.gd -- DISTANCE [CLIP] [--loop] [--bounds-margin=VALUE]
-# Saves a new two-level lod-engine.tscn; preserves imported surface materials.
+# Saves a new lod-engine.tscn: two animated levels or two/three static levels; preserves materials.
 extends "review_lod_selection_godot.gd"
 
 func review():

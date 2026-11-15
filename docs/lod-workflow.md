@@ -1665,3 +1665,19 @@ engine acceptance. The separate temporary UV-seam splitting experiment was
 rejected: it removed atlas crossings but produced 21,584 disconnected face
 components at half budget and 10,790 at quarter budget. Do not promote that
 experiment to the reducer; results remain in `artifacts/lod-uv-split-experiment.json`.
+
+## Three-level static engine selection (2026-11-15)
+
+The material-preserving engine-scene builder now accepts two or three static
+levels. Its distance argument is the interval between boundaries: with `8`,
+LOD0 ends at 8 units, LOD1 spans 8..16 and LOD2 begins at 16. Shared bounds keep
+multipart meshes synchronized. Animated export and the discrete diagnostic
+verifier remain restricted to two levels.
+
+The continuous rendered probe uses red/green/blue diagnostics for three static
+levels. The multipart 1056/528/264-triangle fixture passes 210 frames and 14
+boundary crossings in Godot 4.7.2/ANGLE, with 28/154/28 frames selected per level.
+The existing two-level static fixture also passes 210 frames. Original GLBs and
+surface materials are preserved; overrides exist only in the review process.
+This closes the three-level selection harness gap, not transition visual quality,
+artist-fixture acceptance or live Blender UI/undo.
