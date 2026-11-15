@@ -9,7 +9,7 @@ Reconciled against repository source on 2026-10-19. Status: **pre-alpha quality 
 - `pyproject.toml` and `blender_adapter/__init__.py` both declare version 0.9.0. This is repository metadata, not approval of a release version.
 - `.github/workflows/tests.yml` runs Python 3.9 through 3.12, Blender 5.2.1 integration, packaged ZIP smoke checks and Human visual review. Blender 2.92 is not a current CI target.
 - `tests/core/test_release_package.py` covers the package builder. `scripts/test_blender_package.py` extracts the ZIP into an isolated directory, imports/registers it, exercises Human generation/rigging/Idle/materials/validation and Box target exports, then unregisters it. It also generates and rigs Avian, imports an external powerful-chest request, proves preview leaves live geometry unchanged and apply matches preview while preserving the rig, generates Idle/Walk/Flight, checks finite evaluated poses and validates the edited bird.
-- `.github/workflows/release.yml` already builds the ZIP twice, compares bytes, writes a checksum and uploads artifacts. A `v*` tag checks the Python version and publishes a GitHub release. The workflow currently does not explicitly set prerelease status or run the full test suite itself.
+- `.github/workflows/release.yml` already builds the ZIP twice, compares bytes, writes a checksum and uploads artifacts. A `v*` tag checks the Python version and publishes a GitHub release. The workflow calls the shared full test suite before packaging or publication; tag publications are explicitly prereleases and are not marked latest.
 - GPL-3.0-or-later licensing, NOTICE and install/build documentation exist.
 
 ## Automated installer checkpoint (2026-11-14)
@@ -36,7 +36,7 @@ Manual candidate lifecycle review remains open.
 2. Repeat the isolated packaged smoke on the chosen candidate. The Avian semantic-edit, rig and Idle/Walk/Flight path now passes locally in Blender 5.2.1, alongside the existing Human/Box checks. This covers packaged functionality, not artistic motion approval.
 3. On the chosen candidate ZIP, record clean install, upgrade, disable/re-enable and uninstall behavior in Blender 5.2.1. Automated registration/unregistration alone is not this manual lifecycle proof.
 4. Reconcile README capabilities, supported runtime, known limitations and release notes with that candidate. Capture representative images/clips and repeat destination spot checks on its exact commit.
-5. Before an approved alpha tag, explicitly configure prerelease publication and establish successful candidate CI as a release prerequisite. Reproducible ZIP construction alone does not establish functional correctness.
+5. Before an approved alpha tag, verify the candidate through the gated Release workflow. Its reusable Tests dependency now requires all core, Blender integration/package and Human visual jobs to succeed on the same ref before packaging/publication. Prerelease/non-latest publication is configured; the first end-to-end gated candidate run remains pending. Reproducible ZIP construction alone does not establish functional correctness.
 6. Obtain the user's version/tag/publication decision. No release is authorized by this audit.
 
 ## Scope limits
