@@ -5,6 +5,7 @@ on:
     branches: [main, visual-testing]
   pull_request:
     branches: [main, visual-testing]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
