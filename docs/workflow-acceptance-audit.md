@@ -470,3 +470,9 @@ removes preview metadata without altering Actions. Eight malformed-state cases
 plus existing file/presentation coverage pass (23 tests). Live UI acceptance is
 still separate. Candidate 77374d5 previously passed artifact-only gated CI and
 local exact-ZIP package/install lifecycle checks; see artifacts/candidate-77374d5.
+
+External-resource portability checkpoint: the static textured glTF fixture is
+copied to a different directory and imported through the asset-file adapter.
+The imported image resolves inside the relocated bundle with its expected size;
+mesh, material and UV data are present. All 10 target tests pass. This covers a
+small separate-file bundle, not engine playback or final visual acceptance.

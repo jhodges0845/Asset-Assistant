@@ -105,6 +105,25 @@ class GodotExportTests(unittest.TestCase):
         for item in document['buffers'] + document['images']:
             self.assertTrue((self.path.parent / item['uri']).is_file())
 
+        # The separate-file bundle must resolve resources after relocation.
+        import shutil
+        from blender_adapter.asset_file_import_ui import _import_external
+        with TemporaryDirectory() as relocated:
+            relocated = Path(relocated)
+            shutil.copytree(self.path.parent, relocated, dirs_exist_ok=True)
+            before_objects, before_images = set(bpy.data.objects), set(bpy.data.images)
+            _import_external(str(relocated / Path(result.filepath).name), '.gltf', bpy.context)
+            meshes = [item for item in set(bpy.data.objects) - before_objects if item.type == 'MESH']
+            self.assertEqual(len(meshes), 1)
+            images = set(bpy.data.images) - before_images
+            self.assertTrue(images)
+            for image in images:
+                image_path = Path(bpy.path.abspath(image.filepath)).resolve()
+                image_path.relative_to(relocated.resolve())
+                self.assertTrue(image_path.is_file())
+                self.assertEqual(tuple(image.size), (8, 8))
+            self.assertTrue(meshes[0].data.materials)
+            self.assertTrue(meshes[0].data.uv_layers)
     def test_preflight_errors_do_not_write_or_change_selection(self):
         before = set(bpy.context.selected_objects)
         result = get_adapter('GODOT').export(self.root, bpy.context, self.path)
