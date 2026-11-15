@@ -8,11 +8,17 @@ extends "review_lod_selection_godot.gd"
 func review():
     var output_path = "res://godot-lod-continuous.json"
     var arguments = OS.get_cmdline_user_args()
-    if not arguments.is_empty():
-        if arguments.size() != 1 or not arguments[0].begins_with("--output=") or arguments[0].trim_prefix("--output=") == "":
-            fail("Expected optional --output=WRITABLE_PATH")
+    var perspective = false
+    var output_supplied = false
+    for argument in arguments:
+        if argument == "--perspective" and not perspective:
+            perspective = true
+        elif argument.begins_with("--output=") and not output_supplied and argument.trim_prefix("--output=") != "":
+            output_path = argument.trim_prefix("--output=")
+            output_supplied = true
+        else:
+            fail("Expected optional --perspective and one --output=WRITABLE_PATH")
             return
-        output_path = arguments[0].trim_prefix("--output=")
     if FileAccess.file_exists(output_path):
         fail("Choose a copy without an existing continuous-playback report")
         return
@@ -64,7 +70,8 @@ func review():
             material.cull_mode = BaseMaterial3D.CULL_DISABLED
             mesh.material_override = material
     var camera = Camera3D.new()
-    camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+    camera.projection = Camera3D.PROJECTION_PERSPECTIVE if perspective else Camera3D.PROJECTION_ORTHOGONAL
+    camera.fov = 60.0
     camera.size = metadata.scale * 1.2
     camera.far = metadata.scale * 20.0
     viewport.add_child(camera)
@@ -73,6 +80,8 @@ func review():
     var wraps = 0
     var changed = 0
     var selected = [0, 0, 0] if level_count == 3 else [0, 0]
+    var minimum_pixels = [16384, 16384, 16384] if level_count == 3 else [16384, 16384]
+    var maximum_pixels = [0, 0, 0] if level_count == 3 else [0, 0]
     var maximum_clock_error = 0.0
     var frames = ceili(duration * 60.0 * 3.5)
     var crossings = 0
@@ -125,6 +134,8 @@ func review():
             crossings += 1
         previous_level = expected
         selected[expected] += 1
+        minimum_pixels[expected] = mini(minimum_pixels[expected], counts[expected])
+        maximum_pixels[expected] = maxi(maximum_pixels[expected], counts[expected])
     if (animated and (wraps < 2 or changed < frames / 2)) or selected.min() == 0 or (not animated and crossings < 4):
         fail("Insufficient continuous loop/selection coverage; run with --fixed-fps 60")
         return
@@ -133,6 +144,9 @@ func review():
         fail("Cannot write continuous-playback report: " + output_path)
         return
     output.store_string(JSON.stringify({"frames": frames, "loop_wraps": wraps,
+        "projection": "perspective" if perspective else "orthographic",
+        "vertical_fov_degrees": camera.fov if perspective else null, "viewport_pixels": [128, 128],
+        "minimum_visible_pixels": minimum_pixels, "maximum_visible_pixels": maximum_pixels,
         "selected_frames": selected, "boundary_crossings": crossings, "maximum_clock_error_seconds": maximum_clock_error,
         "clip": metadata.clip, "scope": "Continuous autoplay clocks and rendered level selection; not visual transition quality" if animated else "Static continuous camera approach/retreat and rendered selection; diagnostic colors, not visual quality"}, "  "))
     output.close()

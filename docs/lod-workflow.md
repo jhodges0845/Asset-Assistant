@@ -1688,3 +1688,12 @@ labels and canvas height include the far level. Animated review remains paired.
 Four focused snapshot tests pass. The multipart static fixture renders at 900px
 with all three rows visible; its clay sheet shows increasing faceting at LOD1/2.
 This is fixture/layout evidence, not general visual acceptance or artist approval.
+
+Perspective selection context: `review_lod_continuous_godot.gd` accepts
+`-- --perspective --output=NEW_PATH`. It uses a 60-degree vertical field of view
+and records projection, viewport size and per-level minimum/maximum diagnostic
+pixel coverage. The default remains orthographic. The three-level multipart
+fixture passes 210 frames/14 crossings at 128x128: LOD0 1326..1850 pixels,
+LOD1 305..1214, LOD2 254..287. The default two-level regression also passes.
+Coverage counts describe this camera and fixture, not a visual-error threshold;
+original-material transition acceptance remains open.
