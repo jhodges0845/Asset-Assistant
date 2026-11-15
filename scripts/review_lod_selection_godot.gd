@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Rendering-enabled Godot: --path BUNDLE --script /absolute/this_script.gd
-# Shared two-level scene builder and diagnostic verifier. Never rewrites GLBs.
+# Shared scene builder: two-level diagnostics/animation, two or three static engine levels. Never rewrites GLBs.
 extends SceneTree
 
 func _initialize():
@@ -26,9 +26,13 @@ func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_di
         fail("Choose a bundle copy without an existing selection report or review scene")
         return
     var manifest = JSON.parse_string(FileAccess.get_file_as_string("res://lod-manifest.json"))
-    if not manifest is Dictionary or not manifest.get("levels") is Array or manifest.levels.size() != 2:
-        fail("Selection probe requires exactly two bundle levels")
+    if not manifest is Dictionary or not manifest.get("levels") is Array or manifest.levels.size() < 2 or manifest.levels.size() > 3:
+        fail("Expected two or three bundle levels")
         return
+    if manifest.levels.size() != 2 and (diagnostic or clip != ""):
+        fail("Three-level scenes currently support static engine export only")
+        return
+    var level_count = manifest.levels.size()
     var viewport = SubViewport.new()
     viewport.size = Vector2i(128, 128)
     viewport.own_world_3d = true
@@ -46,7 +50,7 @@ func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_di
     var groups = []
     var bounds = AABB()
     var have_bounds = false
-    for index in range(2):
+    for index in range(level_count):
         var level = manifest.levels[index]
         if int(level.index) != index or str(level.file).get_file() != level.file or not str(level.file).ends_with(".glb"):
             fail("Invalid level order or bundle path")
@@ -121,11 +125,11 @@ func build_scene(clip, scene_path = "res://lod-selection-review.tscn", switch_di
     camera.size = scale * 1.2
     camera.far = scale * 20.0
     # Shared world-space bounds avoid per-mesh centers changing switch distances.
-    for index in range(2):
+    for index in range(level_count):
         for mesh in groups[index]:
             mesh.custom_aabb = mesh.global_transform.affine_inverse() * bounds.grow(bounds_margin)
-            mesh.visibility_range_begin = boundary if index == 1 else 0.0
-            mesh.visibility_range_end = boundary if index == 0 else 0.0
+            mesh.visibility_range_begin = boundary * index
+            mesh.visibility_range_end = boundary * (index + 1) if index < level_count - 1 else 0.0
             mesh.visibility_range_begin_margin = 0.0
             mesh.visibility_range_end_margin = 0.0
     # Persist and reload the configured diagnostic scene before measuring it.
