@@ -715,3 +715,36 @@ def test_reduction_wire_cleanup_preserves_face_attributes(source):
     for normal, expected in zip(mesh.corner_normals, normals):
         assert tuple(normal.vector) == pytest.approx(expected, abs=1e-6)
     assert not any(attr.name.startswith('aa_lod_normal_') for attr in mesh.attributes)
+
+
+@pytest.mark.parametrize('marked_sharp', [False, True])
+def test_shading_boundary_preserved_and_impossible_budget_rolls_back(source, marked_sharp):
+    for face in source.data.polygons:
+        face.use_smooth = True if marked_sharp else abs(face.center.z) < .7
+    if marked_sharp:
+        for edge in source.data.edges:
+            edge.use_edge_sharp = all(abs(source.data.vertices[v].co.z) < 1e-5 for v in edge.vertices)
+
+    def boundaries(mesh):
+        adjacent = {}
+        for face in mesh.polygons:
+            for edge in face.edge_keys:
+                adjacent.setdefault(tuple(sorted(edge)), set()).add(face.use_smooth)
+        return {tuple(sorted(tuple(mesh.vertices[v].co) for v in edge.vertices))
+                for edge in mesh.edges
+                if edge.use_edge_sharp or len(adjacent.get(tuple(sorted(edge.vertices)), ())) > 1}
+
+    expected = boundaries(source.data)
+    assert expected
+    signature = _signature(source)
+    preview = preview_static_lods(source, bpy.context.scene)
+    for obj, level in zip(preview.objects, preview.levels):
+        assert boundaries(obj.data) == expected
+        assert not obj.vertex_groups
+        assert _triangles(obj.data) <= level.triangle_budget
+    preview.cancel()
+    before = {kind: set(getattr(bpy.data, kind)) for kind in ('objects', 'meshes', 'collections')}
+    with pytest.raises(ValueError, match='triangle budget'):
+        preview_static_lods(source, bpy.context.scene, ratios=(.5, .05))
+    assert all(set(getattr(bpy.data, kind)) == items for kind, items in before.items())
+    assert _signature(source) == signature
