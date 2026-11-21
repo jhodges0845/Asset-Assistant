@@ -1697,3 +1697,11 @@ fixture passes 210 frames/14 crossings at 128x128: LOD0 1326..1850 pixels,
 LOD1 305..1214, LOD2 254..287. The default two-level regression also passes.
 Coverage counts describe this camera and fixture, not a visual-error threshold;
 original-material transition acceptance remains open.
+
+Static shading-boundary protection: reduction now excludes vertices on marked
+sharp edges and smooth/flat face interfaces using a temporary group on preview
+copies. The group is removed after evaluation; artist source data is untouched.
+Unreachable triangle budgets still reject and roll back the whole preview.
+All 56 static LOD tests pass, including exact interface edges at half/quarter
+budgets and rollback of an impossible later level. This does not establish
+custom-normal, general UV-distortion or artistic transition acceptance.

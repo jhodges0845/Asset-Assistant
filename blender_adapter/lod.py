@@ -117,6 +117,19 @@ class StaticLODPreview:
         return self.objects
 
 
+def _shading_boundary_vertices(mesh):
+    """Protect explicit sharp edges and interfaces between flat and smooth faces."""
+    adjacent = {}
+    for face in mesh.polygons:
+        for edge in face.edge_keys:
+            adjacent.setdefault(tuple(sorted(edge)), set()).add(face.use_smooth)
+    protected = set()
+    for edge in mesh.edges:
+        if edge.use_edge_sharp or len(adjacent.get(tuple(sorted(edge.vertices)), ())) > 1:
+            protected.update(edge.vertices)
+    return protected
+
+
 def _remove_reduction_wires(mesh):
     """Remove only face-less remnants on a newly reduced mesh, retaining shading."""
     used = {tuple(sorted(edge)) for face in mesh.polygons for edge in face.edge_keys}
@@ -158,12 +171,20 @@ def preview_static_lods(source, scene, ratios=(.5, .25)):
             modifier = obj.modifiers.new('LOD reduction', 'DECIMATE')
             modifier.ratio = level.triangle_budget / _triangles(source.data)
             modifier.use_collapse_triangulate = True
+            protected = _shading_boundary_vertices(mesh)
+            if protected:
+                group = obj.vertex_groups.new(name='LOD shading boundary')
+                group.add(sorted(protected), 1.0, 'REPLACE')
+                modifier.vertex_group = group.name
+                modifier.invert_vertex_group = True
+                modifier.vertex_group_factor = 1.0
             bpy.context.view_layer.update()
             depsgraph = bpy.context.evaluated_depsgraph_get()
             reduced = bpy.data.meshes.new_from_object(obj.evaluated_get(depsgraph),
                 preserve_all_data_layers=True, depsgraph=depsgraph)
             obj.modifiers.clear()
             obj.data = reduced
+            obj.vertex_groups.clear()
             bpy.data.meshes.remove(mesh)
             _remove_reduction_wires(reduced)
             from .validation import inspect_objects
